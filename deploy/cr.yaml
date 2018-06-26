@@ -1,0 +1,4 @@
+apiVersion: "extensions.tsuru.io/v1alpha1"
+kind: "RpaasInstance"
+metadata:
+  name: "example"

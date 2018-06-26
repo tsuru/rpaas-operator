@@ -1,0 +1,3 @@
+apiVersion: extensions.tsuru.io/v1alpha1
+kind: RpaasInstance
+projectName: rpaas-operator
