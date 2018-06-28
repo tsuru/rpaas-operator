@@ -42,3 +42,10 @@ required = [
   non-go = true
   unused-packages = true
   go-tests = true
+
+# Prevent dep from pruning build scripts and codegen templates
+[[prune.project]]
+  name = "k8s.io/code-generator"
+  non-go = false
+  go-tests = false
+  unused-packages = false
