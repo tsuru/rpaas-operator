@@ -113,6 +113,7 @@ type RpaasBindSpec struct {
 }
 
 type RpaasPlanSpec struct {
+	Image  string      `json:"image"`
 	Config NginxConfig `json:"config"`
 }
 

@@ -223,6 +223,12 @@
 
 [[projects]]
   branch = "master"
+  name = "github.com/tsuru/nginx-operator"
+  packages = ["pkg/apis/nginx/v1alpha1"]
+  revision = "136e35c9b74420a1370c260767cf8307b03cd155"
+
+[[projects]]
+  branch = "master"
   name = "golang.org/x/crypto"
   packages = ["ssh/terminal"]
   revision = "a49355c7e3f8fe157a85be2f77e6e269a0f89602"
@@ -478,6 +484,6 @@
 [solve-meta]
   analyzer-name = "dep"
   analyzer-version = 1
-  inputs-digest = "8558aad5e012bb022768a0504b3d5b49057d82c601e65c911ea6948d5c9ab603"
+  inputs-digest = "f99def30078e2d11e658c96b78dbee6978a71bb65997a7e215f9e7be1ce4ba59"
   solver-name = "gps-cdcl"
   solver-version = 1

@@ -48,14 +48,14 @@ var defaultBlocks = map[v1alpha1.BlockType]string{
 	v1alpha1.BlockTypeRootDefault: `
 user {{.Config.User}};
 worker_processes {{.Config.WorkerProcesses}};
-include /etc/nginx/modules-enabled/*.conf;
+# include /etc/nginx/modules-enabled/*.conf;
 
 events {
 	worker_connections {{.Config.WorkerConnections}};
 }
 `,
 	v1alpha1.BlockTypeHTTPDefault: `
-include      mime.types;
+# include      mime.types;
 default_type application/octet-stream;
 server_tokens off;
 
@@ -135,8 +135,8 @@ gzip_types          application/atom+xml application/javascript
 	vhost_traffic_status_zone;
 {{end}}
 
-// include sites-enabled/consul/upstreams.conf;
-// include sites-enabled/consul/blocks/httb.conf;
+# include sites-enabled/consul/upstreams.conf;
+# include sites-enabled/consul/blocks/httb.conf;
 
 {{if .Config.Lua}}
 	lua_package_path "/usr/local/share/lualib/?.lua;;";
@@ -147,7 +147,7 @@ gzip_types          application/atom+xml application/javascript
 `,
 	v1alpha1.BlockTypeServerDefault: `
 listen {{.Config.Listen}} default_server backlog={{.Config.ListenBacklog}};
-// include /etc/nginx/main_ssl.conf;
+# include /etc/nginx/main_ssl.conf;
 server_name  _tsuru_nginx_app;
 port_in_redirect off;
 
@@ -197,7 +197,7 @@ server {
 	listen {{.Config.AdminListen}};
 	
 {{if .Config.AdminEnableSsl}}
-	// include /etc/nginx/admin_ssl.conf;
+	# include /etc/nginx/admin_ssl.conf;
 {{end}}
 
 	server_name  _tsuru_nginx_admin;
@@ -219,7 +219,7 @@ server {
 	  vhost_traffic_status_display_format json;
 	}
 {{end}}
-// include nginx_admin_locations.conf;
+# include nginx_admin_locations.conf;
 }
 `
 
