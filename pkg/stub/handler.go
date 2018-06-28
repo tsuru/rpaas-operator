@@ -2,11 +2,11 @@ package stub
 
 import (
 	"context"
-
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"fmt"
 
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/sirupsen/logrus"
+	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -19,6 +19,31 @@ func NewHandler() sdk.Handler {
 
 type Handler struct {
 	// Fill me
+}
+
+func (h *Handler) ReadConfigRef(ref v1alpha1.ConfigRef, ns string) (string, error) {
+	switch ref.Kind {
+	case v1alpha1.ConfigKindInline:
+		return ref.Value, nil
+	case v1alpha1.ConfigKindConfigMap:
+		configMap := &corev1.ConfigMap{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      ref.Name,
+				Namespace: ns,
+			},
+			TypeMeta: metav1.TypeMeta{
+				Kind:       "ConfigMap",
+				APIVersion: "v1",
+			},
+		}
+		err := sdk.Get(configMap)
+		if err != nil {
+			return "", err
+		}
+		return configMap.Data[ref.Value], nil
+	default:
+		return "", fmt.Errorf("invalid config kind for %#v", ref)
+	}
 }
 
 func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
