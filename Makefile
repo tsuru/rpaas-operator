@@ -1,5 +1,6 @@
 TAG=latest
 IMAGE=tsuru/rpaas-operator
+KUBERNETES_CONFIG=~/.kube/config
 
 .PHONY: test deploy local build push api
 
@@ -22,4 +23,4 @@ push: build
 	docker push $(IMAGE):$(TAG)
 
 api:
-	cd cmd/api && go run main.go
+	cd cmd/api && KUBERNETES_CONFIG=$(KUBERNETES_CONFIG) go run main.go

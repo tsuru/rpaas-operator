@@ -2,7 +2,6 @@ package api
 
 import (
 	"context"
-	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
@@ -42,7 +41,5 @@ func Start() error {
 }
 
 func configHandlers(e *echo.Echo) {
-	e.GET("/", func(c echo.Context) error {
-		return c.String(http.StatusOK, "Hello")
-	})
+	e.GET("/resources/plans", servicePlans)
 }
