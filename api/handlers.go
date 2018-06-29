@@ -8,6 +8,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -41,6 +42,28 @@ func serviceCreate(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 	return c.String(http.StatusCreated, "")
+}
+
+func serviceDelete(c echo.Context) error {
+	name := c.Param("instance")
+	instance := &v1alpha1.RpaasInstance{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RpaasInstance",
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+	}
+	err := sdk.Delete(instance)
+	if k8sErrors.IsNotFound(err) {
+		return c.String(http.StatusNotFound, "")
+	}
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	return c.String(http.StatusOK, "")
 }
 
 func servicePlans(c echo.Context) error {
