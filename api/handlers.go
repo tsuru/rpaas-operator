@@ -11,6 +11,30 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
+func serviceCreate(c echo.Context) error {
+	// TODO: add validations (name and plan required, name doesn't exist, plan exists)
+	name := c.FormValue("name")
+	plan := c.FormValue("plan")
+	instance := &v1alpha1.RpaasInstance{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RpaasInstance",
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PlanName: plan,
+		},
+	}
+	err := sdk.Create(instance)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	return c.String(http.StatusCreated, "")
+}
+
 func servicePlans(c echo.Context) error {
 	list := &v1alpha1.RpaasPlanList{
 		TypeMeta: metav1.TypeMeta{
