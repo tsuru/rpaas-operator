@@ -1,7 +1,9 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/operator-framework/operator-sdk/pkg/sdk"
@@ -26,6 +28,46 @@ func servicePlans(c echo.Context) error {
 			"name":        item.ObjectMeta.Name,
 			"description": "no plan description",
 		}
+	}
+	return c.JSON(http.StatusOK, ret)
+}
+
+func serviceInfo(c echo.Context) error {
+	plan := &v1alpha1.RpaasInstance{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RpaasInstance",
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      c.Param("instance"),
+			Namespace: "default",
+		},
+	}
+	err := sdk.Get(plan)
+	if err != nil {
+		return c.String(http.StatusNotFound, "")
+	}
+	replicas := "0"
+	if plan.Spec.Replicas != nil {
+		replicas = fmt.Sprintf("%d", *plan.Spec.Replicas)
+	}
+	routes := make([]string, len(plan.Spec.Locations))
+	for i, loc := range plan.Spec.Locations {
+		routes[i] = loc.Config.Value
+	}
+	ret := []map[string]string{
+		{
+			"label": "Address",
+			"value": "x.x.x.x",
+		},
+		{
+			"label": "Instances",
+			"value": replicas,
+		},
+		{
+			"label": "Routes",
+			"value": strings.Join(routes, "\n"),
+		},
 	}
 	return c.JSON(http.StatusOK, ret)
 }

@@ -42,4 +42,5 @@ func Start() error {
 
 func configHandlers(e *echo.Echo) {
 	e.GET("/resources/plans", servicePlans)
+	e.GET("/resources/:instance", serviceInfo)
 }
