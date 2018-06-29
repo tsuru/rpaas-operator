@@ -1,7 +1,7 @@
 TAG=latest
 IMAGE=tsuru/rpaas-operator
 
-.PHONY: test deploy local build push
+.PHONY: test deploy local build push api
 
 test:
 	go test ./...
@@ -20,3 +20,6 @@ build:
 
 push: build
 	docker push $(IMAGE):$(TAG)
+
+api:
+	cd cmd/api && go run main.go

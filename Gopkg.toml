@@ -49,3 +49,7 @@ required = [
   non-go = false
   go-tests = false
   unused-packages = false
+
+[[constraint]]
+  name = "github.com/labstack/echo"
+  version = "3.3.5"
