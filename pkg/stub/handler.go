@@ -10,7 +10,6 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/stub/generator"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -52,20 +51,59 @@ func (h *Handler) ReadConfigRef(ref v1alpha1.ConfigRef, ns string) (string, erro
 func (h *Handler) Handle(ctx context.Context, event sdk.Event) error {
 	switch o := event.Object.(type) {
 	case *v1alpha1.RpaasInstance:
-		nginx, err := h.newNginx(o)
-		if err != nil {
-			return err
+		if event.Deleted {
+			return nil
 		}
-		err = sdk.Create(nginx)
-		if err != nil && !errors.IsAlreadyExists(err) {
-			logrus.Errorf("Failed to create busybox pod : %v", err)
+		err := h.onRpaasInstance(o)
+		if err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
-func (h *Handler) newNginx(cr *v1alpha1.RpaasInstance) (*nginxV1alpha1.Nginx, error) {
+func (h *Handler) onRpaasInstance(cr *v1alpha1.RpaasInstance) error {
+	plan, err := getPlan(cr)
+	if err != nil {
+		return err
+	}
+	rendered, err := h.renderTemplate(cr, plan)
+	if err != nil {
+		return err
+	}
+	configMap := newConfigMap(cr, rendered)
+	if err != nil {
+		return err
+	}
+	nginx := newNginx(cr, plan, configMap)
+	if err != nil {
+		return err
+	}
+	err = sdk.Create(configMap)
+	if err != nil && !k8sErrors.IsAlreadyExists(err) {
+		logrus.Errorf("Failed to create configmap: %v", err)
+		return err
+	}
+	err = sdk.Create(nginx)
+	if err != nil && !k8sErrors.IsAlreadyExists(err) {
+		logrus.Errorf("Failed to create nginx CR: %v", err)
+		return err
+	}
+	return nil
+}
+
+func (h *Handler) renderTemplate(cr *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
+	builder := generator.ConfigBuilder{
+		RefReader: h,
+	}
+	renderedTemplate, err := builder.Interpolate(*cr, plan.Spec)
+	if err != nil {
+		return "", err
+	}
+	return renderedTemplate, nil
+}
+
+func getPlan(cr *v1alpha1.RpaasInstance) (*v1alpha1.RpaasPlan, error) {
 	plan := &v1alpha1.RpaasPlan{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Spec.PlanName,
@@ -80,14 +118,11 @@ func (h *Handler) newNginx(cr *v1alpha1.RpaasInstance) (*nginxV1alpha1.Nginx, er
 	if err != nil {
 		return nil, err
 	}
-	builder := generator.ConfigBuilder{
-		RefReader: h,
-	}
-	renderedTemplate, err := builder.Interpolate(*cr, plan.Spec)
-	if err != nil {
-		return nil, err
-	}
-	confMap := corev1.ConfigMap{
+	return plan, nil
+}
+
+func newConfigMap(cr *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
+	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("nginx-%s", cr.Name),
 			Namespace: cr.Namespace,
@@ -107,11 +142,10 @@ func (h *Handler) newNginx(cr *v1alpha1.RpaasInstance) (*nginxV1alpha1.Nginx, er
 			"nginx.conf": renderedTemplate,
 		},
 	}
-	err = sdk.Create(&confMap)
-	if err != nil && !k8sErrors.IsAlreadyExists(err) {
-		return nil, err
-	}
-	nginx := &nginxV1alpha1.Nginx{
+}
+
+func newNginx(cr *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxV1alpha1.Nginx {
+	return &nginxV1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cr.Name,
 			Namespace: cr.Namespace,
@@ -131,10 +165,9 @@ func (h *Handler) newNginx(cr *v1alpha1.RpaasInstance) (*nginxV1alpha1.Nginx, er
 			Image:    plan.Spec.Image,
 			Replicas: cr.Spec.Replicas,
 			Config: &nginxV1alpha1.ConfigRef{
-				Name: confMap.Name,
+				Name: configMap.Name,
 				Kind: nginxV1alpha1.ConfigKindConfigMap,
 			},
 		},
 	}
-	return nginx, nil
 }
