@@ -15,14 +15,22 @@ func serviceCreate(c echo.Context) error {
 	// TODO: add validations (name and plan required, name doesn't exist, plan exists)
 	name := c.FormValue("name")
 	plan := c.FormValue("plan")
+	annotations := map[string]string{
+		"user":        c.FormValue("user"),
+		"team":        c.FormValue("team"),
+		"description": c.FormValue("description"),
+		"eventid":     c.FormValue("eventid"),
+	}
+
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasInstance",
 			APIVersion: "extensions.tsuru.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: "default",
+			Name:        name,
+			Namespace:   "default",
+			Annotations: annotations,
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{
 			PlanName: plan,
