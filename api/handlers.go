@@ -130,6 +130,7 @@ func serviceInfo(c echo.Context) error {
 func serviceBindApp(c echo.Context) error {
 	annotations := map[string]string{
 		"app-name": c.FormValue("app-name"),
+		"app-host": c.FormValue("app-host"),
 		"eventid":  c.FormValue("eventid"),
 	}
 	name := c.Param("instance")
@@ -150,4 +151,26 @@ func serviceBindApp(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 	return c.String(http.StatusCreated, "")
+}
+
+func serviceUnbindApp(c echo.Context) error {
+	name := c.Param("instance")
+	instance := &v1alpha1.RpaasBind{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RpaasBind",
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: "default",
+		},
+	}
+	err := sdk.Delete(instance)
+	if k8sErrors.IsNotFound(err) {
+		return c.String(http.StatusNotFound, "")
+	}
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	return c.String(http.StatusOK, "")
 }
