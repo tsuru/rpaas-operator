@@ -126,3 +126,28 @@ func serviceInfo(c echo.Context) error {
 	}
 	return c.JSON(http.StatusOK, ret)
 }
+
+func serviceBindApp(c echo.Context) error {
+	annotations := map[string]string{
+		"app-name": c.FormValue("app-name"),
+		"eventid":  c.FormValue("eventid"),
+	}
+	name := c.Param("instance")
+
+	instance := &v1alpha1.RpaasBind{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RpaasBind",
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        name,
+			Namespace:   "default",
+			Annotations: annotations,
+		},
+	}
+	err := sdk.Create(instance)
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	return c.String(http.StatusCreated, "")
+}
