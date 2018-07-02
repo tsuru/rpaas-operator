@@ -41,7 +41,7 @@ func serviceCreate(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	return c.String(http.StatusCreated, "")
+	return c.NoContent(http.StatusCreated)
 }
 
 func serviceDelete(c echo.Context) error {
@@ -58,12 +58,12 @@ func serviceDelete(c echo.Context) error {
 	}
 	err := sdk.Delete(instance)
 	if k8sErrors.IsNotFound(err) {
-		return c.String(http.StatusNotFound, "")
+		return c.NoContent(http.StatusNotFound)
 	}
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	return c.String(http.StatusOK, "")
+	return c.NoContent(http.StatusOK)
 }
 
 func servicePlans(c echo.Context) error {
@@ -75,7 +75,7 @@ func servicePlans(c echo.Context) error {
 	}
 	err := sdk.List("default", list)
 	if err != nil {
-		return c.String(http.StatusNotFound, "")
+		return c.NoContent(http.StatusNotFound)
 	}
 	ret := make([]map[string]string, len(list.Items))
 	for i, item := range list.Items {
@@ -100,7 +100,7 @@ func serviceInfo(c echo.Context) error {
 	}
 	err := sdk.Get(plan)
 	if err != nil {
-		return c.String(http.StatusNotFound, "")
+		return c.NoContent(http.StatusNotFound)
 	}
 	replicas := "0"
 	if plan.Spec.Replicas != nil {
@@ -150,7 +150,7 @@ func serviceBindApp(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	return c.String(http.StatusCreated, "")
+	return c.NoContent(http.StatusCreated)
 }
 
 func serviceUnbindApp(c echo.Context) error {
@@ -167,10 +167,10 @@ func serviceUnbindApp(c echo.Context) error {
 	}
 	err := sdk.Delete(instance)
 	if k8sErrors.IsNotFound(err) {
-		return c.String(http.StatusNotFound, "")
+		return c.NoContent(http.StatusNotFound)
 	}
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	return c.String(http.StatusOK, "")
+	return c.NoContent(http.StatusOK)
 }
