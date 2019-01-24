@@ -1,10 +1,9 @@
-
 # Temporary Build Files
-tmp/_output
-tmp/_test
-
+build/_output
+build/_test
 
 # Created by https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
+# Edit at https://www.gitignore.io/?templates=go,vim,emacs,visualstudiocode
 
 ### Emacs ###
 # -*- mode: gitignore; -*-
@@ -49,28 +48,13 @@ flycheck_*.el
 
 # projectiles files
 .projectile
-projectile-bookmarks.eld
 
 # directory configuration
 .dir-locals.el
 
-# saveplace
-places
+# network security
+/network-security.data
 
-# url cache
-url/cache/
-
-# cedet
-ede-projects.el
-
-# smex
-smex-items
-
-# company-statistics
-company-statistics-cache.el
-
-# anaconda-mode
-anaconda-mode/
 
 ### Go ###
 # Binaries for programs and plugins
@@ -80,22 +64,33 @@ anaconda-mode/
 *.so
 *.dylib
 
-# Test binary, build with 'go test -c'
+# Test binary, built with `go test -c`
 *.test
 
 # Output of the go coverage tool, specifically when used with LiteIDE
 *.out
 
+### Go Patch ###
+/vendor/
+/Godeps/
+
 ### Vim ###
-# swap
-.sw[a-p]
-.*.sw[a-p]
-# session
+# Swap
+[._]*.s[a-v][a-z]
+[._]*.sw[a-p]
+[._]s[a-rt-v][a-z]
+[._]ss[a-gi-z]
+[._]sw[a-p]
+
+# Session
 Session.vim
-# temporary
+
+# Temporary
 .netrwhist
-# auto-generated tag files
+# Auto-generated tag files
 tags
+# Persistent undo
+[._]*.un~
 
 ### VisualStudioCode ###
 .vscode/*
@@ -103,7 +98,9 @@ tags
 !.vscode/tasks.json
 !.vscode/launch.json
 !.vscode/extensions.json
-.history
 
+### VisualStudioCode Patch ###
+# Ignore all local history of files
+.history
 
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode

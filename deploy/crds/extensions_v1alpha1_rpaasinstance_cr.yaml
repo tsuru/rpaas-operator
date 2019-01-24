@@ -1,0 +1,11 @@
+apiVersion: extensions.tsuru.io/v1alpha1
+kind: RpaasInstance
+metadata:
+  name: example
+spec:
+  replicas: 1
+  planName: planx
+  locations:
+  - config:
+      value: "location / { echo hello world; }"
+      kind: Inline

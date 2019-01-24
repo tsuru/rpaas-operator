@@ -1,0 +1,7 @@
+apiVersion: extensions.tsuru.io/v1alpha1
+kind: RpaasBind
+metadata:
+  name: example-rpaasbind
+spec:
+  # Add fields here
+  size: 3
