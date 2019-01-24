@@ -1,0 +1,11 @@
+kind: RoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rpaas-operator
+subjects:
+- kind: ServiceAccount
+  name: rpaas-operator
+roleRef:
+  kind: Role
+  name: rpaas-operator
+  apiGroup: rbac.authorization.k8s.io

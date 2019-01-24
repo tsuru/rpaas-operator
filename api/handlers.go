@@ -1,15 +1,18 @@
 package api
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"strings"
 
 	"github.com/labstack/echo"
-	"github.com/operator-framework/operator-sdk/pkg/sdk"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/rest"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func serviceCreate(c echo.Context) error {
@@ -37,7 +40,11 @@ func serviceCreate(c echo.Context) error {
 			PlanName: plan,
 		},
 	}
-	err := sdk.Create(instance)
+	client, err := getClient()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	client.Create(context.TODO(), instance)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -56,7 +63,11 @@ func serviceDelete(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	err := sdk.Delete(instance)
+	client, err := getClient()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	client.Delete(context.TODO(), instance)
 	if k8sErrors.IsNotFound(err) {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -73,7 +84,11 @@ func servicePlans(c echo.Context) error {
 			APIVersion: "extensions.tsuru.io/v1alpha1",
 		},
 	}
-	err := sdk.List("default", list)
+	client, err := getClient()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	client.List(context.TODO(), &client.ListOptions{Namespace: "default"}, list)
 	if err != nil {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -98,7 +113,11 @@ func serviceInfo(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	err := sdk.Get(plan)
+	client, err := getClient()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	client.Get(context.TODO(), client.ObjectKey{Name: c.Param("instance"), Namespace: "default"}, obj)
 	if err != nil {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -146,7 +165,11 @@ func serviceBindApp(c echo.Context) error {
 			Annotations: annotations,
 		},
 	}
-	err := sdk.Create(instance)
+	client, err := getClient()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	client.Create(context.TODO(), instance)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -165,7 +188,11 @@ func serviceUnbindApp(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	err := sdk.Delete(instance)
+	client, err := getClient()
+	if err != nil {
+		return c.String(http.StatusInternalServerError, err.Error())
+	}
+	client.Delete(context.TODO(), instance)
 	if k8sErrors.IsNotFound(err) {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -173,4 +200,16 @@ func serviceUnbindApp(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusOK)
+}
+
+func getClient() (*client.Client, error) {
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, err
+	}
+	m, err := manager.New(config, manager.Options{})
+	if err != nil {
+		return nil, err
+	}
+	return m.GetClient(), nil
 }
