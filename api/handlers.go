@@ -40,11 +40,11 @@ func serviceCreate(c echo.Context) error {
 			PlanName: plan,
 		},
 	}
-	client, err := getClient()
+	cli, err := getClient()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	client.Create(context.TODO(), instance)
+	cli.Create(context.TODO(), instance)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -63,11 +63,11 @@ func serviceDelete(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	client, err := getClient()
+	cli, err := getClient()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	client.Delete(context.TODO(), instance)
+	cli.Delete(context.TODO(), instance)
 	if k8sErrors.IsNotFound(err) {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -84,11 +84,11 @@ func servicePlans(c echo.Context) error {
 			APIVersion: "extensions.tsuru.io/v1alpha1",
 		},
 	}
-	client, err := getClient()
+	cli, err := getClient()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	client.List(context.TODO(), &client.ListOptions{Namespace: "default"}, list)
+	cli.List(context.TODO(), &client.ListOptions{Namespace: "default"}, list)
 	if err != nil {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -113,11 +113,11 @@ func serviceInfo(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	client, err := getClient()
+	cli, err := getClient()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	client.Get(context.TODO(), client.ObjectKey{Name: c.Param("instance"), Namespace: "default"}, obj)
+	cli.Get(context.TODO(), client.ObjectKey{Name: c.Param("instance"), Namespace: "default"}, plan)
 	if err != nil {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -165,11 +165,11 @@ func serviceBindApp(c echo.Context) error {
 			Annotations: annotations,
 		},
 	}
-	client, err := getClient()
+	cli, err := getClient()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	client.Create(context.TODO(), instance)
+	cli.Create(context.TODO(), instance)
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
@@ -188,11 +188,11 @@ func serviceUnbindApp(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	client, err := getClient()
+	cli, err := getClient()
 	if err != nil {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
-	client.Delete(context.TODO(), instance)
+	cli.Delete(context.TODO(), instance)
 	if k8sErrors.IsNotFound(err) {
 		return c.NoContent(http.StatusNotFound)
 	}
@@ -202,7 +202,7 @@ func serviceUnbindApp(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func getClient() (*client.Client, error) {
+func getClient() (client.Client, error) {
 	config, err := rest.InClusterConfig()
 	if err != nil {
 		return nil, err

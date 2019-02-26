@@ -463,7 +463,10 @@
   branch = "master"
   digest = "1:cbbb0a99eef91847ffd73f6e2425ebeb9208b82fbd4fe27200eb0a4b5ae9b721"
   name = "github.com/tsuru/nginx-operator"
-  packages = ["pkg/apis/nginx/v1alpha1"]
+  packages = [
+    "pkg/apis",
+    "pkg/apis/nginx/v1alpha1",
+  ]
   pruneopts = "NT"
   revision = "5a93bcd44c0404d981f3fdfe02b77f83be588b0c"
 
@@ -941,12 +944,14 @@
     "github.com/sirupsen/logrus",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
+    "github.com/tsuru/nginx-operator/pkg/apis",
     "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1",
     "k8s.io/api/core/v1",
     "k8s.io/apimachinery/pkg/api/errors",
     "k8s.io/apimachinery/pkg/apis/meta/v1",
     "k8s.io/apimachinery/pkg/runtime",
     "k8s.io/apimachinery/pkg/runtime/schema",
+    "k8s.io/apimachinery/pkg/types",
     "k8s.io/client-go/plugin/pkg/client/auth/gcp",
     "k8s.io/client-go/rest",
     "k8s.io/code-generator/cmd/client-gen",
