@@ -25,7 +25,12 @@ func handleSignals(e *echo.Echo) {
 }
 
 func Start() error {
-	if err := agent.Listen(agent.Options{}); err != nil {
+	err := setup()
+	if err != nil {
+		logrus.Fatal(err)
+		return err
+	}
+	if err = agent.Listen(agent.Options{}); err != nil {
 		return err
 	}
 	defer agent.Close()
@@ -35,7 +40,7 @@ func Start() error {
 	e.Use(middleware.Logger())
 	configHandlers(e)
 
-	err := e.Start(":9999")
+	err = e.Start(":9999")
 	logrus.Infof("Shutting down server: %v", err)
 	return err
 }

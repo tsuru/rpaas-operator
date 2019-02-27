@@ -10,9 +10,7 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 func serviceCreate(c echo.Context) error {
@@ -200,16 +198,4 @@ func serviceUnbindApp(c echo.Context) error {
 		return c.String(http.StatusInternalServerError, err.Error())
 	}
 	return c.NoContent(http.StatusOK)
-}
-
-func getClient() (client.Client, error) {
-	config, err := rest.InClusterConfig()
-	if err != nil {
-		return nil, err
-	}
-	m, err := manager.New(config, manager.Options{})
-	if err != nil {
-		return nil, err
-	}
-	return m.GetClient(), nil
 }
