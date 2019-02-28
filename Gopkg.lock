@@ -42,6 +42,19 @@
   revision = "3a771d992973f24aa725d07868b467d1ddfceafb"
 
 [[projects]]
+  digest = "1:c61f4f97321a37adcb5b4fd4fd61209cd553e46c99ee606c465553541b12a229"
+  name = "github.com/coreos/prometheus-operator"
+  packages = [
+    "pkg/apis/monitoring",
+    "pkg/apis/monitoring/v1",
+    "pkg/client/versioned/scheme",
+    "pkg/client/versioned/typed/monitoring/v1",
+  ]
+  pruneopts = "NT"
+  revision = "72ec4b9b16ef11700724dc71fec77112536eed40"
+  version = "v0.26.0"
+
+[[projects]]
   digest = "1:4b8b5811da6970495e04d1f4e98bb89518cc3cfc3b3f456bdb876ed7b6c74049"
   name = "github.com/davecgh/go-spew"
   packages = ["spew"]
@@ -373,6 +386,8 @@
   packages = [
     "pkg/k8sutil",
     "pkg/leader",
+    "pkg/log/zap",
+    "pkg/metrics",
     "version",
   ]
   pruneopts = "NT"
@@ -1031,8 +1046,11 @@
     "github.com/labstack/echo/middleware",
     "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
+    "github.com/operator-framework/operator-sdk/pkg/log/zap",
+    "github.com/operator-framework/operator-sdk/pkg/metrics",
     "github.com/operator-framework/operator-sdk/version",
     "github.com/sirupsen/logrus",
+    "github.com/spf13/pflag",
     "github.com/stretchr/testify/assert",
     "github.com/stretchr/testify/require",
     "github.com/tsuru/nginx-operator/pkg/apis",

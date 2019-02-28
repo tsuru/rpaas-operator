@@ -4,7 +4,7 @@ metadata:
   name: example-rpaasinstance
 spec:
   replicas: 1
-  planName: planx
+  planName: example-rpaasplan
   locations:
   - config:
       value: "location / { echo hello world; }"

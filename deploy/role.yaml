@@ -46,3 +46,9 @@ rules:
   - rpaasbinds
   verbs:
   - '*'
+- apiGroups:
+  - nginx.tsuru.io
+  resources:
+  - '*'
+  verbs:
+  - '*'
