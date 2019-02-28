@@ -1,7 +1,7 @@
 apiVersion: extensions.tsuru.io/v1alpha1
 kind: RpaasPlan
 metadata:
-  name: planx
+  name: example-rpaasplan
 spec:
   image: "helder/nginx-extras:latest"
   config:

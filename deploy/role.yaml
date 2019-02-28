@@ -41,14 +41,8 @@ rules:
 - apiGroups:
   - extensions.tsuru.io
   resources:
+  - '*'
   - rpaasinstances
-  - rpaasplans
   - rpaasbinds
-  verbs:
-  - '*'
-- apiGroups:
-  - nginx.tsuru.io
-  resources:
-  - '*'
   verbs:
   - '*'
