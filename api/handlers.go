@@ -7,9 +7,11 @@ import (
 	"strings"
 
 	"github.com/labstack/echo"
+	"github.com/sirupsen/logrus"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -38,13 +40,10 @@ func serviceCreate(c echo.Context) error {
 			PlanName: plan,
 		},
 	}
-	cli, err := getClient()
+	err := cli.Create(context.TODO(), instance)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	cli.Create(context.TODO(), instance)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		logrus.Error(err)
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.NoContent(http.StatusCreated)
 }
@@ -61,34 +60,23 @@ func serviceDelete(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	cli, err := getClient()
+	err := cli.Delete(context.TODO(), instance)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	cli.Delete(context.TODO(), instance)
-	if k8sErrors.IsNotFound(err) {
-		return c.NoContent(http.StatusNotFound)
-	}
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		if k8sErrors.IsNotFound(err) {
+			return c.NoContent(http.StatusNotFound)
+		}
+		logrus.Error(err)
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.NoContent(http.StatusOK)
 }
 
 func servicePlans(c echo.Context) error {
-	list := &v1alpha1.RpaasPlanList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasPlan",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-	}
-	cli, err := getClient()
+	list := &v1alpha1.RpaasPlanList{}
+	err := cli.List(context.TODO(), &client.ListOptions{Namespace: "default"}, list)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	cli.List(context.TODO(), &client.ListOptions{Namespace: "default"}, list)
-	if err != nil {
-		return c.NoContent(http.StatusNotFound)
+		logrus.Error(err)
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 	ret := make([]map[string]string, len(list.Items))
 	for i, item := range list.Items {
@@ -101,30 +89,21 @@ func servicePlans(c echo.Context) error {
 }
 
 func serviceInfo(c echo.Context) error {
-	plan := &v1alpha1.RpaasInstance{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasInstance",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      c.Param("instance"),
-			Namespace: "default",
-		},
-	}
-	cli, err := getClient()
+	instance := &v1alpha1.RpaasInstance{}
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: c.Param("instance"), Namespace: "default"}, instance)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	cli.Get(context.TODO(), client.ObjectKey{Name: c.Param("instance"), Namespace: "default"}, plan)
-	if err != nil {
-		return c.NoContent(http.StatusNotFound)
+		if k8sErrors.IsNotFound(err) {
+			return c.NoContent(http.StatusNotFound)
+		}
+		logrus.Error(err)
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 	replicas := "0"
-	if plan.Spec.Replicas != nil {
-		replicas = fmt.Sprintf("%d", *plan.Spec.Replicas)
+	if instance.Spec.Replicas != nil {
+		replicas = fmt.Sprintf("%d", *instance.Spec.Replicas)
 	}
-	routes := make([]string, len(plan.Spec.Locations))
-	for i, loc := range plan.Spec.Locations {
+	routes := make([]string, len(instance.Spec.Locations))
+	for i, loc := range instance.Spec.Locations {
 		routes[i] = loc.Config.Value
 	}
 	ret := []map[string]string{
@@ -163,13 +142,9 @@ func serviceBindApp(c echo.Context) error {
 			Annotations: annotations,
 		},
 	}
-	cli, err := getClient()
+	err := cli.Create(context.TODO(), instance)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	cli.Create(context.TODO(), instance)
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.NoContent(http.StatusCreated)
 }
@@ -186,16 +161,13 @@ func serviceUnbindApp(c echo.Context) error {
 			Namespace: "default",
 		},
 	}
-	cli, err := getClient()
+	err := cli.Delete(context.TODO(), instance)
 	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
-	}
-	cli.Delete(context.TODO(), instance)
-	if k8sErrors.IsNotFound(err) {
-		return c.NoContent(http.StatusNotFound)
-	}
-	if err != nil {
-		return c.String(http.StatusInternalServerError, err.Error())
+		if k8sErrors.IsNotFound(err) {
+			return c.NoContent(http.StatusNotFound)
+		}
+		logrus.Error(err)
+		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.NoContent(http.StatusOK)
 }
