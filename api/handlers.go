@@ -33,7 +33,7 @@ func serviceCreate(c echo.Context) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Namespace:   "default",
+			Namespace:   NAMESPACE,
 			Annotations: annotations,
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{
@@ -57,7 +57,7 @@ func serviceDelete(c echo.Context) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "default",
+			Namespace: NAMESPACE,
 		},
 	}
 	err := cli.Delete(context.TODO(), instance)
@@ -73,7 +73,7 @@ func serviceDelete(c echo.Context) error {
 
 func servicePlans(c echo.Context) error {
 	list := &v1alpha1.RpaasPlanList{}
-	err := cli.List(context.TODO(), &client.ListOptions{Namespace: "default"}, list)
+	err := cli.List(context.TODO(), &client.ListOptions{Namespace: NAMESPACE}, list)
 	if err != nil {
 		logrus.Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
@@ -90,7 +90,7 @@ func servicePlans(c echo.Context) error {
 
 func serviceInfo(c echo.Context) error {
 	instance := &v1alpha1.RpaasInstance{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: c.Param("instance"), Namespace: "default"}, instance)
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: c.Param("instance"), Namespace: NAMESPACE}, instance)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return c.NoContent(http.StatusNotFound)
@@ -138,7 +138,7 @@ func serviceBindApp(c echo.Context) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Namespace:   "default",
+			Namespace:   NAMESPACE,
 			Annotations: annotations,
 		},
 	}
@@ -158,7 +158,7 @@ func serviceUnbindApp(c echo.Context) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: "default",
+			Namespace: NAMESPACE,
 		},
 	}
 	err := cli.Delete(context.TODO(), instance)
