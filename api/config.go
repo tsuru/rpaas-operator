@@ -7,12 +7,15 @@ import (
 	"os"
 	"time"
 
+	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
 
 const (
@@ -31,9 +34,21 @@ type kubeConfig struct {
 var cli client.Client
 
 func setup() error {
-	var err error
-	cli, err = getClient()
-	return err
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return err
+	}
+	m, err := manager.New(cfg, manager.Options{Namespace: "default"})
+	if err != nil {
+		return err
+	}
+	cli = m.GetClient()
+	err = apis.AddToScheme(m.GetScheme())
+	if err != nil {
+		return err
+	}
+	go m.Start(signals.SetupSignalHandler())
+	return nil
 }
 
 func getKubeConfig() (kubeConfig, error) {
