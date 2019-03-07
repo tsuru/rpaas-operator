@@ -22,6 +22,9 @@ type NginxSpec struct {
 	// Template used to configure the nginx pod.
 	// +optional
 	PodTemplate NginxPodTemplateSpec
+	// Service to expose the nginx pod
+	// +optional
+	Service *NginxService `json:"service,omitempty"`
 }
 
 type NginxPodTemplateSpec struct {

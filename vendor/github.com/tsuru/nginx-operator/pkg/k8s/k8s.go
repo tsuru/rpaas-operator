@@ -128,7 +128,7 @@ func NewService(n *v1alpha1.Nginx) *corev1.Service {
 				},
 			},
 			Selector: LabelsForNginx(n.Name),
-			Type:     corev1.ServiceTypeClusterIP,
+			Type:     nginxService(n),
 		},
 	}
 	if n.Spec.TLSSecret != nil {
@@ -140,6 +140,13 @@ func NewService(n *v1alpha1.Nginx) *corev1.Service {
 		})
 	}
 	return &service
+}
+
+func nginxService(n *v1alpha1.Nginx) corev1.ServiceType {
+	if n == nil || n.Spec.Service == nil {
+		return corev1.ServiceTypeClusterIP
+	}
+	return corev1.ServiceType(n.Spec.Service.Type)
 }
 
 // LabelsForNginx returns the labels for a Nginx CR with the given name
