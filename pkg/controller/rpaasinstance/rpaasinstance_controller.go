@@ -264,6 +264,10 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 				Name: configMap.Name,
 				Kind: nginxV1alpha1.ConfigKindConfigMap,
 			},
+			Service: &nginxV1alpha1.NginxService{
+				Name: configMap.Name,
+				Type: "NodePort",
+			},
 		},
 	}
 }
