@@ -126,12 +126,33 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		logrus.Errorf("Failed to create configmap: %v", err)
 		return reconcile.Result{}, err
 	}
-	err = r.client.Create(context.TODO(), nginx)
-	if err != nil && !k8sErrors.IsAlreadyExists(err) {
-		logrus.Errorf("Failed to create nginx CR: %v", err)
-		return reconcile.Result{}, err
+	err = r.reconcileNginx(nginx)
+	return reconcile.Result{}, err
+}
+
+func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxV1alpha1.Nginx) error {
+	foundNginx := &nginxV1alpha1.Nginx{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, foundNginx)
+	if err != nil {
+		if !k8sErrors.IsAlreadyExists(err) {
+			logrus.Errorf("Failed to get nginx CR: %v", err)
+			return err
+		}
+		err = r.client.Create(context.TODO(), nginx)
+		if err != nil {
+			logrus.Errorf("Failed to create nginx CR: %v", err)
+			return err
+		}
+		return nil
 	}
-	return reconcile.Result{}, nil
+
+	nginx.ObjectMeta.ResourceVersion = foundNginx.ObjectMeta.ResourceVersion
+	err = r.client.Update(context.TODO(), nginx)
+	if err != nil {
+		logrus.Errorf("Failed to update nginx CR: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
