@@ -52,4 +52,6 @@ func configHandlers(e *echo.Echo) {
 	e.DELETE("/resources/:instance", serviceDelete)
 	e.POST("/resources/:instance/bind-app", serviceBindApp)
 	e.DELETE("/resources/:instance/bind-app", serviceUnbindApp)
+
+	e.POST("/resources/:instance/scale", scale)
 }
