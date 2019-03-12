@@ -16,7 +16,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
-func Test_serviceCreate(t *testing.T) {
+func setupTest(t *testing.T) {
 	scheme, err := v1alpha1.SchemeBuilder.Build()
 	require.Nil(t, err)
 	cli = fake.NewFakeClientWithScheme(scheme)
@@ -43,6 +43,10 @@ func Test_serviceCreate(t *testing.T) {
 		},
 	})
 	require.Nil(t, err)
+}
+
+func Test_serviceCreate(t *testing.T) {
+	setupTest(t)
 
 	testCases := []struct {
 		requestBody  string
@@ -89,6 +93,48 @@ func Test_serviceCreate(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			context := e.NewContext(request, recorder)
 			err := serviceCreate(context)
+			assert.Nil(t, err)
+			e.HTTPErrorHandler(err, context)
+			assert.Equal(t, testCase.expectedCode, recorder.Code)
+			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
+		})
+	}
+}
+
+func Test_serviceDelete(t *testing.T) {
+	setupTest(t)
+
+	testCases := []struct {
+		instanceName string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			"",
+			http.StatusBadRequest,
+			"name is required",
+		},
+		{
+			"unknown",
+			http.StatusNotFound,
+			"",
+		},
+		{
+			"firstinstance",
+			http.StatusOK,
+			"",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(fmt.Sprintf("when instance name == %q", testCase.instanceName), func(t *testing.T) {
+			e := echo.New()
+			request := httptest.NewRequest(http.MethodDelete, "/resources/"+testCase.instanceName, nil)
+			recorder := httptest.NewRecorder()
+			context := e.NewContext(request, recorder)
+			context.SetParamNames("instance")
+			context.SetParamValues(testCase.instanceName)
+			err := serviceDelete(context)
 			assert.Nil(t, err)
 			e.HTTPErrorHandler(err, context)
 			assert.Equal(t, testCase.expectedCode, recorder.Code)

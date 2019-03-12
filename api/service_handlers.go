@@ -70,6 +70,9 @@ func serviceCreate(c echo.Context) error {
 
 func serviceDelete(c echo.Context) error {
 	name := c.Param("instance")
+	if len(name) == 0 {
+		return c.String(http.StatusBadRequest, "name is required")
+	}
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasInstance",
