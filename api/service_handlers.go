@@ -160,14 +160,26 @@ func serviceInfo(c echo.Context) error {
 }
 
 func serviceBindApp(c echo.Context) error {
+	name := c.Param("instance")
+	if len(name) == 0 {
+		return c.String(http.StatusBadRequest, "name is required")
+	}
+	instance := &v1alpha1.RpaasInstance{}
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: NAMESPACE}, instance)
+	if err != nil {
+		if k8sErrors.IsNotFound(err) {
+			return c.NoContent(http.StatusNotFound)
+		}
+		logrus.Error(err)
+		return c.JSON(http.StatusInternalServerError, err)
+	}
+
 	annotations := map[string]string{
 		"app-name": c.FormValue("app-name"),
 		"app-host": c.FormValue("app-host"),
 		"eventid":  c.FormValue("eventid"),
 	}
-	name := c.Param("instance")
-
-	instance := &v1alpha1.RpaasBind{
+	bindInstance := &v1alpha1.RpaasBind{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasBind",
 			APIVersion: "extensions.tsuru.io/v1alpha1",
@@ -178,7 +190,7 @@ func serviceBindApp(c echo.Context) error {
 			Annotations: annotations,
 		},
 	}
-	err := cli.Create(context.TODO(), instance)
+	err = cli.Create(context.TODO(), bindInstance)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, err)
 	}

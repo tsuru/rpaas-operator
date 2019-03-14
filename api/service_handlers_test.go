@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
@@ -246,6 +247,69 @@ func Test_serviceInfo(t *testing.T) {
 					},
 				}
 				assert.Equal(t, expected, r)
+			}
+		})
+	}
+}
+
+func Test_serviceBindApp(t *testing.T) {
+	setupTest(t)
+
+	testCases := []struct {
+		instanceName string
+		expectedCode int
+		appName      string
+		appHost      string
+		eventId      string
+	}{
+		{
+			"",
+			http.StatusBadRequest,
+			"",
+			"",
+			"",
+		},
+		{
+			"unknown",
+			http.StatusNotFound,
+			"",
+			"",
+			"",
+		},
+		{
+			"firstinstance",
+			http.StatusCreated,
+			"myapp",
+			"myapp.example.com",
+			"12345",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(fmt.Sprintf("when instance name == %q", testCase.instanceName), func(t *testing.T) {
+			e := echo.New()
+			body := fmt.Sprintf("app-name=%s&app-host=%s&eventid=%s", testCase.appName, testCase.appHost, testCase.eventId)
+			request := httptest.NewRequest(http.MethodPost, "/resources/"+testCase.instanceName+"/bind-app", strings.NewReader(body))
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			recorder := httptest.NewRecorder()
+			ctx := e.NewContext(request, recorder)
+			ctx.SetParamNames("instance", "app-name", "app-host", "eventid")
+			ctx.SetParamValues(testCase.instanceName, testCase.appName, testCase.appHost, testCase.eventId)
+			err := serviceBindApp(ctx)
+			require.Nil(t, err)
+			e.HTTPErrorHandler(err, ctx)
+			require.Equal(t, testCase.expectedCode, recorder.Code)
+
+			if recorder.Code == http.StatusCreated {
+				instance := &v1alpha1.RpaasBind{}
+				err = cli.Get(context.TODO(), types.NamespacedName{Name: testCase.instanceName, Namespace: NAMESPACE}, instance)
+				require.Nil(t, err)
+				expected := map[string]string{
+					"app-name": testCase.appName,
+					"app-host": testCase.appHost,
+					"eventid":  testCase.eventId,
+				}
+				assert.Equal(t, expected, instance.ObjectMeta.Annotations)
 			}
 		})
 	}
