@@ -165,3 +165,88 @@ func Test_servicePlans(t *testing.T) {
 	expected := []result{{Name: "myplan", Description: "no plan description"}}
 	assert.Equal(t, expected, r)
 }
+
+func Test_serviceInfo(t *testing.T) {
+	setupTest(t)
+	replicas := int32(3)
+	err := cli.Update(context.TODO(), &v1alpha1.RpaasInstance{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RpaasInstance",
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "firstinstance",
+			Namespace: NAMESPACE,
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Replicas: &replicas,
+			Locations: []v1alpha1.Location{
+				{Config: v1alpha1.ConfigRef{Value: "/status"}},
+				{Config: v1alpha1.ConfigRef{Value: "/admin"}},
+			},
+		},
+	})
+	require.Nil(t, err)
+
+	testCases := []struct {
+		instanceName     string
+		expectedCode     int
+		expectedReplicas string
+		expectedRoutes   string
+	}{
+		{
+			"",
+			http.StatusBadRequest,
+			"",
+			"",
+		},
+		{
+			"unknown",
+			http.StatusNotFound,
+			"",
+			"",
+		},
+		{
+			"firstinstance",
+			http.StatusOK,
+			"3",
+			"/status\n/admin",
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(fmt.Sprintf("when instance name == %q", testCase.instanceName), func(t *testing.T) {
+			e := echo.New()
+			request := httptest.NewRequest(http.MethodGet, "/resources/"+testCase.instanceName, nil)
+			recorder := httptest.NewRecorder()
+			context := e.NewContext(request, recorder)
+			context.SetParamNames("instance")
+			context.SetParamValues(testCase.instanceName)
+			err := serviceInfo(context)
+			assert.Nil(t, err)
+			e.HTTPErrorHandler(err, context)
+			require.Equal(t, testCase.expectedCode, recorder.Code)
+
+			if recorder.Code == http.StatusOK {
+				var r []map[string]string
+				err = json.Unmarshal(recorder.Body.Bytes(), &r)
+				require.Nil(t, err)
+				expected := []map[string]string{
+					{
+						"label": "Address",
+						"value": "x.x.x.x",
+					},
+					{
+						"label": "Instances",
+						"value": testCase.expectedReplicas,
+					},
+					{
+						"label": "Routes",
+						"value": testCase.expectedRoutes,
+					},
+				}
+				assert.Equal(t, expected, r)
+			}
+		})
+	}
+}

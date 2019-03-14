@@ -121,8 +121,12 @@ func getPlan(name string) (*v1alpha1.RpaasPlan, error) {
 }
 
 func serviceInfo(c echo.Context) error {
+	name := c.Param("instance")
+	if len(name) == 0 {
+		return c.String(http.StatusBadRequest, "name is required")
+	}
 	instance := &v1alpha1.RpaasInstance{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: c.Param("instance"), Namespace: NAMESPACE}, instance)
+	err := cli.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: NAMESPACE}, instance)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return c.NoContent(http.StatusNotFound)
