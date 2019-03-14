@@ -2,6 +2,7 @@ package api
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -141,4 +142,26 @@ func Test_serviceDelete(t *testing.T) {
 			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
 		})
 	}
+}
+
+func Test_servicePlans(t *testing.T) {
+	setupTest(t)
+
+	e := echo.New()
+	request := httptest.NewRequest(http.MethodGet, "/resources/plans", nil)
+	recorder := httptest.NewRecorder()
+	context := e.NewContext(request, recorder)
+	err := servicePlans(context)
+	assert.Nil(t, err)
+	e.HTTPErrorHandler(err, context)
+	assert.Equal(t, http.StatusOK, recorder.Code)
+
+	type result struct {
+		Name, Description string
+	}
+	r := []result{}
+	err = json.Unmarshal(recorder.Body.Bytes(), &r)
+	require.Nil(t, err)
+	expected := []result{{Name: "myplan", Description: "no plan description"}}
+	assert.Equal(t, expected, r)
 }
