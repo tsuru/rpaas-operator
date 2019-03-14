@@ -199,6 +199,9 @@ func serviceBindApp(c echo.Context) error {
 
 func serviceUnbindApp(c echo.Context) error {
 	name := c.Param("instance")
+	if len(name) == 0 {
+		return c.String(http.StatusBadRequest, "name is required")
+	}
 	instance := &v1alpha1.RpaasBind{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasBind",

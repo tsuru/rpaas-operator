@@ -314,3 +314,51 @@ func Test_serviceBindApp(t *testing.T) {
 		})
 	}
 }
+
+func Test_serviceUnbindApp(t *testing.T) {
+	setupTest(t)
+	err := cli.Create(context.TODO(), &v1alpha1.RpaasBind{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "RpaasBind",
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "mybind",
+			Namespace: NAMESPACE,
+		},
+	})
+	require.Nil(t, err)
+
+	testCases := []struct {
+		instanceName string
+		expectedCode int
+	}{
+		{
+			"",
+			http.StatusBadRequest,
+		},
+		{
+			"unknown",
+			http.StatusNotFound,
+		},
+		{
+			"mybind",
+			http.StatusOK,
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(fmt.Sprintf("when instance name == %q", testCase.instanceName), func(t *testing.T) {
+			e := echo.New()
+			request := httptest.NewRequest(http.MethodDelete, "/resources/"+testCase.instanceName+"/bind-app", nil)
+			recorder := httptest.NewRecorder()
+			ctx := e.NewContext(request, recorder)
+			ctx.SetParamNames("instance")
+			ctx.SetParamValues(testCase.instanceName)
+			err := serviceUnbindApp(ctx)
+			require.Nil(t, err)
+			e.HTTPErrorHandler(err, ctx)
+			require.Equal(t, testCase.expectedCode, recorder.Code)
+		})
+	}
+}
