@@ -2,12 +2,15 @@ package api
 
 import (
 	"context"
+	"crypto/tls"
+	"io/ioutil"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo"
 	"github.com/sirupsen/logrus"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"github.com/tsuru/rpaas-operator/rpaas"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -52,4 +55,50 @@ func scale(c echo.Context) error {
 		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.NoContent(http.StatusCreated)
+}
+
+func updateCertificate(c echo.Context) error {
+	makeInvalidKeyOrCertificateResponse := func(err error) error {
+		logrus.Error(err)
+		return c.String(http.StatusPreconditionFailed, "Invalid key or certificate")
+	}
+	rawCertificate, err := getFormFileContent(c, "cert")
+	if err != nil {
+		return makeInvalidKeyOrCertificateResponse(err)
+	}
+	rawKey, err := getFormFileContent(c, "key")
+	if err != nil {
+		return makeInvalidKeyOrCertificateResponse(err)
+	}
+	certificate, err := tls.X509KeyPair(rawCertificate, rawKey)
+	if err != nil {
+		return makeInvalidKeyOrCertificateResponse(err)
+	}
+	manager := rpaas.GetRpaasManager()
+	if manager == nil {
+		logrus.Error("RpaasManager is not defined")
+		return c.String(http.StatusInternalServerError, "Internal Server Error")
+	}
+	instance := c.Param("instance")
+	err = manager.UpdateCertificate(instance, &certificate)
+	if err != nil {
+		return makeInvalidKeyOrCertificateResponse(err)
+	}
+	return c.NoContent(http.StatusOK)
+}
+
+func getFormFileContent(c echo.Context, key string) ([]byte, error) {
+	fileHeader, err := c.FormFile(key)
+	if err != nil {
+		return []byte{}, err
+	}
+	file, err := fileHeader.Open()
+	if err != nil {
+		return []byte{}, err
+	}
+	rawContent, err := ioutil.ReadAll(file)
+	if err != nil {
+		return []byte{}, err
+	}
+	return rawContent, nil
 }
