@@ -11,6 +11,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/sirupsen/logrus"
+	"github.com/tsuru/rpaas-operator/rpaas"
 )
 
 func handleSignals(e *echo.Echo) {
@@ -30,6 +31,9 @@ func Start() error {
 		logrus.Fatal(err)
 		return err
 	}
+
+	rpaas.SetRpaasManager(rpaas.NewK8SRpaasManager(cli))
+
 	if err = agent.Listen(agent.Options{}); err != nil {
 		return err
 	}
@@ -54,4 +58,5 @@ func configHandlers(e *echo.Echo) {
 	e.DELETE("/resources/:instance/bind-app", serviceUnbindApp)
 
 	e.POST("/resources/:instance/scale", scale)
+	e.POST("/resources/:instance/certificate", updateCertificate)
 }
