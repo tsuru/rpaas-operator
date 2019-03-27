@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -27,6 +28,12 @@ type RpaasInstanceSpec struct {
 	// Locations are configuration file fragments used as location blocks in
 	// nginx config.
 	Locations []Location `json:"locations,omitempty"`
+
+	// Certificates are a set of attributes that relate the certificate's
+	// location in the cluster (Secret resource name) and its destination into
+	// Pods.
+	// +optional
+	Certificates map[CertificateName]nginxv1alpha1.TLSSecret `json:"certificates,omitempty"`
 
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 }
@@ -93,6 +100,10 @@ const (
 	ConfigKindInline    = "Inline"
 	ConfigKindConfigMap = "ConfigMap"
 )
+
+type CertificateName string
+
+const CertificateNameDefault = "default"
 
 func init() {
 	SchemeBuilder.Register(&RpaasInstance{}, &RpaasInstanceList{})
