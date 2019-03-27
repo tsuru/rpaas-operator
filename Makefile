@@ -5,7 +5,7 @@ KUBECONFIG=~/.kube/config
 .PHONY: test deploy local build push build-api api
 
 test:
-	go test ./...
+	go test -v ./...
 
 deploy:
 	kubectl apply -f deploy/
