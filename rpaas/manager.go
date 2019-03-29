@@ -24,7 +24,7 @@ import (
 )
 
 type RpaasManager interface {
-	UpdateCertificate(string, *tls.Certificate) error
+	UpdateCertificate(string, tls.Certificate) error
 }
 
 var rpaasManagerHolder = &struct {
@@ -56,34 +56,26 @@ func NewK8SRpaasManager(cli client.Client) RpaasManager {
 	}
 }
 
-func (m *k8sRpaasManager) UpdateCertificate(instance string, c *tls.Certificate) error {
-	if c == nil {
-		return errors.New("manager: could not update certificate to nil")
-	}
+func (m *k8sRpaasManager) UpdateCertificate(instance string, c tls.Certificate) error {
 	rpaasInstance, err := m.getRpaasInstanceByName(instance)
 	if err != nil {
 		return err
 	}
 	secret, err := m.getCertificateSecret(rpaasInstance, v1alpha1.CertificateNameDefault)
-	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			secret, err = m.createCertificateSecret(rpaasInstance, v1alpha1.CertificateNameDefault, c)
-			if err != nil {
-				return err
-			}
-			certs := map[v1alpha1.CertificateName]nginxv1alpha1.TLSSecret{
-				v1alpha1.CertificateNameDefault: *newTLSSecret(secret, v1alpha1.CertificateNameDefault),
-			}
-			_, err = m.updateCertificates(rpaasInstance, certs)
-			return err
-		}
+	if err == nil {
+		return m.updateCertificateSecret(secret, &c)
+	}
+	if !k8sErrors.IsNotFound(err) {
 		return err
 	}
-	secret, err = m.updateCertificateSecret(secret, c)
+	secret, err = m.createCertificateSecret(rpaasInstance, v1alpha1.CertificateNameDefault, &c)
 	if err != nil {
 		return err
 	}
-	return nil
+	certs := map[v1alpha1.CertificateName]nginxv1alpha1.TLSSecret{
+		v1alpha1.CertificateNameDefault: *newTLSSecret(secret, v1alpha1.CertificateNameDefault),
+	}
+	return m.updateCertificates(rpaasInstance, certs)
 }
 
 func (m *k8sRpaasManager) getRpaasInstanceByName(name string) (*v1alpha1.RpaasInstance, error) {
@@ -116,21 +108,19 @@ func (m *k8sRpaasManager) createCertificateSecret(ri *v1alpha1.RpaasInstance, na
 	return secret, err
 }
 
-func (m *k8sRpaasManager) updateCertificateSecret(s *corev1.Secret, c *tls.Certificate) (*corev1.Secret, error) {
+func (m *k8sRpaasManager) updateCertificateSecret(s *corev1.Secret, c *tls.Certificate) error {
 	certificatePem, keyPem, err := convertTLSCertificate(c)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	s.Data["certificate"] = certificatePem
 	s.Data["key"] = keyPem
-	err = m.cli.Update(context.TODO(), s)
-	return s, err
+	return m.cli.Update(context.TODO(), s)
 }
 
-func (m *k8sRpaasManager) updateCertificates(ri *v1alpha1.RpaasInstance, certs map[v1alpha1.CertificateName]nginxv1alpha1.TLSSecret) (*v1alpha1.RpaasInstance, error) {
+func (m *k8sRpaasManager) updateCertificates(ri *v1alpha1.RpaasInstance, certs map[v1alpha1.CertificateName]nginxv1alpha1.TLSSecret) error {
 	ri.Spec.Certificates = certs
-	err := m.cli.Update(context.TODO(), ri)
-	return ri, err
+	return m.cli.Update(context.TODO(), ri)
 }
 
 func convertTLSCertificate(c *tls.Certificate) ([]byte, []byte, error) {

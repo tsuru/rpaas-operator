@@ -90,9 +90,9 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			nil,
 			func(t *testing.T) {
 				manager := &fake.RpaasManager{
-					FakeUpdateCertificate: func(name string, c *tls.Certificate) error {
+					FakeUpdateCertificate: func(name string, c tls.Certificate) error {
 						assert.Equal(t, name, instanceName)
-						assert.Equal(t, c, &certificate)
+						assert.Equal(t, c, certificate)
 						return nil
 					},
 				}
@@ -117,9 +117,9 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			errors.New("some error"),
 			func(t *testing.T) {
 				manager := &fake.RpaasManager{
-					FakeUpdateCertificate: func(name string, c *tls.Certificate) error {
+					FakeUpdateCertificate: func(name string, c tls.Certificate) error {
 						assert.Equal(t, name, instanceName)
-						assert.Equal(t, c, &certificate)
+						assert.Equal(t, c, certificate)
 						return errors.New("some error")
 					},
 				}

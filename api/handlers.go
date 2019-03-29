@@ -83,7 +83,7 @@ func updateCertificate(c echo.Context) error {
 		return errors.New("invalid manager state")
 	}
 	instance := c.Param("instance")
-	err = manager.UpdateCertificate(instance, &certificate)
+	err = manager.UpdateCertificate(instance, certificate)
 	if err != nil {
 		return err
 	}
