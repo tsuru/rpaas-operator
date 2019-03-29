@@ -96,6 +96,7 @@ func getFormFileContent(c echo.Context, key string) ([]byte, error) {
 	if err != nil {
 		return []byte{}, err
 	}
+	defer file.Close()
 	rawContent, err := ioutil.ReadAll(file)
 	if err != nil {
 		return []byte{}, err
