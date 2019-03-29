@@ -78,8 +78,8 @@ func updateCertificate(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("could not load the given certicate and key: %s", err))
 	}
-	manager := rpaas.GetRpaasManager()
-	if manager == nil {
+	manager, ok := c.Get("manager").(rpaas.RpaasManager)
+	if !ok {
 		return errors.New("invalid manager state")
 	}
 	instance := c.Param("instance")
