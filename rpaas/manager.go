@@ -11,7 +11,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"sync"
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
@@ -27,32 +26,23 @@ type RpaasManager interface {
 	UpdateCertificate(string, tls.Certificate) error
 }
 
-var rpaasManagerHolder = &struct {
-	sync.Mutex
-	m RpaasManager
-}{}
-
-func GetRpaasManager() RpaasManager {
-	rpaasManagerHolder.Lock()
-	defer rpaasManagerHolder.Unlock()
-	return rpaasManagerHolder.m
-}
-
-func SetRpaasManager(m RpaasManager) {
-	rpaasManagerHolder.Lock()
-	defer rpaasManagerHolder.Unlock()
-	rpaasManagerHolder.m = m
+type K8SOptions struct {
+	Cli       client.Client
+	Ctx       context.Context
+	Namespace string
 }
 
 type k8sRpaasManager struct {
 	cli       client.Client
+	ctx       context.Context
 	namespace string
 }
 
-func NewK8SRpaasManager(cli client.Client) RpaasManager {
+func NewK8S(o K8SOptions) RpaasManager {
 	return &k8sRpaasManager{
-		cli:       cli,
-		namespace: metav1.NamespaceDefault,
+		cli:       o.Cli,
+		ctx:       o.Ctx,
+		namespace: o.Namespace,
 	}
 }
 

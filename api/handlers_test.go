@@ -14,7 +14,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/rpaas-operator/rpaas"
 	"github.com/tsuru/rpaas-operator/rpaas/fake"
 )
 
@@ -67,7 +66,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		expectedCode  int
 		expectedBody  string
 		expectedError error
-		setup         func(*testing.T)
+		setup         func(*testing.T, echo.Context)
 	}{
 		{
 			makeBodyRequest("some certificate", ""),
@@ -88,7 +87,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			200,
 			"",
 			nil,
-			func(t *testing.T) {
+			func(t *testing.T, c echo.Context) {
 				manager := &fake.RpaasManager{
 					FakeUpdateCertificate: func(name string, c tls.Certificate) error {
 						assert.Equal(t, name, instanceName)
@@ -96,7 +95,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 						return nil
 					},
 				}
-				rpaas.SetRpaasManager(manager)
+				c.Set("manager", manager)
 			},
 		},
 		{
@@ -105,8 +104,8 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			`{"message":"Internal Server Error"}
 `,
 			errors.New("invalid manager state"),
-			func(t *testing.T) {
-				rpaas.SetRpaasManager(nil)
+			func(t *testing.T, c echo.Context) {
+				c.Set("manager", nil)
 			},
 		},
 		{
@@ -115,7 +114,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			`{"message":"Internal Server Error"}
 `,
 			errors.New("some error"),
-			func(t *testing.T) {
+			func(t *testing.T, c echo.Context) {
 				manager := &fake.RpaasManager{
 					FakeUpdateCertificate: func(name string, c tls.Certificate) error {
 						assert.Equal(t, name, instanceName)
@@ -123,21 +122,21 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 						return errors.New("some error")
 					},
 				}
-				rpaas.SetRpaasManager(manager)
+				c.Set("manager", manager)
 			},
 		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run("", func(t *testing.T) {
-			if testCase.setup != nil {
-				testCase.setup(t)
-			}
 			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(testCase.requestBody))
 			request.Header.Set(echo.HeaderContentType, fmt.Sprintf(`%s; boundary=%s`, echo.MIMEMultipartForm, boundary))
 			recorder := httptest.NewRecorder()
 			e := echo.New()
 			context := e.NewContext(request, recorder)
+			if testCase.setup != nil {
+				testCase.setup(t, context)
+			}
 			context.SetParamNames("instance")
 			context.SetParamValues(instanceName)
 			err := updateCertificate(context)
@@ -147,6 +146,4 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
 		})
 	}
-
-	rpaas.SetRpaasManager(nil)
 }

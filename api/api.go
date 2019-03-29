@@ -25,14 +25,24 @@ func handleSignals(e *echo.Echo) {
 	}
 }
 
+func rpaasManagerInjector(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		manager := rpaas.NewK8S(rpaas.K8SOptions{
+			Cli:       cli,
+			Ctx:       c.Request().Context(),
+			Namespace: NAMESPACE,
+		})
+		c.Set("manager", manager)
+		return next(c)
+	}
+}
+
 func Start() error {
 	err := setup()
 	if err != nil {
 		logrus.Fatal(err)
 		return err
 	}
-
-	rpaas.SetRpaasManager(rpaas.NewK8SRpaasManager(cli))
 
 	if err = agent.Listen(agent.Options{}); err != nil {
 		return err
@@ -42,6 +52,7 @@ func Start() error {
 	e := echo.New()
 	go handleSignals(e)
 	e.Use(middleware.Logger())
+	e.Use(rpaasManagerInjector)
 	configHandlers(e)
 
 	err = e.Start(":9999")
