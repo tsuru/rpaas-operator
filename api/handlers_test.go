@@ -63,33 +63,31 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	}
 
 	testCases := []struct {
-		requestBody  string
-		expectedCode int
-		expectedBody string
-		setup        func(*testing.T)
+		requestBody   string
+		expectedCode  int
+		expectedBody  string
+		expectedError error
+		setup         func(*testing.T)
 	}{
 		{
-			makeBodyRequest("", ""),
-			412,
-			"Invalid key or certificate",
-			nil,
-		},
-		{
 			makeBodyRequest("some certificate", ""),
-			412,
-			"Invalid key or certificate",
+			400,
+			"key file is either not provided or not valid",
+			nil,
 			nil,
 		},
 		{
 			makeBodyRequest("", "some private key"),
-			412,
-			"Invalid key or certificate",
+			400,
+			"cert file is either not provided or not valid",
+			nil,
 			nil,
 		},
 		{
 			makeBodyRequest(certPem, keyPem),
 			200,
 			"",
+			nil,
 			func(t *testing.T) {
 				manager := &fake.RpaasManager{
 					FakeUpdateCertificate: func(name string, c *tls.Certificate) error {
@@ -104,15 +102,19 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		{
 			makeBodyRequest(certPem, keyPem),
 			500,
-			"Internal Server Error",
+			`{"message":"Internal Server Error"}
+`,
+			errors.New("invalid manager state"),
 			func(t *testing.T) {
 				rpaas.SetRpaasManager(nil)
 			},
 		},
 		{
 			makeBodyRequest(certPem, keyPem),
-			412,
-			"Invalid key or certificate",
+			500,
+			`{"message":"Internal Server Error"}
+`,
+			errors.New("some error"),
 			func(t *testing.T) {
 				manager := &fake.RpaasManager{
 					FakeUpdateCertificate: func(name string, c *tls.Certificate) error {
@@ -139,7 +141,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			context.SetParamNames("instance")
 			context.SetParamValues(instanceName)
 			err := updateCertificate(context)
-			assert.Nil(t, err)
+			assert.Equal(t, testCase.expectedError, err)
 			e.HTTPErrorHandler(err, context)
 			assert.Equal(t, testCase.expectedCode, recorder.Code)
 			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
