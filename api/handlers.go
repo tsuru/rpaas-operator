@@ -3,6 +3,8 @@ package api
 import (
 	"context"
 	"crypto/tls"
+	"errors"
+	"fmt"
 	"io/ioutil"
 	"net/http"
 	"strconv"
@@ -58,31 +60,32 @@ func scale(c echo.Context) error {
 }
 
 func updateCertificate(c echo.Context) error {
-	makeInvalidKeyOrCertificateResponse := func(err error) error {
-		logrus.Error(err)
-		return c.String(http.StatusPreconditionFailed, "Invalid key or certificate")
-	}
 	rawCertificate, err := getFormFileContent(c, "cert")
 	if err != nil {
-		return makeInvalidKeyOrCertificateResponse(err)
+		if err == http.ErrMissingFile {
+			return c.String(http.StatusBadRequest, "cert file is either not provided or not valid")
+		}
+		return err
 	}
 	rawKey, err := getFormFileContent(c, "key")
 	if err != nil {
-		return makeInvalidKeyOrCertificateResponse(err)
+		if err == http.ErrMissingFile {
+			return c.String(http.StatusBadRequest, "key file is either not provided or not valid")
+		}
+		return err
 	}
 	certificate, err := tls.X509KeyPair(rawCertificate, rawKey)
 	if err != nil {
-		return makeInvalidKeyOrCertificateResponse(err)
+		return c.String(http.StatusBadRequest, fmt.Sprintf("could not load the given certicate and key: %s", err))
 	}
 	manager := rpaas.GetRpaasManager()
 	if manager == nil {
-		logrus.Error("RpaasManager is not defined")
-		return c.String(http.StatusInternalServerError, "Internal Server Error")
+		return errors.New("invalid manager state")
 	}
 	instance := c.Param("instance")
 	err = manager.UpdateCertificate(instance, &certificate)
 	if err != nil {
-		return makeInvalidKeyOrCertificateResponse(err)
+		return err
 	}
 	return c.NoContent(http.StatusOK)
 }
