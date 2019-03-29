@@ -124,30 +124,22 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 
 	testCases := []struct {
 		instance    string
-		certificate *tls.Certificate
+		certificate tls.Certificate
 		setup       func(*testing.T, *k8sRpaasManager)
 		assertion   func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
-			instance,
-			nil,
-			nil,
-			func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-			},
-		},
-		{
 			"instance-not-found",
-			nil,
+			ecdsaCertificate,
 			nil,
 			func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
-				assert.False(t, k8sErrors.IsNotFound(err))
+				assert.True(t, k8sErrors.IsNotFound(err))
 			},
 		},
 		{
 			instance,
-			&ecdsaCertificate,
+			ecdsaCertificate,
 			nil,
 			func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -157,9 +149,9 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 		},
 		{
 			instance,
-			&rsaCertificate,
+			rsaCertificate,
 			func(t *testing.T, m *k8sRpaasManager) {
-				err := m.UpdateCertificate(instance, &ecdsaCertificate)
+				err := m.UpdateCertificate(instance, ecdsaCertificate)
 				assert.NoError(t, err)
 				assertSecretData(t, m, []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
 				assertDefaultTLSCertificate(t, m)
