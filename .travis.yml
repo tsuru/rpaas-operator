@@ -1,13 +1,61 @@
+dist: xenial
 language: go
-
-go:
-  - 1.11.x
-  - master
-
-script:
-  - '[[ ${JOB} == "test" ]] && make test'
-
+sudo: required
+addons:
+  apt:
+    packages:
+    - docker-ce
+install:
+- go get -u github.com/golang/dep/cmd/dep
+- mkdir -p $GOPATH/src/github.com/operator-framework && cd $GOPATH/src/github.com/operator-framework
+- git clone https://github.com/operator-framework/operator-sdk.git
+- cd operator-sdk && make dep && make install
+- cd $TRAVIS_BUILD_DIR
+jobs:
+  fast_finish: true
+  include:
+  - stage: test
+    script: make test
+    env: GOARCH=amd64
+    go: 1.10.x
+  - stage: integration
+    script: "./scripts/localkube-integration.sh"
+    after_failure:
+    - kubectl get deployment --all-namespaces
+    - kubectl get pods --all-namespaces
+    - kubectl describe pods --all-namespaces
+    - kubectl describe rpaas --all-namespaces
+    - kubectl describe nginx --all-namespaces
+    env:
+    - KUBERNETES_VERSION=v1.10.13
+  - stage: integration
+    script: "./scripts/localkube-integration.sh"
+    after_failure:
+    - kubectl get deployment --all-namespaces
+    - kubectl get pods --all-namespaces
+    - kubectl describe pods --all-namespaces
+    - kubectl describe rpaas --all-namespaces
+    - kubectl describe nginx --all-namespaces
+    env:
+    - KUBERNETES_VERSION=v1.12.7
+  - stage: push to docker
+    script:
+    - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+    - if [ -n "$TRAVIS_TAG" ]; then make TAG=$TRAVIS_TAG push; else make push; fi
+    go: 1.10.x
+    if: "(NOT type IN (pull_request)) AND (branch = master) OR (tag IS present)"
+matrix:
+  allow_failures:
+  - go: master
 env:
-  matrix:
-    - JOB=test
-
+  global:
+  - KUBERNETES_VERSION=v1.12.7
+  - MINIKUBE_WANTUPDATENOTIFICATION=false
+  - MINIKUBE_WANTREPORTERRORPROMPT=false
+  - MINIKUBE_HOME=$HOME
+  - CHANGE_MINIKUBE_NONE_USER=true
+  - secure: TMG5cyxEi8dQnRvAXF/f65lrcJPDOaGnOVHa71I6JYd2R/1kWpWEk69+p4dSFkIJrjwWuuMSXF9Jgl2MXE5iS71/CGmED+Dd1azwcSoLAUbk+kZb0kLlDDjZOBfEcXCi3uQhIANOmWPXBL+VjuR2lQQc6RUXmxwT/ZBvkEoUHXIL8vriydxbldsJo0sN+Umxlpsoj18NI/gAyUFt4yDb1DJfFqDjngjIzrrUqXZCZ793v1ZonosasnGQ9+OTdPkvhlJi6uo9Sv3bIuBxj8clwnXgQB9NUKN8wc9F7pCmoW/F2CbyZqNqL2djRyID0Vy2aWwcBB+xwhOueBcNT1uLGGK9Ub6+hVvLU0aCpippsqkjAeu/Sb2fsgtUrnxWm44h7aDU9qUU+Ak4ws9lYJzsgg2wRUxv8UnzZ9wwUq/f3iOBqw445mHumASZ38+iNZ9wl/+MBZOH2noX4gNns3ai+CzLXKmDFrZRKWDLtshNeWXMxmZdI1un72oDvzK3v/zmpeX5efEdSd+PHrjHcAGQfuGWu4HITfIgR7zxvB3SVy/wlJB/k/1w3QSTyTuKPP5smLU49jLVOwkBIjmvC/isTigWynbySMHbGCWO0xoXAjWl6/aP8of3rPkDylq6zgHbx2gHV0BlPNXd3QlPl4wozEIn8IujcPup8wDLeaIk5DQ=
+notifications:
+  slack:
+    rooms:
+      secure: KnTQBHBfjXMiReYErkOVOwxz+bYPyM46YviTiLdG1gy+QQTRFEtZYKJYHB3TtP5SrJ3EeGHIOxJR2XkIukFxqONQC1b9EoyO3nfhLWgOGP9VDG4Kc9h5KJHUgm8wsDiEgRXzajlG6btCb2Kfg5Y4WqYV0EmPsR1yesOyApxvLxz3U/wLISrp0ciM4nZ/VGL4naES+p/XOJUdByHgPq525q4sG5Buq0dVwpIiv2kg5/fJPtGBqhRP21LaC+Ky989tmfBVDnst12RoEgK1JdqRLZjiNP3W9HAM8g+42sL2zWhydhi6hZDMoxI4VhQw2wqZQRTokOesU6xv5LHFNtTfIaOMojfUP9x/vErSP+2sABPLIXgKYMIM2zZHWhsgt0SAfsrWUvQ7FywOn244K6KP8RS8k9M3FhSirOAUU8FCgX4t49GwNAZU/SlCXKSjTFqWBrHfJacz+j6GRJpItbCXhrY+3BeKAXoH9+eLSxGF5A+vhlnB1FHvAtbsBYaj7biix5BeefzZ7lciZaT+0MlV5Ph83F3MUJGdOPj27JRFNS3VLOcG9ZdhPe/F2orgYLnIUn8euPWlOL2jIVkgvJmgA1BrhlKTn5EjqxTZie9TlBDUZ4bys9HNaV4bo+TO9Hr10SnH5wwq1xCEgs1HoeU5cO4ECnSwC2gtEZ1bUnHMVR4=
