@@ -127,7 +127,7 @@ func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap)
 	found := &corev1.ConfigMap{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
 	if err != nil {
-		if !k8sErrors.IsAlreadyExists(err) {
+		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get configMap: %v", err)
 			return err
 		}
@@ -151,7 +151,7 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxV1alpha1.Nginx) erro
 	found := &nginxV1alpha1.Nginx{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, found)
 	if err != nil {
-		if !k8sErrors.IsAlreadyExists(err) {
+		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get nginx CR: %v", err)
 			return err
 		}
