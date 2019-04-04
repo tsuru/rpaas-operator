@@ -52,7 +52,12 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	return nil
+	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
+	})
+
+	return err
 }
 
 var _ reconcile.Reconciler = &ReconcileRpaasInstance{}
