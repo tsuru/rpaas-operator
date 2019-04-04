@@ -8,7 +8,7 @@ import (
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/generator"
+	"github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -152,7 +152,7 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxV1alpha1.Nginx) erro
 }
 
 func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
-	builder := generator.ConfigBuilder{
+	builder := nginx.ConfigBuilder{
 		RefReader: r,
 	}
 	renderedTemplate, err := builder.Interpolate(*instance, plan.Spec)
