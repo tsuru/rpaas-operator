@@ -113,9 +113,9 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 		expectesTLSSecret := nginxv1alpha1.TLSSecret{
 			SecretName:       secret.ObjectMeta.Name,
 			CertificateField: "certificate",
-			CertificatePath:  "/etc/nginx/certs/default.crt.pem",
+			CertificatePath:  "default.crt.pem",
 			KeyField:         "key",
-			KeyPath:          "/etc/nginx/certs/default.key.pem",
+			KeyPath:          "default.key.pem",
 		}
 		gotCertificate, ok := ri.Spec.Certificates[v1alpha1.CertificateNameDefault]
 		assert.True(t, ok)
