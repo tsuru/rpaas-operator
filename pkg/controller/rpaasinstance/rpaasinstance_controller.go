@@ -210,29 +210,6 @@ func (r *ReconcileRpaasInstance) ReadConfigRef(ref v1alpha1.ConfigRef, ns string
 	}
 }
 
-// newPodForCR returns a busybox pod with the same name/namespace as the cr
-func newPodForCR(cr *extensionsv1alpha1.RpaasInstance) *corev1.Pod {
-	labels := map[string]string{
-		"app": cr.Name,
-	}
-	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cr.Name + "-pod",
-			Namespace: cr.Namespace,
-			Labels:    labels,
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name:    "busybox",
-					Image:   "busybox",
-					Command: []string{"sleep", "3600"},
-				},
-			},
-		},
-	}
-}
-
 func getPlan(r *ReconcileRpaasInstance, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasPlan, error) {
 	plan := &v1alpha1.RpaasPlan{
 		ObjectMeta: metav1.ObjectMeta{
