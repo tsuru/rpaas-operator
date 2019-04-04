@@ -183,12 +183,11 @@ func newCertificateSecret(ri *v1alpha1.RpaasInstance, name v1alpha1.CertificateN
 }
 
 func newTLSSecret(s *corev1.Secret, name v1alpha1.CertificateName) *nginxv1alpha1.TLSSecret {
-	baseCertsDir := "/etc/nginx/certs"
 	return &nginxv1alpha1.TLSSecret{
 		SecretName:       s.ObjectMeta.Name,
 		CertificateField: "certificate",
-		CertificatePath:  fmt.Sprintf("%s/%s.crt.pem", baseCertsDir, name),
+		CertificatePath:  fmt.Sprintf("%s.crt.pem", name),
 		KeyField:         "key",
-		KeyPath:          fmt.Sprintf("%s/%s.key.pem", baseCertsDir, name),
+		KeyPath:          fmt.Sprintf("%s.key.pem", name),
 	}
 }
