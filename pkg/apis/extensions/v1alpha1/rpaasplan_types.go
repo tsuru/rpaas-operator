@@ -48,34 +48,27 @@ type RpaasPlanList struct {
 }
 
 type NginxConfig struct {
-	User              string              `json:"user,omitempty"`
-	WorkerProcesses   int                 `json:"workerProcesses,omitempty"`
-	WorkerConnections int                 `json:"workerConnections,omitempty"`
-	RequestIDEnabled  bool                `json:"requestIdEnabled,omitempty"`
-	LocalLog          bool                `json:"localLog,omitempty"`
-	SyslogServer      string              `json:"syslogServer,omitempty"`
-	SyslogTag         string              `json:"syslogTag,omitempty"`
-	CustomErrorCodes  map[string][]string `json:"customErrorCodes,omitempty"`
+	User string `json:"user,omitempty"`
 
-	KeyZoneSize   string `json:"keyZoneSize,omitempty"`
-	CacheInactive string `json:"cacheInactive,omitempty"`
-	CacheSize     string `json:"cacheSize,omitempty"`
-	LoaderFiles   int    `json:"loaderFiles,omitempty"`
+	RequestIDEnabled bool `json:"requestIDEnabled,omitempty"`
 
-	VtsEnabled bool `json:"vtsEnabled,omitempty"`
-	Lua        bool `json:"lua,omitempty"`
+	CacheEnabled     bool   `json:"cacheEnabled,omitempty"`
+	CacheLoaderFiles int    `json:"cacheLoaderFiles,omitempty"`
+	CachePath        string `json:"cachePath,omitempty"`
+	CacheSize        string `json:"cacheSize,omitempty"`
+	CacheZoneSize    string `json:"cacheZoneSize,omitempty"`
 
-	AdminListen        string `json:"adminListen,omitempty"`
-	AdminEnableSsl     bool   `json:"adminEnableSsl,omitempty"`
-	AdminLocationPurge bool   `json:"adminLocationPurge,omitempty"`
+	HTTPPort          int    `json:"httpPort,omitempty"`
+	HTTPListenOptions string `json:"httpListenOptions,omitempty"`
 
-	Listen        string `json:"listen,omitempty"`
-	ListenBacklog int    `json:"listenBacklog,omitempty"`
+	VTSEnabled bool `json:"vtsEnabled,omitempty"`
 
-	DisableResponseRequestID bool `json:"disableResponseRequestId,omitempty"`
+	SyslogEnabled       bool   `json:"syslogEnabled,omitempty"`
+	SyslogServerAddress string `json:"syslogServerAddress,omitempty"`
+	SyslogFacility      string `json:"syslogFacility,omitempty"`
 
-	CustomErrorDir  string `json:"customErrorDir,omitempty"`
-	InterceptErrors bool   `json:"interceptErrors,omitempty"`
+	WorkerProcesses   int `json:"workerProcesses,omitempty"`
+	WorkerConnections int `json:"workerConnections,omitempty"`
 }
 
 func init() {
