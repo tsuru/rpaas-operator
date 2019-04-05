@@ -8,7 +8,7 @@ import (
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	_ "github.com/tsuru/rpaas-operator/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -152,35 +152,12 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxV1alpha1.Nginx) erro
 }
 
 func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
-	return "", nil
-}
-
-func (r *ReconcileRpaasInstance) ReadConfigRef(ref v1alpha1.ConfigRef, ns string) (string, error) {
-	switch ref.Kind {
-	case v1alpha1.ConfigKindInline:
-		return ref.Value, nil
-	case v1alpha1.ConfigKindConfigMap:
-		configMap := &corev1.ConfigMap{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      ref.Name,
-				Namespace: ns,
-			},
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ConfigMap",
-				APIVersion: "v1",
-			},
-		}
-		err := r.client.Get(context.TODO(), types.NamespacedName{
-			Namespace: ns,
-			Name:      ref.Name,
-		}, configMap)
-		if err != nil {
-			return "", err
-		}
-		return configMap.Data[ref.Value], nil
-	default:
-		return "", fmt.Errorf("invalid config kind for %#v", ref)
+	data := nginx.ConfigurationData{
+		Instance: &instance.Spec,
+		Config:   &plan.Spec.Config,
 	}
+	renderer := nginx.NewRpaasConfigurationRenderer()
+	return renderer.Render(data)
 }
 
 func getPlan(r *ReconcileRpaasInstance, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasPlan, error) {
@@ -228,7 +205,7 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 }
 
 func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxV1alpha1.Nginx {
-	return &nginxV1alpha1.Nginx{
+	nginxResource := &nginxV1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
@@ -257,4 +234,11 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			},
 		},
 	}
+
+	defaultCert, ok := instance.Spec.Certificates[v1alpha1.CertificateNameDefault]
+	if ok {
+		nginxResource.Spec.TLSSecret = &defaultCert
+	}
+
+	return nginxResource
 }
