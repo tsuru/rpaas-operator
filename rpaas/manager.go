@@ -62,7 +62,7 @@ func (m *k8sRpaasManager) UpdateCertificate(instance string, c tls.Certificate) 
 	if err != nil {
 		return err
 	}
-	certs := map[v1alpha1.CertificateName]nginxv1alpha1.TLSSecret{
+	certs := map[string]nginxv1alpha1.TLSSecret{
 		v1alpha1.CertificateNameDefault: *newTLSSecret(secret, v1alpha1.CertificateNameDefault),
 	}
 	return m.updateCertificates(rpaasInstance, certs)
@@ -78,7 +78,7 @@ func (m *k8sRpaasManager) getRpaasInstanceByName(name string) (*v1alpha1.RpaasIn
 	return rpaasInstance, err
 }
 
-func (m *k8sRpaasManager) getCertificateSecret(ri *v1alpha1.RpaasInstance, name v1alpha1.CertificateName) (*corev1.Secret, error) {
+func (m *k8sRpaasManager) getCertificateSecret(ri *v1alpha1.RpaasInstance, name string) (*corev1.Secret, error) {
 	namespacedName := types.NamespacedName{
 		Name:      formatCertificateSecretName(ri, name),
 		Namespace: m.namespace,
@@ -88,7 +88,7 @@ func (m *k8sRpaasManager) getCertificateSecret(ri *v1alpha1.RpaasInstance, name 
 	return secret, err
 }
 
-func (m *k8sRpaasManager) createCertificateSecret(ri *v1alpha1.RpaasInstance, name v1alpha1.CertificateName, c *tls.Certificate) (*corev1.Secret, error) {
+func (m *k8sRpaasManager) createCertificateSecret(ri *v1alpha1.RpaasInstance, name string, c *tls.Certificate) (*corev1.Secret, error) {
 	rawCertPem, rawKeyPem, err := convertTLSCertificate(c)
 	if err != nil {
 		return nil, err
@@ -108,7 +108,7 @@ func (m *k8sRpaasManager) updateCertificateSecret(s *corev1.Secret, c *tls.Certi
 	return m.cli.Update(context.TODO(), s)
 }
 
-func (m *k8sRpaasManager) updateCertificates(ri *v1alpha1.RpaasInstance, certs map[v1alpha1.CertificateName]nginxv1alpha1.TLSSecret) error {
+func (m *k8sRpaasManager) updateCertificates(ri *v1alpha1.RpaasInstance, certs map[string]nginxv1alpha1.TLSSecret) error {
 	ri.Spec.Certificates = certs
 	return m.cli.Update(context.TODO(), ri)
 }
@@ -154,11 +154,11 @@ func convertPrivateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
 	}
 }
 
-func formatCertificateSecretName(ri *v1alpha1.RpaasInstance, name v1alpha1.CertificateName) string {
+func formatCertificateSecretName(ri *v1alpha1.RpaasInstance, name string) string {
 	return fmt.Sprintf("%s-certificate-%s", ri.ObjectMeta.Name, name)
 }
 
-func newCertificateSecret(ri *v1alpha1.RpaasInstance, name v1alpha1.CertificateName, rawCertPem, rawKeyPem []byte) *corev1.Secret {
+func newCertificateSecret(ri *v1alpha1.RpaasInstance, name string, rawCertPem, rawKeyPem []byte) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -182,7 +182,7 @@ func newCertificateSecret(ri *v1alpha1.RpaasInstance, name v1alpha1.CertificateN
 	}
 }
 
-func newTLSSecret(s *corev1.Secret, name v1alpha1.CertificateName) *nginxv1alpha1.TLSSecret {
+func newTLSSecret(s *corev1.Secret, name string) *nginxv1alpha1.TLSSecret {
 	return &nginxv1alpha1.TLSSecret{
 		SecretName:       s.ObjectMeta.Name,
 		CertificateField: "certificate",
