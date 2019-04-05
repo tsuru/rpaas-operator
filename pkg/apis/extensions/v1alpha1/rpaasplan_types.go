@@ -53,6 +53,7 @@ type NginxConfig struct {
 	RequestIDEnabled bool `json:"requestIDEnabled,omitempty"`
 
 	CacheEnabled     bool   `json:"cacheEnabled,omitempty"`
+	CacheInactive    string `json:"cacheInactive,omitempty"`
 	CacheLoaderFiles int    `json:"cacheLoaderFiles,omitempty"`
 	CachePath        string `json:"cachePath,omitempty"`
 	CacheSize        string `json:"cacheSize,omitempty"`
@@ -61,11 +62,15 @@ type NginxConfig struct {
 	HTTPPort          int    `json:"httpPort,omitempty"`
 	HTTPListenOptions string `json:"httpListenOptions,omitempty"`
 
+	HTTPSPort          int    `json:"httpsPort,omitempty"`
+	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
+
 	VTSEnabled bool `json:"vtsEnabled,omitempty"`
 
 	SyslogEnabled       bool   `json:"syslogEnabled,omitempty"`
 	SyslogServerAddress string `json:"syslogServerAddress,omitempty"`
 	SyslogFacility      string `json:"syslogFacility,omitempty"`
+	SyslogTag           string `json:"syslogTag,omitempty"`
 
 	WorkerProcesses   int `json:"workerProcesses,omitempty"`
 	WorkerConnections int `json:"workerConnections,omitempty"`

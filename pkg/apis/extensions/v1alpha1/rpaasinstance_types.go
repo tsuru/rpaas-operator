@@ -33,7 +33,7 @@ type RpaasInstanceSpec struct {
 	// location in the cluster (Secret resource name) and its destination into
 	// Pods.
 	// +optional
-	Certificates map[CertificateName]nginxv1alpha1.TLSSecret `json:"certificates,omitempty"`
+	Certificates map[string]nginxv1alpha1.TLSSecret `json:"certificates,omitempty"`
 
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 }
@@ -100,8 +100,6 @@ const (
 	ConfigKindInline    = "Inline"
 	ConfigKindConfigMap = "ConfigMap"
 )
-
-type CertificateName string
 
 const CertificateNameDefault = "default"
 
