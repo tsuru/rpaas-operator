@@ -25,7 +25,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `worker_connections 1024;`, result)
 				assert.Regexp(t, `access_log /dev/stdout rpaas_combined;`, result)
 				assert.Regexp(t, `error_log  /dev/stderr;`, result)
-				assert.Regexp(t, `listen 80 default_server;`, result)
+				assert.Regexp(t, `listen 8080 default_server;`, result)
 			},
 		},
 		{
@@ -120,7 +120,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				assert.NoError(t, err)
-				assert.Regexp(t, `listen 443 ssl;`, result)
+				assert.Regexp(t, `listen 8443 ssl;`, result)
 				assert.Regexp(t, `ssl_certificate\s+certs/default.crt.pem;`, result)
 				assert.Regexp(t, `ssl_certificate_key certs/default.key.pem;`, result)
 				assert.Regexp(t, `ssl_protocols TLSv1 TLSv1.1 TLSv1.2;`, result)
@@ -133,7 +133,6 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		{
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
-					HTTPSPort:          8443,
 					HTTPSListenOptions: "http2",
 				},
 				Instance: &v1alpha1.RpaasInstanceSpec{
