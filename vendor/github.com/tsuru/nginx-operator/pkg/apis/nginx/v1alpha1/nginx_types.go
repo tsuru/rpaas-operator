@@ -21,10 +21,15 @@ type NginxSpec struct {
 	TLSSecret *TLSSecret `json:"tlsSecret,omitempty"`
 	// Template used to configure the nginx pod.
 	// +optional
-	PodTemplate NginxPodTemplateSpec
+	PodTemplate NginxPodTemplateSpec `json:"podTemplate,omitempty"`
 	// Service to expose the nginx pod
 	// +optional
 	Service *NginxService `json:"service,omitempty"`
+
+	// HealthcheckPath defines the endpoint used to check whether instance is
+	// working or not.
+	// +optional
+	HealthcheckPath string `json:"healthcheckPath,omitempty"`
 }
 
 type NginxPodTemplateSpec struct {

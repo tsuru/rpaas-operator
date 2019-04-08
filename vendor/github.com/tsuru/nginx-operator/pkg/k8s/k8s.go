@@ -17,11 +17,17 @@ const (
 	defaultNginxImage = "nginx:latest"
 
 	// Default port names used by the nginx container and the ClusterIP service
-	defaultHTTPPortName  = "http"
+	defaultHTTPPort     = int32(8080)
+	defaultHTTPPortName = "http"
+
+	defaultHTTPSPort     = int32(8443)
 	defaultHTTPSPortName = "https"
 
 	// Mount path where nginx.conf will be placed
 	configMountPath = "/etc/nginx"
+
+	// Default configuration filename of nginx
+	configFileName = "nginx.conf"
 
 	// Mount path where certificate and key pair will be placed
 	certMountPath = configMountPath + "/certs"
@@ -67,7 +73,7 @@ func NewDeployment(n *v1alpha1.Nginx) (*appv1.Deployment, error) {
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          defaultHTTPPortName,
-									ContainerPort: int32(80),
+									ContainerPort: defaultHTTPPort,
 									Protocol:      corev1.ProtocolTCP,
 								},
 							},
@@ -75,7 +81,7 @@ func NewDeployment(n *v1alpha1.Nginx) (*appv1.Deployment, error) {
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path:   "/",
+										Path:   valueOrDefault(n.Spec.HealthcheckPath, "/"),
 										Port:   intstr.FromString(defaultHTTPPortName),
 										Scheme: corev1.URISchemeHTTP,
 									},
@@ -189,7 +195,8 @@ func setupConfig(conf *v1alpha1.ConfigRef, dep *appv1.Deployment) {
 	}
 	dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 		Name:      "nginx-config",
-		MountPath: configMountPath,
+		MountPath: fmt.Sprintf("%s/%s", configMountPath, configFileName),
+		SubPath:   configFileName,
 	})
 	switch conf.Kind {
 	case v1alpha1.ConfigKindConfigMap:
@@ -235,13 +242,13 @@ func setupTLS(secret *v1alpha1.TLSSecret, dep *appv1.Deployment) {
 
 	dep.Spec.Template.Spec.Containers[0].Ports = append(dep.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
 		Name:          defaultHTTPSPortName,
-		ContainerPort: int32(443),
+		ContainerPort: defaultHTTPSPort,
 		Protocol:      corev1.ProtocolTCP,
 	})
 	dep.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
 		Handler: corev1.Handler{
 			HTTPGet: &corev1.HTTPGetAction{
-				Path:   "/",
+				Path:   dep.Spec.Template.Spec.Containers[0].ReadinessProbe.Handler.HTTPGet.Path,
 				Port:   intstr.FromString(defaultHTTPSPortName),
 				Scheme: corev1.URISchemeHTTPS,
 			},

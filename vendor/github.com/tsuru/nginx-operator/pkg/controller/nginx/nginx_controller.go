@@ -191,7 +191,7 @@ func (r *ReconcileNginx) refreshStatus(nginx *nginxv1alpha1.Nginx) error {
 	if !reflect.DeepEqual(pods, nginx.Status.Pods) || !reflect.DeepEqual(services, nginx.Status.Services) {
 		nginx.Status.Pods = pods
 		nginx.Status.Services = services
-		err := r.client.Update(context.TODO(), nginx)
+		err := r.client.Status().Update(context.TODO(), nginx)
 		if err != nil {
 			return fmt.Errorf("failed to update nginx status: %v", err)
 		}
