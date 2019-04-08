@@ -232,6 +232,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 				Name: configMap.Name,
 				Type: "NodePort",
 			},
+			HealthcheckPath: "/_nginx_healthcheck/",
 		},
 	}
 
