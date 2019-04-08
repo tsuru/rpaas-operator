@@ -59,10 +59,7 @@ type NginxConfig struct {
 	CacheSize        string `json:"cacheSize,omitempty"`
 	CacheZoneSize    string `json:"cacheZoneSize,omitempty"`
 
-	HTTPPort          int    `json:"httpPort,omitempty"`
-	HTTPListenOptions string `json:"httpListenOptions,omitempty"`
-
-	HTTPSPort          int    `json:"httpsPort,omitempty"`
+	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
 
 	VTSEnabled bool `json:"vtsEnabled,omitempty"`

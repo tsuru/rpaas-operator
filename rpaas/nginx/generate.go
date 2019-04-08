@@ -124,11 +124,11 @@ http {
 {{end}}
 
     server {
-        listen {{with .Config.HTTPPort}}{{.}}{{else}}80{{end}} default_server{{with .Config.HTTPListenOptions}} {{.}}{{end}};
+        listen 8080 default_server{{with .Config.HTTPListenOptions}} {{.}}{{end}};
 
 {{if $defaultCertificate := (index .Instance.Certificates "default")}}
 {{if and (ne $defaultCertificate.CertificatePath "") (ne $defaultCertificate.KeyPath "")}}
-        listen {{with .Config.HTTPSPort}}{{.}}{{else}}443{{end}} ssl{{with .Config.HTTPSListenOptions}} {{.}}{{end}};
+        listen 8443 ssl{{with .Config.HTTPSListenOptions}} {{.}}{{end}};
 
         ssl_certificate     certs/{{$defaultCertificate.CertificatePath}};
         ssl_certificate_key certs/{{$defaultCertificate.KeyPath}};
