@@ -28,9 +28,11 @@ func (r *rpaasConfigurationRenderer) Render(c ConfigurationData) (string, error)
 
 func NewRpaasConfigurationRenderer() ConfigurationRenderer {
 	return &rpaasConfigurationRenderer{
-		t: template.Must(template.New("rpaas-configuration-template").Parse(rawNginxConfiguration)),
+		t: defaultRpaasConfigurationTemplate,
 	}
 }
+
+var defaultRpaasConfigurationTemplate = template.Must(template.New("rpaas-configuration-template").Parse(rawNginxConfiguration))
 
 // NOTE: This nginx's configuration works fine with the "tsuru/nginx-tsuru"
 // container image. We rely on this image to load some required modules
