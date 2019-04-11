@@ -43,8 +43,8 @@ type NginxPodTemplateSpec struct {
 
 // NginxStatus defines the observed state of Nginx
 type NginxStatus struct {
-	Pods     []NginxPod     `json:"pods,omitempty"`
-	Services []NginxService `json:"services,omitempty"`
+	Pods     []PodStatus     `json:"pods,omitempty"`
+	Services []ServiceStatus `json:"services,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -59,20 +59,27 @@ type Nginx struct {
 	Status NginxStatus `json:"status,omitempty"`
 }
 
-type NginxPod struct {
+type PodStatus struct {
 	// Name is the name of the POD running nginx
 	Name string `json:"name"`
 	// PodIP is the IP if the POD
 	PodIP string `json:"podIP"`
 }
 
-type NginxService struct {
-	// Name is the name of the service in front of the nginx
+type ServiceStatus struct {
+	// Name is the name of the Service created by nginx
 	Name string `json:"name"`
+}
+
+type NginxService struct {
 	// Type is the type of the service
-	Type string `json:"type"`
-	// ServiceIP is the IP of the service
-	ServiceIP string `json:"serviceIP"`
+	Type corev1.ServiceType `json:"type"`
+	// LoadBalancerIP is an optional load balancer IP for the service
+	LoadBalancerIP string `json:"loadBalancerIP"`
+	// Labels are extra labels for the service
+	Labels map[string]string `json:"labels"`
+	// Annotations are extra annotations for the service
+	Annotations map[string]string `json:"annotations"`
 }
 
 // ConfigRef is a reference to a config object.
