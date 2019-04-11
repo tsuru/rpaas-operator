@@ -105,8 +105,25 @@ func NewDeployment(n *v1alpha1.Nginx) (*appv1.Deployment, error) {
 	return &deployment, nil
 }
 
+func mergeMap(a, b map[string]string) map[string]string {
+	if a == nil {
+		return b
+	}
+	for k, v := range b {
+		a[k] = v
+	}
+	return a
+}
+
 // NewService assembles the ClusterIP service for the Nginx
 func NewService(n *v1alpha1.Nginx) *corev1.Service {
+	var labels, annotations map[string]string
+	var lbIP string
+	if n.Spec.Service != nil {
+		labels = n.Spec.Service.Labels
+		annotations = n.Spec.Service.Annotations
+		lbIP = n.Spec.Service.LoadBalancerIP
+	}
 	service := corev1.Service{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Service",
@@ -122,7 +139,8 @@ func NewService(n *v1alpha1.Nginx) *corev1.Service {
 					Kind:    "Nginx",
 				}),
 			},
-			Labels: LabelsForNginx(n.Name),
+			Labels:      mergeMap(labels, LabelsForNginx(n.Name)),
+			Annotations: annotations,
 		},
 		Spec: corev1.ServiceSpec{
 			Ports: []corev1.ServicePort{
@@ -133,8 +151,9 @@ func NewService(n *v1alpha1.Nginx) *corev1.Service {
 					Port:       int32(80),
 				},
 			},
-			Selector: LabelsForNginx(n.Name),
-			Type:     nginxService(n),
+			Selector:       LabelsForNginx(n.Name),
+			LoadBalancerIP: lbIP,
+			Type:           nginxService(n),
 		},
 	}
 	if n.Spec.TLSSecret != nil {
