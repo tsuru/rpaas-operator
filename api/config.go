@@ -14,7 +14,6 @@ const (
 	apiTimeout   = 10 * time.Second
 	dialTimeout  = 30 * time.Second
 	tcpKeepAlive = 30 * time.Second
-	NAMESPACE    = "default"
 )
 
 type kubeConfig struct {
@@ -31,7 +30,7 @@ func setup() error {
 	if err != nil {
 		return err
 	}
-	m, err := manager.New(cfg, manager.Options{Namespace: NAMESPACE})
+	m, err := manager.New(cfg, manager.Options{})
 	if err != nil {
 		return err
 	}

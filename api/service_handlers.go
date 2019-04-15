@@ -9,61 +9,25 @@ import (
 	"github.com/labstack/echo"
 	"github.com/sirupsen/logrus"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"github.com/tsuru/rpaas-operator/rpaas"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 func serviceCreate(c echo.Context) error {
-	name := c.FormValue("name")
-	if len(name) == 0 {
-		return c.String(http.StatusBadRequest, "name is required")
-	}
-	planName := c.FormValue("plan")
-	if len(planName) == 0 {
-		return c.String(http.StatusBadRequest, "plan is required")
-	}
-	team := c.FormValue("team")
-	if len(team) == 0 {
-		return c.String(http.StatusBadRequest, "team name is required")
-	}
-
-	plan, err := getPlan(planName)
+	var args rpaas.CreateArgs
+	err := c.Bind(&args)
 	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			return c.String(http.StatusBadRequest, "invalid plan")
-		}
-		logrus.Error(err)
-		return c.String(http.StatusInternalServerError, err.Error())
+		return err
 	}
-
-	instance := &v1alpha1.RpaasInstance{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasInstance",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: NAMESPACE,
-			Annotations: map[string]string{
-				"user":        c.FormValue("user"),
-				"team":        team,
-				"description": c.FormValue("description"),
-				"eventid":     c.FormValue("eventid"),
-			},
-		},
-		Spec: v1alpha1.RpaasInstanceSpec{
-			PlanName: plan.ObjectMeta.Name,
-		},
-	}
-	err = cli.Create(context.TODO(), instance)
+	manager, err := getManager(c)
 	if err != nil {
-		logrus.Error(err)
-		if k8sErrors.IsAlreadyExists(err) {
-			return c.String(http.StatusConflict, name+" instance already exists")
-		}
-		return c.String(http.StatusInternalServerError, err.Error())
+		return err
+	}
+	err = manager.CreateInstance(args)
+	if err != nil {
+		return err
 	}
 	return c.NoContent(http.StatusCreated)
 }
@@ -73,30 +37,20 @@ func serviceDelete(c echo.Context) error {
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "name is required")
 	}
-	instance := &v1alpha1.RpaasInstance{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasInstance",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: NAMESPACE,
-		},
-	}
-	err := cli.Delete(context.TODO(), instance)
+	manager, err := getManager(c)
 	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			return c.NoContent(http.StatusNotFound)
-		}
-		logrus.Error(err)
-		return c.JSON(http.StatusInternalServerError, err)
+		return err
+	}
+	err = manager.DeleteInstance(name)
+	if err != nil {
+		return err
 	}
 	return c.NoContent(http.StatusOK)
 }
 
 func servicePlans(c echo.Context) error {
 	list := &v1alpha1.RpaasPlanList{}
-	err := cli.List(context.TODO(), &client.ListOptions{Namespace: NAMESPACE}, list)
+	err := cli.List(context.TODO(), &client.ListOptions{}, list)
 	if err != nil {
 		logrus.Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
@@ -111,28 +65,18 @@ func servicePlans(c echo.Context) error {
 	return c.JSON(http.StatusOK, ret)
 }
 
-func getPlan(name string) (*v1alpha1.RpaasPlan, error) {
-	instance := &v1alpha1.RpaasPlan{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: NAMESPACE}, instance)
-	if err != nil {
-		return nil, err
-	}
-	return instance, nil
-}
-
 func serviceInfo(c echo.Context) error {
 	name := c.Param("instance")
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "name is required")
 	}
-	instance := &v1alpha1.RpaasInstance{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: NAMESPACE}, instance)
+	manager, err := getManager(c)
 	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			return c.NoContent(http.StatusNotFound)
-		}
-		logrus.Error(err)
-		return c.JSON(http.StatusInternalServerError, err)
+		return err
+	}
+	instance, err := manager.GetInstance(name)
+	if err != nil {
+		return err
 	}
 	replicas := "0"
 	if instance.Spec.Replicas != nil {
@@ -164,14 +108,13 @@ func serviceBindApp(c echo.Context) error {
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "name is required")
 	}
-	instance := &v1alpha1.RpaasInstance{}
-	err := cli.Get(context.TODO(), types.NamespacedName{Name: name, Namespace: NAMESPACE}, instance)
+	manager, err := getManager(c)
 	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			return c.NoContent(http.StatusNotFound)
-		}
-		logrus.Error(err)
-		return c.JSON(http.StatusInternalServerError, err)
+		return err
+	}
+	instance, err := manager.GetInstance(name)
+	if err != nil {
+		return err
 	}
 
 	annotations := map[string]string{
@@ -186,7 +129,7 @@ func serviceBindApp(c echo.Context) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        name,
-			Namespace:   NAMESPACE,
+			Namespace:   instance.Namespace,
 			Annotations: annotations,
 		},
 	}
@@ -202,17 +145,25 @@ func serviceUnbindApp(c echo.Context) error {
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "name is required")
 	}
-	instance := &v1alpha1.RpaasBind{
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+	instance, err := manager.GetInstance(name)
+	if err != nil {
+		return err
+	}
+	bindInstance := &v1alpha1.RpaasBind{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasBind",
 			APIVersion: "extensions.tsuru.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: NAMESPACE,
+			Namespace: instance.Namespace,
 		},
 	}
-	err := cli.Delete(context.TODO(), instance)
+	err = cli.Delete(context.TODO(), bindInstance)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
 			return c.NoContent(http.StatusNotFound)

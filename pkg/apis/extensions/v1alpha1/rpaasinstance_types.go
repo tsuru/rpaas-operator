@@ -11,8 +11,8 @@ import (
 // RpaasInstanceSpec defines the desired state of RpaasInstance
 // +k8s:openapi-gen=true
 type RpaasInstanceSpec struct {
-	// INSERT ADDITIONAL SPEC FIELDS - desired state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
+
 	// Number of desired pods. This is a pointer to distinguish between explicit
 	// zero and not specified. Defaults to 1.
 	// +optional
@@ -34,6 +34,10 @@ type RpaasInstanceSpec struct {
 	// Pods.
 	// +optional
 	Certificates map[string]nginxv1alpha1.TLSSecret `json:"certificates,omitempty"`
+
+	// Service to expose the nginx instance
+	// +optional
+	Service *nginxv1alpha1.NginxService `json:"service,omitempty"`
 
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 }
