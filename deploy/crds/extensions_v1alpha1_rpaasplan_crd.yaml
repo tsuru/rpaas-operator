@@ -10,7 +10,7 @@ spec:
     listKind: RpaasPlanList
     plural: rpaasplans
     singular: rpaasplan
-  scope: Namespaced
+  scope: Cluster
   subresources:
     status: {}
   validation:

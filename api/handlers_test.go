@@ -95,7 +95,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 						return nil
 					},
 				}
-				c.Set("manager", manager)
+				setManager(c, manager)
 			},
 		},
 		{
@@ -103,7 +103,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			500,
 			`{"message":"Internal Server Error"}
 `,
-			errors.New("invalid manager state"),
+			errors.New("invalid manager state: <nil>"),
 			func(t *testing.T, c echo.Context) {
 				c.Set("manager", nil)
 			},
@@ -122,7 +122,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 						return errors.New("some error")
 					},
 				}
-				c.Set("manager", manager)
+				setManager(c, manager)
 			},
 		},
 	}

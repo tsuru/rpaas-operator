@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
@@ -19,7 +20,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstanceSpec{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `user nginx;`, result)
 				assert.Regexp(t, `worker_processes 1;`, result)
 				assert.Regexp(t, `worker_connections 1024;`, result)
@@ -36,7 +37,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstanceSpec{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `uuid4 \$request_id_uuid;`, result)
 				assert.Regexp(t, `map \$http_x_request_id \$request_id_final {\n\s+default \$request_id_uuid;\n\s+"~\."\s+\$http_x_request_id;\n\s*}`, result)
 			},
@@ -54,7 +55,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstanceSpec{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100m inactive=12h max_size=300m loader_files=1000;`, result)
 				assert.Regexp(t, `proxy_temp_path  /path/to/cache/dir/nginx_temp 1 2;`, result)
 				assert.Regexp(t, `proxy_cache rpaas;`, result)
@@ -73,7 +74,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstanceSpec{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `access_log syslog:server=syslog.server.example.com,facility=local6,tag=rpaas rpaas_combined;`, result)
 				assert.Regexp(t, `error_log syslog:server=syslog.server.example.com,facility=local6,tag=rpaas;`, result)
 			},
@@ -89,7 +90,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstanceSpec{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `access_log syslog:server=syslog.server.example.com,facility=local1,tag=my-tag rpaas_combined;`, result)
 				assert.Regexp(t, `error_log syslog:server=syslog.server.example.com,facility=local1,tag=my-tag;`, result)
 			},
@@ -102,7 +103,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstanceSpec{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `vhost_traffic_status_zone;`, result)
 			},
 		},
@@ -119,7 +120,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `listen 8443 ssl;`, result)
 				assert.Regexp(t, `ssl_certificate\s+certs/default.crt.pem;`, result)
 				assert.Regexp(t, `ssl_certificate_key certs/default.key.pem;`, result)
@@ -145,7 +146,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				},
 			},
 			assertion: func(t *testing.T, result string, err error) {
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Regexp(t, `listen 8443 ssl http2;`, result)
 				assert.Regexp(t, `ssl_certificate\s+certs/default.crt.pem;`, result)
 				assert.Regexp(t, `ssl_certificate_key certs/default.key.pem;`, result)

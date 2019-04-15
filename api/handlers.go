@@ -3,7 +3,6 @@ package api
 import (
 	"context"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -11,11 +10,6 @@ import (
 
 	"github.com/labstack/echo"
 	"github.com/sirupsen/logrus"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	"github.com/tsuru/rpaas-operator/rpaas"
-	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 )
 
 func scale(c echo.Context) error {
@@ -27,31 +21,20 @@ func scale(c echo.Context) error {
 	if err != nil || intQty <= 0 {
 		return c.String(http.StatusBadRequest, "invalid quantity: "+qty)
 	}
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
 
 	name := c.Param("instance")
-	instance := &v1alpha1.RpaasInstance{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasInstance",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      name,
-			Namespace: NAMESPACE,
-		},
-	}
-	ctx := context.TODO()
-	err = cli.Get(ctx, types.NamespacedName{Name: name, Namespace: NAMESPACE}, instance)
+	instance, err := manager.GetInstance(name)
 	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			return c.NoContent(http.StatusNotFound)
-		}
-		logrus.Error(err)
-		return c.JSON(http.StatusInternalServerError, err)
+		return err
 	}
 
 	int32Qty := int32(intQty)
 	instance.Spec.Replicas = &int32Qty
-	err = cli.Update(ctx, instance)
+	err = cli.Update(context.TODO(), instance)
 	if err != nil {
 		logrus.Error(err)
 		return c.JSON(http.StatusInternalServerError, err)
@@ -78,9 +61,9 @@ func updateCertificate(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("could not load the given certicate and key: %s", err))
 	}
-	manager, ok := c.Get("manager").(rpaas.RpaasManager)
-	if !ok {
-		return errors.New("invalid manager state")
+	manager, err := getManager(c)
+	if err != nil {
+		return err
 	}
 	instance := c.Param("instance")
 	err = manager.UpdateCertificate(instance, certificate)
