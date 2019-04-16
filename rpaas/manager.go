@@ -49,6 +49,7 @@ type RpaasManager interface {
 	DeleteInstance(name string) error
 	GetInstance(name string) (*v1alpha1.RpaasInstance, error)
 	DeleteBlock(instanceName, block string) error
+	ListBlocks(instanceName string) (map[string]string, error)
 	UpdateBlock(instanceName, block, content string) error
 }
 
@@ -155,6 +156,24 @@ func (m *k8sRpaasManager) DeleteBlock(instanceName, block string) error {
 	}
 	delete(instance.Spec.Blocks, blockType)
 	return m.cli.Update(m.ctx, instance)
+}
+
+func (m *k8sRpaasManager) ListBlocks(instanceName string) (map[string]string, error) {
+	instance, err := m.GetInstance(instanceName)
+	if err != nil {
+		return nil, err
+	}
+	configBlocks, err := m.getConfigurationBlocks(*instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return map[string]string{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	if configBlocks.Data == nil {
+		return map[string]string{}, nil
+	}
+	return configBlocks.Data, nil
 }
 
 func (m *k8sRpaasManager) UpdateBlock(instanceName, block, content string) error {

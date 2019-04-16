@@ -100,6 +100,71 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "another-instance"
+	instance2.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{
+		v1alpha1.BlockTypeHTTP: v1alpha1.ConfigRef{
+			Kind: v1alpha1.ConfigKindConfigMap,
+			Name: "another-instance-blocks",
+		},
+	}
+
+	cb := newEmptyConfigurationBlocks()
+	cb.ObjectMeta.Name = "another-instance-blocks"
+	cb.Data = map[string]string{
+		"http": "# just a user configuration on http context",
+	}
+
+	resources := []runtime.Object{instance1, instance2, cb}
+
+	testCases := []struct {
+		instance  string
+		assertion func(*testing.T, map[string]string, error)
+	}{
+		{
+			"unknown-instance",
+			func(t *testing.T, blocks map[string]string, err error) {
+				assert.Error(t, err)
+			},
+		},
+		{
+			"my-instance",
+			func(t *testing.T, blocks map[string]string, err error) {
+				assert.NoError(t, err)
+				assert.NotNil(t, blocks)
+				assert.Len(t, blocks, 0)
+			},
+		},
+		{
+			"another-instance",
+			func(t *testing.T, blocks map[string]string, err error) {
+				assert.NoError(t, err)
+				expected := map[string]string{
+					"http": "# just a user configuration on http context",
+				}
+				assert.Equal(t, expected, blocks)
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{
+				cli: fake.NewFakeClientWithScheme(scheme, resources...),
+			}
+			blocks, err := manager.ListBlocks(testCase.instance)
+			testCase.assertion(t, blocks, err)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
