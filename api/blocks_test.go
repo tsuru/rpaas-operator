@@ -81,6 +81,63 @@ func Test_deleteBlock(t *testing.T) {
 	}
 }
 
+func Test_listBlocks(t *testing.T) {
+	testCases := []struct {
+		expectedCode  int
+		expectedBody  string
+		expectedError error
+		manager       rpaas.RpaasManager
+	}{
+		{
+			http.StatusOK,
+			fmt.Sprintf("{\"blocks\":[]}\n"),
+			nil,
+			&fake.RpaasManager{
+				FakeListBlocks: func(i string) (map[string]string, error) {
+					return map[string]string{}, nil
+				},
+			},
+		},
+		{
+			http.StatusOK,
+			fmt.Sprintf("{\"blocks\":[{\"block_name\":\"http\",\"content\":\"# my nginx configuration\"}]}\n"),
+			nil,
+			&fake.RpaasManager{
+				FakeListBlocks: func(i string) (map[string]string, error) {
+					return map[string]string{"http": "# my nginx configuration"}, nil
+				},
+			},
+		},
+		{
+			http.StatusInternalServerError,
+			fmt.Sprintf("{\"message\":\"Internal Server Error\"}\n"),
+			errors.New("some error"),
+			&fake.RpaasManager{
+				FakeListBlocks: func(i string) (map[string]string, error) {
+					return nil, errors.New("some error")
+				},
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run("", func(t *testing.T) {
+			request := httptest.NewRequest(http.MethodGet, "/resources/my-instance/block", nil)
+			recorder := httptest.NewRecorder()
+			e := echo.New()
+			context := e.NewContext(request, recorder)
+			context.SetParamNames("instance")
+			context.SetParamValues("my-instance")
+			context.Set("manager", testCase.manager)
+			err := listBlocks(context)
+			assert.Equal(t, testCase.expectedError, err)
+			e.HTTPErrorHandler(err, context)
+			assert.Equal(t, testCase.expectedCode, recorder.Code)
+			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
+		})
+	}
+}
+
 func Test_updateBlock(t *testing.T) {
 	instanceName := "my-instance"
 

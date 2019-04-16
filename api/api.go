@@ -108,6 +108,7 @@ func configHandlers(e *echo.Echo) {
 
 	e.POST("/resources/:instance/scale", scale)
 	e.POST("/resources/:instance/certificate", updateCertificate)
+	e.GET("/resources/:instance/block", listBlocks)
 	e.POST("/resources/:instance/block", updateBlock)
 	e.DELETE("/resources/:instance/block/:block", deleteBlock)
 }

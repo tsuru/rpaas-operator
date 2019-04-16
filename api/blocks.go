@@ -8,6 +8,11 @@ import (
 	"github.com/tsuru/rpaas-operator/rpaas"
 )
 
+type Block struct {
+	Name    string `form:"block_name" json:"block_name"`
+	Content string `form:"content" json:"content"`
+}
+
 func deleteBlock(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {
@@ -27,15 +32,34 @@ func deleteBlock(c echo.Context) error {
 	}
 }
 
+func listBlocks(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+	blocks, err := manager.ListBlocks(c.Param("instance"))
+	if err != nil {
+		return err
+	}
+	result := struct {
+		Blocks []Block `json:"blocks"`
+	}{
+		Blocks: make([]Block, len(blocks)),
+	}
+	var index int
+	for name, content := range blocks {
+		result.Blocks[index] = Block{Name: name, Content: content}
+		index++
+	}
+	return c.JSON(http.StatusOK, result)
+}
+
 func updateBlock(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
-	data := struct {
-		Name    string `form:"block_name"`
-		Content string `form:"content"`
-	}{}
+	var data Block
 	if err = c.Bind(&data); err != nil {
 		return err
 	}
