@@ -26,6 +26,10 @@ import (
 
 const defaultNamespacePrefix = "rpaasv2"
 
+var (
+	ErrBlockInvalid = ValidationError{Msg: fmt.Sprintf("rpaas: block is not valid (acceptable values are: %v)", getAvailableBlocks())}
+)
+
 type CreateArgs struct {
 	Name        string   `json:"name" form:"name"`
 	Plan        string   `json:"plan" form:"plan"`
@@ -43,6 +47,7 @@ type RpaasManager interface {
 	CreateInstance(args CreateArgs) error
 	DeleteInstance(name string) error
 	GetInstance(name string) (*v1alpha1.RpaasInstance, error)
+	UpdateBlock(instanceName, block, content string) error
 }
 
 type K8SOptions struct {
@@ -126,6 +131,28 @@ func (m *k8sRpaasManager) CreateInstance(args CreateArgs) error {
 		return err
 	}
 	return nil
+}
+
+func (m *k8sRpaasManager) UpdateBlock(instanceName, block, content string) error {
+	instance, err := m.GetInstance(instanceName)
+	if err != nil {
+		return err
+	}
+	if !isBlockValid(block) {
+		return ErrBlockInvalid
+	}
+	if err = m.updateConfigurationBlocks(*instance, block, content); err != nil {
+		return err
+	}
+	if instance.Spec.Blocks == nil {
+		instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{}
+	}
+	blockType := v1alpha1.BlockType(block)
+	instance.Spec.Blocks[blockType] = v1alpha1.ConfigRef{
+		Name: formatConfigurationBlocksName(*instance),
+		Kind: v1alpha1.ConfigKindConfigMap,
+	}
+	return m.cli.Update(m.ctx, instance)
 }
 
 func (m *k8sRpaasManager) UpdateCertificate(instance string, c tls.Certificate) error {
@@ -236,6 +263,44 @@ func (m *k8sRpaasManager) createNamespace(name string) error {
 	return m.cli.Create(m.ctx, ns)
 }
 
+func (m *k8sRpaasManager) createConfigurationBlocks(instance v1alpha1.RpaasInstance, block, content string) error {
+	configBlocks := &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      formatConfigurationBlocksName(instance),
+			Namespace: instance.ObjectMeta.Namespace,
+		},
+		Data: map[string]string{
+			block: content,
+		},
+	}
+	return m.cli.Create(m.ctx, configBlocks)
+}
+
+func (m *k8sRpaasManager) getConfigurationBlocks(instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
+	cm := &corev1.ConfigMap{}
+	namespacedName := types.NamespacedName{
+		Name:      formatConfigurationBlocksName(instance),
+		Namespace: instance.ObjectMeta.Namespace,
+	}
+	err := m.cli.Get(m.ctx, namespacedName, cm)
+	return cm, err
+}
+
+func (m *k8sRpaasManager) updateConfigurationBlocks(instance v1alpha1.RpaasInstance, block, content string) error {
+	configBlocks, err := m.getConfigurationBlocks(instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return m.createConfigurationBlocks(instance, block, content)
+	}
+	if err != nil {
+		return err
+	}
+	if configBlocks.Data == nil {
+		configBlocks.Data = map[string]string{}
+	}
+	configBlocks.Data[block] = content
+	return m.cli.Update(m.ctx, configBlocks)
+}
+
 func convertTLSCertificate(c *tls.Certificate) ([]byte, []byte, error) {
 	certificatePem, err := convertCertificateToPem(c.Certificate)
 	if err != nil {
@@ -279,6 +344,10 @@ func convertPrivateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
 
 func formatCertificateSecretName(ri v1alpha1.RpaasInstance, name string) string {
 	return fmt.Sprintf("%s-certificate-%s", ri.ObjectMeta.Name, name)
+}
+
+func formatConfigurationBlocksName(instance v1alpha1.RpaasInstance) string {
+	return fmt.Sprintf("%s-blocks", instance.ObjectMeta.Name)
 }
 
 func newCertificateSecret(ri v1alpha1.RpaasInstance, name string, rawCertPem, rawKeyPem []byte) *corev1.Secret {
@@ -345,4 +414,21 @@ func parseTagArg(tags []string, name string, destination *string) {
 func parseTags(args CreateArgs) {
 	parseTagArg(args.Tags, "flavor", &args.Flavor)
 	parseTagArg(args.Tags, "ip", &args.IP)
+}
+
+func getAvailableBlocks() []v1alpha1.BlockType {
+	return []v1alpha1.BlockType{
+		v1alpha1.BlockTypeRoot,
+		v1alpha1.BlockTypeHTTP,
+		v1alpha1.BlockTypeServer,
+	}
+}
+
+func isBlockValid(block string) bool {
+	for _, b := range getAvailableBlocks() {
+		if v1alpha1.BlockType(block) == b {
+			return true
+		}
+	}
+	return false
 }
