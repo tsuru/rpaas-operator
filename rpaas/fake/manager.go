@@ -12,6 +12,7 @@ type RpaasManager struct {
 	FakeCreateInstance    func(args rpaas.CreateArgs) error
 	FakeDeleteInstance    func(name string) error
 	FakeGetInstance       func(name string) (*v1alpha1.RpaasInstance, error)
+	FakeDeleteBlock       func(instanceName, block string) error
 	FakeUpdateBlock       func(instanceName, block, content string) error
 }
 
@@ -41,6 +42,13 @@ func (m *RpaasManager) GetInstance(name string) (*v1alpha1.RpaasInstance, error)
 		return m.FakeGetInstance(name)
 	}
 	return nil, nil
+}
+
+func (m *RpaasManager) DeleteBlock(instanceName, block string) error {
+	if m.FakeDeleteBlock != nil {
+		return m.FakeDeleteBlock(instanceName, block)
+	}
+	return nil
 }
 
 func (m *RpaasManager) UpdateBlock(instanceName, block, content string) error {

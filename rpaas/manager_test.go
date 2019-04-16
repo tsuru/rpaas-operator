@@ -15,6 +15,91 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "another-instance"
+	instance2.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{
+		v1alpha1.BlockTypeHTTP: v1alpha1.ConfigRef{
+			Kind: v1alpha1.ConfigKindConfigMap,
+			Name: "another-instance-blocks",
+		},
+	}
+
+	cb := newEmptyConfigurationBlocks()
+	cb.ObjectMeta.Name = "another-instance-blocks"
+	cb.Data = map[string]string{
+		"http": "# just a user configuration on http context",
+	}
+
+	resources := []runtime.Object{instance1, instance2, cb}
+
+	testCases := []struct {
+		instance  string
+		block     string
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			"my-instance",
+			"unknown-block",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, ErrBlockInvalid, err)
+			},
+		},
+		{
+			"another-instance",
+			"http",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				cm := &corev1.ConfigMap{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance-blocks", Namespace: "default"}, cm)
+				require.NoError(t, err)
+				_, ok := cm.Data["http"]
+				assert.False(t, ok)
+
+				ri := &v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance", Namespace: "default"}, ri)
+				require.NoError(t, err)
+				_, ok = ri.Spec.Blocks[v1alpha1.BlockType("http")]
+				assert.False(t, ok)
+			},
+		},
+		{
+			"my-instance",
+			"server",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, ErrBlockIsNotDefined, err)
+			},
+		},
+		{
+			"another-instance",
+			"server",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, ErrBlockIsNotDefined, err)
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{
+				cli: fake.NewFakeClientWithScheme(scheme, resources...),
+			}
+			err := manager.DeleteBlock(testCase.instance, testCase.block)
+			testCase.assertion(t, err, manager)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)

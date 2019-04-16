@@ -27,7 +27,8 @@ import (
 const defaultNamespacePrefix = "rpaasv2"
 
 var (
-	ErrBlockInvalid = ValidationError{Msg: fmt.Sprintf("rpaas: block is not valid (acceptable values are: %v)", getAvailableBlocks())}
+	ErrBlockInvalid      = ValidationError{Msg: fmt.Sprintf("rpaas: block is not valid (acceptable values are: %v)", getAvailableBlocks())}
+	ErrBlockIsNotDefined = ValidationError{Msg: "rpaas: block is not defined"}
 )
 
 type CreateArgs struct {
@@ -47,6 +48,7 @@ type RpaasManager interface {
 	CreateInstance(args CreateArgs) error
 	DeleteInstance(name string) error
 	GetInstance(name string) (*v1alpha1.RpaasInstance, error)
+	DeleteBlock(instanceName, block string) error
 	UpdateBlock(instanceName, block, content string) error
 }
 
@@ -131,6 +133,28 @@ func (m *k8sRpaasManager) CreateInstance(args CreateArgs) error {
 		return err
 	}
 	return nil
+}
+
+func (m *k8sRpaasManager) DeleteBlock(instanceName, block string) error {
+	instance, err := m.GetInstance(instanceName)
+	if err != nil {
+		return err
+	}
+	if !isBlockValid(block) {
+		return ErrBlockInvalid
+	}
+	if err = m.deleteConfigurationBlocks(*instance, block); err != nil {
+		return err
+	}
+	if instance.Spec.Blocks == nil {
+		return ErrBlockIsNotDefined
+	}
+	blockType := v1alpha1.BlockType(block)
+	if _, ok := instance.Spec.Blocks[blockType]; !ok {
+		return ErrBlockIsNotDefined
+	}
+	delete(instance.Spec.Blocks, blockType)
+	return m.cli.Update(m.ctx, instance)
 }
 
 func (m *k8sRpaasManager) UpdateBlock(instanceName, block, content string) error {
@@ -298,6 +322,24 @@ func (m *k8sRpaasManager) updateConfigurationBlocks(instance v1alpha1.RpaasInsta
 		configBlocks.Data = map[string]string{}
 	}
 	configBlocks.Data[block] = content
+	return m.cli.Update(m.ctx, configBlocks)
+}
+
+func (m *k8sRpaasManager) deleteConfigurationBlocks(instance v1alpha1.RpaasInstance, block string) error {
+	configBlocks, err := m.getConfigurationBlocks(instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return ErrBlockIsNotDefined
+	}
+	if err != nil {
+		return err
+	}
+	if configBlocks.Data == nil {
+		return ErrBlockIsNotDefined
+	}
+	if _, ok := configBlocks.Data[block]; !ok {
+		return ErrBlockIsNotDefined
+	}
+	delete(configBlocks.Data, block)
 	return m.cli.Update(m.ctx, configBlocks)
 }
 
