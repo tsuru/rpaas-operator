@@ -8,6 +8,25 @@ import (
 	"github.com/tsuru/rpaas-operator/rpaas"
 )
 
+func deleteBlock(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+	block := c.Param("block")
+	err = manager.DeleteBlock(c.Param("instance"), block)
+	switch err {
+	case nil:
+		return c.String(http.StatusOK, fmt.Sprintf("block %q was successfully removed", block))
+	case rpaas.ErrBlockInvalid:
+		return c.String(http.StatusBadRequest, fmt.Sprintf("%s", err))
+	case rpaas.ErrBlockIsNotDefined:
+		return c.NoContent(http.StatusNoContent)
+	default:
+		return err
+	}
+}
+
 func updateBlock(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {
