@@ -11,8 +11,128 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
+
+func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "another-instance"
+	instance2.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{
+		v1alpha1.BlockTypeHTTP: v1alpha1.ConfigRef{
+			Kind: v1alpha1.ConfigKindConfigMap,
+			Name: "another-instance-blocks",
+		},
+	}
+
+	cb := newEmptyConfigurationBlocks()
+	cb.ObjectMeta.Name = "another-instance-blocks"
+	cb.Data = map[string]string{
+		"http": "# just a user configuration on http context",
+	}
+
+	resources := []runtime.Object{instance1, instance2, cb}
+
+	testCases := []struct {
+		instance  string
+		block     string
+		content   string
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			"my-instance",
+			"unknown block",
+			"",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, ErrBlockInvalid, err)
+			},
+		},
+		{
+			"instance-not-found",
+			"root",
+			"# My root configuration",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			"my-instance",
+			"http",
+			"# my custom http configuration",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				ri := &v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance", Namespace: "default"}, ri)
+				require.NoError(t, err)
+				expectedBlocks := map[v1alpha1.BlockType]v1alpha1.ConfigRef{
+					v1alpha1.BlockTypeHTTP: v1alpha1.ConfigRef{
+						Name: "my-instance-blocks",
+						Kind: v1alpha1.ConfigKindConfigMap,
+					},
+				}
+				assert.Equal(t, expectedBlocks, ri.Spec.Blocks)
+
+				cm := &corev1.ConfigMap{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance-blocks", Namespace: "default"}, cm)
+				assert.NoError(t, err)
+				expectedConfigMapData := map[string]string{"http": "# my custom http configuration"}
+				assert.Equal(t, expectedConfigMapData, cm.Data)
+			},
+		},
+		{
+			"another-instance",
+			"server",
+			"# my custom server configuration",
+			func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				ri := &v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance", Namespace: "default"}, ri)
+				require.NoError(t, err)
+				expectedBlocks := map[v1alpha1.BlockType]v1alpha1.ConfigRef{
+					v1alpha1.BlockTypeHTTP: v1alpha1.ConfigRef{
+						Name: "another-instance-blocks",
+						Kind: v1alpha1.ConfigKindConfigMap,
+					},
+					v1alpha1.BlockTypeServer: v1alpha1.ConfigRef{
+						Name: "another-instance-blocks",
+						Kind: v1alpha1.ConfigKindConfigMap,
+					},
+				}
+				assert.Equal(t, expectedBlocks, ri.Spec.Blocks)
+
+				cm := &corev1.ConfigMap{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance-blocks", Namespace: "default"}, cm)
+				require.NoError(t, err)
+
+				expectedConfigMapData := map[string]string{
+					"http":   "# just a user configuration on http context",
+					"server": "# my custom server configuration",
+				}
+				assert.Equal(t, expectedConfigMapData, cm.Data)
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{
+				cli: fake.NewFakeClientWithScheme(scheme, resources...),
+			}
+			err := manager.UpdateBlock(testCase.instance, testCase.block, testCase.content)
+			testCase.assertion(t, err, manager)
+		})
+	}
+}
 
 func Test_k8sRpaasManager_UpdateCertificate(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -174,5 +294,32 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			err := manager.UpdateCertificate(testCase.instance, testCase.certificate)
 			testCase.assertion(t, err, manager)
 		})
+	}
+}
+
+func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
+	return &v1alpha1.RpaasInstance{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+			Kind:       "RpaasInstance",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{},
+	}
+}
+
+func newEmptyConfigurationBlocks() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-blocks",
+			Namespace: "default",
+		},
 	}
 }
