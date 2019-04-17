@@ -19,7 +19,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -217,11 +216,7 @@ func (m *k8sRpaasManager) UpdateCertificate(instance string, c tls.Certificate) 
 
 func (m *k8sRpaasManager) GetInstance(name string) (*v1alpha1.RpaasInstance, error) {
 	list := &v1alpha1.RpaasInstanceList{}
-	err := m.cli.List(m.ctx, &client.ListOptions{
-		FieldSelector: fields.SelectorFromSet(fields.Set(map[string]string{
-			"namespace.name": name,
-		})),
-	}, list)
+	err := m.cli.List(m.ctx, client.MatchingField("metadata.name", name), list)
 	if err != nil {
 		return nil, err
 	}

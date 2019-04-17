@@ -6,6 +6,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/rpaas/nginx"
@@ -40,6 +41,10 @@ func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 
 // add adds a new Controller to mgr with r as the reconcile.Reconciler
 func add(mgr manager.Manager, r reconcile.Reconciler) error {
+	if err := apis.IndexRpaasInstanceName(mgr); err != nil {
+		return err
+	}
+
 	// Create a new controller
 	c, err := controller.New("rpaasinstance-controller", mgr, controller.Options{Reconciler: r})
 	if err != nil {
