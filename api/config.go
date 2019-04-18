@@ -1,27 +1,12 @@
 package api
 
 import (
-	"time"
-
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/runtime/signals"
 )
-
-const (
-	apiTimeout   = 10 * time.Second
-	dialTimeout  = 30 * time.Second
-	tcpKeepAlive = 30 * time.Second
-)
-
-type kubeConfig struct {
-	Addr       string
-	CaCert     []byte
-	ClientCert []byte
-	ClientKey  []byte
-}
 
 var cli client.Client
 
@@ -34,11 +19,13 @@ func setup() error {
 	if err != nil {
 		return err
 	}
-	cli = m.GetClient()
-	err = apis.AddToScheme(m.GetScheme())
-	if err != nil {
+	if err = apis.AddToScheme(m.GetScheme()); err != nil {
 		return err
 	}
+	if err = apis.AddFieldIndexes(m.GetFieldIndexer()); err != nil {
+		return err
+	}
+	cli = m.GetClient()
 	go m.Start(signals.SetupSignalHandler())
 	return nil
 }
