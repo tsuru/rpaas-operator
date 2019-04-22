@@ -13,15 +13,23 @@ import (
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
 func setupTest(t *testing.T) {
-	scheme, err := v1alpha1.SchemeBuilder.Build()
-	require.Nil(t, err)
+	scheme := runtime.NewScheme()
+	err := corev1.AddToScheme(scheme)
+	require.NoError(t, err)
+
+	err = apis.AddToScheme(scheme)
+	require.NoError(t, err)
+
 	cli = fake.NewFakeClientWithScheme(scheme)
 
 	err = cli.Create(context.TODO(), &v1alpha1.RpaasPlan{
