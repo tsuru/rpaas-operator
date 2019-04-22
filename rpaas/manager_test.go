@@ -7,6 +7,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -175,4 +176,38 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			testCase.assertion(t, err, manager)
 		})
 	}
+}
+
+func Test_k8sRpaasManager_GetPlan(t *testing.T) {
+	plan1 := &v1alpha1.RpaasPlan{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+			Kind:       "RpaasPlan",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "my-plan",
+		},
+		Spec: v1alpha1.RpaasPlanSpec{},
+	}
+
+	scheme := runtime.NewScheme()
+	err := apis.AddToScheme(scheme)
+	require.NoError(t, err)
+
+	manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, plan1)}
+
+	t.Run(`when plan exists on cluster`, func(t *testing.T) {
+		expectedPlanName := "my-plan"
+		plan, err := manager.GetPlan(expectedPlanName)
+		assert.NoError(t, err)
+		require.NotNil(t, plan)
+		assert.Equal(t, expectedPlanName, plan.Name)
+	})
+
+	t.Run(`when plan is not found`, func(t *testing.T) {
+		_, err := manager.GetPlan("another-plan")
+		assert.Error(t, err)
+		expectedError := NotFoundError{Msg: `plan "another-plan" not found`}
+		assert.Equal(t, expectedError, err)
+	})
 }
