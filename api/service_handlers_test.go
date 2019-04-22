@@ -77,8 +77,8 @@ func Test_serviceCreate(t *testing.T) {
 		},
 		{
 			"name=rpaas&plan=plan2&team=myteam",
-			http.StatusBadRequest,
-			"plan not found",
+			http.StatusNotFound,
+			`.*plan.*plan2.*not found.*`,
 		},
 		{
 			"name=firstinstance&plan=myplan&team=myteam",

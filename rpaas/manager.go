@@ -41,6 +41,7 @@ type RpaasManager interface {
 	CreateInstance(args CreateArgs) error
 	DeleteInstance(name string) error
 	GetInstance(name string) (*v1alpha1.RpaasInstance, error)
+	GetPlan(name string) (*v1alpha1.RpaasPlan, error)
 }
 
 type K8SOptions struct {
@@ -169,6 +170,32 @@ func (m *k8sRpaasManager) GetInstance(name string) (*v1alpha1.RpaasInstance, err
 	return &list.Items[0], nil
 }
 
+func (m *k8sRpaasManager) GetPlan(name string) (*v1alpha1.RpaasPlan, error) {
+	planList := &v1alpha1.RpaasPlanList{}
+	err := m.cli.List(m.ctx, client.MatchingField("metadata.name", name), planList)
+	if err != nil {
+		return nil, err
+	}
+	// Let's filter the list again, field selector implementation is not always
+	// trustyworthy (mainly on tests). If it works correctly we're only
+	// iterating on 1 item at most, so no problem playing safe here.
+	plans := planList.Items
+	for i := 0; i < len(plans); i++ {
+		if plans[i].Name != name {
+			lastIndex := len(plans) - 1
+			plans[i] = plans[lastIndex]
+			plans = plans[:lastIndex]
+			i--
+		}
+	}
+	// Since the RpaasPlan is cluster-scoped, we can safely ignore the case where
+	// there are more than one object retrieved.
+	if len(plans) == 0 {
+		return nil, NotFoundError{Msg: fmt.Sprintf("plan %q not found", name)}
+	}
+	return &plans[0], nil
+}
+
 func (m *k8sRpaasManager) getCertificateSecret(ri v1alpha1.RpaasInstance, name string) (*corev1.Secret, error) {
 	namespacedName := types.NamespacedName{
 		Name:      formatCertificateSecretName(ri, name),
@@ -293,20 +320,7 @@ func (m *k8sRpaasManager) validateCreate(args CreateArgs) (*v1alpha1.RpaasPlan, 
 	if args.Team == "" {
 		return nil, ValidationError{Msg: "team name is required"}
 	}
-	plans := &v1alpha1.RpaasPlanList{}
-	err := m.cli.List(context.TODO(), &client.ListOptions{}, plans)
-	if err != nil {
-		return nil, err
-	}
-	instance := &v1alpha1.RpaasPlan{}
-	err = m.cli.Get(m.ctx, client.ObjectKey{Name: args.Plan}, instance)
-	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			return nil, ValidationError{Msg: "plan not found"}
-		}
-		return nil, err
-	}
-	return instance, nil
+	return m.GetPlan(args.Plan)
 }
 
 func NamespaceName(team string) string {
