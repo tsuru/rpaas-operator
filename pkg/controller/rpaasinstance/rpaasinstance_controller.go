@@ -8,9 +8,9 @@ import (
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"github.com/tsuru/rpaas-operator/rpaas"
 	"github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -75,17 +75,15 @@ type ReconcileRpaasInstance struct {
 func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RpaasInstance")
-
-	instance := &extensionsv1alpha1.RpaasInstance{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	manager := rpaas.NewK8S(rpaas.K8SOptions{
+		Cli: r.client,
+		Ctx: context.Background(),
+	})
+	instance, err := manager.GetInstance(request.NamespacedName.Name)
 	if err != nil {
-		if errors.IsNotFound(err) {
-			return reconcile.Result{}, nil
-		}
 		return reconcile.Result{}, err
 	}
-
-	plan, err := getPlan(r, instance)
+	plan, err := manager.GetPlan(instance.Spec.PlanName)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -158,27 +156,6 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 	}
 	renderer := nginx.NewRpaasConfigurationRenderer()
 	return renderer.Render(data)
-}
-
-func getPlan(r *ReconcileRpaasInstance, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasPlan, error) {
-	plan := &v1alpha1.RpaasPlan{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Spec.PlanName,
-			Namespace: instance.Namespace,
-		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasPlan",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-	}
-	err := r.client.Get(context.TODO(), types.NamespacedName{
-		Namespace: instance.Namespace,
-		Name:      instance.Spec.PlanName,
-	}, plan)
-	if err != nil {
-		return nil, err
-	}
-	return plan, nil
 }
 
 func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
