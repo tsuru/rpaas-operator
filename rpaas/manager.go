@@ -95,6 +95,10 @@ func (m *k8sRpaasManager) CreateInstance(args CreateArgs) error {
 	for k, v := range annotationsBase {
 		annotations[k] = fmt.Sprint(v)
 	}
+	namespaceName := NamespaceName(args.Team)
+	if err = m.createNamespace(namespaceName); err != nil && !k8sErrors.IsAlreadyExists(err) {
+		return err
+	}
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasInstance",
@@ -102,7 +106,7 @@ func (m *k8sRpaasManager) CreateInstance(args CreateArgs) error {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        args.Name,
-			Namespace:   NamespaceName(args.Team),
+			Namespace:   namespaceName,
 			Annotations: annotations,
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{
@@ -229,6 +233,20 @@ func (m *k8sRpaasManager) updateCertificateSecret(s *corev1.Secret, c *tls.Certi
 func (m *k8sRpaasManager) updateCertificates(ri *v1alpha1.RpaasInstance, certs map[string]nginxv1alpha1.TLSSecret) error {
 	ri.Spec.Certificates = certs
 	return m.cli.Update(m.ctx, ri)
+}
+
+func (m *k8sRpaasManager) createNamespace(name string) error {
+	ns := &corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+		},
+		Spec: corev1.NamespaceSpec{},
+	}
+	return m.cli.Create(m.ctx, ns)
 }
 
 func convertTLSCertificate(c *tls.Certificate) ([]byte, []byte, error) {
