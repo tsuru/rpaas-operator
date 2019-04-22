@@ -24,6 +24,8 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
+const defaultNamespacePrefix = "rpaasv2"
+
 type CreateArgs struct {
 	Name        string   `json:"name" form:"name"`
 	Plan        string   `json:"plan" form:"plan"`
@@ -342,7 +344,7 @@ func (m *k8sRpaasManager) validateCreate(args CreateArgs) (*v1alpha1.RpaasPlan, 
 }
 
 func NamespaceName(team string) string {
-	return team
+	return fmt.Sprintf("%s-%s", defaultNamespacePrefix, team)
 }
 
 func parseTagArg(tags []string, name string, destination *string) {
