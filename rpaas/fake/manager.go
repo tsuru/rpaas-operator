@@ -12,7 +12,6 @@ type RpaasManager struct {
 	FakeCreateInstance    func(args rpaas.CreateArgs) error
 	FakeDeleteInstance    func(name string) error
 	FakeGetInstance       func(name string) (*v1alpha1.RpaasInstance, error)
-	FakeGetPlan           func(name string) (*v1alpha1.RpaasPlan, error)
 }
 
 func (m *RpaasManager) UpdateCertificate(instance string, c tls.Certificate) error {
@@ -39,13 +38,6 @@ func (m *RpaasManager) DeleteInstance(name string) error {
 func (m *RpaasManager) GetInstance(name string) (*v1alpha1.RpaasInstance, error) {
 	if m.FakeGetInstance != nil {
 		return m.FakeGetInstance(name)
-	}
-	return nil, nil
-}
-
-func (m *RpaasManager) GetPlan(name string) (*v1alpha1.RpaasPlan, error) {
-	if m.FakeGetPlan != nil {
-		return m.FakeGetPlan(name)
 	}
 	return nil, nil
 }

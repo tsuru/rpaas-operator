@@ -8,7 +8,6 @@ import (
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	"github.com/tsuru/rpaas-operator/rpaas"
 	"github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -75,15 +74,17 @@ type ReconcileRpaasInstance struct {
 func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RpaasInstance")
-	manager := rpaas.NewK8S(rpaas.K8SOptions{
-		Cli: r.client,
-		Ctx: context.Background(),
-	})
-	instance, err := manager.GetInstance(request.NamespacedName.Name)
+	instance := &v1alpha1.RpaasInstance{}
+	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		reqLogger.Info("Nothing to do due the RpaasInstance was removed")
+		return reconcile.Result{}, nil
+	}
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	plan, err := manager.GetPlan(instance.Spec.PlanName)
+	plan := &v1alpha1.RpaasPlan{}
+	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Spec.PlanName}, plan)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
