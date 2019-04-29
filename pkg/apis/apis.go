@@ -16,22 +16,10 @@ func AddToScheme(s *runtime.Scheme) error {
 
 // AddFieldIndexes adds some indexes on fieldIndexer so their objects can
 // later be fetched by a field selector.
-func AddFieldIndexes(fieldIndexer client.FieldIndexer) (err error) {
-	err = fieldIndexer.IndexField(
+func AddFieldIndexes(fieldIndexer client.FieldIndexer) error {
+	return fieldIndexer.IndexField(
 		&v1alpha1.RpaasInstance{},
 		"metadata.name",
 		func(o runtime.Object) []string { return []string{o.(*v1alpha1.RpaasInstance).Name} },
 	)
-
-	if err != nil {
-		return
-	}
-
-	err = fieldIndexer.IndexField(
-		&v1alpha1.RpaasPlan{},
-		"metadata.name",
-		func(o runtime.Object) []string { return []string{o.(*v1alpha1.RpaasPlan).Name} },
-	)
-
-	return
 }
