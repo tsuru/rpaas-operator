@@ -12,9 +12,9 @@ type RpaasManager struct {
 	FakeCreateInstance    func(args rpaas.CreateArgs) error
 	FakeDeleteInstance    func(name string) error
 	FakeGetInstance       func(name string) (*v1alpha1.RpaasInstance, error)
-	FakeDeleteBlock       func(instanceName, block string) error
-	FakeListBlocks        func(instanceName string) (map[string]string, error)
-	FakeUpdateBlock       func(instanceName, block, content string) error
+	FakeDeleteBlock       func(instanceName, blockName string) error
+	FakeListBlocks        func(instanceName string) ([]rpaas.ConfigurationBlock, error)
+	FakeUpdateBlock       func(instanceName string, block rpaas.ConfigurationBlock) error
 }
 
 func (m *RpaasManager) UpdateCertificate(instance string, c tls.Certificate) error {
@@ -45,23 +45,23 @@ func (m *RpaasManager) GetInstance(name string) (*v1alpha1.RpaasInstance, error)
 	return nil, nil
 }
 
-func (m *RpaasManager) DeleteBlock(instanceName, block string) error {
+func (m *RpaasManager) DeleteBlock(instanceName, blockName string) error {
 	if m.FakeDeleteBlock != nil {
-		return m.FakeDeleteBlock(instanceName, block)
+		return m.FakeDeleteBlock(instanceName, blockName)
 	}
 	return nil
 }
 
-func (m *RpaasManager) ListBlocks(instanceName string) (map[string]string, error) {
+func (m *RpaasManager) ListBlocks(instanceName string) ([]rpaas.ConfigurationBlock, error) {
 	if m.FakeListBlocks != nil {
 		return m.FakeListBlocks(instanceName)
 	}
 	return nil, nil
 }
 
-func (m *RpaasManager) UpdateBlock(instanceName, block, content string) error {
+func (m *RpaasManager) UpdateBlock(instanceName string, block rpaas.ConfigurationBlock) error {
 	if m.FakeUpdateBlock != nil {
-		return m.FakeUpdateBlock(instanceName, block, content)
+		return m.FakeUpdateBlock(instanceName, block)
 	}
 	return nil
 }

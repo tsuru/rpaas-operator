@@ -114,21 +114,21 @@ func (m *k8sRpaasManager) CreateInstance(args CreateArgs) error {
 	return nil
 }
 
-func (m *k8sRpaasManager) DeleteBlock(instanceName, block string) error {
+func (m *k8sRpaasManager) DeleteBlock(instanceName, blockName string) error {
 	instance, err := m.GetInstance(instanceName)
 	if err != nil {
 		return err
 	}
-	if !isBlockValid(block) {
+	if !isBlockValid(blockName) {
 		return ErrBlockInvalid
 	}
-	if err = m.deleteConfigurationBlocks(*instance, block); err != nil {
+	if err = m.deleteConfigurationBlocks(*instance, blockName); err != nil {
 		return err
 	}
 	if instance.Spec.Blocks == nil {
 		return ErrBlockIsNotDefined
 	}
-	blockType := v1alpha1.BlockType(block)
+	blockType := v1alpha1.BlockType(blockName)
 	if _, ok := instance.Spec.Blocks[blockType]; !ok {
 		return ErrBlockIsNotDefined
 	}
@@ -136,39 +136,42 @@ func (m *k8sRpaasManager) DeleteBlock(instanceName, block string) error {
 	return m.cli.Update(m.ctx, instance)
 }
 
-func (m *k8sRpaasManager) ListBlocks(instanceName string) (map[string]string, error) {
+func (m *k8sRpaasManager) ListBlocks(instanceName string) ([]ConfigurationBlock, error) {
 	instance, err := m.GetInstance(instanceName)
 	if err != nil {
 		return nil, err
 	}
 	configBlocks, err := m.getConfigurationBlocks(*instance)
 	if err != nil && k8sErrors.IsNotFound(err) {
-		return map[string]string{}, nil
+		return []ConfigurationBlock{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	if configBlocks.Data == nil {
-		return map[string]string{}, nil
+	var index int
+	blocks := make([]ConfigurationBlock, len(configBlocks.Data))
+	for name, content := range configBlocks.Data {
+		blocks[index] = ConfigurationBlock{Name: name, Content: content}
+		index++
 	}
-	return configBlocks.Data, nil
+	return blocks, nil
 }
 
-func (m *k8sRpaasManager) UpdateBlock(instanceName, block, content string) error {
+func (m *k8sRpaasManager) UpdateBlock(instanceName string, block ConfigurationBlock) error {
 	instance, err := m.GetInstance(instanceName)
 	if err != nil {
 		return err
 	}
-	if !isBlockValid(block) {
+	if !isBlockValid(block.Name) {
 		return ErrBlockInvalid
 	}
-	if err = m.updateConfigurationBlocks(*instance, block, content); err != nil {
+	if err = m.updateConfigurationBlocks(*instance, block.Name, block.Content); err != nil {
 		return err
 	}
 	if instance.Spec.Blocks == nil {
 		instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{}
 	}
-	blockType := v1alpha1.BlockType(block)
+	blockType := v1alpha1.BlockType(block.Name)
 	instance.Spec.Blocks[blockType] = v1alpha1.ConfigRef{
 		Name: formatConfigurationBlocksName(*instance),
 		Kind: v1alpha1.ConfigKindConfigMap,
