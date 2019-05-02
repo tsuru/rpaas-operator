@@ -11,10 +11,12 @@ import (
 
 func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 	testCases := []struct {
+		renderer  ConfigurationRenderer
 		data      ConfigurationData
 		assertion func(*testing.T, string, error)
 	}{
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config:   &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstanceSpec{},
@@ -30,6 +32,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 		},
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					RequestIDEnabled: true,
@@ -43,6 +46,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 		},
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					CacheEnabled:     true,
@@ -66,6 +70,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 		},
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					SyslogEnabled:       true,
@@ -80,6 +85,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 		},
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					SyslogEnabled:       true,
@@ -96,6 +102,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 		},
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					VTSEnabled: true,
@@ -108,6 +115,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 		},
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstanceSpec{
@@ -132,6 +140,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 		},
 		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					HTTPSListenOptions: "http2",
@@ -157,12 +166,43 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `ssl_session_timeout 1h;`, result)
 			},
 		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{
+				RootBlock:   "# some custom conf at root context",
+				HttpBlock:   "# some custom conf at http context",
+				ServerBlock: "# some custom conf at server context",
+			}),
+			data: ConfigurationData{
+				Config:   &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstanceSpec{},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				require.NoError(t, err)
+				assert.Regexp(t, `# some custom conf at root context`, result)
+				assert.Regexp(t, `# some custom conf at http context`, result)
+				assert.Regexp(t, `# some custom conf at server context`, result)
+			},
+		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{
+				RootBlock: "# I can use any block as a golang template: {{.Config.User}};",
+			}),
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					User: "another-user",
+				},
+				Instance: &v1alpha1.RpaasInstanceSpec{},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				require.NoError(t, err)
+				assert.Regexp(t, `# I can use any block as a golang template: another-user;`, result)
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
 		t.Run("", func(t *testing.T) {
-			configRenderer := NewRpaasConfigurationRenderer()
-			result, err := configRenderer.Render(testCase.data)
+			result, err := testCase.renderer.Render(testCase.data)
 			testCase.assertion(t, result, err)
 		})
 	}

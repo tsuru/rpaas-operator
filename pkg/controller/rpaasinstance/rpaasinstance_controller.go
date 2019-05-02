@@ -56,6 +56,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
 	})
 
+	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
+	})
+
 	return err
 }
 
@@ -151,12 +156,53 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxV1alpha1.Nginx) erro
 }
 
 func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
+	blocks, err := r.getConfigurationBlocks(instance)
+	if err != nil {
+		return "", err
+	}
 	data := nginx.ConfigurationData{
 		Instance: &instance.Spec,
 		Config:   &plan.Spec.Config,
 	}
-	renderer := nginx.NewRpaasConfigurationRenderer()
-	return renderer.Render(data)
+	return nginx.NewRpaasConfigurationRenderer(blocks).Render(data)
+}
+
+func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.RpaasInstance) (nginx.ConfigurationBlocks, error) {
+	var blocks nginx.ConfigurationBlocks
+	if instance.Spec.Blocks == nil {
+		return blocks, nil
+	}
+	cm := &corev1.ConfigMap{}
+	cmName := fmt.Sprintf("%s-blocks", instance.Name)
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cmName, Namespace: instance.Namespace}, cm)
+	if err != nil && !k8sErrors.IsNotFound(err) {
+		return blocks, err
+	}
+	for blockType, confRef := range instance.Spec.Blocks {
+		var content string
+		switch confRef.Kind {
+		case v1alpha1.ConfigKindInline:
+			content = confRef.Value
+			break
+		case v1alpha1.ConfigKindConfigMap:
+			content = cm.Data[string(blockType)]
+			break
+		default:
+			return blocks, fmt.Errorf("invalid config kind: %v", confRef)
+		}
+		switch blockType {
+		case v1alpha1.BlockTypeRoot:
+			blocks.RootBlock = content
+			break
+		case v1alpha1.BlockTypeHTTP:
+			blocks.HttpBlock = content
+			break
+		case v1alpha1.BlockTypeServer:
+			blocks.ServerBlock = content
+			break
+		}
+	}
+	return blocks, nil
 }
 
 func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
