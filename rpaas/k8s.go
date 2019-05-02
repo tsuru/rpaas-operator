@@ -292,6 +292,13 @@ func (m *k8sRpaasManager) createConfigurationBlocks(instance v1alpha1.RpaasInsta
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      formatConfigurationBlocksName(instance),
 			Namespace: instance.ObjectMeta.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
 		},
 		Data: map[string]string{
 			block: content,
