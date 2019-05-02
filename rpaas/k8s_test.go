@@ -126,17 +126,17 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 
 	testCases := []struct {
 		instance  string
-		assertion func(*testing.T, map[string]string, error)
+		assertion func(*testing.T, []ConfigurationBlock, error)
 	}{
 		{
 			"unknown-instance",
-			func(t *testing.T, blocks map[string]string, err error) {
+			func(t *testing.T, blocks []ConfigurationBlock, err error) {
 				assert.Error(t, err)
 			},
 		},
 		{
 			"my-instance",
-			func(t *testing.T, blocks map[string]string, err error) {
+			func(t *testing.T, blocks []ConfigurationBlock, err error) {
 				assert.NoError(t, err)
 				assert.NotNil(t, blocks)
 				assert.Len(t, blocks, 0)
@@ -144,10 +144,10 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 		},
 		{
 			"another-instance",
-			func(t *testing.T, blocks map[string]string, err error) {
+			func(t *testing.T, blocks []ConfigurationBlock, err error) {
 				assert.NoError(t, err)
-				expected := map[string]string{
-					"http": "# just a user configuration on http context",
+				expected := []ConfigurationBlock{
+					{Name: "http", Content: "# just a user configuration on http context"},
 				}
 				assert.Equal(t, expected, blocks)
 			},
@@ -191,14 +191,12 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 
 	testCases := []struct {
 		instance  string
-		block     string
-		content   string
+		block     ConfigurationBlock
 		assertion func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
 			"my-instance",
-			"unknown block",
-			"",
+			ConfigurationBlock{Name: "unknown block"},
 			func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
 				assert.Equal(t, ErrBlockInvalid, err)
@@ -206,8 +204,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 		},
 		{
 			"instance-not-found",
-			"root",
-			"# My root configuration",
+			ConfigurationBlock{Name: "root", Content: "# My root configuration"},
 			func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
@@ -215,8 +212,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 		},
 		{
 			"my-instance",
-			"http",
-			"# my custom http configuration",
+			ConfigurationBlock{Name: "http", Content: "# my custom http configuration"},
 			func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
@@ -240,8 +236,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 		},
 		{
 			"another-instance",
-			"server",
-			"# my custom server configuration",
+			ConfigurationBlock{Name: "server", Content: "# my custom server configuration"},
 			func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
@@ -278,7 +273,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 			manager := &k8sRpaasManager{
 				cli: fake.NewFakeClientWithScheme(scheme, resources...),
 			}
-			err := manager.UpdateBlock(testCase.instance, testCase.block, testCase.content)
+			err := manager.UpdateBlock(testCase.instance, testCase.block)
 			testCase.assertion(t, err, manager)
 		})
 	}

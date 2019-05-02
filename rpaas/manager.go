@@ -6,6 +6,11 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
 
+type ConfigurationBlock struct {
+	Name    string `form:"block_name" json:"block_name"`
+	Content string `form:"content" json:"content"`
+}
+
 // ConfigurationBlockHandler defines some functions to handle the custom
 // configuration blocks from an instance.
 type ConfigurationBlockHandler interface {
@@ -17,13 +22,13 @@ type ConfigurationBlockHandler interface {
 	// ListBlocks returns all custom configuration blocks from instance (which
 	// name is instanceName). It returns a nil error meaning it was successful,
 	// otherwise a non-nil one which describes the reached problem.
-	ListBlocks(instanceName string) (map[string]string, error)
+	ListBlocks(instanceName string) ([]ConfigurationBlock, error)
 
 	// UpdateBlock overwrites the older configuration block content with the one.
 	// Whether the configuration block entry does not exist, it will already be
 	// created with the new content. It returns a nil error meaning it was
 	// successful, otherwise a non-nil one which describes the reached problem.
-	UpdateBlock(instanceName, blockName, content string) error
+	UpdateBlock(instanceName string, block ConfigurationBlock) error
 }
 
 type CreateArgs struct {

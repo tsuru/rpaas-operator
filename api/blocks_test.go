@@ -93,8 +93,8 @@ func Test_listBlocks(t *testing.T) {
 			fmt.Sprintf("{\"blocks\":[]}\n"),
 			nil,
 			&fake.RpaasManager{
-				FakeListBlocks: func(i string) (map[string]string, error) {
-					return map[string]string{}, nil
+				FakeListBlocks: func(i string) ([]rpaas.ConfigurationBlock, error) {
+					return []rpaas.ConfigurationBlock{}, nil
 				},
 			},
 		},
@@ -103,8 +103,8 @@ func Test_listBlocks(t *testing.T) {
 			fmt.Sprintf("{\"blocks\":[{\"block_name\":\"http\",\"content\":\"# my nginx configuration\"}]}\n"),
 			nil,
 			&fake.RpaasManager{
-				FakeListBlocks: func(i string) (map[string]string, error) {
-					return map[string]string{"http": "# my nginx configuration"}, nil
+				FakeListBlocks: func(i string) ([]rpaas.ConfigurationBlock, error) {
+					return []rpaas.ConfigurationBlock{{Name: "http", Content: "# my nginx configuration"}}, nil
 				},
 			},
 		},
@@ -113,7 +113,7 @@ func Test_listBlocks(t *testing.T) {
 			fmt.Sprintf("{\"message\":\"Internal Server Error\"}\n"),
 			errors.New("some error"),
 			&fake.RpaasManager{
-				FakeListBlocks: func(i string) (map[string]string, error) {
+				FakeListBlocks: func(i string) ([]rpaas.ConfigurationBlock, error) {
 					return nil, errors.New("some error")
 				},
 			},
@@ -128,7 +128,7 @@ func Test_listBlocks(t *testing.T) {
 			context := e.NewContext(request, recorder)
 			context.SetParamNames("instance")
 			context.SetParamValues("my-instance")
-			context.Set("manager", testCase.manager)
+			setManager(context, testCase.manager)
 			err := listBlocks(context)
 			assert.Equal(t, testCase.expectedError, err)
 			e.HTTPErrorHandler(err, context)
@@ -161,7 +161,7 @@ func Test_updateBlock(t *testing.T) {
 			`rpaas: block is not valid (acceptable values are: [root http server])`,
 			nil,
 			&fake.RpaasManager{
-				FakeUpdateBlock: func(i, b, c string) error {
+				FakeUpdateBlock: func(i string, b rpaas.ConfigurationBlock) error {
 					return rpaas.ErrBlockInvalid
 				},
 			},
@@ -179,7 +179,7 @@ func Test_updateBlock(t *testing.T) {
 			fmt.Sprintf("{\"message\":\"Internal Server Error\"}\n"),
 			errors.New("just another error"),
 			&fake.RpaasManager{
-				FakeUpdateBlock: func(i, b, c string) error {
+				FakeUpdateBlock: func(i string, b rpaas.ConfigurationBlock) error {
 					return errors.New("just another error")
 				},
 			},
