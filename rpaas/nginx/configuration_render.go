@@ -11,6 +11,12 @@ type ConfigurationRenderer interface {
 	Render(ConfigurationData) (string, error)
 }
 
+type ConfigurationBlocks struct {
+	RootBlock   string
+	HttpBlock   string
+	ServerBlock string
+}
+
 type ConfigurationData struct {
 	Config   *v1alpha1.NginxConfig
 	Instance *v1alpha1.RpaasInstanceSpec
@@ -26,10 +32,12 @@ func (r *rpaasConfigurationRenderer) Render(c ConfigurationData) (string, error)
 	return buffer.String(), err
 }
 
-func NewRpaasConfigurationRenderer() ConfigurationRenderer {
-	return &rpaasConfigurationRenderer{
-		t: defaultRpaasConfigurationTemplate,
-	}
+func NewRpaasConfigurationRenderer(cb ConfigurationBlocks) ConfigurationRenderer {
+	baseTemplate := template.Must(defaultRpaasConfigurationTemplate.Clone())
+	template.Must(baseTemplate.New("root").Parse(cb.RootBlock))
+	template.Must(baseTemplate.New("http").Parse(cb.HttpBlock))
+	template.Must(baseTemplate.New("server").Parse(cb.ServerBlock))
+	return &rpaasConfigurationRenderer{t: baseTemplate}
 }
 
 var defaultRpaasConfigurationTemplate = template.Must(template.New("rpaas-configuration-template").Parse(rawNginxConfiguration))
@@ -51,6 +59,8 @@ include modules/*.conf;
 events {
     worker_connections {{with .Config.WorkerConnections}}{{.}}{{else}}1024{{end}};
 }
+
+{{template "root" .}}
 
 http {
     include       mime.types;
@@ -125,6 +135,8 @@ http {
     vhost_traffic_status_zone;
 {{end}}
 
+    {{template "http" .}}
+
     server {
         listen 8080 default_server{{with .Config.HTTPListenOptions}} {{.}}{{end}};
 
@@ -159,6 +171,8 @@ http {
         location = /_nginx_healthcheck/ {
             echo "WORKING";
         }
+
+        {{template "server" .}}
     }
 }
 `
