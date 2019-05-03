@@ -2,6 +2,7 @@ package rpaasinstance
 
 import (
 	"context"
+	"crypto/sha256"
 	"fmt"
 
 	"github.com/sirupsen/logrus"
@@ -206,9 +207,10 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 }
 
 func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(renderedTemplate)))
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("nginx-%s", instance.Name),
+			Name:      fmt.Sprintf("%s-config-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
