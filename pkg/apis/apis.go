@@ -4,6 +4,8 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/config"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 // AddToSchemes may be used to add all resources defined in the project to a Scheme
@@ -22,4 +24,22 @@ func AddFieldIndexes(fieldIndexer client.FieldIndexer) error {
 		"metadata.name",
 		func(o runtime.Object) []string { return []string{o.(*v1alpha1.RpaasInstance).Name} },
 	)
+}
+
+func NewManager() (manager.Manager, error) {
+	cfg, err := config.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+	mgr, err := manager.New(cfg, manager.Options{})
+	if err != nil {
+		return nil, err
+	}
+	if err = AddToScheme(mgr.GetScheme()); err != nil {
+		return nil, err
+	}
+	if err = AddFieldIndexes(mgr.GetFieldIndexer()); err != nil {
+		return nil, err
+	}
+	return mgr, nil
 }
