@@ -17,6 +17,7 @@ type RpaasManager struct {
 	FakeUpdateBlock       func(instanceName string, block rpaas.ConfigurationBlock) error
 	FakeInstanceAddress   func(name string) (string, error)
 	FakeScale             func(instanceName string, replicas int32) error
+	FakeGetPlans          func() ([]v1alpha1.RpaasPlan, error)
 }
 
 func (m *RpaasManager) UpdateCertificate(instance, name string, c tls.Certificate) error {
@@ -78,6 +79,13 @@ func (m *RpaasManager) GetInstanceAddress(name string) (string, error) {
 func (m *RpaasManager) Scale(instanceName string, replicas int32) error {
 	if m.FakeScale != nil {
 		return m.FakeScale(instanceName, replicas)
+	}
+	return nil
+}
+
+func (m *RpaasManager) GetPlans() ([]v1alpha1.RpaasPlan, error) {
+	if m.FakeGetPlans != nil {
+		return m.FakeGetPlans()
 	}
 	return nil
 }
