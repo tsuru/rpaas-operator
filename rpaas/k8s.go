@@ -184,7 +184,19 @@ func (m *k8sRpaasManager) UpdateBlock(instanceName string, block ConfigurationBl
 	return m.cli.Update(m.ctx, instance)
 }
 
-func (m *k8sRpaasManager) UpdateCertificate(instance, name string, c tls.Certificate) error {
+func (m *k8sRpaasManager) Scale(instanceName string, replicas int32) error {
+	instance, err := m.GetInstance(instanceName)
+	if err != nil {
+		return err
+	}
+	if replicas < 0 {
+		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
+	}
+	instance.Spec.Replicas = &replicas
+	return m.cli.Update(m.ctx, instance)
+}
+
+func (m *k8sRpaasManager) UpdateCertificate(instance string, c tls.Certificate) error {
 	rpaasInstance, err := m.GetInstance(instance)
 	if err != nil {
 		return err
