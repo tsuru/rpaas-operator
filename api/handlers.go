@@ -1,43 +1,29 @@
 package api
 
 import (
-	"context"
 	"crypto/tls"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo"
-	"github.com/sirupsen/logrus"
 )
 
+type scaleParameters struct {
+	Quantity int32 `form:"quantity"`
+}
+
 func scale(c echo.Context) error {
-	qty := c.FormValue("quantity")
-	if len(qty) == 0 {
-		return c.String(http.StatusBadRequest, "missing quantity")
-	}
-	intQty, err := strconv.Atoi(qty)
-	if err != nil || intQty <= 0 {
-		return c.String(http.StatusBadRequest, "invalid quantity: "+qty)
+	var data scaleParameters
+	if err := c.Bind(&data); err != nil {
+		return c.String(http.StatusBadRequest, "quantity is either missing or not valid")
 	}
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
-
-	name := c.Param("instance")
-	instance, err := manager.GetInstance(name)
-	if err != nil {
+	if err = manager.Scale(c.Param("instance"), data.Quantity); err != nil {
 		return err
-	}
-
-	int32Qty := int32(intQty)
-	instance.Spec.Replicas = &int32Qty
-	err = cli.Update(context.TODO(), instance)
-	if err != nil {
-		logrus.Error(err)
-		return c.JSON(http.StatusInternalServerError, err)
 	}
 	return c.NoContent(http.StatusCreated)
 }

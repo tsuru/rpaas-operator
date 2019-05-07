@@ -51,4 +51,5 @@ type RpaasManager interface {
 	DeleteInstance(name string) error
 	GetInstance(name string) (*v1alpha1.RpaasInstance, error)
 	GetInstanceAddress(name string) (string, error)
+	Scale(name string, replicas int32) error
 }
