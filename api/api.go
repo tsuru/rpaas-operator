@@ -6,24 +6,110 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"sync"
 	"syscall"
 	"time"
 
-	"github.com/google/gops/agent"
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
-	"github.com/sirupsen/logrus"
 	"github.com/tsuru/rpaas-operator/rpaas"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
-func handleSignals(e *echo.Echo) {
-	quit := make(chan os.Signal)
-	signal.Notify(quit, syscall.SIGTERM, syscall.SIGINT)
-	<-quit
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+type api struct {
+	sync.Mutex
+
+	// Address is the network address where the webserver will listen on.
+	//
+	// Defaults to `:9999`.
+	Address string
+
+	// ShutdownTimeout defines the max duration used to wait th webserver
+	// gracefully shut down.
+	//
+	// Defaults to `30 * time.Second`.
+	ShutdownTimeout time.Duration
+
+	started  bool
+	e        *echo.Echo
+	mgr      manager.Manager
+	shutdown chan struct{}
+}
+
+// New creates an instance of api.
+func New(mgr manager.Manager) (a *api) {
+	a = &api{
+		Address:         `:9999`,
+		ShutdownTimeout: 30 * time.Second,
+		e:               newEcho(),
+		mgr:             mgr,
+		shutdown:        make(chan struct{}),
+	}
+	a.e.Use(a.rpaasManagerInjector())
+	return
+}
+
+// Start runs the web server.
+func (a *api) Start() error {
+	a.Lock()
+	a.started = true
+	a.Unlock()
+	go a.handleSignals()
+	go a.mgr.Start(a.shutdown)
+	if err := a.e.Start(a.Address); err != http.ErrServerClosed {
+		fmt.Printf("problem to start the webserver: %+v", err)
+		return err
+	}
+	fmt.Println("Shutting down the webserver...")
+	return nil
+}
+
+// Stop shut down the web server.
+func (a *api) Stop() error {
+	a.Lock()
+	defer a.Unlock()
+	if !a.started {
+		return fmt.Errorf("web server is already down")
+	}
+	if a.shutdown == nil {
+		return fmt.Errorf("shutdown channel is not defined")
+	}
+	close(a.shutdown)
+	ctx, cancel := context.WithTimeout(context.Background(), a.ShutdownTimeout)
 	defer cancel()
-	if err := e.Shutdown(ctx); err != nil {
-		logrus.Fatal(err)
+	return a.e.Shutdown(ctx)
+}
+
+func (a *api) Handler() http.Handler {
+	return a.e
+}
+
+func (a *api) handleSignals() {
+	quit := make(chan os.Signal)
+	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
+	select {
+	case <-quit:
+		a.Stop()
+	case <-a.shutdown:
+	}
+}
+
+var newRpaasManagerFunc = rpaas.NewK8S
+
+func (a *api) rpaasManagerInjector() echo.MiddlewareFunc {
+	return func(next echo.HandlerFunc) echo.HandlerFunc {
+		var cli client.Client
+		if a.mgr != nil {
+			cli = a.mgr.GetClient()
+		}
+		return func(ctx echo.Context) error {
+			setManager(ctx, newRpaasManagerFunc(rpaas.K8SOptions{
+				Cli: cli,
+				Ctx: ctx.Request().Context(),
+			}))
+			return next(ctx)
+		}
 	}
 }
 
@@ -37,17 +123,6 @@ func getManager(c echo.Context) (rpaas.RpaasManager, error) {
 		return nil, fmt.Errorf("invalid manager state: %#v", c.Get("manager"))
 	}
 	return manager, nil
-}
-
-func rpaasManagerInjector(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		manager := rpaas.NewK8S(rpaas.K8SOptions{
-			Cli: cli,
-			Ctx: c.Request().Context(),
-		})
-		setManager(c, manager)
-		return next(c)
-	}
 }
 
 func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
@@ -69,36 +144,15 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func Start() error {
-	err := setup()
-	if err != nil {
-		logrus.Fatal(err)
-		return err
-	}
-
-	if err = agent.Listen(agent.Options{}); err != nil {
-		return err
-	}
-	defer agent.Close()
-
-	e := configEcho()
-	go handleSignals(e)
-
-	err = e.Start(":9999")
-	logrus.Infof("Shutting down server: %v", err)
-	return err
-}
-
-func configEcho() *echo.Echo {
+func newEcho() *echo.Echo {
 	e := echo.New()
-	e.Use(middleware.Logger())
-	e.Use(rpaasManagerInjector)
-	e.Use(errorMiddleware)
-	configHandlers(e)
-	return e
-}
 
-func configHandlers(e *echo.Echo) {
+	e.HideBanner = true
+
+	e.Use(middleware.Recover())
+	e.Use(middleware.Logger())
+	e.Use(errorMiddleware)
+
 	e.POST("/resources", serviceCreate)
 	e.GET("/resources/plans", servicePlans)
 	e.GET("/resources/:instance", serviceInfo)
@@ -106,7 +160,6 @@ func configHandlers(e *echo.Echo) {
 	e.DELETE("/resources/:instance", serviceDelete)
 	e.POST("/resources/:instance/bind-app", serviceBindApp)
 	e.DELETE("/resources/:instance/bind-app", serviceUnbindApp)
-
 	e.POST("/resources/:instance/scale", scale)
 	e.POST("/resources/:instance/certificate", updateCertificate)
 	e.GET("/resources/:instance/block", listBlocks)
@@ -118,4 +171,6 @@ func configHandlers(e *echo.Echo) {
 	e.POST("/resources/:instance/files", addExtraFiles)
 	e.PUT("/resources/:instance/files", updateExtraFiles)
 	e.DELETE("/resources/:instance/files/:name", deleteExtraFile)
+
+	return e
 }
