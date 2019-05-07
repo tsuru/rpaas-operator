@@ -87,5 +87,5 @@ func (m *RpaasManager) GetPlans() ([]v1alpha1.RpaasPlan, error) {
 	if m.FakeGetPlans != nil {
 		return m.FakeGetPlans()
 	}
-	return nil
+	return nil, nil
 }

@@ -42,6 +42,11 @@ func serviceDelete(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+type plan struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 func servicePlans(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {
@@ -51,28 +56,28 @@ func servicePlans(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	result := make([]map[string]string, len(plans))
-	for i, plan := range plans {
-		result[i] = map[string]string{
-			"name":        plan.Name,
-			"description": "no plan description",
+	result := make([]plan, len(plans))
+	for i, p := range plans {
+		result[i] = plan{
+			Name:        p.Name,
+			Description: "no plan description",
 		}
 	}
 	return c.JSON(http.StatusOK, result)
 }
 
 func serviceInfo(c echo.Context) error {
-	name := c.Param("instance")
-	if len(name) == 0 {
-		return c.String(http.StatusBadRequest, "name is required")
-	}
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
-	instance, err := manager.GetInstance(name)
+	instance, err := manager.GetInstance(c.Param("instance"))
 	if err != nil {
 		return err
+	}
+	address := "<pending>"
+	if instance.Spec.Service != nil && instance.Spec.Service.LoadBalancerIP != "" {
+		address = instance.Spec.Service.LoadBalancerIP
 	}
 	replicas := "0"
 	if instance.Spec.Replicas != nil {

@@ -266,7 +266,7 @@ func (m *k8sRpaasManager) GetInstance(name string) (*v1alpha1.RpaasInstance, err
 		}
 	}
 	if len(list.Items) == 0 {
-		return nil, NotFoundError{Msg: fmt.Sprintf("rpaas instances %q not found", name)}
+		return nil, NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", name)}
 	}
 	if len(list.Items) > 1 {
 		return nil, ConflictError{Msg: fmt.Sprintf("multiple instances found for name %q: %#v", name, list.Items)}
@@ -503,7 +503,11 @@ func (m *k8sRpaasManager) validateCreate(args CreateArgs) (*v1alpha1.RpaasPlan, 
 	if args.Team == "" {
 		return nil, ValidationError{Msg: "team name is required"}
 	}
-	return m.getPlan(args.Plan)
+	plan, err := m.getPlan(args.Plan)
+	if err != nil && IsNotFoundError(err) {
+		return nil, ValidationError{Msg: "invalid plan"}
+	}
+	return plan, err
 }
 
 func NamespaceName(team string) string {
