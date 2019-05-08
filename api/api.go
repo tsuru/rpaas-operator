@@ -112,4 +112,10 @@ func configHandlers(e *echo.Echo) {
 	e.GET("/resources/:instance/block", listBlocks)
 	e.POST("/resources/:instance/block", updateBlock)
 	e.DELETE("/resources/:instance/block/:block", deleteBlock)
+
+	e.GET("/resources/:instance/files", listExtraFiles)
+	e.GET("/resources/:instance/files/:name", getExtraFile)
+	e.POST("/resources/:instance/files", addExtraFiles)
+	e.PUT("/resources/:instance/files", updateExtraFiles)
+	e.DELETE("/resources/:instance/files/:name", deleteExtraFile)
 }
