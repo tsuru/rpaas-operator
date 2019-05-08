@@ -356,10 +356,10 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 	rsaCertificate, err := tls.X509KeyPair([]byte(rsaCertPem), []byte(rsaKeyPem))
 	require.NoError(t, err)
 
-	assertSecretData := func(t *testing.T, m *k8sRpaasManager, expectedCertData, expectedKeyData []byte) {
+	assertSecretData := func(t *testing.T, m *k8sRpaasManager, expectedCertName string, expectedCertData, expectedKeyData []byte) {
 		ri, err := m.GetInstance(instance)
 		require.NoError(t, err)
-		secret, err := m.getCertificateSecret(*ri, v1alpha1.CertificateNameDefault)
+		secret, err := m.getCertificateSecret(*ri, expectedCertName)
 		require.NoError(t, err)
 		gotCertData, ok := secret.Data["certificate"]
 		assert.True(t, ok)
@@ -369,75 +369,84 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 		assert.Equal(t, expectedKeyData, gotKeyData)
 	}
 
-	assertDefaultTLSCertificate := func(t *testing.T, m *k8sRpaasManager) {
+	assertTLSCertificate := func(t *testing.T, m *k8sRpaasManager, expectedName string) {
 		ri, err := m.GetInstance(instance)
 		require.NoError(t, err)
-		secret, err := m.getCertificateSecret(*ri, v1alpha1.CertificateNameDefault)
+		secret, err := m.getCertificateSecret(*ri, expectedName)
 		require.NoError(t, err)
 		expectesTLSSecret := nginxv1alpha1.TLSSecret{
 			SecretName:       secret.ObjectMeta.Name,
 			CertificateField: "certificate",
-			CertificatePath:  "default.crt.pem",
+			CertificatePath:  expectedName + ".crt.pem",
 			KeyField:         "key",
-			KeyPath:          "default.key.pem",
+			KeyPath:          expectedName + ".key.pem",
 		}
-		gotCertificate, ok := ri.Spec.Certificates[v1alpha1.CertificateNameDefault]
+		gotCertificate, ok := ri.Spec.Certificates[expectedName]
 		assert.True(t, ok)
 		assert.Equal(t, expectesTLSSecret, gotCertificate)
 	}
 
 	testCases := []struct {
+		name        string
 		instance    string
 		certificate tls.Certificate
 		setup       func(*testing.T, *k8sRpaasManager)
 		assertion   func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
-			"instance-not-found",
-			ecdsaCertificate,
-			nil,
-			func(t *testing.T, err error, m *k8sRpaasManager) {
+			instance:    "instance-not-found",
+			certificate: ecdsaCertificate,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
 			},
 		},
 		{
-			instance,
-			ecdsaCertificate,
-			nil,
-			func(t *testing.T, err error, m *k8sRpaasManager) {
+			instance:    instance,
+			certificate: ecdsaCertificate,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				require.NoError(t, err)
-				assertSecretData(t, m, []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
-				assertDefaultTLSCertificate(t, m)
+				assertSecretData(t, m, "default", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
+				assertTLSCertificate(t, m, "default")
 			},
 		},
 		{
-			instance,
-			rsaCertificate,
-			func(t *testing.T, m *k8sRpaasManager) {
-				err := m.UpdateCertificate(instance, ecdsaCertificate)
+			name:        "mycert",
+			instance:    instance,
+			certificate: ecdsaCertificate,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				require.NoError(t, err)
-				assertSecretData(t, m, []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
-				assertDefaultTLSCertificate(t, m)
+				assertSecretData(t, m, "mycert", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
+				assertTLSCertificate(t, m, "mycert")
 			},
-			func(t *testing.T, err error, m *k8sRpaasManager) {
+		},
+		{
+			instance:    instance,
+			certificate: rsaCertificate,
+			setup: func(t *testing.T, m *k8sRpaasManager) {
+				err := m.UpdateCertificate(instance, "", ecdsaCertificate)
 				require.NoError(t, err)
-				assertSecretData(t, m, []byte(rsaCertPem), []byte(rsaKeyPem))
-				assertDefaultTLSCertificate(t, m)
+				assertSecretData(t, m, "default", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
+				assertTLSCertificate(t, m, "default")
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				require.NoError(t, err)
+				assertSecretData(t, m, "default", []byte(rsaCertPem), []byte(rsaKeyPem))
+				assertTLSCertificate(t, m, "default")
 			},
 		},
 	}
 
-	for _, testCase := range testCases {
+	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
 			manager := &k8sRpaasManager{
 				cli: fake.NewFakeClientWithScheme(scheme, rpaasInstance),
 			}
-			if testCase.setup != nil {
-				testCase.setup(t, manager)
+			if tt.setup != nil {
+				tt.setup(t, manager)
 			}
-			err := manager.UpdateCertificate(testCase.instance, testCase.certificate)
-			testCase.assertion(t, err, manager)
+			err := manager.UpdateCertificate(tt.instance, tt.name, tt.certificate)
+			tt.assertion(t, err, manager)
 		})
 	}
 }

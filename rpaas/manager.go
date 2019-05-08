@@ -46,7 +46,7 @@ type CreateArgs struct {
 type RpaasManager interface {
 	ConfigurationBlockHandler
 
-	UpdateCertificate(instance string, cert tls.Certificate) error
+	UpdateCertificate(instance, name string, cert tls.Certificate) error
 	CreateInstance(args CreateArgs) error
 	DeleteInstance(name string) error
 	GetInstance(name string) (*v1alpha1.RpaasInstance, error)

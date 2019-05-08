@@ -66,7 +66,8 @@ func updateCertificate(c echo.Context) error {
 		return err
 	}
 	instance := c.Param("instance")
-	err = manager.UpdateCertificate(instance, certificate)
+	certName := c.FormValue("name")
+	err = manager.UpdateCertificate(instance, certName, certificate)
 	if err != nil {
 		return err
 	}

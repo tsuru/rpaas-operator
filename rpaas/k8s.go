@@ -15,6 +15,7 @@ import (
 	"strings"
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -24,7 +25,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-const defaultNamespacePrefix = "rpaasv2"
+const (
+	defaultNamespacePrefix   = "rpaasv2"
+	serviceAnnotationsConfig = "service-annotations"
+)
 
 var (
 	ErrBlockInvalid      = ValidationError{Msg: fmt.Sprintf("rpaas: block is not valid (acceptable values are: %v)", getAvailableBlocks())}
@@ -101,6 +105,7 @@ func (m *k8sRpaasManager) CreateInstance(args CreateArgs) error {
 			Service: &nginxv1alpha1.NginxService{
 				Type:           corev1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: args.IP,
+				Annotations:    config.StringMap(serviceAnnotationsConfig),
 			},
 		},
 	}
@@ -179,24 +184,27 @@ func (m *k8sRpaasManager) UpdateBlock(instanceName string, block ConfigurationBl
 	return m.cli.Update(m.ctx, instance)
 }
 
-func (m *k8sRpaasManager) UpdateCertificate(instance string, c tls.Certificate) error {
+func (m *k8sRpaasManager) UpdateCertificate(instance, name string, c tls.Certificate) error {
 	rpaasInstance, err := m.GetInstance(instance)
 	if err != nil {
 		return err
 	}
-	secret, err := m.getCertificateSecret(*rpaasInstance, v1alpha1.CertificateNameDefault)
+	if name == "" {
+		name = v1alpha1.CertificateNameDefault
+	}
+	secret, err := m.getCertificateSecret(*rpaasInstance, name)
 	if err == nil {
 		return m.updateCertificateSecret(secret, &c)
 	}
 	if !k8sErrors.IsNotFound(err) {
 		return err
 	}
-	secret, err = m.createCertificateSecret(*rpaasInstance, v1alpha1.CertificateNameDefault, &c)
+	secret, err = m.createCertificateSecret(*rpaasInstance, name, &c)
 	if err != nil {
 		return err
 	}
 	certs := map[string]nginxv1alpha1.TLSSecret{
-		v1alpha1.CertificateNameDefault: *newTLSSecret(secret, v1alpha1.CertificateNameDefault),
+		name: *newTLSSecret(secret, name),
 	}
 	return m.updateCertificates(rpaasInstance, certs)
 }

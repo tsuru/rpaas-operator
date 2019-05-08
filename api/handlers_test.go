@@ -43,7 +43,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	certificate, err := tls.X509KeyPair([]byte(certPem), []byte(keyPem))
 	require.NoError(t, err)
 
-	makeBodyRequest := func(cert, key string) string {
+	makeBodyRequest := func(cert, key, name string) string {
 		b := &bytes.Buffer{}
 		w := multipart.NewWriter(b)
 		w.SetBoundary(boundary)
@@ -57,6 +57,10 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			require.NoError(t, err)
 			writer.Write([]byte(key))
 		}
+		if name != "" {
+			err := w.WriteField("name", name)
+			require.NoError(t, err)
+		}
 		w.Close()
 		return b.String()
 	}
@@ -69,28 +73,29 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		setup         func(*testing.T, echo.Context)
 	}{
 		{
-			makeBodyRequest("some certificate", ""),
+			makeBodyRequest("some certificate", "", ""),
 			400,
 			"key file is either not provided or not valid",
 			nil,
 			nil,
 		},
 		{
-			makeBodyRequest("", "some private key"),
+			makeBodyRequest("", "some private key", ""),
 			400,
 			"cert file is either not provided or not valid",
 			nil,
 			nil,
 		},
 		{
-			makeBodyRequest(certPem, keyPem),
+			makeBodyRequest(certPem, keyPem, ""),
 			200,
 			"",
 			nil,
 			func(t *testing.T, c echo.Context) {
 				manager := &fake.RpaasManager{
-					FakeUpdateCertificate: func(name string, c tls.Certificate) error {
-						assert.Equal(t, name, instanceName)
+					FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
+						assert.Equal(t, "", name)
+						assert.Equal(t, instance, instanceName)
 						assert.Equal(t, c, certificate)
 						return nil
 					},
@@ -99,7 +104,24 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			},
 		},
 		{
-			makeBodyRequest(certPem, keyPem),
+			makeBodyRequest(certPem, keyPem, "mycert"),
+			200,
+			"",
+			nil,
+			func(t *testing.T, c echo.Context) {
+				manager := &fake.RpaasManager{
+					FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
+						assert.Equal(t, "mycert", name)
+						assert.Equal(t, instance, instanceName)
+						assert.Equal(t, c, certificate)
+						return nil
+					},
+				}
+				setManager(c, manager)
+			},
+		},
+		{
+			makeBodyRequest(certPem, keyPem, ""),
 			500,
 			`{"message":"Internal Server Error"}
 `,
@@ -109,15 +131,16 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			},
 		},
 		{
-			makeBodyRequest(certPem, keyPem),
+			makeBodyRequest(certPem, keyPem, ""),
 			500,
 			`{"message":"Internal Server Error"}
 `,
 			errors.New("some error"),
 			func(t *testing.T, c echo.Context) {
 				manager := &fake.RpaasManager{
-					FakeUpdateCertificate: func(name string, c tls.Certificate) error {
-						assert.Equal(t, name, instanceName)
+					FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
+						assert.Equal(t, "", name)
+						assert.Equal(t, instance, instanceName)
 						assert.Equal(t, c, certificate)
 						return errors.New("some error")
 					},
