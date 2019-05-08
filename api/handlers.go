@@ -89,3 +89,14 @@ func getFormFileContent(c echo.Context, key string) ([]byte, error) {
 	}
 	return rawContent, nil
 }
+
+func serviceStatus(c echo.Context) error {
+	// TODO: retrieve rollout status
+	return c.JSON(200, map[string]interface{}{
+		"mock-node": map[string]interface{}{
+			"status":  "successful",
+			"address": "127.0.0.1",
+		},
+	})
+}
+
