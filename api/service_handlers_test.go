@@ -94,12 +94,9 @@ func Test_serviceCreate(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			oldNewRpaasManagerFunc := newRpaasManagerFunc
-			defer func() {
-				newRpaasManagerFunc = oldNewRpaasManagerFunc
-			}()
-			newRpaasManagerFunc = setRpaasManagerOnTest(tt.manager)
-			srv := httptest.NewServer(New(nil).Handler())
+			webApi := New(nil)
+			webApi.rpaasManager = tt.manager
+			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources", srv.URL)
 			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
@@ -140,12 +137,9 @@ func Test_serviceDelete(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			oldNewRpaasManagerFunc := newRpaasManagerFunc
-			defer func() {
-				newRpaasManagerFunc = oldNewRpaasManagerFunc
-			}()
-			newRpaasManagerFunc = setRpaasManagerOnTest(tt.manager)
-			srv := httptest.NewServer(New(nil).Handler())
+			webApi := New(nil)
+			webApi.rpaasManager = tt.manager
+			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s", srv.URL, tt.instanceName)
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
@@ -187,12 +181,9 @@ func Test_servicePlans(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			oldNewRpaasManagerFunc := newRpaasManagerFunc
-			defer func() {
-				newRpaasManagerFunc = oldNewRpaasManagerFunc
-			}()
-			newRpaasManagerFunc = setRpaasManagerOnTest(tt.manager)
-			srv := httptest.NewServer(New(nil).Handler())
+			webApi := New(nil)
+			webApi.rpaasManager = tt.manager
+			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/plans", srv.URL)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -295,12 +286,9 @@ func Test_serviceInfo(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			oldNewRpaasManagerFunc := newRpaasManagerFunc
-			defer func() {
-				newRpaasManagerFunc = oldNewRpaasManagerFunc
-			}()
-			newRpaasManagerFunc = setRpaasManagerOnTest(tt.manager)
-			srv := httptest.NewServer(New(nil).Handler())
+			webApi := New(nil)
+			webApi.rpaasManager = tt.manager
+			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s", srv.URL, tt.instanceName)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -326,10 +314,4 @@ func Test_serviceUnbindApp(t *testing.T) {
 func bodyContent(rsp *http.Response) string {
 	data, _ := ioutil.ReadAll(rsp.Body)
 	return string(data)
-}
-
-func setRpaasManagerOnTest(mgr rpaas.RpaasManager) func(rpaas.K8SOptions) rpaas.RpaasManager {
-	return func(rpaas.K8SOptions) rpaas.RpaasManager {
-		return mgr
-	}
 }

@@ -13,7 +13,6 @@ import (
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
 	"github.com/tsuru/rpaas-operator/rpaas"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
@@ -31,20 +30,26 @@ type api struct {
 	// Defaults to `30 * time.Second`.
 	ShutdownTimeout time.Duration
 
-	started  bool
-	e        *echo.Echo
-	mgr      manager.Manager
-	shutdown chan struct{}
+	started      bool
+	e            *echo.Echo
+	mgr          manager.Manager
+	rpaasManager rpaas.RpaasManager
+	shutdown     chan struct{}
 }
 
 // New creates an instance of api.
 func New(mgr manager.Manager) (a *api) {
+	var rm rpaas.RpaasManager
+	if mgr != nil {
+		rm = rpaas.NewK8S(mgr.GetClient())
+	}
 	a = &api{
 		Address:         `:9999`,
 		ShutdownTimeout: 30 * time.Second,
 		e:               newEcho(),
 		mgr:             mgr,
 		shutdown:        make(chan struct{}),
+		rpaasManager:    rm,
 	}
 	a.e.Use(a.rpaasManagerInjector())
 	return
@@ -95,19 +100,10 @@ func (a *api) handleSignals() {
 	}
 }
 
-var newRpaasManagerFunc = rpaas.NewK8S
-
 func (a *api) rpaasManagerInjector() echo.MiddlewareFunc {
 	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		var cli client.Client
-		if a.mgr != nil {
-			cli = a.mgr.GetClient()
-		}
 		return func(ctx echo.Context) error {
-			setManager(ctx, newRpaasManagerFunc(rpaas.K8SOptions{
-				Cli: cli,
-				Ctx: ctx.Request().Context(),
-			}))
+			setManager(ctx, a.rpaasManager)
 			return next(ctx)
 		}
 	}

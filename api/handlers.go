@@ -22,7 +22,7 @@ func scale(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = manager.Scale(c.Param("instance"), data.Quantity); err != nil {
+	if err = manager.Scale(c.Request().Context(), c.Param("instance"), data.Quantity); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusCreated)
@@ -53,7 +53,7 @@ func updateCertificate(c echo.Context) error {
 	}
 	instance := c.Param("instance")
 	certName := c.FormValue("name")
-	err = manager.UpdateCertificate(instance, certName, certificate)
+	err = manager.UpdateCertificate(c.Request().Context(), instance, certName, certificate)
 	if err != nil {
 		return err
 	}

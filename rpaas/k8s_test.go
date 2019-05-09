@@ -99,7 +99,7 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 			manager := &k8sRpaasManager{
 				cli: fake.NewFakeClientWithScheme(scheme, resources...),
 			}
-			err := manager.DeleteBlock(testCase.instance, testCase.block)
+			err := manager.DeleteBlock(nil, testCase.instance, testCase.block)
 			testCase.assertion(t, err, manager)
 		})
 	}
@@ -164,7 +164,7 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 			manager := &k8sRpaasManager{
 				cli: fake.NewFakeClientWithScheme(scheme, resources...),
 			}
-			blocks, err := manager.ListBlocks(testCase.instance)
+			blocks, err := manager.ListBlocks(nil, testCase.instance)
 			testCase.assertion(t, blocks, err)
 		})
 	}
@@ -278,7 +278,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 			manager := &k8sRpaasManager{
 				cli: fake.NewFakeClientWithScheme(scheme, resources...),
 			}
-			err := manager.UpdateBlock(testCase.instance, testCase.block)
+			err := manager.UpdateBlock(nil, testCase.instance, testCase.block)
 			testCase.assertion(t, err, manager)
 		})
 	}
@@ -362,9 +362,9 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 	require.NoError(t, err)
 
 	assertSecretData := func(t *testing.T, m *k8sRpaasManager, expectedCertName string, expectedCertData, expectedKeyData []byte) {
-		ri, err := m.GetInstance(instance)
+		ri, err := m.GetInstance(nil, instance)
 		require.NoError(t, err)
-		secret, err := m.getCertificateSecret(*ri, expectedCertName)
+		secret, err := m.getCertificateSecret(nil, *ri, expectedCertName)
 		require.NoError(t, err)
 		gotCertData, ok := secret.Data["certificate"]
 		assert.True(t, ok)
@@ -375,9 +375,9 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 	}
 
 	assertTLSCertificate := func(t *testing.T, m *k8sRpaasManager, expectedName string) {
-		ri, err := m.GetInstance(instance)
+		ri, err := m.GetInstance(nil, instance)
 		require.NoError(t, err)
-		secret, err := m.getCertificateSecret(*ri, expectedName)
+		secret, err := m.getCertificateSecret(nil, *ri, expectedName)
 		require.NoError(t, err)
 		expectesTLSSecret := nginxv1alpha1.TLSSecret{
 			SecretName:       secret.ObjectMeta.Name,
@@ -420,6 +420,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			instance:    instance,
 			certificate: ecdsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				err := m.UpdateCertificate(nil, instance, ecdsaCertificate)
 				require.NoError(t, err)
 				assertSecretData(t, m, "mycert", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
 				assertTLSCertificate(t, m, "mycert")
@@ -450,7 +451,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			if tt.setup != nil {
 				tt.setup(t, manager)
 			}
-			err := manager.UpdateCertificate(tt.instance, tt.name, tt.certificate)
+			err := manager.UpdateCertificate(nil, tt.instance, tt.name, tt.certificate)
 			tt.assertion(t, err, manager)
 		})
 	}

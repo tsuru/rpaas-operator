@@ -19,7 +19,7 @@ func serviceCreate(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	err = manager.CreateInstance(args)
+	err = manager.CreateInstance(c.Request().Context(), args)
 	if err != nil {
 		return err
 	}
@@ -35,7 +35,7 @@ func serviceDelete(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	err = manager.DeleteInstance(name)
+	err = manager.DeleteInstance(c.Request().Context(), name)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func servicePlans(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	plans, err := manager.GetPlans()
+	plans, err := manager.GetPlans(c.Request().Context())
 	if err != nil {
 		return err
 	}
@@ -71,7 +71,7 @@ func serviceInfo(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	instance, err := manager.GetInstance(c.Param("instance"))
+	instance, err := manager.GetInstance(c.Request().Context(), c.Param("instance"))
 	if err != nil {
 		return err
 	}
