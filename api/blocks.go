@@ -14,7 +14,7 @@ func deleteBlock(c echo.Context) error {
 		return err
 	}
 	blockName := c.Param("block")
-	err = manager.DeleteBlock(c.Param("instance"), blockName)
+	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), blockName)
 	switch err {
 	case nil:
 		return c.String(http.StatusOK, fmt.Sprintf("block %q was successfully removed", blockName))
@@ -32,7 +32,7 @@ func listBlocks(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	blocks, err := manager.ListBlocks(c.Param("instance"))
+	blocks, err := manager.ListBlocks(c.Request().Context(), c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -51,7 +51,7 @@ func updateBlock(c echo.Context) error {
 	if err = c.Bind(&block); err != nil {
 		return err
 	}
-	err = manager.UpdateBlock(c.Param("instance"), block)
+	err = manager.UpdateBlock(c.Request().Context(), c.Param("instance"), block)
 	switch err {
 	case nil:
 		return c.NoContent(http.StatusCreated)
