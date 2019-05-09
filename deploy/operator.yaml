@@ -15,8 +15,7 @@ spec:
       serviceAccountName: rpaas-operator
       containers:
         - name: rpaas-operator
-          # Replace this with the built image name
-          image: REPLACE_IMAGE
+          image: tsuru/rpaas-operator
           command:
           - rpaas-operator
           imagePullPolicy: Always
