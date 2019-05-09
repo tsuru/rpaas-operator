@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -28,6 +29,9 @@ func setupTest(t *testing.T) {
 	require.NoError(t, err)
 
 	err = apis.AddToScheme(scheme)
+	require.NoError(t, err)
+
+	err = nginxApis.AddToScheme(scheme)
 	require.NoError(t, err)
 
 	cli = fake.NewFakeClientWithScheme(scheme)
@@ -238,7 +242,7 @@ func Test_serviceInfo(t *testing.T) {
 				expected := []map[string]string{
 					{
 						"label": "Address",
-						"value": "x.x.x.x",
+						"value": "",
 					},
 					{
 						"label": "Instances",

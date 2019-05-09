@@ -209,6 +209,34 @@ func (m *k8sRpaasManager) UpdateCertificate(instance, name string, c tls.Certifi
 	return m.updateCertificates(rpaasInstance, certs)
 }
 
+func (m *k8sRpaasManager) GetInstanceAddress(name string) (string, error) {
+	rpaasInstance, err := m.GetInstance(name)
+	if err != nil {
+		return "", err
+	}
+	nginx := nginxv1alpha1.Nginx{}
+	err = m.cli.Get(m.ctx, types.NamespacedName{Name: rpaasInstance.Name, Namespace: rpaasInstance.Namespace}, &nginx)
+	if err != nil {
+		if IsNotFoundError(err) {
+			return "", nil
+		}
+		return "", err
+	}
+	if len(nginx.Status.Services) == 0 {
+		return "", nil
+	}
+	svcName := nginx.Status.Services[0].Name
+	var svc corev1.Service
+	err = m.cli.Get(m.ctx, types.NamespacedName{Name: svcName, Namespace: rpaasInstance.Namespace}, &svc)
+	if err != nil {
+		return "", err
+	}
+	if len(svc.Status.LoadBalancer.Ingress) > 0 {
+		return svc.Status.LoadBalancer.Ingress[0].IP, nil
+	}
+	return svc.Spec.ClusterIP, nil
+}
+
 func (m *k8sRpaasManager) GetInstance(name string) (*v1alpha1.RpaasInstance, error) {
 	list := &v1alpha1.RpaasInstanceList{}
 	err := m.cli.List(m.ctx, client.MatchingField("metadata.name", name), list)

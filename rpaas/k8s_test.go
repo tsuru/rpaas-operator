@@ -13,7 +13,12 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
+
+func init() {
+	logf.SetLogger(logf.ZapLogger(true))
+}
 
 func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 	scheme := runtime.NewScheme()
@@ -475,5 +480,120 @@ func newEmptyConfigurationBlocks() *corev1.ConfigMap {
 			Name:      "my-instance-blocks",
 			Namespace: "default",
 		},
+	}
+}
+
+func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "another-instance"
+	instance3 := newEmptyRpaasInstance()
+	instance3.ObjectMeta.Name = "instance3"
+	instance4 := newEmptyRpaasInstance()
+	instance4.ObjectMeta.Name = "instance4"
+	nginx1 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance1.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Services: []nginxv1alpha1.ServiceStatus{
+				{Name: "svc1"},
+			},
+		},
+	}
+	nginx2 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance2.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Services: []nginxv1alpha1.ServiceStatus{
+				{Name: "svc2"},
+			},
+		},
+	}
+	nginx3 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance3.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Services: []nginxv1alpha1.ServiceStatus{},
+		},
+	}
+	svc1 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc1",
+			Namespace: instance1.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "10.1.1.9",
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{IP: "10.1.2.3"},
+				},
+			},
+		},
+	}
+	svc2 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "svc2",
+			Namespace: instance1.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			ClusterIP: "10.1.1.9",
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx1, nginx2, nginx3, svc1, svc2}
+
+	testCases := []struct {
+		instance  string
+		assertion func(*testing.T, string, error)
+	}{
+		{
+			"my-instance",
+			func(t *testing.T, address string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, address, "10.1.2.3")
+			},
+		},
+		{
+			"another-instance",
+			func(t *testing.T, address string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, address, "10.1.1.9")
+			},
+		},
+		{
+			"instance3",
+			func(t *testing.T, address string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, address, "")
+			},
+		},
+		{
+			"instance4",
+			func(t *testing.T, address string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, address, "")
+			},
+		},
+		{
+			"not-found-instance",
+			func(t *testing.T, address string, err error) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{
+				cli: fake.NewFakeClientWithScheme(scheme, resources...),
+			}
+			address, err := manager.GetInstanceAddress(testCase.instance)
+			testCase.assertion(t, address, err)
+		})
 	}
 }

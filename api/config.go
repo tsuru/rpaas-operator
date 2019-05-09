@@ -1,6 +1,7 @@
 package api
 
 import (
+	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -20,6 +21,9 @@ func setup() error {
 		return err
 	}
 	if err = apis.AddToScheme(m.GetScheme()); err != nil {
+		return err
+	}
+	if err = nginxApis.AddToScheme(m.GetScheme()); err != nil {
 		return err
 	}
 	if err = apis.AddFieldIndexes(m.GetFieldIndexer()); err != nil {

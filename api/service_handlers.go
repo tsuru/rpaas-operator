@@ -86,10 +86,14 @@ func serviceInfo(c echo.Context) error {
 	for i, loc := range instance.Spec.Locations {
 		routes[i] = loc.Config.Value
 	}
+	address, err := manager.GetInstanceAddress(name)
+	if err != nil {
+		return err
+	}
 	ret := []map[string]string{
 		{
 			"label": "Address",
-			"value": "x.x.x.x",
+			"value": address,
 		},
 		{
 			"label": "Instances",
