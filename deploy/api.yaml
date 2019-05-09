@@ -15,7 +15,7 @@ spec:
       serviceAccountName: rpaas-operator
       containers:
         - name: rpaas-api
-          image: 10.200.10.1:5000/tsuru/rpaas-api
+          image: tsuru/rpaas-api
           ports:
           - containerPort: 9999
             name: api
@@ -34,4 +34,4 @@ spec:
     targetPort: 9999
   selector:
     name: rpaas-api
-  type: NodePort
+  type: LoadBalancer
