@@ -17,7 +17,7 @@ jobs:
   - stage: test
     script: make test
     env: GOARCH=amd64
-    go: 1.10.x
+    go: 1.12.x
   - stage: integration
     script: "./scripts/localkube-integration.sh"
     after_failure:
@@ -42,7 +42,7 @@ jobs:
     script:
     - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
     - if [ -n "$TRAVIS_TAG" ]; then make TAG=$TRAVIS_TAG push; else make push; fi
-    go: 1.10.x
+    go: 1.12.x
     if: "(NOT type IN (pull_request)) AND (branch = master) OR (tag IS present)"
 matrix:
   allow_failures:
