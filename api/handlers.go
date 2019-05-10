@@ -93,28 +93,3 @@ func serviceStatus(c echo.Context) error {
 func healthcheck(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
 }
-
-func listExtraFiles(c echo.Context) error {
-	// TODO:
-	return nil
-}
-
-func getExtraFile(c echo.Context) error {
-	// TODO:
-	return nil
-}
-
-func addExtraFiles(c echo.Context) error {
-	// TODO:
-	return nil
-}
-
-func updateExtraFiles(c echo.Context) error {
-	// TODO:
-	return nil
-}
-
-func deleteExtraFile(c echo.Context) error {
-	// TODO:
-	return nil
-}
