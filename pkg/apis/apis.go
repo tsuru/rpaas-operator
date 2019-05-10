@@ -1,6 +1,7 @@
 package apis
 
 import (
+	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -36,6 +37,9 @@ func NewManager() (manager.Manager, error) {
 		return nil, err
 	}
 	if err = AddToScheme(mgr.GetScheme()); err != nil {
+		return nil, err
+	}
+	if err = nginxApis.AddToScheme(mgr.GetScheme()); err != nil {
 		return nil, err
 	}
 	if err = AddFieldIndexes(mgr.GetFieldIndexer()); err != nil {
