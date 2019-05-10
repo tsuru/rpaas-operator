@@ -12,9 +12,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/rpaas"
 	"github.com/tsuru/rpaas-operator/rpaas/fake"
@@ -215,7 +213,7 @@ func Test_serviceInfo(t *testing.T) {
 			expectedInfo: []map[string]string{
 				{
 					"label": "Address",
-					"value": "<pending>",
+					"value": "pending",
 				},
 				{
 					"label": "Instances",
@@ -238,6 +236,9 @@ func Test_serviceInfo(t *testing.T) {
 						},
 						Spec: v1alpha1.RpaasInstanceSpec{},
 					}, nil
+				},
+				FakeInstanceAddress: func(string) (string, error) {
+					return "", nil
 				},
 			},
 		},
@@ -279,6 +280,9 @@ func Test_serviceInfo(t *testing.T) {
 							},
 						},
 					}, nil
+				},
+				FakeInstanceAddress: func(string) (string, error) {
+					return "127.0.0.1", nil
 				},
 			},
 		},

@@ -81,6 +81,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	if err = m.createNamespace(ctx, namespaceName); err != nil && !k8sErrors.IsAlreadyExists(err) {
 		return err
 	}
+	oneReplica := int32(1)
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasInstance",
@@ -98,6 +99,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 				LoadBalancerIP: args.IP,
 				Annotations:    config.StringMap(serviceAnnotationsConfig),
 			},
+			Replicas: &oneReplica,
 		},
 	}
 	err = m.cli.Create(ctx, instance)
@@ -187,7 +189,7 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instance string, c tls.Certificate) error {
+func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instance, name string, c tls.Certificate) error {
 	rpaasInstance, err := m.GetInstance(ctx, instance)
 	if err != nil {
 		return err
@@ -218,7 +220,7 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 		return "", err
 	}
 	nginx := nginxv1alpha1.Nginx{}
-	err = m.cli.Get(m.ctx, types.NamespacedName{Name: rpaasInstance.Name, Namespace: rpaasInstance.Namespace}, &nginx)
+	err = m.cli.Get(ctx, types.NamespacedName{Name: rpaasInstance.Name, Namespace: rpaasInstance.Namespace}, &nginx)
 	if err != nil {
 		if IsNotFoundError(err) {
 			return "", nil
@@ -230,7 +232,7 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 	}
 	svcName := nginx.Status.Services[0].Name
 	var svc corev1.Service
-	err = m.cli.Get(m.ctx, types.NamespacedName{Name: svcName, Namespace: rpaasInstance.Namespace}, &svc)
+	err = m.cli.Get(ctx, types.NamespacedName{Name: svcName, Namespace: rpaasInstance.Namespace}, &svc)
 	if err != nil {
 		return "", err
 	}

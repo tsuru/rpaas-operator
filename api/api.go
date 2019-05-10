@@ -19,15 +19,12 @@ import (
 type api struct {
 	sync.Mutex
 
-	// Address is the network address where the webserver will listen on.
-	//
+	// Address is the network address where the web server will listen on.
 	// Defaults to `:9999`.
 	Address string
 
-	// ShutdownTimeout defines the max duration used to wait th webserver
-	// gracefully shut down.
-	//
-	// Defaults to `30 * time.Second`.
+	// ShutdownTimeout defines the max duration used to wait the web server
+	// gracefully shutting down. Defaults to `30 * time.Second`.
 	ShutdownTimeout time.Duration
 
 	started      bool
@@ -37,7 +34,7 @@ type api struct {
 	shutdown     chan struct{}
 }
 
-// New creates an instance of api.
+// New creates an api instance.
 func New(mgr manager.Manager) (a *api) {
 	var rm rpaas.RpaasManager
 	if mgr != nil {
