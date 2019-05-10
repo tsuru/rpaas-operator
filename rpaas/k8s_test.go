@@ -420,7 +420,6 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			instance:    instance,
 			certificate: ecdsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				err := m.UpdateCertificate(nil, instance, ecdsaCertificate)
 				require.NoError(t, err)
 				assertSecretData(t, m, "mycert", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
 				assertTLSCertificate(t, m, "mycert")
@@ -430,7 +429,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			instance:    instance,
 			certificate: rsaCertificate,
 			setup: func(t *testing.T, m *k8sRpaasManager) {
-				err := m.UpdateCertificate(instance, "", ecdsaCertificate)
+				err := m.UpdateCertificate(nil, instance, "", ecdsaCertificate)
 				require.NoError(t, err)
 				assertSecretData(t, m, "default", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
 				assertTLSCertificate(t, m, "default")
@@ -593,7 +592,7 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 			manager := &k8sRpaasManager{
 				cli: fake.NewFakeClientWithScheme(scheme, resources...),
 			}
-			address, err := manager.GetInstanceAddress(testCase.instance)
+			address, err := manager.GetInstanceAddress(nil, testCase.instance)
 			testCase.assertion(t, address, err)
 		})
 	}

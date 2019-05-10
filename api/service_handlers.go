@@ -71,13 +71,10 @@ func serviceInfo(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	instance, err := manager.GetInstance(c.Request().Context(), c.Param("instance"))
+	instanceName := c.Param("instance")
+	instance, err := manager.GetInstance(c.Request().Context(), instanceName)
 	if err != nil {
 		return err
-	}
-	address := "<pending>"
-	if instance.Spec.Service != nil && instance.Spec.Service.LoadBalancerIP != "" {
-		address = instance.Spec.Service.LoadBalancerIP
 	}
 	replicas := "0"
 	if instance.Spec.Replicas != nil {
@@ -87,9 +84,12 @@ func serviceInfo(c echo.Context) error {
 	for i, loc := range instance.Spec.Locations {
 		routes[i] = loc.Config.Value
 	}
-	address, err := manager.GetInstanceAddress(name)
+	address, err := manager.GetInstanceAddress(c.Request().Context(), instanceName)
 	if err != nil {
 		return err
+	}
+	if address == "" {
+		address = "pending"
 	}
 	ret := []map[string]string{
 		{
