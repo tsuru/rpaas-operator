@@ -32,6 +32,15 @@ type ConfigurationBlockHandler interface {
 	UpdateBlock(ctx context.Context, instanceName string, block ConfigurationBlock) error
 }
 
+type File struct {
+	Name    string
+	Content []byte
+}
+
+type ExtraFileHandler interface {
+	CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error
+}
+
 type CreateArgs struct {
 	Name        string   `json:"name" form:"name"`
 	Plan        string   `json:"plan" form:"plan"`
@@ -54,6 +63,7 @@ type PodStatus struct {
 
 type RpaasManager interface {
 	ConfigurationBlockHandler
+	ExtraFileHandler
 
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
 	CreateInstance(ctx context.Context, args CreateArgs) error

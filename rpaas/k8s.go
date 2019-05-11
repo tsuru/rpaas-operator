@@ -291,6 +291,10 @@ func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, e
 	return planList.Items, nil
 }
 
+func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
+	return nil
+}
+
 func (m *k8sRpaasManager) getPlan(ctx context.Context, name string) (*v1alpha1.RpaasPlan, error) {
 	plan := &v1alpha1.RpaasPlan{}
 	err := m.cli.Get(ctx, types.NamespacedName{Name: name}, plan)
