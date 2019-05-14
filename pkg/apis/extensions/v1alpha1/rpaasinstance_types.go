@@ -39,6 +39,10 @@ type RpaasInstanceSpec struct {
 	// +optional
 	Service *nginxv1alpha1.NginxService `json:"service,omitempty"`
 
+	// ExtraFiles points to a ConfigMap where the files are stored.
+	// +optional
+	ExtraFiles *nginxv1alpha1.FilesRef `json:"extraFiles,omitempty"`
+
 	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 

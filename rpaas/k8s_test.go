@@ -483,6 +483,19 @@ func newEmptyConfigurationBlocks() *corev1.ConfigMap {
 	}
 }
 
+func newEmptyExtraFiles() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-extra-files",
+			Namespace: "default",
+		},
+	}
+}
+
 func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
@@ -786,6 +799,219 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 			}
 			podMap, err := manager.GetInstanceStatus(nil, testCase.instance)
 			testCase.assertion(t, podMap, err)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
+		Name: "another-instance-extra-files",
+		Files: map[string]string{
+			"index.html": "index.html",
+		},
+	}
+
+	configMap := newEmptyExtraFiles()
+	configMap.Name = "another-instance-extra-files"
+	configMap.BinaryData = map[string][]byte{
+		"index.html": []byte("Hello world"),
+	}
+
+	resources := []runtime.Object{instance1, instance2, configMap}
+
+	testCases := []struct {
+		instance  string
+		files     []File
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			instance: "my-instance",
+			files: []File{
+				{
+					Name:    "/path/to/my/file",
+					Content: []byte("My invalid filename"),
+				},
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.True(t, IsValidationError(err))
+			},
+		},
+		{
+			instance: "my-instance",
+			files: []File{
+				{
+					Name:    "www/index.html",
+					Content: []byte("<h1>Hello world!</h1>"),
+				},
+				{
+					Name:    "waf/sqli-rules.cnf",
+					Content: []byte("# my awesome rules against SQLi :)..."),
+				},
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				cm := corev1.ConfigMap{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance-extra-files", Namespace: "default"}, &cm)
+				require.NoError(t, err)
+
+				expectedConfigMapData := map[string][]byte{
+					"www_index.html":     []byte("<h1>Hello world!</h1>"),
+					"waf_sqli-rules.cnf": []byte("# my awesome rules against SQLi :)..."),
+				}
+				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance", Namespace: "default"}, &instance)
+				require.NoError(t, err)
+
+				expectedExtraFiles := &nginxv1alpha1.FilesRef{
+					Name: "my-instance-extra-files",
+					Files: map[string]string{
+						"www_index.html":     "www/index.html",
+						"waf_sqli-rules.cnf": "waf/sqli-rules.cnf",
+					},
+				}
+				assert.Equal(t, expectedExtraFiles, instance.Spec.ExtraFiles)
+			},
+		},
+		{
+			instance: "another-instance",
+			files: []File{
+				{
+					Name:    "index.html",
+					Content: []byte("My new hello world"),
+				},
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.True(t, IsConflictError(err))
+				assert.Equal(t, ConflictError{Msg: `file "index.html" already exists`}, err)
+			},
+		},
+		{
+			instance: "another-instance",
+			files: []File{
+				{
+					Name:    "www/index.html",
+					Content: []byte("<h1>Hello world!</h1>"),
+				},
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				cm := corev1.ConfigMap{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance-extra-files", Namespace: "default"}, &cm)
+				require.NoError(t, err)
+
+				expectedConfigMapData := map[string][]byte{
+					"index.html":     []byte("Hello world"),
+					"www_index.html": []byte("<h1>Hello world!</h1>"),
+				}
+				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance", Namespace: "default"}, &instance)
+				require.NoError(t, err)
+
+				expectedExtraFiles := &nginxv1alpha1.FilesRef{
+					Name: "another-instance-extra-files",
+					Files: map[string]string{
+						"index.html":     "index.html",
+						"www_index.html": "www/index.html",
+					},
+				}
+				assert.Equal(t, expectedExtraFiles, instance.Spec.ExtraFiles)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.CreateExtraFiles(nil, tt.instance, tt.files...)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
+func Test_isPathValid(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected bool
+	}{
+		{
+			path:     "../../passwd",
+			expected: false,
+		},
+		{
+			path:     "/bin/bash",
+			expected: false,
+		},
+		{
+			path:     "./subdir/file.txt",
+			expected: true,
+		},
+		{
+			path:     "..data/test",
+			expected: false,
+		},
+		{
+			path:     "subdir/my-file..txt",
+			expected: false,
+		},
+		{
+			path:     "my-file.txt",
+			expected: true,
+		},
+		{
+			path:     "path/to/my/file.txt",
+			expected: true,
+		},
+		{
+			path:     ".my-hidden-file",
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			assert.Equal(t, tt.expected, isPathValid(tt.path))
+		})
+	}
+}
+
+func Test_convertPathToConfigMapKey(t *testing.T) {
+	tests := []struct {
+		path     string
+		expected string
+	}{
+		{
+			path:     "path/to/my-file.txt",
+			expected: "path_to_my-file.txt",
+		},
+		{
+			path:     "FILE@master.html",
+			expected: "FILE_master.html",
+		},
+		{
+			path:     "my new index.html",
+			expected: "my_new_index.html",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			assert.Equal(t, tt.expected, convertPathToConfigMapKey(tt.path))
 		})
 	}
 }
