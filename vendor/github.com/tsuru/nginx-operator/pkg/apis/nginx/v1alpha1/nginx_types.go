@@ -25,7 +25,10 @@ type NginxSpec struct {
 	// Service to expose the nginx pod
 	// +optional
 	Service *NginxService `json:"service,omitempty"`
-
+	// ExtraFiles references to additional files into a object in the cluster.
+	// These additional files will be mounted on `/etc/nginx/extra_files`.
+	// +optional
+	ExtraFiles *FilesRef `json:"extraFiles,omitempty"`
 	// HealthcheckPath defines the endpoint used to check whether instance is
 	// working or not.
 	// +optional
@@ -120,6 +123,18 @@ type TLSSecret struct {
 	// Relative to /etc/nginx/certs/.
 	// Defaults to <CertificateName>
 	CertificatePath string
+}
+
+// FilesRef is a reference to arbitrary files stored into a ConfigMap in the
+// cluster.
+type FilesRef struct {
+	// Name points to a ConfigMap resource (in the same namespace) which holds
+	// the files.
+	Name string `json:"name"`
+	// Files maps each key entry from the ConfigMap to its relative location on
+	// the nginx filesystem.
+	// +optional
+	Files map[string]string `json:"files,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
