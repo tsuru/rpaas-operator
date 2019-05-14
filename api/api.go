@@ -35,12 +35,16 @@ type api struct {
 }
 
 // New creates an api instance.
-func New(mgr manager.Manager) (a *api) {
+func New(mgr manager.Manager) (*api, error) {
 	var rm rpaas.RpaasManager
 	if mgr != nil {
-		rm = rpaas.NewK8S(mgr.GetClient())
+		var err error
+		rm, err = rpaas.NewK8S(mgr)
+		if err != nil {
+			return nil, err
+		}
 	}
-	a = &api{
+	a := &api{
 		Address:         `:9999`,
 		ShutdownTimeout: 30 * time.Second,
 		e:               newEcho(),
@@ -49,7 +53,7 @@ func New(mgr manager.Manager) (a *api) {
 		rpaasManager:    rm,
 	}
 	a.e.Use(a.rpaasManagerInjector())
-	return
+	return a, nil
 }
 
 // Start runs the web server.

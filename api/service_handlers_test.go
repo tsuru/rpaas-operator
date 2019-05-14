@@ -92,7 +92,8 @@ func Test_serviceCreate(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -135,7 +136,8 @@ func Test_serviceDelete(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -179,7 +181,8 @@ func Test_servicePlans(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -290,7 +293,8 @@ func Test_serviceInfo(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
