@@ -597,3 +597,195 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		})
 	}
 }
+
+func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "instance2"
+	instance3 := newEmptyRpaasInstance()
+	instance3.ObjectMeta.Name = "instance3"
+	instance4 := newEmptyRpaasInstance()
+	instance4.ObjectMeta.Name = "instance4"
+	instance5 := newEmptyRpaasInstance()
+	instance5.ObjectMeta.Name = "instance5"
+	nginx1 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance1.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Pods: []nginxv1alpha1.PodStatus{
+				{Name: "pod1"},
+				{Name: "pod2"},
+			},
+		},
+	}
+	nginx2 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance2.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Pods: []nginxv1alpha1.PodStatus{
+				{Name: "pod3"},
+			},
+		},
+	}
+	nginx3 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance3.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Pods: []nginxv1alpha1.PodStatus{},
+		},
+	}
+	nginx4 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance5.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Pods: []nginxv1alpha1.PodStatus{
+				{Name: "pod4"},
+			},
+		},
+	}
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1",
+			Namespace: instance1.Namespace,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.0.0.1",
+		},
+	}
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod2",
+			Namespace: instance1.Namespace,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.0.0.2",
+		},
+	}
+	pod4 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod4",
+			Namespace: instance1.Namespace,
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.0.0.9",
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Ready: false,
+				},
+			},
+		},
+	}
+	evt1 := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1.1",
+			Namespace: instance1.Namespace,
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Name: "pod1",
+			Kind: "Pod",
+		},
+		Source: corev1.EventSource{
+			Component: "c1",
+		},
+		Message: "msg1",
+	}
+	evt2 := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1.2",
+			Namespace: instance1.Namespace,
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Name: "pod1",
+			Kind: "Pod",
+		},
+		Source: corev1.EventSource{
+			Component: "c2",
+			Host:      "h1",
+		},
+		Message: "msg2",
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, nginx1, nginx2, nginx3, nginx4, pod1, pod2, pod4, evt1, evt2}
+
+	testCases := []struct {
+		instance  string
+		assertion func(*testing.T, PodStatusMap, error)
+	}{
+		{
+			"my-instance",
+			func(t *testing.T, podMap PodStatusMap, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, podMap, PodStatusMap{
+					"pod1": PodStatus{
+						Running: true,
+						Status:  "msg1 [c1]\nmsg2 [c2, h1]",
+						Address: "10.0.0.1",
+					},
+					"pod2": PodStatus{
+						Running: true,
+						Status:  "",
+						Address: "10.0.0.2",
+					},
+				})
+			},
+		},
+		{
+			"instance2",
+			func(t *testing.T, podMap PodStatusMap, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, podMap, PodStatusMap{
+					"pod3": PodStatus{
+						Running: false,
+						Status:  "pods \"pod3\" not found",
+					},
+				})
+			},
+		},
+		{
+			"instance3",
+			func(t *testing.T, podMap PodStatusMap, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, podMap, PodStatusMap{})
+			},
+		},
+		{
+			"instance4",
+			func(t *testing.T, podMap PodStatusMap, err error) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			"instance5",
+			func(t *testing.T, podMap PodStatusMap, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, podMap, PodStatusMap{
+					"pod4": PodStatus{
+						Running: false,
+						Address: "10.0.0.9",
+					},
+				})
+			},
+		},
+		{
+			"not-found-instance",
+			func(t *testing.T, podMap PodStatusMap, err error) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+	}
+
+	for _, testCase := range testCases {
+		t.Run(testCase.instance, func(t *testing.T) {
+			fakeCli := fake.NewFakeClientWithScheme(scheme, resources...)
+			manager := &k8sRpaasManager{
+				nonCachedCli: fakeCli,
+				cli:          fakeCli,
+			}
+			podMap, err := manager.GetInstanceStatus(nil, testCase.instance)
+			testCase.assertion(t, podMap, err)
+		})
+	}
+}

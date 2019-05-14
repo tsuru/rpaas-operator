@@ -8,18 +8,29 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 )
 
-func main() {
+func startup() error {
 	if err := agent.Listen(agent.Options{}); err != nil {
-		log.Fatalf("could not start gops: %+v\n", err)
+		return err
 	}
 	defer agent.Close()
 
 	manager, err := apis.NewManager()
 	if err != nil {
-		log.Fatalf("could not initialize kubernetes client manager: %+v\n", err)
+		return err
 	}
+	a, err := api.New(manager)
+	if err != nil {
+		return err
+	}
+	if err = a.Start(); err != nil {
+		return err
+	}
+	return nil
+}
 
-	if err = api.New(manager).Start(); err != nil {
-		log.Fatalf("something went wrong: %+v", err)
+func main() {
+	err := startup()
+	if err != nil {
+		log.Fatalf("unable to initialize application: %+v", err)
 	}
 }

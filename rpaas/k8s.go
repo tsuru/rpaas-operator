@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -36,11 +37,22 @@ var (
 )
 
 type k8sRpaasManager struct {
-	cli client.Client
+	nonCachedCli client.Client
+	cli          client.Client
 }
 
-func NewK8S(cli client.Client) RpaasManager {
-	return &k8sRpaasManager{cli: cli}
+func NewK8S(mgr manager.Manager) (RpaasManager, error) {
+	nonCachedCli, err := client.New(mgr.GetConfig(), client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &k8sRpaasManager{
+		nonCachedCli: nonCachedCli,
+		cli:          mgr.GetClient(),
+	}, nil
 }
 
 func (m *k8sRpaasManager) DeleteInstance(ctx context.Context, name string) error {
@@ -537,4 +549,89 @@ func isBlockValid(block string) bool {
 		}
 	}
 	return false
+}
+
+func (m *k8sRpaasManager) GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error) {
+	rpaasInstance, err := m.GetInstance(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	var nginx nginxv1alpha1.Nginx
+	err = m.cli.Get(ctx, types.NamespacedName{Name: rpaasInstance.Name, Namespace: rpaasInstance.Namespace}, &nginx)
+	if err != nil {
+		return nil, err
+	}
+	podMap := PodStatusMap{}
+	for _, podInfo := range nginx.Status.Pods {
+		st, err := m.podStatus(ctx, podInfo.Name, rpaasInstance.Namespace)
+		if err != nil {
+			st = PodStatus{
+				Running: false,
+				Status:  fmt.Sprintf("%+v", err),
+			}
+		}
+		podMap[podInfo.Name] = st
+	}
+	return podMap, nil
+}
+
+func (m *k8sRpaasManager) podStatus(ctx context.Context, podName, ns string) (PodStatus, error) {
+	var pod corev1.Pod
+	err := m.cli.Get(ctx, types.NamespacedName{
+		Name:      podName,
+		Namespace: ns,
+	}, &pod)
+	if err != nil {
+		return PodStatus{}, err
+	}
+	evts, err := m.eventsForPod(ctx, pod.Name, pod.Namespace)
+	if err != nil {
+		return PodStatus{}, err
+	}
+	allRunning := true
+	for _, cs := range pod.Status.ContainerStatuses {
+		allRunning = allRunning && cs.Ready
+	}
+	return PodStatus{
+		Address: pod.Status.PodIP,
+		Running: allRunning,
+		Status:  formatPodEvents(evts),
+	}, nil
+}
+
+func (m *k8sRpaasManager) eventsForPod(ctx context.Context, podName, ns string) ([]corev1.Event, error) {
+	const podKind = "Pod"
+	listOpts := client.
+		MatchingField("involvedObject.kind", podKind).
+		MatchingField("involvedObject.name", podName)
+	listOpts.Namespace = ns
+	var eventList corev1.EventList
+	err := m.nonCachedCli.List(ctx, listOpts, &eventList)
+	if err != nil {
+		return nil, err
+	}
+	for i := 0; i < len(eventList.Items); i++ {
+		if eventList.Items[i].InvolvedObject.Kind != podKind ||
+			eventList.Items[i].InvolvedObject.Name != podName {
+			eventList.Items[i] = eventList.Items[len(eventList.Items)-1]
+			eventList.Items = eventList.Items[:len(eventList.Items)-1]
+			i--
+		}
+	}
+	return eventList.Items, nil
+}
+
+func formatPodEvents(events []corev1.Event) string {
+	var statuses []string
+	for _, evt := range events {
+		component := []string{evt.Source.Component}
+		if evt.Source.Host != "" {
+			component = append(component, evt.Source.Host)
+		}
+		statuses = append(statuses, fmt.Sprintf("%s [%s]",
+			evt.Message,
+			strings.Join(component, ", "),
+		))
+	}
+	return strings.Join(statuses, "\n")
 }

@@ -8,6 +8,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/stretchr/testify/require"
+
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
 	"github.com/tsuru/rpaas-operator/rpaas"
@@ -59,7 +61,8 @@ func Test_deleteBlock(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -115,7 +118,8 @@ func Test_listBlocks(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -173,7 +177,8 @@ func Test_updateBlock(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()

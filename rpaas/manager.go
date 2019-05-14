@@ -44,6 +44,14 @@ type CreateArgs struct {
 	IP          string   `json:"ip" form:"ip"`
 }
 
+type PodStatusMap map[string]PodStatus
+
+type PodStatus struct {
+	Running bool   `json:"running"`
+	Status  string `json:"status"`
+	Address string `json:"address"`
+}
+
 type RpaasManager interface {
 	ConfigurationBlockHandler
 
@@ -52,6 +60,7 @@ type RpaasManager interface {
 	DeleteInstance(ctx context.Context, name string) error
 	GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error)
 	GetInstanceAddress(ctx context.Context, name string) (string, error)
+	GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error)
 	Scale(ctx context.Context, name string, replicas int32) error
 	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
 }
