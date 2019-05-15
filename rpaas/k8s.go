@@ -340,6 +340,32 @@ func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName str
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string) ([]File, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+	filesObject, err := m.getExtraFilesObject(ctx, *instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return []File{}, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	var extraFiles map[string]string
+	if instance.Spec.ExtraFiles != nil && instance.Spec.ExtraFiles.Files != nil {
+		extraFiles = instance.Spec.ExtraFiles.Files
+	}
+	files := []File{}
+	for key, path := range extraFiles {
+		files = append(files, File{
+			Name:    path,
+			Content: filesObject.BinaryData[key],
+		})
+	}
+	return files, nil
+}
+
 func (m *k8sRpaasManager) createExtraFilesObject(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{

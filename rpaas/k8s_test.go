@@ -944,6 +944,61 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
+		Name: "another-instance-extra-files",
+		Files: map[string]string{
+			"index.html": "index.html",
+		},
+	}
+
+	configMap := newEmptyExtraFiles()
+	configMap.Name = "another-instance-extra-files"
+	configMap.BinaryData = map[string][]byte{
+		"index.html": []byte("Hello world"),
+	}
+
+	resources := []runtime.Object{instance1, instance2, configMap}
+
+	testCases := []struct {
+		instance      string
+		expectedFiles []File
+		expectedError error
+	}{
+		{
+			instance:      "my-instance",
+			expectedFiles: []File{},
+		},
+		{
+			instance: "another-instance",
+			expectedFiles: []File{
+				{
+					Name:    "index.html",
+					Content: []byte("Hello world"),
+				},
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			files, err := manager.GetExtraFiles(nil, tt.instance)
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expectedFiles, files)
+		})
+	}
+}
+
 func Test_isPathValid(t *testing.T) {
 	tests := []struct {
 		path     string
