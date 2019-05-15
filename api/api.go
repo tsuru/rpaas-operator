@@ -12,6 +12,7 @@ import (
 
 	"github.com/labstack/echo"
 	"github.com/labstack/echo/middleware"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/rpaas"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
@@ -148,8 +149,20 @@ func newEcho() *echo.Echo {
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
+	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
+		Skipper: func(c echo.Context) bool {
+			return c.Path() == "/healthcheck" ||
+				(config.Value("API_USERNAME") == "" && config.Value("API_PASSWORD") == "")
+		},
+		Validator: func(user, pass string, c echo.Context) (bool, error) {
+			return user == config.Value("API_USERNAME") &&
+				pass == config.Value("API_PASSWORD"), nil
+		},
+		Realm: "Restricted",
+	}))
 	e.Use(errorMiddleware)
 
+	e.GET("/healthcheck", healthcheck)
 	e.POST("/resources", serviceCreate)
 	e.GET("/resources/plans", servicePlans)
 	e.GET("/resources/:instance", serviceInfo)

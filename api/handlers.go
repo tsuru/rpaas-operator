@@ -90,6 +90,10 @@ func serviceStatus(c echo.Context) error {
 	return c.JSON(200, podStatus)
 }
 
+func healthcheck(c echo.Context) error {
+	return c.String(http.StatusOK, "OK")
+}
+
 func listExtraFiles(c echo.Context) error {
 	// TODO:
 	return nil
