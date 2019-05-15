@@ -4,19 +4,51 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"net/url"
 
 	"github.com/labstack/echo"
 	"github.com/tsuru/rpaas-operator/rpaas"
 )
 
 func listExtraFiles(c echo.Context) error {
-	// TODO:
-	return nil
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+	files, err := manager.GetExtraFiles(c.Request().Context(), c.Param("instance"))
+	if err != nil {
+		return err
+	}
+	names := make([]string, len(files))
+	for i, file := range files {
+		names[i] = file.Name
+	}
+	return c.JSON(http.StatusOK, names)
 }
 
 func getExtraFile(c echo.Context) error {
-	// TODO:
-	return nil
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+	files, err := manager.GetExtraFiles(c.Request().Context(), c.Param("instance"))
+	if err != nil {
+		return err
+	}
+	filename, err := url.PathUnescape(c.Param("name"))
+	if err != nil {
+		return &echo.HTTPError{
+			Code:     http.StatusBadRequest,
+			Message:  fmt.Sprintf("%s", err),
+			Internal: err,
+		}
+	}
+	for _, file := range files {
+		if file.Name == filename {
+			return c.JSON(http.StatusOK, file)
+		}
+	}
+	return &rpaas.NotFoundError{Msg: fmt.Sprintf("file %q not found", filename)}
 }
 
 func addExtraFiles(c echo.Context) error {

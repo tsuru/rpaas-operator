@@ -2,7 +2,10 @@ package rpaas
 
 import (
 	"context"
+	"crypto/sha256"
 	"crypto/tls"
+	"encoding/json"
+	"fmt"
 
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
@@ -37,8 +40,21 @@ type File struct {
 	Content []byte
 }
 
+func (f File) SHA256() string {
+	return fmt.Sprintf("%x", sha256.Sum256(f.Content))
+}
+
+func (f File) MarshalJSON() ([]byte, error) {
+	return json.Marshal(&map[string]interface{}{
+		"name":    f.Name,
+		"content": f.Content,
+		"sha256":  f.SHA256(),
+	})
+}
+
 type ExtraFileHandler interface {
 	CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error
+	GetExtraFiles(ctx context.Context, instanceName string) ([]File, error)
 }
 
 type CreateArgs struct {
