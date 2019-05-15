@@ -14,6 +14,7 @@ import (
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/rpaas/fake"
 )
 
@@ -167,6 +168,113 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			e.HTTPErrorHandler(err, context)
 			assert.Equal(t, testCase.expectedCode, recorder.Code)
 			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
+		})
+	}
+}
+
+func Test_healthcheck(t *testing.T) {
+	testCases := []struct {
+		name  string
+		setup func(*testing.T)
+	}{
+		{
+			name: "without auth",
+		},
+		{
+			name: "with auth",
+			setup: func(t *testing.T) {
+				config.Set("API_USERNAME", "u1")
+				config.Set("API_PASSWORD", "p1")
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			if tt.setup != nil {
+				tt.setup(t)
+			}
+			defer config.Unset("API_USERNAME")
+			defer config.Unset("API_PASSWORD")
+			webApi, err := New(nil)
+			require.NoError(t, err)
+			srv := httptest.NewServer(webApi.Handler())
+			defer srv.Close()
+			path := fmt.Sprintf("%s/healthcheck", srv.URL)
+			request, err := http.NewRequest(http.MethodGet, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, 200, rsp.StatusCode)
+			assert.Regexp(t, "OK", bodyContent(rsp))
+		})
+	}
+}
+
+func Test_MiddlewareBasicAuth(t *testing.T) {
+	testCases := []struct {
+		name         string
+		setup        func(*testing.T, *http.Request)
+		expectedCode int
+	}{
+		{
+			name:         "without auth",
+			expectedCode: 404,
+		},
+		{
+			name: "with auth enabled",
+			setup: func(t *testing.T, r *http.Request) {
+				config.Set("API_USERNAME", "u1")
+				config.Set("API_PASSWORD", "p1")
+			},
+			expectedCode: 401,
+		},
+		{
+			name: "with auth enabled and credentials",
+			setup: func(t *testing.T, r *http.Request) {
+				config.Set("API_USERNAME", "u1")
+				config.Set("API_PASSWORD", "p1")
+				r.SetBasicAuth("u1", "p1")
+			},
+			expectedCode: 404,
+		},
+		{
+			name: "with auth enabled and invalid username",
+			setup: func(t *testing.T, r *http.Request) {
+				config.Set("API_USERNAME", "u1")
+				config.Set("API_PASSWORD", "p1")
+				r.SetBasicAuth("u9", "p1")
+			},
+			expectedCode: 401,
+		},
+		{
+			name: "with auth enabled and invalid password",
+			setup: func(t *testing.T, r *http.Request) {
+				config.Set("API_USERNAME", "u1")
+				config.Set("API_PASSWORD", "p1")
+				r.SetBasicAuth("u1", "p9")
+			},
+			expectedCode: 401,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			defer config.Unset("API_USERNAME")
+			defer config.Unset("API_PASSWORD")
+			webApi, err := New(nil)
+			require.NoError(t, err)
+			srv := httptest.NewServer(webApi.Handler())
+			defer srv.Close()
+			path := fmt.Sprintf("%s/", srv.URL)
+			request, err := http.NewRequest(http.MethodGet, path, nil)
+			require.NoError(t, err)
+			if tt.setup != nil {
+				tt.setup(t, request)
+			}
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
 		})
 	}
 }
