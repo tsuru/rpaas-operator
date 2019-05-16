@@ -22,6 +22,7 @@ type RpaasManager struct {
 	FakeGetPlans          func() ([]v1alpha1.RpaasPlan, error)
 	FakeCreateExtraFiles  func(instanceName string, files ...rpaas.File) error
 	FakeGetExtraFiles     func(instanceName string) ([]rpaas.File, error)
+	FakeUpdateExtraFiles  func(instanceName string, files ...rpaas.File) error
 }
 
 func (m *RpaasManager) UpdateCertificate(ctx context.Context, instance, name string, c tls.Certificate) error {
@@ -113,4 +114,11 @@ func (m *RpaasManager) GetExtraFiles(ctx context.Context, instanceName string) (
 		return m.FakeGetExtraFiles(instanceName)
 	}
 	return nil, nil
+}
+
+func (m *RpaasManager) UpdateExtraFiles(ctx context.Context, instanceName string, files ...rpaas.File) error {
+	if m.FakeUpdateExtraFiles != nil {
+		return m.FakeUpdateExtraFiles(instanceName, files...)
+	}
+	return nil
 }

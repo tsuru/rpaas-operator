@@ -366,6 +366,31 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 	return files, nil
 }
 
+func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	filesObject, err := m.getExtraFilesObject(ctx, *instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return &NotFoundError{Msg: "there are no files"}
+	}
+	if err != nil {
+		return err
+	}
+	if filesObject.BinaryData == nil {
+		filesObject.BinaryData = map[string][]byte{}
+	}
+	for _, file := range files {
+		key := convertPathToConfigMapKey(file.Name)
+		if _, ok := filesObject.BinaryData[key]; !ok {
+			return &NotFoundError{Msg: fmt.Sprintf("file %q does not exist", file.Name)}
+		}
+		filesObject.BinaryData[key] = file.Content
+	}
+	return m.cli.Update(ctx, filesObject)
+}
+
 func (m *k8sRpaasManager) createExtraFilesObject(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
