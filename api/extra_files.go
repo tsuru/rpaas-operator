@@ -79,8 +79,29 @@ func addExtraFiles(c echo.Context) error {
 }
 
 func updateExtraFiles(c echo.Context) error {
-	// TODO:
-	return nil
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+	files, err := getFiles(c)
+	if err != nil {
+		return &echo.HTTPError{
+			Code:     http.StatusBadRequest,
+			Message:  "multipart form files is not valid",
+			Internal: err,
+		}
+	}
+	if len(files) == 0 {
+		return &echo.HTTPError{
+			Code:    http.StatusBadRequest,
+			Message: "files form field is required",
+		}
+	}
+	err = manager.UpdateExtraFiles(c.Request().Context(), c.Param("instance"), files...)
+	if err != nil {
+		return err
+	}
+	return c.String(http.StatusOK, fmt.Sprintf("%d files were successfully updated\n", len(files)))
 }
 
 func deleteExtraFile(c echo.Context) error {

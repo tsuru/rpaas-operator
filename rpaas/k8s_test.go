@@ -999,6 +999,95 @@ func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
+		Name: "another-instance-extra-files",
+		Files: map[string]string{
+			"index.html": "index.html",
+		},
+	}
+
+	configMap := newEmptyExtraFiles()
+	configMap.Name = "another-instance-extra-files"
+	configMap.BinaryData = map[string][]byte{
+		"index.html": []byte("Hello world"),
+	}
+
+	resources := []runtime.Object{instance1, instance2, configMap}
+
+	testCases := []struct {
+		instance  string
+		files     []File
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			instance: "my-instance",
+			files: []File{
+				{
+					Name:    "www/index.html",
+					Content: []byte("<h1>Hello world!</h1>"),
+				},
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, &NotFoundError{Msg: "there are no files"}, err)
+			},
+		},
+		{
+			instance: "another-instance",
+			files: []File{
+				{
+					Name:    "www/index.html",
+					Content: []byte("<h1>Hello world!</h1>"),
+				},
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, &NotFoundError{Msg: `file "www/index.html" does not exist`}, err)
+			},
+		},
+		{
+			instance: "another-instance",
+			files: []File{
+				{
+					Name:    "index.html",
+					Content: []byte("<h1>Hello world!</h1>"),
+				},
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				cm := corev1.ConfigMap{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance-extra-files", Namespace: "default"}, &cm)
+				require.NoError(t, err)
+
+				expectedConfigMapData := map[string][]byte{
+					"index.html": []byte("<h1>Hello world!</h1>"),
+				}
+				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
+
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.UpdateExtraFiles(nil, tt.instance, tt.files...)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
 func Test_isPathValid(t *testing.T) {
 	tests := []struct {
 		path     string
