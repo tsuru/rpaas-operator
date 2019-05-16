@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 
@@ -56,7 +57,7 @@ func addExtraFiles(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	files, err := decodeMultipartFiles(c)
+	files, err := getFiles(c)
 	if err != nil {
 		return &echo.HTTPError{
 			Code:     http.StatusBadRequest,
@@ -87,27 +88,39 @@ func deleteExtraFile(c echo.Context) error {
 	return nil
 }
 
-func decodeMultipartFiles(c echo.Context) (files []rpaas.File, err error) {
+// getFiles retrieves all multipart files with form name "files" and translate
+// those to `rpaas.File`s.
+func getFiles(c echo.Context) ([]rpaas.File, error) {
 	mf, err := c.MultipartForm()
+	if err != nil {
+		return nil, err
+	}
+	fileHeaders := mf.File["files"]
+	files := make([]rpaas.File, len(fileHeaders))
+	for i, fh := range fileHeaders {
+		file, err := newRpaasFile(fh)
+		if err != nil {
+			return nil, err
+		}
+		files[i] = file
+	}
+	return files, nil
+}
+
+// newRpaasFile creates a rpaas.File instance from an uploaded file part into fh.
+//
+// TODO(nettoclaudio): limit the fh.Size against an API max file size config.
+func newRpaasFile(fh *multipart.FileHeader) (file rpaas.File, err error) {
+	uploaded, err := fh.Open()
 	if err != nil {
 		return
 	}
-	mfhs := mf.File["files"]
-	files = make([]rpaas.File, len(mfhs))
-	for i, fh := range mfhs {
-		f, err := fh.Open()
-		if err != nil {
-			return nil, err
-		}
-		defer f.Close()
-		content, err := ioutil.ReadAll(f)
-		if err != nil {
-			return nil, err
-		}
-		files[i] = rpaas.File{
-			Name:    fh.Filename,
-			Content: content,
-		}
+	defer uploaded.Close()
+	rawContent, err := ioutil.ReadAll(uploaded)
+	if err != nil {
+		return
 	}
+	file.Name = fh.Filename
+	file.Content = rawContent
 	return
 }
