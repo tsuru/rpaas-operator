@@ -340,6 +340,44 @@ func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName str
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	if instance.Spec.ExtraFiles == nil || len(instance.Spec.ExtraFiles.Files) == 0 {
+		return &NotFoundError{Msg: fmt.Sprintf("rpaas instance %q has no extra files", instance.Name)}
+	}
+	filesObject, err := m.getExtraFilesObject(ctx, *instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return &NotFoundError{Msg: fmt.Sprintf("rpaas instance %q has no extra files", instance.Name)}
+	}
+	if err != nil {
+		return err
+	}
+	if filesObject.BinaryData == nil {
+		filesObject.BinaryData = map[string][]byte{}
+	}
+	for _, filename := range filenames {
+		key := convertPathToConfigMapKey(filename)
+		if _, ok := filesObject.BinaryData[key]; !ok {
+			return &NotFoundError{Msg: fmt.Sprintf("file %q does not exist", filename)}
+		}
+		delete(filesObject.BinaryData, key)
+	}
+	if err = m.cli.Update(ctx, filesObject); err != nil {
+		return err
+	}
+	for _, filename := range filenames {
+		key := convertPathToConfigMapKey(filename)
+		delete(instance.Spec.ExtraFiles.Files, key)
+	}
+	if len(instance.Spec.ExtraFiles.Files) == 0 {
+		instance.Spec.ExtraFiles = nil
+	}
+	return m.cli.Update(ctx, instance)
+}
+
 func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string) ([]File, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
