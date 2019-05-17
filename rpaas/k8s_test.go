@@ -1088,6 +1088,82 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
+		Name: "my-instance-extra-files",
+		Files: map[string]string{
+			"index.html":     "index.html",
+			"waf_rules.conf": "waf/rules.conf",
+		},
+	}
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+
+	configMap := newEmptyExtraFiles()
+	configMap.Name = "my-instance-extra-files"
+	configMap.BinaryData = map[string][]byte{
+		"index.html":     []byte("Hello world"),
+		"waf_rules.conf": []byte("# my awesome WAF rules"),
+	}
+
+	resources := []runtime.Object{instance1, instance2, configMap}
+
+	testCases := []struct {
+		instance  string
+		filenames []string
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			instance:  "another-instance",
+			filenames: []string{"whatever-file.txt"},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, &NotFoundError{Msg: `rpaas instance "another-instance" has no extra files`}, err)
+			},
+		},
+		{
+			instance:  "my-instance",
+			filenames: []string{"index.html", "waf_rules.conf"},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				cm := corev1.ConfigMap{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance-extra-files", Namespace: "default"}, &cm)
+				assert.NoError(t, err)
+				assert.Len(t, cm.BinaryData, 0)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance", Namespace: "default"}, &instance)
+				assert.NoError(t, err)
+				assert.Nil(t, instance.Spec.ExtraFiles)
+			},
+		},
+		{
+			instance:  "my-instance",
+			filenames: []string{"not-found.txt"},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, &NotFoundError{Msg: `file "not-found.txt" does not exist`}, err)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.DeleteExtraFiles(nil, tt.instance, tt.filenames...)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
 func Test_isPathValid(t *testing.T) {
 	tests := []struct {
 		path     string

@@ -267,5 +267,48 @@ func Test_updateExtraFiles(t *testing.T) {
 }
 
 func Test_deleteExtraFiles(t *testing.T) {
-	t.Skip("not implemented yet")
+	testCases := []struct {
+		instance     string
+		filename     string
+		expectedCode int
+		expectedBody string
+		manager      rpaas.RpaasManager
+	}{
+		{
+			instance:     "my-instance",
+			filename:     "waf%2Fsqli-rules.cnf",
+			expectedCode: http.StatusOK,
+			expectedBody: `file "waf/sqli-rules.cnf" was successfully removed`,
+			manager:      &fake.RpaasManager{},
+		},
+		{
+			instance:     "my-instance",
+			filename:     "not-found.cnf",
+			expectedCode: http.StatusNotFound,
+			expectedBody: "not found",
+			manager: &fake.RpaasManager{
+				FakeDeleteExtraFiles: func(string, ...string) error {
+					return &rpaas.NotFoundError{
+						Msg: "not found",
+					}
+				},
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			webApi := New(nil)
+			webApi.rpaasManager = tt.manager
+			srv := httptest.NewServer(webApi.Handler())
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/files/%s", srv.URL, tt.instance, tt.filename)
+			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+			assert.Regexp(t, tt.expectedBody, bodyContent(rsp))
+		})
+	}
 }

@@ -54,6 +54,7 @@ func (f File) MarshalJSON() ([]byte, error) {
 
 type ExtraFileHandler interface {
 	CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error
+	DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error
 	GetExtraFiles(ctx context.Context, instanceName string) ([]File, error)
 	UpdateExtraFiles(ctx context.Context, instanceName string, files ...File) error
 }

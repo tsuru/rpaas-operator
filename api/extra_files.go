@@ -105,8 +105,23 @@ func updateExtraFiles(c echo.Context) error {
 }
 
 func deleteExtraFile(c echo.Context) error {
-	// TODO:
-	return nil
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+	filename, err := url.PathUnescape(c.Param("name"))
+	if err != nil {
+		return &echo.HTTPError{
+			Code:     http.StatusBadRequest,
+			Message:  fmt.Sprintf("%s", err),
+			Internal: err,
+		}
+	}
+	err = manager.DeleteExtraFiles(c.Request().Context(), c.Param("instance"), filename)
+	if err != nil {
+		return err
+	}
+	return c.String(http.StatusOK, fmt.Sprintf("file %q was successfully removed\n", filename))
 }
 
 // getFiles retrieves all multipart files with form name "files" and translate
