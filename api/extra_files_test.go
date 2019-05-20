@@ -58,7 +58,8 @@ func Test_listExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -118,7 +119,8 @@ func Test_getExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -186,7 +188,8 @@ func Test_addExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -250,7 +253,8 @@ func Test_updateExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
@@ -298,7 +302,8 @@ func Test_deleteExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi := New(nil)
+			webApi, err := New(nil)
+			require.NoError(t, err)
 			webApi.rpaasManager = tt.manager
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
