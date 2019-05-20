@@ -6,6 +6,7 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
+	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -297,39 +298,30 @@ func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName str
 	if err != nil {
 		return err
 	}
-	filesObject, err := m.getExtraFilesObject(ctx, *instance)
-	if err != nil && k8sErrors.IsNotFound(err) {
-		filesObject, err = m.createExtraFilesObject(ctx, *instance)
-		if err != nil {
-			return err
-		}
-	}
-	if err != nil {
+	newData := map[string][]byte{}
+	oldExtraFiles, err := m.getExtraFiles(ctx, *instance)
+	if err != nil && !IsNotFoundError(err) {
 		return err
 	}
-	if filesObject.BinaryData == nil {
-		filesObject.BinaryData = map[string][]byte{}
+	if oldExtraFiles != nil && oldExtraFiles.BinaryData != nil {
+		newData = oldExtraFiles.BinaryData
 	}
 	for _, file := range files {
 		if !isPathValid(file.Name) {
-			return ValidationError{
-				Msg: fmt.Sprintf("filename %q is not valid", file.Name),
-			}
+			return &ValidationError{Msg: fmt.Sprintf("filename %q is not valid", file.Name)}
 		}
 		key := convertPathToConfigMapKey(file.Name)
-		if _, ok := filesObject.BinaryData[key]; ok {
-			return ConflictError{
-				Msg: fmt.Sprintf("file %q already exists", file.Name),
-			}
+		if _, ok := newData[key]; ok {
+			return &ConflictError{Msg: fmt.Sprintf("file %q already exists", file.Name)}
 		}
-		filesObject.BinaryData[key] = file.Content
+		newData[key] = file.Content
 	}
-	if err = m.cli.Update(ctx, filesObject); err != nil {
+	newExtraFiles, err := m.createExtraFiles(ctx, *instance, newData)
+	if err != nil {
 		return err
 	}
 	if instance.Spec.ExtraFiles == nil {
 		instance.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-			Name:  filesObject.Name,
 			Files: map[string]string{},
 		}
 	}
@@ -337,6 +329,7 @@ func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName str
 		key := convertPathToConfigMapKey(file.Name)
 		instance.Spec.ExtraFiles.Files[key] = file.Name
 	}
+	instance.Spec.ExtraFiles.Name = newExtraFiles.Name
 	return m.cli.Update(ctx, instance)
 }
 
@@ -345,36 +338,37 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 	if err != nil {
 		return err
 	}
-	if instance.Spec.ExtraFiles == nil || len(instance.Spec.ExtraFiles.Files) == 0 {
-		return &NotFoundError{Msg: fmt.Sprintf("rpaas instance %q has no extra files", instance.Name)}
-	}
-	filesObject, err := m.getExtraFilesObject(ctx, *instance)
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return &NotFoundError{Msg: fmt.Sprintf("rpaas instance %q has no extra files", instance.Name)}
-	}
+	extraFiles, err := m.getExtraFiles(ctx, *instance)
 	if err != nil {
 		return err
 	}
-	if filesObject.BinaryData == nil {
-		filesObject.BinaryData = map[string][]byte{}
+	newData := map[string][]byte{}
+	if extraFiles.BinaryData != nil {
+		newData = extraFiles.BinaryData
 	}
 	for _, filename := range filenames {
 		key := convertPathToConfigMapKey(filename)
-		if _, ok := filesObject.BinaryData[key]; !ok {
+		if _, ok := newData[key]; !ok {
 			return &NotFoundError{Msg: fmt.Sprintf("file %q does not exist", filename)}
 		}
-		delete(filesObject.BinaryData, key)
+		delete(newData, key)
 	}
-	if err = m.cli.Update(ctx, filesObject); err != nil {
+	if len(newData) == 0 {
+		instance.Spec.ExtraFiles = nil
+		return m.cli.Update(ctx, instance)
+	}
+	extraFiles, err = m.createExtraFiles(ctx, *instance, newData)
+	if err != nil && k8sErrors.IsAlreadyExists(err) {
+		return ConflictError{Msg: "extra files already is defined"}
+	}
+	if err != nil {
 		return err
 	}
 	for _, filename := range filenames {
 		key := convertPathToConfigMapKey(filename)
 		delete(instance.Spec.ExtraFiles.Files, key)
 	}
-	if len(instance.Spec.ExtraFiles.Files) == 0 {
-		instance.Spec.ExtraFiles = nil
-	}
+	instance.Spec.ExtraFiles.Name = extraFiles.Name
 	return m.cli.Update(ctx, instance)
 }
 
@@ -383,22 +377,18 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 	if err != nil {
 		return nil, err
 	}
-	filesObject, err := m.getExtraFilesObject(ctx, *instance)
-	if err != nil && k8sErrors.IsNotFound(err) {
+	extraFiles, err := m.getExtraFiles(ctx, *instance)
+	if err != nil && IsNotFoundError(err) {
 		return []File{}, nil
 	}
 	if err != nil {
 		return nil, err
 	}
-	var extraFiles map[string]string
-	if instance.Spec.ExtraFiles != nil && instance.Spec.ExtraFiles.Files != nil {
-		extraFiles = instance.Spec.ExtraFiles.Files
-	}
 	files := []File{}
-	for key, path := range extraFiles {
+	for key, path := range instance.Spec.ExtraFiles.Files {
 		files = append(files, File{
 			Name:    path,
-			Content: filesObject.BinaryData[key],
+			Content: extraFiles.BinaryData[key],
 		})
 	}
 	return files, nil
@@ -409,30 +399,37 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 	if err != nil {
 		return err
 	}
-	filesObject, err := m.getExtraFilesObject(ctx, *instance)
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return &NotFoundError{Msg: "there are no files"}
+	extraFiles, err := m.getExtraFiles(ctx, *instance)
+	if err != nil {
+		return err
+	}
+	newData := map[string][]byte{}
+	if extraFiles.BinaryData != nil {
+		newData = extraFiles.BinaryData
+	}
+	for _, file := range files {
+		key := convertPathToConfigMapKey(file.Name)
+		if _, ok := newData[key]; !ok {
+			return &NotFoundError{Msg: fmt.Sprintf("file %q does not exist", file.Name)}
+		}
+		newData[key] = file.Content
+	}
+	extraFiles, err = m.createExtraFiles(ctx, *instance, newData)
+	if err != nil && k8sErrors.IsAlreadyExists(err) {
+		return ConflictError{Msg: "extra files already is defined"}
 	}
 	if err != nil {
 		return err
 	}
-	if filesObject.BinaryData == nil {
-		filesObject.BinaryData = map[string][]byte{}
-	}
-	for _, file := range files {
-		key := convertPathToConfigMapKey(file.Name)
-		if _, ok := filesObject.BinaryData[key]; !ok {
-			return &NotFoundError{Msg: fmt.Sprintf("file %q does not exist", file.Name)}
-		}
-		filesObject.BinaryData[key] = file.Content
-	}
-	return m.cli.Update(ctx, filesObject)
+	instance.Spec.ExtraFiles.Name = extraFiles.Name
+	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) createExtraFilesObject(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
+func (m *k8sRpaasManager) createExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance, data map[string][]byte) (*corev1.ConfigMap, error) {
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(data))))
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-extra-files", instance.Name),
+			Name:      fmt.Sprintf("%s-extra-files-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
@@ -441,18 +438,24 @@ func (m *k8sRpaasManager) createExtraFilesObject(ctx context.Context, instance v
 					Kind:    "RpaasInstance",
 				}),
 			},
+			Annotations: map[string]string{
+				"rpaas.extensions.tsuru.io/sha256-hash": hash,
+			},
 		},
+		BinaryData: data,
 	}
-	err := m.cli.Create(ctx, &cm)
-	if err != nil {
+	if err := m.cli.Create(ctx, &cm); err != nil && !k8sErrors.IsAlreadyExists(err) {
 		return nil, err
 	}
 	return &cm, nil
 }
 
-func (m *k8sRpaasManager) getExtraFilesObject(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
+func (m *k8sRpaasManager) getExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
+	if instance.Spec.ExtraFiles == nil {
+		return nil, &NotFoundError{Msg: "there are no extra files"}
+	}
 	configMapName := types.NamespacedName{
-		Name:      fmt.Sprintf("%s-extra-files", instance.Name),
+		Name:      instance.Spec.ExtraFiles.Name,
 		Namespace: instance.Namespace,
 	}
 	configMap := corev1.ConfigMap{}

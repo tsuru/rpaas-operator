@@ -860,28 +860,23 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				cm := corev1.ConfigMap{}
-				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance-extra-files", Namespace: "default"}, &cm)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance", Namespace: "default"}, &instance)
 				require.NoError(t, err)
 
+				expectedFiles := map[string]string{
+					"www_index.html":     "www/index.html",
+					"waf_sqli-rules.cnf": "waf/sqli-rules.cnf",
+				}
+				assert.Equal(t, expectedFiles, instance.Spec.ExtraFiles.Files)
+
+				cm, err := m.getExtraFiles(nil, instance)
+				assert.NoError(t, err)
 				expectedConfigMapData := map[string][]byte{
 					"www_index.html":     []byte("<h1>Hello world!</h1>"),
 					"waf_sqli-rules.cnf": []byte("# my awesome rules against SQLi :)..."),
 				}
 				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance", Namespace: "default"}, &instance)
-				require.NoError(t, err)
-
-				expectedExtraFiles := &nginxv1alpha1.FilesRef{
-					Name: "my-instance-extra-files",
-					Files: map[string]string{
-						"www_index.html":     "www/index.html",
-						"waf_sqli-rules.cnf": "waf/sqli-rules.cnf",
-					},
-				}
-				assert.Equal(t, expectedExtraFiles, instance.Spec.ExtraFiles)
 			},
 		},
 		{
@@ -895,7 +890,7 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
 				assert.True(t, IsConflictError(err))
-				assert.Equal(t, ConflictError{Msg: `file "index.html" already exists`}, err)
+				assert.Equal(t, &ConflictError{Msg: `file "index.html" already exists`}, err)
 			},
 		},
 		{
@@ -909,8 +904,18 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				cm := corev1.ConfigMap{}
-				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance-extra-files", Namespace: "default"}, &cm)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance", Namespace: "default"}, &instance)
+				require.NoError(t, err)
+
+				assert.NotEqual(t, "another-instance-extra-files", instance.Spec.ExtraFiles.Name)
+				expectedFiles := map[string]string{
+					"index.html":     "index.html",
+					"www_index.html": "www/index.html",
+				}
+				assert.Equal(t, expectedFiles, instance.Spec.ExtraFiles.Files)
+
+				cm, err := m.getExtraFiles(nil, instance)
 				require.NoError(t, err)
 
 				expectedConfigMapData := map[string][]byte{
@@ -918,19 +923,6 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 					"www_index.html": []byte("<h1>Hello world!</h1>"),
 				}
 				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance", Namespace: "default"}, &instance)
-				require.NoError(t, err)
-
-				expectedExtraFiles := &nginxv1alpha1.FilesRef{
-					Name: "another-instance-extra-files",
-					Files: map[string]string{
-						"index.html":     "index.html",
-						"www_index.html": "www/index.html",
-					},
-				}
-				assert.Equal(t, expectedExtraFiles, instance.Spec.ExtraFiles)
 			},
 		},
 	}
@@ -1039,7 +1031,7 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
-				assert.Equal(t, &NotFoundError{Msg: "there are no files"}, err)
+				assert.Equal(t, &NotFoundError{Msg: "there are no extra files"}, err)
 			},
 		},
 		{
@@ -1066,8 +1058,11 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				cm := corev1.ConfigMap{}
-				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance-extra-files", Namespace: "default"}, &cm)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{Name: "another-instance", Namespace: "default"}, &instance)
+				require.NoError(t, err)
+
+				cm, err := m.getExtraFiles(nil, instance)
 				require.NoError(t, err)
 
 				expectedConfigMapData := map[string][]byte{
@@ -1125,7 +1120,7 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 			filenames: []string{"whatever-file.txt"},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
-				assert.Equal(t, &NotFoundError{Msg: `rpaas instance "another-instance" has no extra files`}, err)
+				assert.Equal(t, &NotFoundError{Msg: `there are no extra files`}, err)
 			},
 		},
 		{
@@ -1134,14 +1129,9 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				cm := corev1.ConfigMap{}
-				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance-extra-files", Namespace: "default"}, &cm)
-				assert.NoError(t, err)
-				assert.Len(t, cm.BinaryData, 0)
-
 				instance := v1alpha1.RpaasInstance{}
 				err = m.cli.Get(nil, types.NamespacedName{Name: "my-instance", Namespace: "default"}, &instance)
-				assert.NoError(t, err)
+				require.NoError(t, err)
 				assert.Nil(t, instance.Spec.ExtraFiles)
 			},
 		},
