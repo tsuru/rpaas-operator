@@ -3,10 +3,15 @@ IMAGE_OPERATOR=tsuru/rpaas-operator
 IMAGE_API=tsuru/rpaas-api
 KUBECONFIG=~/.kube/config
 
-.PHONY: test deploy local build push build-api api
+.PHONY: test test/all test/integration deploy local build push build-api api
+
+test/all: test test/integration
 
 test:
 	go test -v ./...
+
+test/integration:
+	./scripts/localkube-integration.sh
 
 deploy:
 	kubectl apply -f deploy/
