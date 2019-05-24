@@ -1,0 +1,73 @@
+image: golang:1.12
+
+.install_script: &install_script
+  before_script:
+    - mkdir -p $GOPATH/src/github.com/tsuru
+    - cp -r $CI_PROJECT_DIR $GOPATH/src/github.com/tsuru/nginx-operator
+    - cd $GOPATH/src/github.com/tsuru/nginx-operator
+
+.install_integration: &install_integration
+  services:
+    - docker:dind
+  before_script:
+    - go get -u github.com/golang/dep/cmd/dep
+    - mkdir -p $GOPATH/src/github.com/operator-framework && cd $GOPATH/src/github.com/operator-framework
+    - git clone https://github.com/operator-framework/operator-sdk.git
+    - cd operator-sdk && make dep && make install
+    - mkdir -p $GOPATH/src/github.com/tsuru
+    - cp -r $CI_PROJECT_DIR $GOPATH/src/github.com/tsuru/nginx-operator
+    - cd $GOPATH/src/github.com/tsuru/nginx-operator
+    - apt-get update -y
+    - apt-get install -y sudo apt-transport-https ca-certificates curl gnupg-agent software-properties-common
+    - curl -fsSL https://download.docker.com/linux/debian/gpg | sudo apt-key add -
+    - add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/debian $(lsb_release -cs) stable"
+    - apt-get update -y
+    - apt-get install -y docker-ce-cli
+
+stages:
+  - test
+  - integration
+  - deploy
+
+test:
+  <<: *install_script
+  stage: test
+  script:
+    - make test
+
+integration_1:
+  <<: *install_integration
+  stage: integration
+  script:
+    - "./scripts/localkube-integration.sh"
+  after_script:
+    - kubectl get deployment --all-namespaces
+    - kubectl get pods --all-namespaces
+    - kubectl describe pods --all-namespaces
+    - kubectl describe nginx --all-namespaces
+  variables:
+    KUBERNETES_VERSION: v1.10.0
+
+integration_2:
+  <<: *install_integration
+  stage: integration
+  script:
+    - "./scripts/localkube-integration.sh"
+  after_script:
+    - kubectl get deployment --all-namespaces
+    - kubectl get pods --all-namespaces
+    - kubectl describe pods --all-namespaces
+    - kubectl describe nginx --all-namespaces
+  variables:
+    KUBERNETES_VERSION: v1.12.0
+
+deploy:
+  <<: *install_script
+  stage: deploy
+  script:
+    - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+    - if [ -n "$CI_COMMIT_TAG" ]; then make TAG=$CI_COMMIT_TAG push; else make push; fi
+  only:
+    refs:
+      - master
+      - tags

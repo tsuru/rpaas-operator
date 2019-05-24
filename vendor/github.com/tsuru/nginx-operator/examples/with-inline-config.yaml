@@ -1,0 +1,10 @@
+# Single replica nginx deploy
+apiVersion: nginx.tsuru.io/v1alpha1
+kind: Nginx
+metadata:
+  name: basic-nginx
+spec:
+  configRef:
+    name: nginx-config
+    kind: Inline
+    value: "xpto"
