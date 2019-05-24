@@ -540,13 +540,13 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:0dfe20516fb6e1b9a7459ebb306c81c6b07eab875e4de14465e691ad5b32f676"
+  digest = "1:db58070ea8dd3dc4ae3a2f147a34f998a3ef012643837b39d32c5beca4c6fdd3"
   name = "github.com/tsuru/nginx-operator"
   packages = [
     "pkg/apis",
     "pkg/apis/nginx/v1alpha1",
   ]
-  pruneopts = "NT"
+  pruneopts = "T"
   revision = "6b7080c9b854845d3f34e7bdb6e832c5c0c2d7de"
 
 [[projects]]
@@ -1053,7 +1053,6 @@
     "github.com/google/gops/agent",
     "github.com/labstack/echo",
     "github.com/labstack/echo/middleware",
-    "github.com/operator-framework/operator-sdk/pkg/k8sutil",
     "github.com/operator-framework/operator-sdk/pkg/leader",
     "github.com/operator-framework/operator-sdk/pkg/log/zap",
     "github.com/operator-framework/operator-sdk/pkg/metrics",

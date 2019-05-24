@@ -1,0 +1,60 @@
+dist: xenial
+language: go
+sudo: required
+addons:
+  apt:
+    packages:
+      - docker-ce
+install:
+  - go get -u github.com/golang/dep/cmd/dep
+  - mkdir -p $GOPATH/src/github.com/operator-framework && cd $GOPATH/src/github.com/operator-framework
+  - git clone https://github.com/operator-framework/operator-sdk.git
+  - cd operator-sdk && make dep && make install
+  - cd $TRAVIS_BUILD_DIR
+jobs:
+  fast_finish: true
+  include:
+    - stage: test
+      script: make test
+      env: GOARCH=amd64
+      go: 1.10.x
+    - stage: integration
+      script: "./scripts/localkube-integration.sh"
+      after_failure:
+        - kubectl get deployment --all-namespaces
+        - kubectl get pods --all-namespaces
+        - kubectl describe pods --all-namespaces
+        - kubectl describe nginx --all-namespaces
+      env:
+        - KUBERNETES_VERSION=v1.10.13
+    - stage: integration
+      script: "./scripts/localkube-integration.sh"
+      after_failure:
+        - kubectl get deployment --all-namespaces
+        - kubectl get pods --all-namespaces
+        - kubectl describe pods --all-namespaces
+        - kubectl describe nginx --all-namespaces
+      env:
+        - KUBERNETES_VERSION=v1.12.7
+    - stage: push to docker
+      script:
+        - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
+        - if [ -n "$TRAVIS_TAG" ]; then make TAG=$TRAVIS_TAG push; else make push; fi
+      go: 1.10.x
+      if: "(NOT type IN (pull_request)) AND (branch = master) OR (tag IS present)"
+matrix:
+  allow_failures:
+    - go: master
+notifications:
+  slack:
+    rooms:
+      secure: QffxEkIxqwEVgb1bkCWunkErtsPIm2rkwzFiH2cbbBRYQsfYfK1Qn4MwjgftH2zfJxOrAgQ7onMoTc6rxih+XE5V3I/Ct+S6qywqRX60JeoVc/RCP+ywtBnCDwNFtKLc7J8uKh5ZuhdDnx/r7SkCkIZJtoE3QF721PM5JpFNHrNHvs8q6DEgoqHxHHvtWPVuBOiPkLBv0/m7p9SYwXdWbVrjmrhynnvOsmhMfv1sXQUFOSKsus9QESWdct8xnJTOtmsCRzLR7jSViP9e7+QHnyzB/4DcMrhIKKyNptFGR+G30WGY45Wx4w7AvXkDqiNp9RWOFHrt8BGkPv+DbhVEbx1mwArEEVqJEu0Na6WuQGbZUm0uhcjBr+KWJ56AqhmwsX98PHrD6tTfilIQRPGddgltGcYZqNJAl1l/RSZcTGvYdZmGmEPy+xQO3Gg4NmMiRoLe1rC8jNVLodG1yjv3lnnC8sVHROEGHtT4XTYrTc2knGGbZ7s6JKgNztls71+SvISS1PBKOrMMBLC77D8hgeCOY8xePL1UbNmHCroK5i6pDeKohyIhIs+pm93S3kQoBIKuV+oF7y3b+gCQouwAf0B2cnMm0TEci3qlZ8/NOezbaVtxBdeWvlfYk5KxmftYiArwz3AMpgj9wpUu7H6WusSfrl6+WyJN+vSY/OHnOus=
+env:
+  global:
+    - KUBERNETES_VERSION=v1.12.0
+    - MINIKUBE_WANTUPDATENOTIFICATION=false
+    - MINIKUBE_WANTREPORTERRORPROMPT=false
+    - MINIKUBE_HOME=$HOME
+    - CHANGE_MINIKUBE_NONE_USER=true
+    - secure: k8gjK/m52Q5H3RgaPWyU9jCXKLTGA/uFzKGWK3ns1gJEcaMetTXAesPLYewILrNpLLtwbi8iATLNxzf4eLJGtQzpqZkXPdUxrWxcME3Xfh3HxmsLRVFdgwF3tFXtnxXsURjv/MELO4m3fVb/wHGmfeSo4kV3zyaUr2NM8osQ6Y113SB1uAI03modE+Ul9NOzLQzWBW3ET3WlY+7rnavrx5gRkU8i8RGVjzm+brUsn08xM1SSk61+46Y04OJeJV0AV3y4/ELb8/hp6GSrGAPjRsoSLwLEv8tFSSXyCiaM5m5vvAjge84PJcDawOVhxAzB/j0Kt2W5GjemzLFM8/057OkWZAJqNDc7jOiDtOzHItYCwVQA+qlzYfZbUY4YPq52xUKdtuN51OihxJDobbouwn+N4lv0AvJXhv3TG+2mfPTXb80VaKOXhKjXq7WV4lUip0wpRLdAyhroUo5TtW0iODx2vDAoSW2zeOoBYa8jdxpN99hGcnC9M+EBb/SNDEgrFIT7RLT20T9qlXYg4qthWT2Q6g3+kX4CdIete55Cd3VH1oRGO6RxIcSGQO8hSpWbNwfg237V/mLRND+qvayZOoFcx7aB4sm2CdkXRR1IYFGN4NrdAMfYf5neMMhseisMf03/kD8zGNwH5B6p/uw2BUob2f6Pp4UsD2pi1/qZ6x8=
+    - secure: pXC71uY2/2vQ74ljNlar6598LSu4YIAZvi36FHzvbpDi1y8syAjbUktIDO2ZD2lXNmxjLnN0j8ZEGDDNW2GIu0zx7g2jn1rhwB0se+qxV0iJ38igVfnwhRP8Sfn/TZIK0prttovtaheHcSwYFArIxAaqlOMiXdsqlP6amWwia/24poTr/uTpH5MgFtL5Pd5uQzkxeLZCH81lh4vh8F7tKgUsiNkUG4LpYeqjg3XsULZfS0IAgniqiEvjWAbgiTRc9Lj3wOn/PDBw/VmM8S/wD2dj3cFJOivFUwxIQ1Y9MJymm9mcXZr8ZvkDZ6l2mmdBawsmUUQOycKIeEOEyJSgriDgeeqjjaTfTXYBxNdE6tsB0s9n0nHobs7eD5fj5nb6N05+hbkSliqJZz36I5Y4wQgQ5GdOLteZUAyJKppdPG2Yc+VjZjJmw04hpBZdQdN4KdR5eArzWZBE+Cclb9cd0uK63frg6X6de+haN9jORb6ZuMAe/Xm7jQLF+4t7lXOuwBMZ5/Isgnf3Y2cGieVlgxDgDr4THGozF68VN4spI5rki8PeX6Tj821z8eabKIpgHv3hHl7W9O1Vq37TjwH0SflCbaVp4MwbNL3pJYyCxxnHQaoUGsOYqn+bHWXcKuuxjiMoSv7vdwFzndTDqfgfHqHrGObK3zTMCie5KrHo9kQ=
