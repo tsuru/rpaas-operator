@@ -1,0 +1,7 @@
+apiVersion: extensions.tsuru.io/v1alpha1
+kind: RpaasPlan
+metadata:
+  name: basic
+spec:
+  image: tsuru/nginx-tsuru:1.15.0
+  config: {}
