@@ -2,6 +2,7 @@ package test
 
 import (
 	"fmt"
+	"net/http"
 	"os"
 	"testing"
 	"time"
@@ -35,7 +36,7 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.NoError(t, err)
 
 		nginx, err := getReadyNginx("my-instance", namespaceName, 2, 1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
 		assert.Equal(t, int32(2), *nginx.Spec.Replicas)
 		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck/", nginx.Spec.HealthcheckPath)
@@ -80,15 +81,91 @@ func Test_RpaasOperator(t *testing.T) {
 	})
 }
 
+func Test_RpaasApi(t *testing.T) {
+	apiAddress := os.Getenv("RPAAS_API_ADDRESS")
+
+	if apiAddress == "" {
+		t.Skip("Skipping RPaaS API integration test due the RPAAS_API_ADDRESS env var isn't defined")
+	}
+
+	api := &rpaasApi{
+		address: apiAddress,
+		client:  &http.Client{Timeout: 10 * time.Second},
+	}
+
+	ok, err := api.health()
+	require.NoError(t, err)
+	assert.True(t, ok)
+
+	err = apply("./testdata/rpaasplan-basic.yaml", "no-namespaced")
+	require.NoError(t, err)
+	defer func() {
+		err = delete("./testdata/rpaasplan-basic.yaml", "no-namespaced")
+		require.NoError(t, err)
+	}()
+
+	t.Run("Creating and deleting a instance", func(t *testing.T) {
+		instanceName := "my-instance"
+		teamName := "team-one"
+		planName := "basic"
+
+		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer func() {
+			err = cleanFunc()
+			assert.NoError(t, err)
+
+			var isNginxRemoved bool
+			for retries := 10; retries > 0; retries-- {
+				_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+				if err != nil {
+					isNginxRemoved = true
+					break
+				}
+				time.Sleep(time.Second)
+			}
+			assert.True(t, isNginxRemoved)
+
+			err = deleteNamespace(namespaceName)
+			assert.NoError(t, err)
+		}()
+
+		namespace := corev1.Namespace{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Namespace",
+			},
+		}
+		err = get(&namespace, namespaceName, "no-namespaced")
+		assert.NoError(t, err)
+
+		nginx, err := getReadyNginx(instanceName, namespace.Name, 1, 1)
+		assert.NoError(t, err)
+		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
+		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
+		assert.Equal(t, "/_nginx_healthcheck/", nginx.Spec.HealthcheckPath)
+
+		nginxService := &corev1.Service{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Service",
+			},
+		}
+		err = get(nginxService, fmt.Sprintf("%s-service", nginx.Name), namespace.Name)
+		assert.NoError(t, err)
+		assert.Equal(t, int32(80), nginxService.Spec.Ports[0].Port)
+		assert.Equal(t, corev1.ServiceType("LoadBalancer"), nginxService.Spec.Type)
+	})
+}
+
 func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*v1alpha1.Nginx, error) {
 	nginx := &v1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
 	timeout := time.After(60 * time.Second)
 	for {
 		err := get(nginx, name, namespace)
-		if err != nil {
-			fmt.Printf("Err getting nginx %q: %v. Retrying...\n", name, err)
-		}
-		if len(nginx.Status.Pods) == expectedPods && len(nginx.Status.Services) == expectedSvcs {
+		if err == nil && len(nginx.Status.Pods) == expectedPods && len(nginx.Status.Services) == expectedSvcs {
 			return nginx, nil
 		}
 		select {
