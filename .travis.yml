@@ -10,7 +10,7 @@ install:
 - |
   if [[ -z $(which dep) ]]; then
     go get -u github.com/golang/dep/cmd/dep
-    mv ${GOPATH}/dep .tmp/
+    mv ${GOPATH}/bin/dep .tmp/
     dep version
   fi
 - |
