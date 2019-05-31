@@ -76,16 +76,28 @@ delete_k8s_cluster() {
 run_nginx_operator() {
   local kubectl_bin="${1}"
   local namespace="${2}"
+  local cluster_name="${3}"
+  local tag="${4:-"integration"}"
 
   local nginx_operator_dir="vendor/github.com/tsuru/nginx-operator"
 
-  ${kubectl_bin} -n ${namespace} apply -f ${nginx_operator_dir}/deploy
+  echo "Building container image of NGINX operator using tag \"${tag}\"..."
+  make -C ${nginx_operator_dir} build TAG="${tag}"
+
+  ${kind_bin} load docker-image --name ${cluster_name} tsuru/nginx-operator:${tag}
+
+  ls ${nginx_operator_dir}/deploy/crds/*_crd.yaml |
+  xargs -I{} ${kubectl_bin} -n ${namespace} apply -f {}
+
+  ls ${nginx_operator_dir}/deploy/{role,service_account}.yaml |
+  xargs -I{} ${kubectl_bin} -n ${namespace} apply -f {}
 
   sed -E "s/(namespace:) (.+)/\1 ${namespace}/" ${nginx_operator_dir}/deploy/role_binding.yaml |
   ${kubectl_bin} -n ${namespace} apply -f -
 
-  ls ${nginx_operator_dir}/deploy/crds/*_crd.yaml |
-  xargs -I{} ${kubectl_bin} -n ${namespace} apply -f {}
+  sed -e 's/imagePullPolicy: Always/imagePullPolicy: Never/' ${nginx_operator_dir}/deploy/operator.yaml |
+  sed -E "s|(tsuru/nginx-operator):latest|\1:${tag}|" |
+  ${kubectl_bin} -n ${namespace} apply -f -
 }
 
 run_rpaas_operator() {
@@ -160,7 +172,7 @@ rpaas_system_namespace="rpaas-system"
 echo "Using namespace \"${rpaas_system_namespace}\" to run \"nginx-operator\" and \"rpaas-operator\"..."
 ${kubectl_bin} create namespace "${rpaas_system_namespace}"
 
-run_nginx_operator "${kubectl_bin}" "${rpaas_system_namespace}" "${local_tmp_dir}"
+run_nginx_operator "${kubectl_bin}" "${rpaas_system_namespace}" "${cluster_name}"
 run_rpaas_operator "${kubectl_bin}" "${rpaas_system_namespace}" "${kind_bin}" "${cluster_name}"
 
 sleep 30s
