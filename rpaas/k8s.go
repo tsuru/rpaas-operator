@@ -214,8 +214,7 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		name = v1alpha1.CertificateNameDefault
 	}
 
-	oldSecret := corev1.Secret{}
-
+	var oldSecret corev1.Secret
 	if instance.Spec.Certificates != nil && instance.Spec.Certificates.SecretName != "" {
 		err = m.cli.Get(ctx, types.NamespacedName{
 			Name:      instance.Spec.Certificates.SecretName,
@@ -228,11 +227,12 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 	}
 
 	newSecretData := map[string][]byte{}
+	// copying the whole old secret's data to newSecretData to safely compare them after
 	for key, value := range oldSecret.Data {
 		newSecretData[key] = value
 	}
 
-	rawCertificate, rawKey, err := convertTLSCertificate(&c)
+	rawCertificate, rawKey, err := getRawCertificateAndKey(c)
 	if err != nil {
 		return err
 	}
@@ -247,27 +247,8 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return &ConflictError{Msg: fmt.Sprintf("certificate %q already is deployed", name)}
 	}
 
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(newSecretData))))
-
-	newSecret := corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-certificates-%s", instance.Name, hash[:10]),
-			Namespace: instance.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
-					Group:   v1alpha1.SchemeGroupVersion.Group,
-					Version: v1alpha1.SchemeGroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-			Annotations: map[string]string{
-				"rpaas.extensions.tsuru.io/sha256-hash": hash,
-			},
-		},
-		Data: newSecretData,
-	}
-
-	if err = m.cli.Create(ctx, &newSecret); err != nil {
+	newSecret := newSecretForCertificates(*instance, newSecretData)
+	if err = m.cli.Create(ctx, newSecret); err != nil {
 		return err
 	}
 
@@ -277,16 +258,15 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 
 	instance.Spec.Certificates.SecretName = newSecret.Name
 
-	var alreadyHasItem bool
-
+	isNewCertificate := true
 	for _, item := range instance.Spec.Certificates.Items {
 		if item.CertificateField == newCertificateField && item.KeyField == newKeyField {
-			alreadyHasItem = true
+			isNewCertificate = false
 			break
 		}
 	}
 
-	if !alreadyHasItem {
+	if isNewCertificate {
 		instance.Spec.Certificates.Items = append(instance.Spec.Certificates.Items, nginxv1alpha1.TLSSecretItem{
 			CertificateField: newCertificateField,
 			KeyField:         newKeyField,
@@ -622,7 +602,7 @@ func (m *k8sRpaasManager) deleteConfigurationBlocks(ctx context.Context, instanc
 	return m.cli.Update(ctx, configBlocks)
 }
 
-func convertTLSCertificate(c *tls.Certificate) ([]byte, []byte, error) {
+func getRawCertificateAndKey(c tls.Certificate) ([]byte, []byte, error) {
 	certificatePem, err := convertCertificateToPem(c.Certificate)
 	if err != nil {
 		return []byte{}, []byte{}, err
@@ -788,6 +768,27 @@ func (m *k8sRpaasManager) eventsForPod(ctx context.Context, podName, ns string) 
 		}
 	}
 	return eventList.Items, nil
+}
+
+func newSecretForCertificates(instance v1alpha1.RpaasInstance, data map[string][]byte) *corev1.Secret {
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(data))))
+	return &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-certificates-%s", instance.Name, hash[:10]),
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Annotations: map[string]string{
+				"rpaas.extensions.tsuru.io/sha256-hash": hash,
+			},
+		},
+		Data: data,
+	}
 }
 
 func formatPodEvents(events []corev1.Event) string {
