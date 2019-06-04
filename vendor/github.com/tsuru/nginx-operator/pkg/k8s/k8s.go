@@ -99,7 +99,7 @@ func NewDeployment(n *v1alpha1.Nginx) (*appv1.Deployment, error) {
 		},
 	}
 	setupConfig(n.Spec.Config, &deployment)
-	setupTLS(n.Spec.TLSSecret, &deployment)
+	setupTLS(n.Spec.Certificates, &deployment)
 	setupExtraFiles(n.Spec.ExtraFiles, &deployment)
 
 	// This is done on the last step because n.Spec may have mutated during these methods
@@ -161,7 +161,7 @@ func NewService(n *v1alpha1.Nginx) *corev1.Service {
 			Type:           nginxService(n),
 		},
 	}
-	if n.Spec.TLSSecret != nil {
+	if n.Spec.Certificates != nil {
 		service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
 			Name:       defaultHTTPSPortName,
 			Protocol:   corev1.ProtocolTCP,
@@ -283,20 +283,23 @@ func setupTLS(secret *v1alpha1.TLSSecret, dep *appv1.Deployment) {
 		MountPath: certMountPath,
 	})
 
-	secret.KeyField = valueOrDefault(secret.KeyField, "tls.key")
-	secret.CertificateField = valueOrDefault(secret.CertificateField, "tls.crt")
-	secret.KeyPath = valueOrDefault(secret.KeyPath, secret.KeyField)
-	secret.CertificatePath = valueOrDefault(secret.CertificatePath, secret.CertificateField)
+	var items []corev1.KeyToPath
+	for _, item := range secret.Items {
+		items = append(items, corev1.KeyToPath{
+			Key: item.CertificateField,
+			Path: valueOrDefault(item.CertificatePath, item.CertificateField),
+		}, corev1.KeyToPath{
+			Key: item.KeyField,
+			Path: valueOrDefault(item.KeyPath, item.KeyField),
+		})
+	}
 
 	dep.Spec.Template.Spec.Volumes = append(dep.Spec.Template.Spec.Volumes, corev1.Volume{
 		Name: "nginx-certs",
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secret.SecretName,
-				Items: []corev1.KeyToPath{
-					{Key: secret.KeyField, Path: secret.KeyPath},
-					{Key: secret.CertificateField, Path: secret.CertificatePath},
-				},
+				Items: items,
 			},
 		},
 	})

@@ -33,7 +33,7 @@ type RpaasInstanceSpec struct {
 	// location in the cluster (Secret resource name) and its destination into
 	// Pods.
 	// +optional
-	Certificates map[string]nginxv1alpha1.TLSSecret `json:"certificates,omitempty"`
+	Certificates *nginxv1alpha1.TLSSecret `json:"certificates,omitempty"`
 
 	// Service to expose the nginx instance
 	// +optional

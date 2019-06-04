@@ -9,9 +9,9 @@ spec:
 apiVersion: v1
 kind: Secret
 metadata:
-  name: my-instance-certificate-default
+  name: my-instance-certificates
 data:
-  certificate: |-
+  default.crt: |-
     LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSUJoVENDQVN1Z0F3SUJBZ0lRSVJpNnplUEw2
     bUtqT2lwbitkTnVhVEFLQmdncWhrak9QUVFEQWpBU01SQXcKRGdZRFZRUUtFd2RCWTIxbElFTnZN
     QjRYRFRFM01UQXlNREU1TkRNd05sb1hEVEU0TVRBeU1ERTVORE13TmxvdwpFakVRTUE0R0ExVUVD
@@ -23,7 +23,7 @@ data:
     UURBZ05JQURCRkFpRUEyenBKRVBReXo2L2wKV2Y4NmFYNlBlcHNudFp2MkdZbEE1VXBhYmZUMkVa
     SUNJQ3BKNWgvaUkraTM0MWdCbUxpQUZRT3lURFQrL3dRYwo2TUY5K1l3MVl5MHQKLS0tLS1FTkQg
     Q0VSVElGSUNBVEUtLS0tLQo=
-  key: |-
+  default.key: |-
     LS0tLS1CRUdJTiBFQyBQUklWQVRFIEtFWS0tLS0tCk1IY0NBUUVFSUlyWVNTTlFGYUEySHdmMWR1
     UlN4S3RMWVg1Q0IwNGZTZVE2dEYxYVkvUHVvQW9HQ0NxR1NNNDkKQXdFSG9VUURRZ0FFUFIzdFUy
     RnRhOWt0WSs2UDlHMGNXTyswa0VUQTZTRnMzOEdlY1R5dWRsSHo2eHZDZHo4cQpFS1RjV0dla2Rt
@@ -55,12 +55,12 @@ spec:
       kind: ConfigMap
       name: my-instance-blocks
   certificates:
-    default:
-      SecretName: my-instance-certificate-default
-      CertificateField: certificate
-      CertificatePath: default.crt.pem
-      KeyField: key
-      KeyPath: default.key.pem
+    secretName: my-instance-certificates
+    items:
+    - certificateField: default.crt
+      certificatePath: my-custom-name.crt
+      keyField: default.key
+      keyPath: my-custom-name.key
   service:
     type: LoadBalancer
     loadBalancerIP: 127.0.0.1

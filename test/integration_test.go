@@ -55,13 +55,17 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.Contains(t, "# My custom server block", nginxConf.Data["nginx-conf"])
 
 		tlsSecret := &v1alpha1.TLSSecret{
-			SecretName:       "my-instance-certificate-default",
-			CertificateField: "certificate",
-			CertificatePath:  "default.crt.pem",
-			KeyField:         "key",
-			KeyPath:          "default.key.pem",
+			SecretName: "my-instance-certificates",
+			Items: []v1alpha1.TLSSecretItem{
+				{
+					CertificateField: "default.crt",
+					CertificatePath:  "my-custom-name.crt",
+					KeyField:         "default.key",
+					KeyPath:          "my-custom-name.key",
+				},
+			},
 		}
-		assert.Equal(t, tlsSecret, nginx.Spec.TLSSecret)
+		assert.Equal(t, tlsSecret, nginx.Spec.Certificates)
 
 		nginxService := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{

@@ -16,9 +16,10 @@ type NginxSpec struct {
 	Image string `json:"image"`
 	// Reference to the nginx config object.
 	Config *ConfigRef `json:"configRef"`
-	// References to a secret containing tls certificate and key pairs.
+	// Certificates refers to a Secret containing one or more certificate-key
+	// pairs.
 	// +optional
-	TLSSecret *TLSSecret `json:"tlsSecret,omitempty"`
+	Certificates *TLSSecret `json:"certificates,omitempty"`
 	// Template used to configure the nginx pod.
 	// +optional
 	PodTemplate NginxPodTemplateSpec `json:"podTemplate,omitempty"`
@@ -105,24 +106,30 @@ const (
 	ConfigKindInline = ConfigKind("Inline")
 )
 
-// TLSSecret is a reference to tls certificate and key pairs stored in a secret.
+// TLSSecret is a reference to TLS certificate and key pairs stored in a Secret.
 type TLSSecret struct {
-	// Name of the Secret holding the certificate and key.
-	SecretName string
-	// Secret field that contains the key.
-	// Defaults to tls.key
-	KeyField string
-	// Secret field that contains the certificate.
-	// Defaults to tls.crt
-	CertificateField string
-	// Path where the key should be stored inside the nginx container.
-	// Relative to /etc/nginx/certs/.
-	// Defaults to <KeyName>
-	KeyPath string
-	// Path where the certificate should be stored inside the nginx container.
-	// Relative to /etc/nginx/certs/.
-	// Defaults to <CertificateName>
-	CertificatePath string
+	// SecretName refers to the Secret holding the certificates and keys pairs.
+	SecretName string `json:"secretName"`
+	// Items maps the key and path where the certificate-key pairs should be
+	// mounted on nginx container.
+	Items []TLSSecretItem `json:"items"`
+}
+
+// TLSSecretItem maps each certificate and key pair against a key-value data
+// from a Secret object.
+type TLSSecretItem struct {
+	// CertificateField is the field name that contains the certificate.
+	CertificateField string `json:"certificateField"`
+	// CertificatePath holds the path where the certificate should be stored
+	// inside the nginx container. Defaults to same as CertificatedField.
+	// +optional
+	CertificatePath string `json:"certificatePath,omitempty"`
+	// KeyField is the field name that contains the key.
+	KeyField string `json:"keyField"`
+	// KeyPath holds the path where the key should be store inside the nginx
+	// container. Defaults to same as KeyField.
+	// +optional
+	KeyPath string `json:"keyPath,omitempty"`
 }
 
 // FilesRef is a reference to arbitrary files stored into a ConfigMap in the

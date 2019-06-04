@@ -13,6 +13,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"reflect"
 	"regexp"
 	"strings"
 
@@ -203,29 +204,96 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instance, name string, c tls.Certificate) error {
-	rpaasInstance, err := m.GetInstance(ctx, instance)
+func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
+	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
+
 	if name == "" {
 		name = v1alpha1.CertificateNameDefault
 	}
-	secret, err := m.getCertificateSecret(ctx, *rpaasInstance, v1alpha1.CertificateNameDefault)
-	if err == nil {
-		return m.updateCertificateSecret(ctx, secret, &c)
+
+	oldSecret := corev1.Secret{}
+
+	if instance.Spec.Certificates != nil && instance.Spec.Certificates.SecretName != "" {
+		err = m.cli.Get(ctx, types.NamespacedName{
+			Name:      instance.Spec.Certificates.SecretName,
+			Namespace: instance.Namespace,
+		}, &oldSecret)
+
+		if err != nil {
+			return err
+		}
 	}
-	if !k8sErrors.IsNotFound(err) {
-		return err
+
+	newSecretData := map[string][]byte{}
+	for key, value := range oldSecret.Data {
+		newSecretData[key] = value
 	}
-	secret, err = m.createCertificateSecret(ctx, *rpaasInstance, name, &c)
+
+	rawCertificate, rawKey, err := convertTLSCertificate(&c)
 	if err != nil {
 		return err
 	}
-	certs := map[string]nginxv1alpha1.TLSSecret{
-		name: *newTLSSecret(secret, name),
+
+	newCertificateField := fmt.Sprintf("%s.crt", name)
+	newKeyField := fmt.Sprintf("%s.key", name)
+
+	newSecretData[newCertificateField] = rawCertificate
+	newSecretData[newKeyField] = rawKey
+
+	if reflect.DeepEqual(newSecretData, oldSecret.Data) {
+		return &ConflictError{Msg: fmt.Sprintf("certificate %q already is deployed", name)}
 	}
-	return m.updateCertificates(ctx, rpaasInstance, certs)
+
+	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(newSecretData))))
+
+	newSecret := corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-certificates-%s", instance.Name, hash[:10]),
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Annotations: map[string]string{
+				"rpaas.extensions.tsuru.io/sha256-hash": hash,
+			},
+		},
+		Data: newSecretData,
+	}
+
+	if err = m.cli.Create(ctx, &newSecret); err != nil {
+		return err
+	}
+
+	if instance.Spec.Certificates == nil {
+		instance.Spec.Certificates = &nginxv1alpha1.TLSSecret{}
+	}
+
+	instance.Spec.Certificates.SecretName = newSecret.Name
+
+	var alreadyHasItem bool
+
+	for _, item := range instance.Spec.Certificates.Items {
+		if item.CertificateField == newCertificateField && item.KeyField == newKeyField {
+			alreadyHasItem = true
+			break
+		}
+	}
+
+	if !alreadyHasItem {
+		instance.Spec.Certificates.Items = append(instance.Spec.Certificates.Items, nginxv1alpha1.TLSSecretItem{
+			CertificateField: newCertificateField,
+			KeyField:         newKeyField,
+		})
+	}
+
+	return m.cli.Update(ctx, instance)
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {
@@ -477,41 +545,6 @@ func (m *k8sRpaasManager) getPlan(ctx context.Context, name string) (*v1alpha1.R
 	return plan, nil
 }
 
-func (m *k8sRpaasManager) getCertificateSecret(ctx context.Context, ri v1alpha1.RpaasInstance, name string) (*corev1.Secret, error) {
-	namespacedName := types.NamespacedName{
-		Name:      formatCertificateSecretName(ri, name),
-		Namespace: ri.Namespace,
-	}
-	secret := &corev1.Secret{}
-	err := m.cli.Get(ctx, namespacedName, secret)
-	return secret, err
-}
-
-func (m *k8sRpaasManager) createCertificateSecret(ctx context.Context, ri v1alpha1.RpaasInstance, name string, c *tls.Certificate) (*corev1.Secret, error) {
-	rawCertPem, rawKeyPem, err := convertTLSCertificate(c)
-	if err != nil {
-		return nil, err
-	}
-	secret := newCertificateSecret(ri, name, rawCertPem, rawKeyPem)
-	err = m.cli.Create(ctx, secret)
-	return secret, err
-}
-
-func (m *k8sRpaasManager) updateCertificateSecret(ctx context.Context, s *corev1.Secret, c *tls.Certificate) error {
-	certificatePem, keyPem, err := convertTLSCertificate(c)
-	if err != nil {
-		return err
-	}
-	s.Data["certificate"] = certificatePem
-	s.Data["key"] = keyPem
-	return m.cli.Update(ctx, s)
-}
-
-func (m *k8sRpaasManager) updateCertificates(ctx context.Context, ri *v1alpha1.RpaasInstance, certs map[string]nginxv1alpha1.TLSSecret) error {
-	ri.Spec.Certificates = certs
-	return m.cli.Update(ctx, ri)
-}
-
 func (m *k8sRpaasManager) createNamespace(ctx context.Context, name string) error {
 	ns := &corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
@@ -630,46 +663,8 @@ func convertPrivateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
 	}
 }
 
-func formatCertificateSecretName(ri v1alpha1.RpaasInstance, name string) string {
-	return fmt.Sprintf("%s-certificate-%s", ri.ObjectMeta.Name, name)
-}
-
 func formatConfigurationBlocksName(instance v1alpha1.RpaasInstance) string {
 	return fmt.Sprintf("%s-blocks", instance.ObjectMeta.Name)
-}
-
-func newCertificateSecret(ri v1alpha1.RpaasInstance, name string, rawCertPem, rawKeyPem []byte) *corev1.Secret {
-	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Secret",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      formatCertificateSecretName(ri, name),
-			Namespace: ri.ObjectMeta.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(&ri, schema.GroupVersionKind{
-					Group:   v1alpha1.SchemeGroupVersion.Group,
-					Version: v1alpha1.SchemeGroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-		},
-		Data: map[string][]byte{
-			"certificate": rawCertPem,
-			"key":         rawKeyPem,
-		},
-	}
-}
-
-func newTLSSecret(s *corev1.Secret, name string) *nginxv1alpha1.TLSSecret {
-	return &nginxv1alpha1.TLSSecret{
-		SecretName:       s.ObjectMeta.Name,
-		CertificateField: "certificate",
-		CertificatePath:  fmt.Sprintf("%s.crt.pem", name),
-		KeyField:         "key",
-		KeyPath:          fmt.Sprintf("%s.key.pem", name),
-	}
 }
 
 func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) (*v1alpha1.RpaasPlan, error) {
