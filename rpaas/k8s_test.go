@@ -289,20 +289,6 @@ func Test_k8sRpaasManager_UpdateCertificate(t *testing.T) {
 	corev1.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
 
-	instance := "my-instance"
-	namespace := "custom-namespace"
-
-	rpaasInstance := &v1alpha1.RpaasInstance{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasInstance",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance,
-			Namespace: namespace,
-		},
-	}
-
 	ecdsaCertPem := `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
 DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
@@ -361,96 +347,218 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 	rsaCertificate, err := tls.X509KeyPair([]byte(rsaCertPem), []byte(rsaKeyPem))
 	require.NoError(t, err)
 
-	assertSecretData := func(t *testing.T, m *k8sRpaasManager, expectedCertName string, expectedCertData, expectedKeyData []byte) {
-		ri, err := m.GetInstance(nil, instance)
-		require.NoError(t, err)
-		secret, err := m.getCertificateSecret(nil, *ri, expectedCertName)
-		require.NoError(t, err)
-		gotCertData, ok := secret.Data["certificate"]
-		assert.True(t, ok)
-		assert.Equal(t, expectedCertData, gotCertData)
-		gotKeyData, ok := secret.Data["key"]
-		assert.True(t, ok)
-		assert.Equal(t, expectedKeyData, gotKeyData)
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "another-instance-certificates",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{CertificateField: "default.crt", KeyField: "default.key"},
+		},
 	}
 
-	assertTLSCertificate := func(t *testing.T, m *k8sRpaasManager, expectedName string) {
-		ri, err := m.GetInstance(nil, instance)
-		require.NoError(t, err)
-		secret, err := m.getCertificateSecret(nil, *ri, expectedName)
-		require.NoError(t, err)
-		expectesTLSSecret := nginxv1alpha1.TLSSecret{
-			SecretName:       secret.ObjectMeta.Name,
-			CertificateField: "certificate",
-			CertificatePath:  expectedName + ".crt.pem",
-			KeyField:         "key",
-			KeyPath:          expectedName + ".key.pem",
-		}
-		gotCertificate, ok := ri.Spec.Certificates[expectedName]
-		assert.True(t, ok)
-		assert.Equal(t, expectesTLSSecret, gotCertificate)
+	secret := newEmptySecret()
+	secret.Name = "another-instance-certificates"
+	secret.Data = map[string][]byte{
+		"default.crt": []byte(rsaCertPem),
+		"default.key": []byte(rsaKeyPem),
 	}
+
+	resources := []runtime.Object{instance1, instance2, secret}
 
 	testCases := []struct {
-		name        string
-		instance    string
-		certificate tls.Certificate
-		setup       func(*testing.T, *k8sRpaasManager)
-		assertion   func(*testing.T, error, *k8sRpaasManager)
+		name            string
+		instanceName    string
+		certificateName string
+		certificate     tls.Certificate
+		assertion       func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
-			instance:    "instance-not-found",
-			certificate: ecdsaCertificate,
+			name:         "instance not found",
+			instanceName: "instance-not-found",
+			certificate:  ecdsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
 			},
 		},
 		{
-			instance:    instance,
-			certificate: ecdsaCertificate,
+			name:         "adding a new certificate without name, should use default name \"default\"",
+			instanceName: "my-instance",
+			certificate:  rsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				require.NoError(t, err)
-				assertSecretData(t, m, "default", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
-				assertTLSCertificate(t, m, "default")
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      "my-instance",
+					Namespace: "default",
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.NotNil(t, instance.Spec.Certificates)
+				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
+
+				expectedCertificates := &nginxv1alpha1.TLSSecret{
+					SecretName: instance.Spec.Certificates.SecretName,
+					Items: []nginxv1alpha1.TLSSecretItem{
+						{CertificateField: "default.crt", KeyField: "default.key"},
+					},
+				}
+				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
+
+				secret := corev1.Secret{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      instance.Spec.Certificates.SecretName,
+					Namespace: "default",
+				}, &secret)
+				require.NoError(t, err)
+
+				expectedSecretData := map[string][]byte{
+					"default.crt": []byte(rsaCertPem),
+					"default.key": []byte(rsaKeyPem),
+				}
+				assert.Equal(t, expectedSecretData, secret.Data)
 			},
 		},
 		{
-			name:        "mycert",
-			instance:    instance,
-			certificate: ecdsaCertificate,
+			name:            "adding a new certificate with a custom name",
+			instanceName:    "my-instance",
+			certificateName: "custom-name",
+			certificate:     ecdsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				require.NoError(t, err)
-				assertSecretData(t, m, "mycert", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
-				assertTLSCertificate(t, m, "mycert")
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      "my-instance",
+					Namespace: "default",
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.NotNil(t, instance.Spec.Certificates)
+				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
+
+				expectedCertificates := &nginxv1alpha1.TLSSecret{
+					SecretName: instance.Spec.Certificates.SecretName,
+					Items: []nginxv1alpha1.TLSSecretItem{
+						{CertificateField: "custom-name.crt", KeyField: "custom-name.key"},
+					},
+				}
+				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
+
+				secret := corev1.Secret{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      instance.Spec.Certificates.SecretName,
+					Namespace: "default",
+				}, &secret)
+				require.NoError(t, err)
+
+				expectedSecretData := map[string][]byte{
+					"custom-name.crt": []byte(ecdsaCertPem),
+					"custom-name.key": []byte(ecdsaKeyPem),
+				}
+				assert.Equal(t, expectedSecretData, secret.Data)
+
 			},
 		},
 		{
-			instance:    instance,
-			certificate: rsaCertificate,
-			setup: func(t *testing.T, m *k8sRpaasManager) {
-				err := m.UpdateCertificate(nil, instance, "", ecdsaCertificate)
-				require.NoError(t, err)
-				assertSecretData(t, m, "default", []byte(ecdsaCertPem), []byte(ecdsaKeyPem))
-				assertTLSCertificate(t, m, "default")
-			},
+			name:         "updating an existing certificate from RSA to ECDSA",
+			instanceName: "another-instance",
+			certificate:  ecdsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				require.NoError(t, err)
-				assertSecretData(t, m, "default", []byte(rsaCertPem), []byte(rsaKeyPem))
-				assertTLSCertificate(t, m, "default")
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      "another-instance",
+					Namespace: "default",
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.NotNil(t, instance.Spec.Certificates)
+				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
+
+				expectedCertificates := &nginxv1alpha1.TLSSecret{
+					SecretName: instance.Spec.Certificates.SecretName,
+					Items: []nginxv1alpha1.TLSSecretItem{
+						{CertificateField: "default.crt", KeyField: "default.key"},
+					},
+				}
+				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
+
+				secret := corev1.Secret{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      instance.Spec.Certificates.SecretName,
+					Namespace: "default",
+				}, &secret)
+				require.NoError(t, err)
+
+				expectedSecretData := map[string][]byte{
+					"default.crt": []byte(ecdsaCertPem),
+					"default.key": []byte(ecdsaKeyPem),
+				}
+				assert.Equal(t, expectedSecretData, secret.Data)
+			},
+		},
+		{
+			name:            "adding multiple certificates",
+			instanceName:    "another-instance",
+			certificateName: "custom-name",
+			certificate:     ecdsaCertificate,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				require.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      "another-instance",
+					Namespace: "default",
+				}, &instance)
+				require.NoError(t, err)
+				assert.NotNil(t, instance.Spec.Certificates)
+				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
+
+				expectedCertificates := &nginxv1alpha1.TLSSecret{
+					SecretName: instance.Spec.Certificates.SecretName,
+					Items: []nginxv1alpha1.TLSSecretItem{
+						{CertificateField: "default.crt", KeyField: "default.key"},
+						{CertificateField: "custom-name.crt", KeyField: "custom-name.key"},
+					},
+				}
+				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
+
+				secret := corev1.Secret{}
+				err = m.cli.Get(nil, types.NamespacedName{
+					Name:      instance.Spec.Certificates.SecretName,
+					Namespace: "default",
+				}, &secret)
+				require.NoError(t, err)
+
+				expectedSecretData := map[string][]byte{
+					"default.crt":     []byte(rsaCertPem),
+					"default.key":     []byte(rsaKeyPem),
+					"custom-name.crt": []byte(ecdsaCertPem),
+					"custom-name.key": []byte(ecdsaKeyPem),
+				}
+				assert.Equal(t, expectedSecretData, secret.Data)
+			},
+		},
+		{
+			name:         "updating to the same certificate, should do nothing",
+			instanceName: "another-instance",
+			certificate:  rsaCertificate,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, &ConflictError{Msg: "certificate \"default\" already is deployed"}, err)
 			},
 		},
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(scheme, rpaasInstance),
-			}
-			if tt.setup != nil {
-				tt.setup(t, manager)
-			}
-			err := manager.UpdateCertificate(nil, tt.instance, tt.name, tt.certificate)
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.UpdateCertificate(nil, tt.instanceName, tt.certificateName, tt.certificate)
 			tt.assertion(t, err, manager)
 		})
 	}
@@ -491,6 +599,19 @@ func newEmptyExtraFiles() *corev1.ConfigMap {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance-extra-files",
+			Namespace: "default",
+		},
+	}
+}
+
+func newEmptySecret() *corev1.Secret {
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-secrets",
 			Namespace: "default",
 		},
 	}

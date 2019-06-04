@@ -231,7 +231,7 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 }
 
 func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxV1alpha1.Nginx {
-	nginxResource := &nginxV1alpha1.Nginx{
+	return &nginxV1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
@@ -257,13 +257,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Service:         instance.Spec.Service,
 			HealthcheckPath: "/_nginx_healthcheck/",
 			ExtraFiles:      instance.Spec.ExtraFiles,
+			Certificates:    instance.Spec.Certificates,
 		},
 	}
-
-	defaultCert, ok := instance.Spec.Certificates[v1alpha1.CertificateNameDefault]
-	if ok {
-		nginxResource.Spec.TLSSecret = &defaultCert
-	}
-
-	return nginxResource
 }
