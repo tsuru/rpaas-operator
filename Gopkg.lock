@@ -1049,6 +1049,7 @@
   analyzer-name = "dep"
   analyzer-version = 1
   input-imports = [
+    "github.com/davecgh/go-spew/spew",
     "github.com/go-openapi/spec",
     "github.com/google/gops/agent",
     "github.com/labstack/echo",

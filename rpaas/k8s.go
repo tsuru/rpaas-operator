@@ -6,7 +6,6 @@ import (
 	"crypto"
 	"crypto/ecdsa"
 	"crypto/rsa"
-	"crypto/sha256"
 	"crypto/tls"
 	"crypto/x509"
 	"encoding/json"
@@ -20,6 +19,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"github.com/tsuru/rpaas-operator/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -474,7 +474,7 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 }
 
 func (m *k8sRpaasManager) createExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance, data map[string][]byte) (*corev1.ConfigMap, error) {
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(data))))
+	hash := util.SHA256(data)
 	cm := corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-extra-files-%s", instance.Name, hash[:10]),
@@ -771,7 +771,7 @@ func (m *k8sRpaasManager) eventsForPod(ctx context.Context, podName, ns string) 
 }
 
 func newSecretForCertificates(instance v1alpha1.RpaasInstance, data map[string][]byte) *corev1.Secret {
-	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(fmt.Sprint(data))))
+	hash := util.SHA256(data)
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-certificates-%s", instance.Name, hash[:10]),
