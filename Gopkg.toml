@@ -81,3 +81,7 @@ required = [
   [[prune.project]]
     name = "github.com/tsuru/nginx-operator"
     non-go = false
+
+[[constraint]]
+  name = "github.com/davecgh/go-spew"
+  version = "1.1.1"
