@@ -1275,6 +1275,147 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_BindApp(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Host = "app2.tsuru.example.com"
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2}
+
+	tests := []struct {
+		name      string
+		instance  string
+		args      BindAppArgs
+		assertion func(t *testing.T, err error, got v1alpha1.RpaasInstance)
+	}{
+		{
+			name:     "when instance not found",
+			instance: "not-found-instance",
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := NotFoundError{Msg: "rpaas instance \"not-found-instance\" not found"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
+			name:     "when AppHost field is not defined",
+			instance: "my-instance",
+			args:     BindAppArgs{},
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &ValidationError{Msg: "application host cannot be empty"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
+			name:     "when instance successfully bound with an application",
+			instance: "my-instance",
+			args: BindAppArgs{
+				AppHost: "app1.tsuru.example.com",
+			},
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Equal(t, "app1.tsuru.example.com", ri.Spec.Host)
+			},
+		},
+		{
+			name:     "when instance already bound with another application",
+			instance: "another-instance",
+			args: BindAppArgs{
+				AppHost: "app1.tsuru.example.com",
+			},
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &ConflictError{Msg: "instance already bound with another application"}
+				assert.Equal(t, expected, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			bindAppErr := manager.BindApp(nil, tt.instance, tt.args)
+
+			var instance v1alpha1.RpaasInstance
+
+			if bindAppErr == nil {
+				require.NoError(t, manager.cli.Get(nil, types.NamespacedName{
+					Name:      tt.instance,
+					Namespace: "default",
+				}, &instance))
+			}
+
+			tt.assertion(t, bindAppErr, instance)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Host = "app2.tsuru.example.com"
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2}
+
+	tests := []struct {
+		name      string
+		instance  string
+		assertion func(t *testing.T, err error, got v1alpha1.RpaasInstance)
+	}{
+		{
+			name:     "when instance not found",
+			instance: "not-found-instance",
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := NotFoundError{Msg: "rpaas instance \"not-found-instance\" not found"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
+			name:     "when instance bound with no application",
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &ValidationError{Msg: "instance not bound"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
+			name:     "when instance successfully unbound",
+			instance: "another-instance",
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Equal(t, "", ri.Spec.Host)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			unbindAppErr := manager.UnbindApp(nil, tt.instance)
+
+			var instance v1alpha1.RpaasInstance
+
+			if unbindAppErr == nil {
+				require.NoError(t, manager.cli.Get(nil, types.NamespacedName{
+					Name:      tt.instance,
+					Namespace: "default",
+				}, &instance))
+			}
+
+			tt.assertion(t, unbindAppErr, instance)
+		})
+	}
+}
+
 func Test_isPathValid(t *testing.T) {
 	tests := []struct {
 		path     string
@@ -1345,4 +1486,12 @@ func Test_convertPathToConfigMapKey(t *testing.T) {
 			assert.Equal(t, tt.expected, convertPathToConfigMapKey(tt.path))
 		})
 	}
+}
+
+func newScheme() *runtime.Scheme {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+	return scheme
 }

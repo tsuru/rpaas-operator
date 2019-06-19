@@ -24,6 +24,8 @@ type RpaasManager struct {
 	FakeDeleteExtraFiles  func(instanceName string, filenames ...string) error
 	FakeGetExtraFiles     func(instanceName string) ([]rpaas.File, error)
 	FakeUpdateExtraFiles  func(instanceName string, files ...rpaas.File) error
+	FakeBindApp           func(instanceName string, args rpaas.BindAppArgs) error
+	FakeUnbindApp         func(instanceName string) error
 }
 
 func (m *RpaasManager) UpdateCertificate(ctx context.Context, instance, name string, c tls.Certificate) error {
@@ -127,6 +129,20 @@ func (m *RpaasManager) GetExtraFiles(ctx context.Context, instanceName string) (
 func (m *RpaasManager) UpdateExtraFiles(ctx context.Context, instanceName string, files ...rpaas.File) error {
 	if m.FakeUpdateExtraFiles != nil {
 		return m.FakeUpdateExtraFiles(instanceName, files...)
+	}
+	return nil
+}
+
+func (m *RpaasManager) BindApp(ctx context.Context, instanceName string, args rpaas.BindAppArgs) error {
+	if m.FakeBindApp != nil {
+		return m.FakeBindApp(instanceName, args)
+	}
+	return nil
+}
+
+func (m *RpaasManager) UnbindApp(ctx context.Context, instanceName string) error {
+	if m.FakeUnbindApp != nil {
+		return m.FakeUnbindApp(instanceName)
 	}
 	return nil
 }

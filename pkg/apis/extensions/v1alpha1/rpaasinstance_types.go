@@ -5,14 +5,9 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// EDIT THIS FILE!  THIS IS SCAFFOLDING FOR YOU TO OWN!
-// NOTE: json tags are required.  Any new fields you add must have json tags for the fields to be serialized.
-
 // RpaasInstanceSpec defines the desired state of RpaasInstance
 // +k8s:openapi-gen=true
 type RpaasInstanceSpec struct {
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-
 	// Number of desired pods. This is a pointer to distinguish between explicit
 	// zero and not specified. Defaults to 1.
 	// +optional
@@ -20,6 +15,11 @@ type RpaasInstanceSpec struct {
 
 	// PlanName is the name of the rpaasplan instance.
 	PlanName string `json:"planName"`
+
+	// Host is the application address where all incoming HTTP will be
+	// forwarded for.
+	// +optional
+	Host string `json:"host,omitempty"`
 
 	// Blocks are configuration file fragments added to the generated nginx
 	// config.
@@ -42,17 +42,11 @@ type RpaasInstanceSpec struct {
 	// ExtraFiles points to a ConfigMap where the files are stored.
 	// +optional
 	ExtraFiles *nginxv1alpha1.FilesRef `json:"extraFiles,omitempty"`
-
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
 // +k8s:openapi-gen=true
-type RpaasInstanceStatus struct {
-	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
-	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
-	// Add custom validation using kubebuilder tags: https://book.kubebuilder.io/beyond_basics/generating_crd.html
-}
+type RpaasInstanceStatus struct{}
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 

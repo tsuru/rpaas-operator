@@ -79,6 +79,13 @@ type PodStatus struct {
 	Address string `json:"address"`
 }
 
+type BindAppArgs struct {
+	AppName string `form:"app-name"`
+	AppHost string `form:"app-host"`
+	User    string `form:"user"`
+	EventID string `form:"eventid"`
+}
+
 type RpaasManager interface {
 	ConfigurationBlockHandler
 	ExtraFileHandler
@@ -91,4 +98,6 @@ type RpaasManager interface {
 	GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error)
 	Scale(ctx context.Context, name string, replicas int32) error
 	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
+	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
+	UnbindApp(ctx context.Context, instanceName string) error
 }
