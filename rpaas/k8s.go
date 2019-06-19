@@ -473,6 +473,40 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args BindAppArgs) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if args.AppHost == "" {
+		return &ValidationError{Msg: "application host cannot be empty"}
+	}
+
+	if instance.Spec.Host != "" && instance.Spec.Host != args.AppHost {
+		return &ConflictError{Msg: "instance already bound with another application"}
+	}
+
+	instance.Spec.Host = args.AppHost
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if instance.Spec.Host == "" {
+		return &ValidationError{Msg: "instance not bound"}
+	}
+
+	instance.Spec.Host = ""
+
+	return m.cli.Update(ctx, instance)
+}
+
 func (m *k8sRpaasManager) createExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance, data map[string][]byte) (*corev1.ConfigMap, error) {
 	hash := util.SHA256(data)
 	cm := corev1.ConfigMap{
