@@ -135,6 +135,12 @@ http {
     vhost_traffic_status_zone;
 {{end}}
 
+{{with .Instance.Host}}
+    upstream rpaas_backend_default {
+        server {{.}};
+    }
+{{end}}
+
     {{template "http" .}}
 
     server {
@@ -174,6 +180,18 @@ http {
         location = /_nginx_healthcheck/ {
             echo "WORKING";
         }
+
+{{if .Instance.Host}}
+        location / {
+            proxy_set_header Host {{ .Instance.Host }};
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+
+            proxy_pass http://rpaas_backend_default;
+        }
+{{end}}
 
         {{template "server" .}}
     }
