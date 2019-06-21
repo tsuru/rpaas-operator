@@ -206,6 +206,20 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `# I can use any block as a golang template: another-user;`, result)
 			},
 		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstanceSpec{
+					Host: "app1.tsuru.example.com",
+				},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				assert.NoError(t, err)
+				assert.Regexp(t, `upstream rpaas_backend_default {\n\s+server app1.tsuru.example.com;\n\s+}`, result)
+				assert.Regexp(t, `location / {\n\s+proxy_set_header Host app1.tsuru.example.com;\n\s+proxy_set_header X-Real-IP \$remote_addr;\n\s+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n\s+proxy_set_header X-Forwarded-Proto \$scheme;\n\s+proxy_set_header X-Forwarded-Host \$host;\n+\s+proxy_pass http://rpaas_backend_default;\n\s+}`, result)
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
