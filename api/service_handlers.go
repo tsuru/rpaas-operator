@@ -109,9 +109,32 @@ func serviceInfo(c echo.Context) error {
 }
 
 func serviceBindApp(c echo.Context) error {
-	return c.NoContent(http.StatusInternalServerError)
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	var args rpaas.BindAppArgs
+	if err = c.Bind(&args); err != nil {
+		return err
+	}
+
+	if err = manager.BindApp(c.Request().Context(), c.Param("instance"), args); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusCreated)
 }
 
 func serviceUnbindApp(c echo.Context) error {
-	return c.NoContent(http.StatusInternalServerError)
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	if err = manager.UnbindApp(c.Request().Context(), c.Param("instance")); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
 }

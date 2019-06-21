@@ -312,11 +312,110 @@ func Test_serviceInfo(t *testing.T) {
 }
 
 func Test_serviceBindApp(t *testing.T) {
-	t.Skip("bind/unbind-app are broken, marking to skip until we fix/refactor them")
+	tests := []struct {
+		name         string
+		requestBody  string
+		expectedCode int
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "when no request body is sent",
+			expectedCode: http.StatusBadRequest,
+			manager:      &fake.RpaasManager{},
+		},
+		{
+			name:         "when bind with application is sucessful",
+			requestBody:  "app-host=app1.tsuru.example.com&app-name=app1&user=admin@tsuru.example.com&eventid=123456",
+			expectedCode: http.StatusCreated,
+			manager: &fake.RpaasManager{
+				FakeBindApp: func(instanceName string, args rpaas.BindAppArgs) error {
+					assert.Equal(t, "my-instance", instanceName)
+					expected := rpaas.BindAppArgs{
+						AppName: "app1",
+						AppHost: "app1.tsuru.example.com",
+						User:    "admin@tsuru.example.com",
+						EventID: "123456",
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "when BindApp method returns an error",
+			expectedCode: http.StatusBadRequest,
+			manager: &fake.RpaasManager{
+				FakeBindApp: func(instanceName string, args rpaas.BindAppArgs) error {
+					return &rpaas.ValidationError{Msg: "some error"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			webApi, err := New(nil)
+			require.NoError(t, err)
+			webApi.rpaasManager = tt.manager
+			srv := httptest.NewServer(webApi.Handler())
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/my-instance/bind-app", srv.URL)
+			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
+			require.NoError(t, err)
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+		})
+	}
 }
 
 func Test_serviceUnbindApp(t *testing.T) {
-	t.Skip("bind/unbind-app are broken, marking to skip until we fix/refactor them")
+	tests := []struct {
+		name         string
+		instance     string
+		expectedCode int
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "when unbind method returns no error",
+			instance:     "my-instance",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeUnbindApp: func(instanceName string) error {
+					assert.Equal(t, "my-instance", instanceName)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "when UnbindApp returns an error",
+			instance:     "my-instance",
+			expectedCode: http.StatusBadRequest,
+			manager: &fake.RpaasManager{
+				FakeUnbindApp: func(instanceName string) error {
+					return &rpaas.ValidationError{Msg: "some error"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			webApi, err := New(nil)
+			require.NoError(t, err)
+			webApi.rpaasManager = tt.manager
+			srv := httptest.NewServer(webApi.Handler())
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/bind-app", srv.URL, tt.instance)
+			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			require.NoError(t, err)
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+		})
+	}
 }
 
 func bodyContent(rsp *http.Response) string {
