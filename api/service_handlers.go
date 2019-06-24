@@ -138,3 +138,11 @@ func serviceUnbindApp(c echo.Context) error {
 
 	return c.NoContent(http.StatusOK)
 }
+
+func serviceBindUnit(c echo.Context) error {
+	return c.NoContent(http.StatusCreated)
+}
+
+func serviceUnbindUnit(c echo.Context) error {
+	return c.NoContent(http.StatusOK)
+}

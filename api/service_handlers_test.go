@@ -418,6 +418,44 @@ func Test_serviceUnbindApp(t *testing.T) {
 	}
 }
 
+func Test_serviceBindUnit(t *testing.T) {
+	t.Run("ensure bind unit route exists", func(t *testing.T) {
+		instance := "my-instance"
+		requestBody := "app-name=app1&app-hosts=app1.tsuru.example.com&unit-host=127.0.0.1:32123"
+		webApi, err := New(nil)
+		webApi.rpaasManager = &fake.RpaasManager{}
+		require.NoError(t, err)
+		srv := httptest.NewServer(webApi.Handler())
+		defer srv.Close()
+		path := fmt.Sprintf("%s/resources/%s/bind", srv.URL, instance)
+		request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(requestBody))
+		require.NoError(t, err)
+		request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		rsp, err := srv.Client().Do(request)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusCreated, rsp.StatusCode)
+	})
+}
+
+func Test_serviceUnbindUnit(t *testing.T) {
+	t.Run("ensure unbind unit route exists", func(t *testing.T) {
+		instance := "my-instance"
+		requestBody := "app-hosts=app1.tsuru.example.com&unit-host=127.0.0.1:32123"
+		webApi, err := New(nil)
+		webApi.rpaasManager = &fake.RpaasManager{}
+		require.NoError(t, err)
+		srv := httptest.NewServer(webApi.Handler())
+		defer srv.Close()
+		path := fmt.Sprintf("%s/resources/%s/bind", srv.URL, instance)
+		request, err := http.NewRequest(http.MethodDelete, path, strings.NewReader(requestBody))
+		require.NoError(t, err)
+		request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+		rsp, err := srv.Client().Do(request)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusOK, rsp.StatusCode)
+	})
+}
+
 func bodyContent(rsp *http.Response) string {
 	data, _ := ioutil.ReadAll(rsp.Body)
 	return string(data)
