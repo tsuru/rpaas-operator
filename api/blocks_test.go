@@ -4,11 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 
 	"github.com/labstack/echo"
 	"github.com/stretchr/testify/assert"
@@ -61,10 +58,7 @@ func Test_deleteBlock(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/block/%s", srv.URL, instanceName, blockName)
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
@@ -118,10 +112,7 @@ func Test_listBlocks(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/block", srv.URL, "my-instance")
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -177,10 +168,7 @@ func Test_updateBlock(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/block", srv.URL, "my-instance")
 			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))

@@ -3,11 +3,9 @@ package api
 import (
 	"bytes"
 	"crypto/tls"
-	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -15,12 +13,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/config"
+	"github.com/tsuru/rpaas-operator/rpaas"
 	"github.com/tsuru/rpaas-operator/rpaas/fake"
 )
 
 func Test_updateCertificate(t *testing.T) {
 	instanceName := "my-instance-name"
-	path := fmt.Sprintf("/resources/%s/certificate", instanceName)
 	boundary := "XXXXXXXXXXXXXXX"
 
 	certPem := `-----BEGIN CERTIFICATE-----
@@ -67,107 +65,79 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	}
 
 	testCases := []struct {
-		requestBody   string
-		expectedCode  int
-		expectedBody  string
-		expectedError error
-		setup         func(*testing.T, echo.Context)
+		name         string
+		requestBody  string
+		expectedCode int
+		expectedBody string
+		manager      rpaas.RpaasManager
 	}{
 		{
-			makeBodyRequest("some certificate", "", ""),
-			400,
-			"key file is either not provided or not valid",
-			nil,
-			nil,
+			name:         "when no private key is sent",
+			requestBody:  makeBodyRequest("some certificate", "", ""),
+			expectedCode: 400,
+			expectedBody: "key file is either not provided or not valid",
+			manager:      &fake.RpaasManager{},
 		},
 		{
-			makeBodyRequest("", "some private key", ""),
-			400,
-			"cert file is either not provided or not valid",
-			nil,
-			nil,
+			name:         "when no certificate is sent",
+			requestBody:  makeBodyRequest("", "some private key", ""),
+			expectedCode: 400,
+			expectedBody: "cert file is either not provided or not valid",
+			manager:      &fake.RpaasManager{},
 		},
 		{
-			makeBodyRequest(certPem, keyPem, ""),
-			200,
-			"",
-			nil,
-			func(t *testing.T, c echo.Context) {
-				manager := &fake.RpaasManager{
-					FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
-						assert.Equal(t, "", name)
-						assert.Equal(t, instance, instanceName)
-						assert.Equal(t, c, certificate)
-						return nil
-					},
-				}
-				setManager(c, manager)
+			name:         "when successfully adding a default certificate",
+			requestBody:  makeBodyRequest(certPem, keyPem, ""),
+			expectedCode: 200,
+			expectedBody: "",
+			manager: &fake.RpaasManager{
+				FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
+					assert.Equal(t, "", name)
+					assert.Equal(t, instance, instanceName)
+					assert.Equal(t, c, certificate)
+					return nil
+				},
 			},
 		},
 		{
-			makeBodyRequest(certPem, keyPem, "mycert"),
-			200,
-			"",
-			nil,
-			func(t *testing.T, c echo.Context) {
-				manager := &fake.RpaasManager{
-					FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
-						assert.Equal(t, "mycert", name)
-						assert.Equal(t, instance, instanceName)
-						assert.Equal(t, c, certificate)
-						return nil
-					},
-				}
-				setManager(c, manager)
+			name:         "when successfully adding a named certificate",
+			requestBody:  makeBodyRequest(certPem, keyPem, "mycert"),
+			expectedCode: 200,
+			expectedBody: "",
+			manager: &fake.RpaasManager{
+				FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
+					assert.Equal(t, "mycert", name)
+					assert.Equal(t, instance, instanceName)
+					assert.Equal(t, c, certificate)
+					return nil
+				},
 			},
 		},
 		{
-			makeBodyRequest(certPem, keyPem, ""),
-			500,
-			`{"message":"Internal Server Error"}
-`,
-			errors.New("invalid manager state: <nil>"),
-			func(t *testing.T, c echo.Context) {
-				c.Set("manager", nil)
-			},
-		},
-		{
-			makeBodyRequest(certPem, keyPem, ""),
-			500,
-			`{"message":"Internal Server Error"}
-`,
-			errors.New("some error"),
-			func(t *testing.T, c echo.Context) {
-				manager := &fake.RpaasManager{
-					FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
-						assert.Equal(t, "", name)
-						assert.Equal(t, instance, instanceName)
-						assert.Equal(t, c, certificate)
-						return errors.New("some error")
-					},
-				}
-				setManager(c, manager)
+			name:         "when UpdateCertificate method returns ",
+			requestBody:  makeBodyRequest(certPem, keyPem, ""),
+			expectedCode: 400,
+			expectedBody: "{\"Msg\":\"some error\"}\n",
+			manager: &fake.RpaasManager{
+				FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
+					return &rpaas.ValidationError{Msg: "some error"}
+				},
 			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run("", func(t *testing.T) {
-			request := httptest.NewRequest(http.MethodPost, path, strings.NewReader(testCase.requestBody))
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/certificate", srv.URL, instanceName)
+			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
+			require.NoError(t, err)
 			request.Header.Set(echo.HeaderContentType, fmt.Sprintf(`%s; boundary=%s`, echo.MIMEMultipartForm, boundary))
-			recorder := httptest.NewRecorder()
-			e := echo.New()
-			context := e.NewContext(request, recorder)
-			if testCase.setup != nil {
-				testCase.setup(t, context)
-			}
-			context.SetParamNames("instance")
-			context.SetParamValues(instanceName)
-			err := updateCertificate(context)
-			assert.Equal(t, testCase.expectedError, err)
-			e.HTTPErrorHandler(err, context)
-			assert.Equal(t, testCase.expectedCode, recorder.Code)
-			assert.Equal(t, testCase.expectedBody, recorder.Body.String())
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
 		})
 	}
 }
@@ -196,9 +166,7 @@ func Test_healthcheck(t *testing.T) {
 			}
 			defer config.Unset("API_USERNAME")
 			defer config.Unset("API_PASSWORD")
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, nil)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/healthcheck", srv.URL)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -262,9 +230,7 @@ func Test_MiddlewareBasicAuth(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			defer config.Unset("API_USERNAME")
 			defer config.Unset("API_PASSWORD")
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, nil)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/", srv.URL)
 			request, err := http.NewRequest(http.MethodGet, path, nil)

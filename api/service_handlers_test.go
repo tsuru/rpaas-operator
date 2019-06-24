@@ -92,10 +92,7 @@ func Test_serviceCreate(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources", srv.URL)
 			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
@@ -136,10 +133,7 @@ func Test_serviceDelete(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s", srv.URL, tt.instanceName)
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
@@ -181,10 +175,7 @@ func Test_servicePlans(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/plans", srv.URL)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -293,10 +284,7 @@ func Test_serviceInfo(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s", srv.URL, tt.instanceName)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -354,10 +342,7 @@ func Test_serviceBindApp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/my-instance/bind-app", srv.URL)
 			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
@@ -422,10 +407,7 @@ func Test_serviceBindUnit(t *testing.T) {
 	t.Run("ensure bind unit route exists", func(t *testing.T) {
 		instance := "my-instance"
 		requestBody := "app-name=app1&app-hosts=app1.tsuru.example.com&unit-host=127.0.0.1:32123"
-		webApi, err := New(nil)
-		webApi.rpaasManager = &fake.RpaasManager{}
-		require.NoError(t, err)
-		srv := httptest.NewServer(webApi.Handler())
+		srv := newTestingServer(t, &fake.RpaasManager{})
 		defer srv.Close()
 		path := fmt.Sprintf("%s/resources/%s/bind", srv.URL, instance)
 		request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(requestBody))
@@ -441,10 +423,7 @@ func Test_serviceUnbindUnit(t *testing.T) {
 	t.Run("ensure unbind unit route exists", func(t *testing.T) {
 		instance := "my-instance"
 		requestBody := "app-hosts=app1.tsuru.example.com&unit-host=127.0.0.1:32123"
-		webApi, err := New(nil)
-		webApi.rpaasManager = &fake.RpaasManager{}
-		require.NoError(t, err)
-		srv := httptest.NewServer(webApi.Handler())
+		srv := newTestingServer(t, &fake.RpaasManager{})
 		defer srv.Close()
 		path := fmt.Sprintf("%s/resources/%s/bind", srv.URL, instance)
 		request, err := http.NewRequest(http.MethodDelete, path, strings.NewReader(requestBody))
