@@ -178,6 +178,7 @@ http {
         proxy_http_version 1.1;
 
         location = /_nginx_healthcheck/ {
+            default_type "text/plain";
             echo "WORKING";
         }
 
@@ -190,6 +191,11 @@ http {
             proxy_set_header X-Forwarded-Host $host;
 
             proxy_pass http://rpaas_backend_default;
+        }
+{{else}}
+        location / {
+            default_type "text/plain";
+            echo "instance not bound yet";
         }
 {{end}}
 
