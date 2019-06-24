@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/http/httptest"
 	"strings"
 	"testing"
 
@@ -58,10 +57,7 @@ func Test_listExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/files", srv.URL, tt.instance)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -119,10 +115,7 @@ func Test_getExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/files/%s", srv.URL, tt.instance, tt.filename)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
@@ -188,10 +181,7 @@ func Test_addExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/files", srv.URL, tt.instance)
 			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
@@ -253,10 +243,7 @@ func Test_updateExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/files", srv.URL, tt.instance)
 			request, err := http.NewRequest(http.MethodPut, path, strings.NewReader(tt.requestBody))
@@ -302,10 +289,7 @@ func Test_deleteExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			webApi, err := New(nil)
-			require.NoError(t, err)
-			webApi.rpaasManager = tt.manager
-			srv := httptest.NewServer(webApi.Handler())
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/files/%s", srv.URL, tt.instance, tt.filename)
 			request, err := http.NewRequest(http.MethodDelete, path, nil)

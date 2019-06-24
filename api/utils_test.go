@@ -3,6 +3,11 @@ package api
 import (
 	"bytes"
 	"mime/multipart"
+	"net/http/httptest"
+	"testing"
+
+	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/rpaas"
 )
 
 const boundary = "XXXXXXXXXXXX"
@@ -27,4 +32,11 @@ func newMultipartFormBody(name string, files ...multipartFile) (string, error) {
 	}
 	w.Close()
 	return b.String(), nil
+}
+
+func newTestingServer(t *testing.T, m rpaas.RpaasManager) *httptest.Server {
+	webApi, err := New(nil)
+	require.NoError(t, err)
+	webApi.rpaasManager = m
+	return httptest.NewServer(webApi.Handler())
 }
