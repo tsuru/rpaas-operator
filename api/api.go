@@ -170,6 +170,8 @@ func newEcho() *echo.Echo {
 	e.DELETE("/resources/:instance", serviceDelete)
 	e.POST("/resources/:instance/bind-app", serviceBindApp)
 	e.DELETE("/resources/:instance/bind-app", serviceUnbindApp)
+	e.POST("/resources/:instance/bind", serviceBindUnit)
+	e.DELETE("/resources/:instance/bind", serviceUnbindUnit)
 	e.POST("/resources/:instance/scale", scale)
 	e.POST("/resources/:instance/certificate", updateCertificate)
 	e.GET("/resources/:instance/block", listBlocks)
