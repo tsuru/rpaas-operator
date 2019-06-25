@@ -1,6 +1,7 @@
 package test
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,8 @@ import (
 	"net/http"
 	"net/url"
 	"os/exec"
+	"regexp"
+	"strconv"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -53,6 +56,63 @@ func get(obj runtime.Object, name, ns string) error {
 		return err
 	}
 	return json.Unmarshal(out, obj)
+}
+
+func portForward(ctx context.Context, ns, name, port string, fn func(localPort int)) error {
+	cmd := exec.CommandContext(ctx, "kubectl", []string{
+		"port-forward",
+		"--namespace", ns,
+		name, fmt.Sprintf(":%s", port),
+		"--address", "127.0.0.1",
+	}...)
+
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return err
+	}
+
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return err
+	}
+
+	if err = cmd.Start(); err != nil {
+		return err
+	}
+
+	scanner := bufio.NewScanner(stdout)
+	if scanner.Scan(); scanner.Err() != nil {
+		defer cmd.Process.Kill()
+		return scanner.Err()
+	}
+
+	var localPort int
+	regexLocalPort := regexp.MustCompile(`:([0-9]+)`)
+
+	matchs := regexLocalPort.FindStringSubmatch(scanner.Text())
+
+	if len(matchs) < 2 {
+		defer cmd.Process.Kill()
+		return fmt.Errorf("could not find the local port: %q - %v", scanner.Text(), matchs)
+	}
+
+	localPort, err = strconv.Atoi(matchs[1])
+	if err != nil {
+		defer cmd.Process.Kill()
+		return err
+	}
+
+	fn(localPort)
+
+	err = cmd.Process.Kill()
+
+	rawStderr, newErr := ioutil.ReadAll(stderr)
+	fmt.Printf("Process standard error: %q - %v\n", string(rawStderr), newErr)
+
+	rawStdout, newErr := ioutil.ReadAll(stdout)
+	fmt.Printf("Process standard output: %q - %v\n", string(rawStdout), newErr)
+
+	return err
 }
 
 func kubectl(arg ...string) ([]byte, error) {
@@ -116,6 +176,7 @@ func (api *rpaasApi) scale(name string, n int) error {
 		return err
 	}
 	if rsp.StatusCode != http.StatusCreated {
+		defer rsp.Body.Close()
 		body, err := ioutil.ReadAll(rsp.Body)
 		if err != nil {
 			return err
@@ -131,4 +192,41 @@ func (api *rpaasApi) health() (bool, error) {
 		return false, err
 	}
 	return rsp.StatusCode == http.StatusOK, nil
+}
+
+func (api *rpaasApi) bind(name, host string) error {
+	data := url.Values{"app-host": []string{host}}
+	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/bind-app", api.address, name), data)
+	if err != nil {
+		return err
+	}
+	if rsp.StatusCode != http.StatusCreated {
+		defer rsp.Body.Close()
+		body, err := ioutil.ReadAll(rsp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("could not bind the instance %q: %v - Body %v", name, rsp, string(body))
+	}
+	return nil
+}
+
+func (api *rpaasApi) unbind(name, host string) error {
+	request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/resources/%s/bind-app", api.address, name), nil)
+	if err != nil {
+		return err
+	}
+	rsp, err := api.client.Do(request)
+	if err != nil {
+		return err
+	}
+	if rsp.StatusCode != http.StatusOK {
+		defer rsp.Body.Close()
+		body, err := ioutil.ReadAll(rsp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("could not unbind the instance %q: %v - Body %v", name, rsp, string(body))
+	}
+	return nil
 }
