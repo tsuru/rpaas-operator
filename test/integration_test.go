@@ -1,7 +1,9 @@
 package test
 
 import (
+	"context"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
@@ -108,7 +110,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
-	t.Run("Creating and deleting a instance", func(t *testing.T) {
+	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := "my-instance"
 		teamName := "team-one"
 		planName := "basic"
@@ -120,17 +122,6 @@ func Test_RpaasApi(t *testing.T) {
 		defer func() {
 			err = cleanFunc()
 			assert.NoError(t, err)
-
-			var isNginxRemoved bool
-			for retries := 10; retries > 0; retries-- {
-				_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
-				if err != nil {
-					isNginxRemoved = true
-					break
-				}
-				time.Sleep(time.Second)
-			}
-			assert.True(t, isNginxRemoved)
 
 			err = deleteNamespace(namespaceName)
 			assert.NoError(t, err)
@@ -162,16 +153,108 @@ func Test_RpaasApi(t *testing.T) {
 		assert.Equal(t, int32(80), nginxService.Spec.Ports[0].Port)
 		assert.Equal(t, corev1.ServiceType("LoadBalancer"), nginxService.Spec.Type)
 	})
+
+	t.Run("bind and unbind with a local application", func(t *testing.T) {
+		instanceName := "my-instance"
+		teamName := "team-one"
+		planName := "basic"
+
+		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		err = apply("testdata/hello-app.yaml", namespaceName)
+		require.NoError(t, err)
+		defer func() {
+			err = delete("testdata/hello-app.yaml", namespaceName)
+			require.NoError(t, err)
+		}()
+
+		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "1m", "-n", namespaceName)
+		require.NoError(t, err)
+
+		assertInstanceReturns := func(localPort int, expectedBody string) {
+			rsp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
+			require.NoError(t, err)
+			defer rsp.Body.Close()
+			rawBody, err := ioutil.ReadAll(rsp.Body)
+			require.NoError(t, err)
+			assert.Equal(t, expectedBody, string(rawBody))
+			assert.Equal(t, http.StatusOK, rsp.StatusCode)
+		}
+
+		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
+		servicePort := "80"
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+
+		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
+			assertInstanceReturns(localPort, "instance not bound yet\n")
+		})
+		require.NoError(t, err)
+
+		helloServiceHost := fmt.Sprintf("hello.%s.svc.cluster.local", namespaceName)
+		err = api.bind(instanceName, helloServiceHost)
+		require.NoError(t, err)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
+			assertInstanceReturns(localPort, "Hello World!")
+		})
+		require.NoError(t, err)
+
+		err = api.unbind(instanceName, helloServiceHost)
+		require.NoError(t, err)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
+			assertInstanceReturns(localPort, "instance not bound yet\n")
+		})
+		require.NoError(t, err)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+	})
 }
 
 func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*v1alpha1.Nginx, error) {
 	nginx := &v1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
 	timeout := time.After(60 * time.Second)
 	for {
-		err := get(nginx, name, namespace)
-		if err == nil && len(nginx.Status.Pods) == expectedPods && len(nginx.Status.Services) == expectedSvcs {
+		_, err := kubectl("rollout", "status", "-n", namespace, "deploy", name, "--watch")
+		if err != nil {
+			continue
+		}
+
+		err = get(nginx, name, namespace)
+		if err != nil || len(nginx.Status.Pods) != expectedPods || len(nginx.Status.Services) != expectedSvcs {
+			continue
+		}
+
+		if len(nginx.Status.Pods) == 0 {
 			return nginx, nil
 		}
+
+		waitArgs := []string{"wait", "--for=condition=Ready", "-n", namespace, "--timeout=1s"}
+
+		for _, pod := range nginx.Status.Pods {
+			waitArgs = append(waitArgs, fmt.Sprintf("pod/%s", pod.Name))
+		}
+
+		if _, err = kubectl(waitArgs...); err == nil {
+			return nginx, nil
+		}
+
 		select {
 		case <-timeout:
 			return nil, fmt.Errorf("Timeout waiting for nginx status. Last nginx object: %#v. Last error: %v", nginx, err)
