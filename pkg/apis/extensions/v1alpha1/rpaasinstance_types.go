@@ -25,9 +25,10 @@ type RpaasInstanceSpec struct {
 	// config.
 	Blocks map[BlockType]ConfigRef `json:"blocks,omitempty"`
 
-	// Locations are configuration file fragments used as location blocks in
-	// nginx config.
-	Locations []Location `json:"locations,omitempty"`
+	// LocationsBlock contains the per-location NGINX configurations, application
+	// address and other options.
+	// +optional
+	LocationsBlock *LocationsBlock `json:"locationsBlock,omitempty"`
 
 	// Certificates are a set of attributes that relate the certificate's
 	// location in the cluster (Secret resource name) and its destination into
@@ -83,10 +84,8 @@ const (
 type ConfigRef struct {
 	// Name of config reference.
 	Name string `json:"name"`
-
 	// Kind of config referece.
 	Kind ConfigKind `json:"kind"`
-
 	// Value is optional and can be set for inline config kind.
 	Value string `json:"value,omitempty"`
 }
@@ -94,8 +93,15 @@ type ConfigRef struct {
 type ConfigKind string
 
 type Location struct {
-	Config      ConfigRef `json:"config"`
-	Destination string    `json:"destination,omitempty"`
+	Path        string `json:"path"`
+	Destination string `json:"destination,omitempty"`
+	ForceHTTPS  bool   `json:"forceHTTPS,omitempty"`
+	Key         string `json:"key,omitempty"`
+}
+
+type LocationsBlock struct {
+	Locations     []Location `json:"locations"`
+	ConfigMapName string     `json:"configMapName,omitempty"`
 }
 
 const (
