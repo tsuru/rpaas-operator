@@ -59,6 +59,19 @@ type ExtraFileHandler interface {
 	UpdateExtraFiles(ctx context.Context, instanceName string, files ...File) error
 }
 
+type Route struct {
+	Path        string `form:"path"`
+	Destination string `form:"destination"`
+	Content     string `form:"content"`
+	HTTPSOnly   bool   `form:"https_only"`
+}
+
+type RouteHandler interface {
+	DeleteRoute(ctx context.Context, instanceName, path string) error
+	GetRoutes(ctx context.Context, instanceName string) ([]Route, error)
+	UpdateRoute(ctx context.Context, instanceName string, route Route) error
+}
+
 type CreateArgs struct {
 	Name        string   `json:"name" form:"name"`
 	Plan        string   `json:"plan" form:"plan"`
@@ -89,6 +102,7 @@ type BindAppArgs struct {
 type RpaasManager interface {
 	ConfigurationBlockHandler
 	ExtraFileHandler
+	RouteHandler
 
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
 	CreateInstance(ctx context.Context, args CreateArgs) error

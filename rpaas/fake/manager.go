@@ -26,6 +26,9 @@ type RpaasManager struct {
 	FakeUpdateExtraFiles  func(instanceName string, files ...rpaas.File) error
 	FakeBindApp           func(instanceName string, args rpaas.BindAppArgs) error
 	FakeUnbindApp         func(instanceName string) error
+	FakeDeleteRoute       func(instanceName, path string) error
+	FakeGetRoutes         func(instanceName string) ([]rpaas.Route, error)
+	FakeUpdateRoute       func(instanceName string, route rpaas.Route) error
 }
 
 func (m *RpaasManager) UpdateCertificate(ctx context.Context, instance, name string, c tls.Certificate) error {
@@ -143,6 +146,27 @@ func (m *RpaasManager) BindApp(ctx context.Context, instanceName string, args rp
 func (m *RpaasManager) UnbindApp(ctx context.Context, instanceName string) error {
 	if m.FakeUnbindApp != nil {
 		return m.FakeUnbindApp(instanceName)
+	}
+	return nil
+}
+
+func (m *RpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
+	if m.FakeDeleteRoute != nil {
+		return m.FakeDeleteRoute(instanceName, path)
+	}
+	return nil
+}
+
+func (m *RpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]rpaas.Route, error) {
+	if m.FakeGetRoutes != nil {
+		return m.FakeGetRoutes(instanceName)
+	}
+	return nil, nil
+}
+
+func (m *RpaasManager) UpdateRoute(ctx context.Context, instanceName string, route rpaas.Route) error {
+	if m.FakeUpdateRoute != nil {
+		return m.FakeUpdateRoute(instanceName, route)
 	}
 	return nil
 }

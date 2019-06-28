@@ -507,6 +507,181 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
+	return nil
+}
+
+func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {
+	return nil, nil
+}
+
+func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, route Route) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if err = validateRoute(route); err != nil {
+		return err
+	}
+
+	if instance.Spec.LocationsBlock == nil {
+		instance.Spec.LocationsBlock = &v1alpha1.LocationsBlock{}
+	}
+
+	if index, found := hasPath(*instance, route.Path); found {
+		return m.updateRoute(ctx, *instance, route, index)
+	}
+
+	return m.addRoute(ctx, *instance, route)
+}
+
+func (m *k8sRpaasManager) updateRoute(ctx context.Context, instance v1alpha1.RpaasInstance, r Route, index int) error {
+	var oldConfigMapData map[string]string
+
+	if instance.Spec.LocationsBlock != nil && instance.Spec.LocationsBlock.ConfigMapName != "" {
+		locationsCM, err := m.getLocationsConfigMap(ctx, instance)
+		if err != nil {
+			return err
+		}
+
+		oldConfigMapData = locationsCM.Data
+	}
+
+	var newConfigMapKey string
+	var newConfigMapName string
+
+	if r.Content != "" {
+		if len(oldConfigMapData) == 0 {
+			oldConfigMapData = make(map[string]string)
+		}
+
+		newConfigMapKey = convertPathToConfigMapKey(r.Path)
+		oldConfigMapData[newConfigMapKey] = r.Content
+
+		newLocationsCM := newConfigMapForLocations(instance, oldConfigMapData)
+		if err := m.cli.Create(ctx, newLocationsCM); err != nil && !k8sErrors.IsAlreadyExists(err) {
+			return err
+		}
+
+		newConfigMapName = newLocationsCM.Name
+	} else {
+		if oldConfigMapData != nil {
+			delete(oldConfigMapData, convertPathToConfigMapKey(r.Path))
+		}
+
+		if len(oldConfigMapData) > 0 {
+			newLocationsCM := newConfigMapForLocations(instance, oldConfigMapData)
+
+			if err := m.cli.Create(ctx, newLocationsCM); err != nil && !k8sErrors.IsAlreadyExists(err) {
+				return err
+			}
+
+			newConfigMapName = newLocationsCM.Name
+		}
+	}
+
+	instance.Spec.LocationsBlock.ConfigMapName = newConfigMapName
+	instance.Spec.LocationsBlock.Locations[index] = v1alpha1.Location{
+		Path:        r.Path,
+		Destination: r.Destination,
+		ForceHTTPS:  r.HTTPSOnly,
+		Key:         newConfigMapKey,
+	}
+
+	return m.cli.Update(ctx, &instance)
+}
+
+func (m *k8sRpaasManager) addRoute(ctx context.Context, instance v1alpha1.RpaasInstance, r Route) error {
+	var oldConfigMapData map[string]string
+
+	if instance.Spec.LocationsBlock != nil && instance.Spec.LocationsBlock.ConfigMapName != "" {
+		locationsCM, err := m.getLocationsConfigMap(ctx, instance)
+		if err != nil {
+			return err
+		}
+
+		oldConfigMapData = locationsCM.Data
+	}
+
+	var newConfigMapKey string
+	var newConfigMapName string
+	if r.Content != "" {
+		if oldConfigMapData == nil {
+			oldConfigMapData = make(map[string]string)
+		}
+
+		newConfigMapKey = convertPathToConfigMapKey(r.Path)
+		oldConfigMapData[newConfigMapKey] = r.Content
+
+		newLocationsCM := newConfigMapForLocations(instance, oldConfigMapData)
+		if err := m.cli.Create(ctx, newLocationsCM); err != nil && !k8sErrors.IsAlreadyExists(err) {
+			return err
+		}
+
+		newConfigMapName = newLocationsCM.Name
+	}
+
+	instance.Spec.LocationsBlock.ConfigMapName = newConfigMapName
+	instance.Spec.LocationsBlock.Locations = append(
+		instance.Spec.LocationsBlock.Locations,
+		v1alpha1.Location{
+			Path:        r.Path,
+			Destination: r.Destination,
+			ForceHTTPS:  r.HTTPSOnly,
+			Key:         newConfigMapKey,
+		})
+
+	return m.cli.Update(ctx, &instance)
+}
+
+func (m *k8sRpaasManager) getLocationsConfigMap(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
+	var locationsCM corev1.ConfigMap
+	err := m.cli.Get(ctx, types.NamespacedName{
+		Name:      instance.Spec.LocationsBlock.ConfigMapName,
+		Namespace: instance.Namespace,
+	}, &locationsCM)
+	return &locationsCM, err
+}
+
+func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found bool) {
+	if instance.Spec.LocationsBlock == nil {
+		return
+	}
+
+	for idx, location := range instance.Spec.LocationsBlock.Locations {
+		if location.Path == path {
+			return idx, true
+		}
+	}
+
+	return
+}
+
+func validateRoute(r Route) error {
+	if r.Path == "" {
+		return &ValidationError{Msg: "path is required"}
+	}
+
+	if !regexp.MustCompile(`^/[^ ]+`).MatchString(r.Path) {
+		return &ValidationError{Msg: "invalid path format"}
+	}
+
+	if r.Content == "" && r.Destination == "" {
+		return &ValidationError{Msg: "either content or destination are required"}
+	}
+
+	if r.Content != "" && r.Destination != "" {
+		return &ValidationError{Msg: "cannot set both content and destination"}
+	}
+
+	if r.Content != "" && r.HTTPSOnly {
+		return &ValidationError{Msg: "cannot set both content and httpsonly"}
+	}
+
+	return nil
+}
+
 func (m *k8sRpaasManager) createExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance, data map[string][]byte) (*corev1.ConfigMap, error) {
 	hash := util.SHA256(data)
 	cm := corev1.ConfigMap{
@@ -809,6 +984,27 @@ func newSecretForCertificates(instance v1alpha1.RpaasInstance, data map[string][
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-certificates-%s", instance.Name, hash[:10]),
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Annotations: map[string]string{
+				"rpaas.extensions.tsuru.io/sha256-hash": hash,
+			},
+		},
+		Data: data,
+	}
+}
+
+func newConfigMapForLocations(instance v1alpha1.RpaasInstance, data map[string]string) *corev1.ConfigMap {
+	hash := util.SHA256(data)
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-locations-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{

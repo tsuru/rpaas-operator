@@ -250,7 +250,7 @@ func Test_serviceInfo(t *testing.T) {
 				},
 				{
 					"label": "Routes",
-					"value": "/status\n/admin",
+					"value": "",
 				},
 			},
 			manager: &fake.RpaasManager{
@@ -264,11 +264,8 @@ func Test_serviceInfo(t *testing.T) {
 							Name: "my-instance",
 						},
 						Spec: v1alpha1.RpaasInstanceSpec{
-							Replicas: getAddressOfInt32(5),
-							Locations: []v1alpha1.Location{
-								{Config: v1alpha1.ConfigRef{Value: "/status"}},
-								{Config: v1alpha1.ConfigRef{Value: "/admin"}},
-							},
+							Replicas:       getAddressOfInt32(5),
+							LocationsBlock: &v1alpha1.LocationsBlock{},
 							Service: &nginxv1alpha1.NginxService{
 								LoadBalancerIP: "127.0.0.1",
 							},

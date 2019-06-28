@@ -3,7 +3,6 @@ package api
 import (
 	"fmt"
 	"net/http"
-	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/tsuru/rpaas-operator/rpaas"
@@ -80,10 +79,6 @@ func serviceInfo(c echo.Context) error {
 	if instance.Spec.Replicas != nil {
 		replicas = fmt.Sprintf("%d", *instance.Spec.Replicas)
 	}
-	routes := make([]string, len(instance.Spec.Locations))
-	for i, loc := range instance.Spec.Locations {
-		routes[i] = loc.Config.Value
-	}
 	address, err := manager.GetInstanceAddress(c.Request().Context(), instanceName)
 	if err != nil {
 		return err
@@ -102,7 +97,7 @@ func serviceInfo(c echo.Context) error {
 		},
 		{
 			"label": "Routes",
-			"value": strings.Join(routes, "\n"),
+			"value": "",
 		},
 	}
 	return c.JSON(http.StatusOK, ret)

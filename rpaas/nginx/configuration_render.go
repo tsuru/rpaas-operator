@@ -107,7 +107,7 @@ http {
         'Fwd:\t${http_x_forwarded_for}';
 
 {{if .Config.SyslogEnabled}}
-		access_log syslog:server={{.Config.SyslogServerAddress}},facility={{with .Config.SyslogFacility}}{{.}}{{else}}local6{{end}},tag={{with .Config.SyslogTag}}{{.}}{{else}}rpaas{{end}} rpaas_combined;
+    access_log syslog:server={{.Config.SyslogServerAddress}},facility={{with .Config.SyslogFacility}}{{.}}{{else}}local6{{end}},tag={{with .Config.SyslogTag}}{{.}}{{else}}rpaas{{end}} rpaas_combined;
     error_log syslog:server={{.Config.SyslogServerAddress}},facility={{with .Config.SyslogFacility}}{{.}}{{else}}local6{{end}},tag={{with .Config.SyslogTag}}{{.}}{{else}}rpaas{{end}};
 {{else}}
     access_log /dev/stdout rpaas_combined;
@@ -197,6 +197,17 @@ http {
             default_type "text/plain";
             echo "instance not bound yet";
         }
+{{end}}
+
+{{if .Instance.LocationsBlock }}
+{{range $index, $location := .Instance.LocationsBlock.Locations}}
+        location {{$location.Path}} {
+
+{{if $location.Destination}}
+            proxy_pass http://{{$location.Destination}};
+{{end}}
+        }
+{{end}}
 {{end}}
 
         {{template "server" .}}
