@@ -508,7 +508,57 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 }
 
 func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
-	return nil
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if instance.Spec.LocationsBlock == nil {
+		return &NotFoundError{Msg: "path does not exist"}
+	}
+
+	var oldConfigMapData map[string]string
+	if instance.Spec.LocationsBlock != nil && instance.Spec.LocationsBlock.ConfigMapName != "" {
+		locationsCM, err := m.getLocationsConfigMap(ctx, *instance)
+		if err != nil {
+			return err
+		}
+
+		oldConfigMapData = locationsCM.Data
+	}
+
+	var newLocations []v1alpha1.Location
+
+	var found bool
+	for _, location := range instance.Spec.LocationsBlock.Locations {
+		if location.Path == path {
+			delete(oldConfigMapData, location.Key)
+			found = true
+			continue
+		}
+
+		newLocations = append(newLocations, location)
+	}
+
+	if !found {
+		return &NotFoundError{Msg: "path does not exist"}
+	}
+
+	var newConfigMapName string
+	if len(oldConfigMapData) > 0 {
+		newLocationsCM := newConfigMapForLocations(*instance, oldConfigMapData)
+
+		if err = m.cli.Create(ctx, newLocationsCM); err != nil && !k8sErrors.IsAlreadyExists(err) {
+			return err
+		}
+
+		newConfigMapName = newLocationsCM.Name
+	}
+
+	instance.Spec.LocationsBlock.ConfigMapName = newConfigMapName
+	instance.Spec.LocationsBlock.Locations = newLocations
+
+	return m.cli.Update(ctx, instance)
 }
 
 func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {

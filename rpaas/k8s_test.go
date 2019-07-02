@@ -1429,6 +1429,110 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.LocationsBlock = &v1alpha1.LocationsBlock{
+		ConfigMapName: "another-instance-locations",
+		Locations: []v1alpha1.Location{
+			{
+				Path: "/path1",
+				Key:  "_path1",
+			},
+			{
+				Path:        "/path2",
+				Destination: "app2.tsuru.example.com",
+			},
+		},
+	}
+
+	cm := newEmptyLocations()
+	cm.Name = "another-instance-locations"
+	cm.Data = map[string]string{
+		"_path1": "# My NGINX config for /path1 location",
+	}
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2, cm}
+
+	tests := []struct {
+		name      string
+		instance  string
+		path      string
+		assertion func(t *testing.T, err error, ri *v1alpha1.RpaasInstance)
+	}{
+		{
+			name:     "when instance not found",
+			instance: "not-found-instance",
+			path:     "/path",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:     "when instance spec locationsBlock is nil",
+			instance: "my-instance",
+			path:     "/path/unknown",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+			},
+		},
+		{
+			name:     "when path does not exist",
+			instance: "my-instance",
+			path:     "/path/unknown",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+			},
+		},
+		{
+			name:     "when removing a route with destination",
+			instance: "another-instance",
+			path:     "/path2",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.NotEmpty(t, ri.Spec.LocationsBlock.ConfigMapName)
+				assert.Len(t, ri.Spec.LocationsBlock.Locations, 1)
+				assert.NotEqual(t, "/path2", ri.Spec.LocationsBlock.Locations[0].Path)
+			},
+		},
+		{
+			name:     "when removing a route with custom configuration",
+			instance: "another-instance",
+			path:     "/path1",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Len(t, ri.Spec.LocationsBlock.Locations, 1)
+				assert.NotEqual(t, "/path1", ri.Spec.LocationsBlock.Locations[0])
+				assert.Empty(t, ri.Spec.LocationsBlock.ConfigMapName)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.DeleteRoute(nil, tt.instance, tt.path)
+			var ri v1alpha1.RpaasInstance
+			if err == nil {
+				newErr := manager.cli.Get(nil, types.NamespacedName{
+					Name:      tt.instance,
+					Namespace: "default",
+				}, &ri)
+				require.NoError(t, newErr)
+			}
+			tt.assertion(t, err, &ri)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 
