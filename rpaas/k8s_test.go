@@ -1533,6 +1533,108 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.LocationsBlock = &v1alpha1.LocationsBlock{
+		ConfigMapName: "another-instance-locations",
+		Locations: []v1alpha1.Location{
+			{
+				Path: "/path1",
+				Key:  "_path1",
+			},
+			{
+				Path:        "/path2",
+				Destination: "app2.tsuru.example.com",
+			},
+		},
+	}
+
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "new-instance"
+	instance3.Spec.LocationsBlock = &v1alpha1.LocationsBlock{
+		Locations: []v1alpha1.Location{
+			{
+				Path:        "/my/custom/path",
+				Destination: "app.tsuru.example.com",
+				ForceHTTPS:  true,
+			},
+		},
+	}
+
+	cm := newEmptyLocations()
+	cm.Name = "another-instance-locations"
+	cm.Data = map[string]string{
+		"_path1": "# My NGINX config for /path1 location",
+	}
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2, instance3, cm}
+
+	tests := []struct {
+		name      string
+		instance  string
+		assertion func(t *testing.T, err error, routes []Route)
+	}{
+		{
+			name:     "when instance not found",
+			instance: "not-found-instance",
+			assertion: func(t *testing.T, err error, _ []Route) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:     "when instance has no custom routes",
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, routes []Route) {
+				assert.NoError(t, err)
+				assert.NotNil(t, routes)
+				assert.Len(t, routes, 0)
+			},
+		},
+		{
+			name:     "when instance contains custom routes but no custom NGINX configurations",
+			instance: "new-instance",
+			assertion: func(t *testing.T, err error, routes []Route) {
+				assert.NoError(t, err)
+				assert.Equal(t, []Route{{
+					Path:        "/my/custom/path",
+					Destination: "app.tsuru.example.com",
+					HTTPSOnly:   true,
+				}}, routes)
+			},
+		},
+		{
+			name:     "when instance contains route with both destination and custom NGINX config",
+			instance: "another-instance",
+			assertion: func(t *testing.T, err error, routes []Route) {
+				assert.NoError(t, err)
+				assert.Equal(t, []Route{
+					{
+						Path:    "/path1",
+						Content: "# My NGINX config for /path1 location",
+					},
+					{
+						Path:        "/path2",
+						Destination: "app2.tsuru.example.com",
+					},
+				}, routes)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			routes, err := manager.GetRoutes(nil, tt.instance)
+			tt.assertion(t, err, routes)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 

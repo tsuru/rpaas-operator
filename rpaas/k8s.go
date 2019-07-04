@@ -562,7 +562,41 @@ func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path st
 }
 
 func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {
-	return nil, nil
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	if instance.Spec.LocationsBlock == nil {
+		return []Route{}, nil
+	}
+
+	configMapData := make(map[string]string)
+	if instance.Spec.LocationsBlock.ConfigMapName != "" {
+		locationsCM, err := m.getLocationsConfigMap(ctx, *instance)
+		if err != nil {
+			return nil, err
+		}
+
+		configMapData = locationsCM.Data
+	}
+
+	var routes []Route
+	for _, location := range instance.Spec.LocationsBlock.Locations {
+		var content string
+		if location.Key != "" {
+			content = configMapData[location.Key]
+		}
+
+		routes = append(routes, Route{
+			Path:        location.Path,
+			Destination: location.Destination,
+			HTTPSOnly:   location.ForceHTTPS,
+			Content:     content,
+		})
+	}
+
+	return routes, nil
 }
 
 func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, route Route) error {
