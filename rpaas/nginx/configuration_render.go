@@ -199,12 +199,29 @@ http {
         }
 {{end}}
 
-{{if .Instance.LocationsBlock }}
-{{range $index, $location := .Instance.LocationsBlock.Locations}}
-        location {{$location.Path}} {
+{{if .Instance.Locations }}
+{{range $_, $location := .Instance.Locations}}
+        location {{ $location.Path }} {
 
 {{if $location.Destination}}
-            proxy_pass http://{{$location.Destination}};
+{{if $location.ForceHTTPS}}
+            if ($scheme = 'http') {
+                return 301 https://$http_host$request_uri;
+            }
+{{end}}
+            proxy_set_header Host {{ $location.Destination }};
+            proxy_set_header X-Real-IP $remote_addr;
+            proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+            proxy_set_header X-Forwarded-Proto $scheme;
+            proxy_set_header X-Forwarded-Host $host;
+            proxy_set_header Connection "";
+            proxy_http_version 1.1;
+            proxy_pass http://{{ $location.Destination }}/;
+            proxy_redirect ~^http://{{ $location.Destination }}(:\d+)?/(.*)$ {{ $location.Path}}$2;
+{{else}}
+{{with $location.Value}}
+            {{.}}
+{{end}}
 {{end}}
         }
 {{end}}

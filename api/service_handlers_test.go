@@ -264,8 +264,7 @@ func Test_serviceInfo(t *testing.T) {
 							Name: "my-instance",
 						},
 						Spec: v1alpha1.RpaasInstanceSpec{
-							Replicas:       getAddressOfInt32(5),
-							LocationsBlock: &v1alpha1.LocationsBlock{},
+							Replicas: getAddressOfInt32(5),
 							Service: &nginxv1alpha1.NginxService{
 								LoadBalancerIP: "127.0.0.1",
 							},

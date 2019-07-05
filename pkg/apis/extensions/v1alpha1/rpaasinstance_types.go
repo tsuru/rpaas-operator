@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -25,10 +26,10 @@ type RpaasInstanceSpec struct {
 	// config.
 	Blocks map[BlockType]ConfigRef `json:"blocks,omitempty"`
 
-	// LocationsBlock contains the per-location NGINX configurations, application
-	// address and other options.
+	// Locations hold paths that can be configured to forward resquests to
+	// one destination app or include raw NGINX configurations itself.
 	// +optional
-	LocationsBlock *LocationsBlock `json:"locationsBlock,omitempty"`
+	Locations []Location `json:"locations,omitempty"`
 
 	// Certificates are a set of attributes that relate the certificate's
 	// location in the cluster (Secret resource name) and its destination into
@@ -93,15 +94,15 @@ type ConfigRef struct {
 type ConfigKind string
 
 type Location struct {
-	Path        string `json:"path"`
-	Destination string `json:"destination,omitempty"`
-	ForceHTTPS  bool   `json:"forceHTTPS,omitempty"`
-	Key         string `json:"key,omitempty"`
+	Path        string       `json:"path"`
+	Destination string       `json:"destination,omitempty"`
+	ForceHTTPS  bool         `json:"forceHTTPS,omitempty"`
+	Value       string       `json:"value,omitempty"`
+	ValueFrom   *ValueSource `json:"valueFrom,omitempty"`
 }
 
-type LocationsBlock struct {
-	Locations     []Location `json:"locations"`
-	ConfigMapName string     `json:"configMapName,omitempty"`
+type ValueSource struct {
+	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
 }
 
 const (

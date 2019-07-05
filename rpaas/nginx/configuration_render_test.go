@@ -222,6 +222,62 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `location / {\n\s+proxy_set_header Host app1.tsuru.example.com;\n\s+proxy_set_header X-Real-IP \$remote_addr;\n\s+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n\s+proxy_set_header X-Forwarded-Proto \$scheme;\n\s+proxy_set_header X-Forwarded-Host \$host;\n+\s+proxy_pass http://rpaas_backend_default;\n\s+}`, result)
 			},
 		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstanceSpec{
+					Locations: []v1alpha1.Location{
+						{
+							Path:        "/path1",
+							Destination: "app1.tsuru.example.com",
+						},
+						{
+							Path:        "/path2",
+							Destination: "app2.tsuru.example.com",
+							ForceHTTPS:  true,
+						},
+						{
+							Path:  "/path3",
+							Value: "# My custom configuration for /path3",
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				assert.NoError(t, err)
+				assert.Regexp(t, `location /path1 {\n+
+\s+proxy_set_header Host app1\.tsuru\.example\.com;
+\s+proxy_set_header X-Real-IP \$remote_addr;
+\s+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+\s+proxy_set_header X-Forwarded-Proto \$scheme;
+\s+proxy_set_header X-Forwarded-Host \$host;
+\s+proxy_set_header Connection "";
+\s+proxy_http_version 1.1;
+\s+proxy_pass http://app1.tsuru.example.com/;
+\s+proxy_redirect ~\^http://app1\.tsuru\.example\.com\(:\\d\+\)\?/\(\.\*\)\$ /path1\$2;\n+
+\s+}`, result)
+
+				assert.Regexp(t, `location /path2 {\n+
+\s+if \(\$scheme = 'http'\) {
+\s+return 301 https://\$http_host\$request_uri;
+\s+}\n+
+\s+proxy_set_header Host app2\.tsuru\.example\.com;
+\s+proxy_set_header X-Real-IP \$remote_addr;
+\s+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+\s+proxy_set_header X-Forwarded-Proto \$scheme;
+\s+proxy_set_header X-Forwarded-Host \$host;
+\s+proxy_set_header Connection "";
+\s+proxy_http_version 1.1;
+\s+proxy_pass http://app2.tsuru.example.com/;
+\s+proxy_redirect ~\^http://app2\.tsuru\.example\.com\(:\\d\+\)\?/\(\.\*\)\$ /path2\$2;\n+
+\s+}`, result)
+
+				assert.Regexp(t, `location /path3 {\n+
+\s+# My custom configuration for /path3\n+
+\s+}`, result)
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
