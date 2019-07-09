@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo"
+	"github.com/tsuru/rpaas-operator/rpaas"
 )
 
 func deleteRoute(c echo.Context) error {
@@ -29,7 +30,21 @@ func deleteRoute(c echo.Context) error {
 }
 
 func getRoutes(c echo.Context) error {
-	return nil
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	routes, err := manager.GetRoutes(c.Request().Context(), c.Param("instance"))
+	if err != nil {
+		return err
+	}
+
+	if routes == nil {
+		routes = []rpaas.Route{}
+	}
+
+	return c.JSON(http.StatusOK, routes)
 }
 
 func updateRoute(c echo.Context) error {
