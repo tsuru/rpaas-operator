@@ -79,7 +79,7 @@ func Test_getRoutes(t *testing.T) {
 		name           string
 		instance       string
 		expectedCode   int
-		expectedRoutes []rpaas.Route
+		expectedRoutes routes
 		manager        rpaas.RpaasManager
 	}{
 		{
@@ -92,7 +92,7 @@ func Test_getRoutes(t *testing.T) {
 			name:           "when instance has no routes",
 			instance:       "my-instance",
 			expectedCode:   http.StatusOK,
-			expectedRoutes: []rpaas.Route{},
+			expectedRoutes: routes{Paths: []rpaas.Route{}},
 			manager: &fake.RpaasManager{
 				FakeGetRoutes: func(instanceName string) ([]rpaas.Route, error) {
 					assert.Equal(t, "my-instance", instanceName)
@@ -104,37 +104,41 @@ func Test_getRoutes(t *testing.T) {
 			name:         "when instance has many routes",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expectedRoutes: []rpaas.Route{
-				{
-					Path:    "/path1",
-					Content: "# My custom NGINX config",
-				},
-				{
-					Path:        "/path2",
-					Destination: "app2.tsuru.example.com",
-					HTTPSOnly:   true,
-				},
-				{
-					Path:        "/path3",
-					Destination: "app3.tsuru.example.com",
+			expectedRoutes: route{
+				Paths: []rpaas.Route{
+					{
+						Path:    "/path1",
+						Content: "# My custom NGINX config",
+					},
+					{
+						Path:        "/path2",
+						Destination: "app2.tsuru.example.com",
+						HTTPSOnly:   true,
+					},
+					{
+						Path:        "/path3",
+						Destination: "app3.tsuru.example.com",
+					},
 				},
 			},
 			manager: &fake.RpaasManager{
 				FakeGetRoutes: func(instanceName string) ([]rpaas.Route, error) {
 					assert.Equal(t, "my-instance", instanceName)
-					return []rpaas.Route{
-						{
-							Path:    "/path1",
-							Content: "# My custom NGINX config",
-						},
-						{
-							Path:        "/path2",
-							Destination: "app2.tsuru.example.com",
-							HTTPSOnly:   true,
-						},
-						{
-							Path:        "/path3",
-							Destination: "app3.tsuru.example.com",
+					return route{
+						Paths: []rpaas.Route{
+							{
+								Path:    "/path1",
+								Content: "# My custom NGINX config",
+							},
+							{
+								Path:        "/path2",
+								Destination: "app2.tsuru.example.com",
+								HTTPSOnly:   true,
+							},
+							{
+								Path:        "/path3",
+								Destination: "app3.tsuru.example.com",
+							},
 						},
 					}, nil
 				},
@@ -159,6 +163,74 @@ func Test_getRoutes(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.expectedRoutes, routes)
 			}
+		})
+	}
+}
+
+func Test_updateRoute(t *testing.T) {
+	tests := []struct {
+		name         string
+		instance     string
+		requestBody  string
+		expectedCode int
+		expectedBody string
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "when manager is not set",
+			instance:     "my-instance",
+			expectedCode: http.StatusInternalServerError,
+			manager:      nil,
+		},
+		{
+			name:         "when update route retunrs no error",
+			instance:     "my-instance",
+			requestBody:  "path=/path1&destination=app1.tsuru.example.com&https_only=true",
+			expectedCode: http.StatusCreated,
+			manager: &fake.RpaasManager{
+				FakeUpdateRoute: func(instanceName string, route rpaas.Route) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, rpaas.Route{
+						Path:        "/path1",
+						Destination: "app1.tsuru.example.com",
+						HTTPSOnly:   true,
+					}, route)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "when update route returns some error",
+			instance:     "my-instance",
+			requestBody:  "path=/path1&content=%23%20My%20NGINX%20configurations!",
+			expectedCode: http.StatusBadRequest,
+			expectedBody: "some error",
+			manager: &fake.RpaasManager{
+				FakeUpdateRoute: func(instanceName string, route rpaas.Route) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, rpaas.Route{
+						Path:    "/path1",
+						Content: "# My NGINX configurations!",
+					}, route)
+					return &rpaas.ValidationError{Msg: "some error"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/route", srv.URL, tt.instance)
+			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
+			require.NoError(t, err)
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+			assert.Regexp(t, tt.expectedBody, bodyContent(rsp))
 		})
 	}
 }

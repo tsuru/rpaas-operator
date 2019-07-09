@@ -44,11 +44,28 @@ func getRoutes(c echo.Context) error {
 		routes = []rpaas.Route{}
 	}
 
-	return c.JSON(http.StatusOK, routes)
+	return c.JSON(http.StatusOK, map[string]interface{}{
+		"paths": routes,
+	})
 }
 
 func updateRoute(c echo.Context) error {
-	return nil
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	var route rpaas.Route
+	if err = c.Bind(&route); err != nil {
+		return err
+	}
+
+	err = manager.UpdateRoute(c.Request().Context(), c.Param("instance"), route)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusCreated)
 }
 
 // formValue does the same as http.Request.FormValue method and works fine on
