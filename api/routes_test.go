@@ -79,7 +79,7 @@ func Test_getRoutes(t *testing.T) {
 		name           string
 		instance       string
 		expectedCode   int
-		expectedRoutes routes
+		expectedRoutes []rpaas.Route
 		manager        rpaas.RpaasManager
 	}{
 		{
@@ -92,7 +92,7 @@ func Test_getRoutes(t *testing.T) {
 			name:           "when instance has no routes",
 			instance:       "my-instance",
 			expectedCode:   http.StatusOK,
-			expectedRoutes: routes{Paths: []rpaas.Route{}},
+			expectedRoutes: []rpaas.Route{},
 			manager: &fake.RpaasManager{
 				FakeGetRoutes: func(instanceName string) ([]rpaas.Route, error) {
 					assert.Equal(t, "my-instance", instanceName)
@@ -104,41 +104,37 @@ func Test_getRoutes(t *testing.T) {
 			name:         "when instance has many routes",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expectedRoutes: route{
-				Paths: []rpaas.Route{
-					{
-						Path:    "/path1",
-						Content: "# My custom NGINX config",
-					},
-					{
-						Path:        "/path2",
-						Destination: "app2.tsuru.example.com",
-						HTTPSOnly:   true,
-					},
-					{
-						Path:        "/path3",
-						Destination: "app3.tsuru.example.com",
-					},
+			expectedRoutes: []rpaas.Route{
+				{
+					Path:    "/path1",
+					Content: "# My custom NGINX config",
+				},
+				{
+					Path:        "/path2",
+					Destination: "app2.tsuru.example.com",
+					HTTPSOnly:   true,
+				},
+				{
+					Path:        "/path3",
+					Destination: "app3.tsuru.example.com",
 				},
 			},
 			manager: &fake.RpaasManager{
 				FakeGetRoutes: func(instanceName string) ([]rpaas.Route, error) {
 					assert.Equal(t, "my-instance", instanceName)
-					return route{
-						Paths: []rpaas.Route{
-							{
-								Path:    "/path1",
-								Content: "# My custom NGINX config",
-							},
-							{
-								Path:        "/path2",
-								Destination: "app2.tsuru.example.com",
-								HTTPSOnly:   true,
-							},
-							{
-								Path:        "/path3",
-								Destination: "app3.tsuru.example.com",
-							},
+					return []rpaas.Route{
+						{
+							Path:    "/path1",
+							Content: "# My custom NGINX config",
+						},
+						{
+							Path:        "/path2",
+							Destination: "app2.tsuru.example.com",
+							HTTPSOnly:   true,
+						},
+						{
+							Path:        "/path3",
+							Destination: "app3.tsuru.example.com",
 						},
 					}, nil
 				},
@@ -157,11 +153,12 @@ func Test_getRoutes(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
 			if tt.expectedRoutes != nil {
-				var routes []rpaas.Route
+				var result map[string][]rpaas.Route
 				body := bodyContent(rsp)
-				err = json.Unmarshal([]byte(body), &routes)
+				err = json.Unmarshal([]byte(body), &result)
 				require.NoError(t, err)
-				assert.Equal(t, tt.expectedRoutes, routes)
+				require.Contains(t, result, "paths")
+				assert.Equal(t, tt.expectedRoutes, result["paths"])
 			}
 		})
 	}
