@@ -60,10 +60,10 @@ type ExtraFileHandler interface {
 }
 
 type Route struct {
-	Path        string `form:"path"`
-	Destination string `form:"destination"`
-	Content     string `form:"content"`
-	HTTPSOnly   bool   `form:"https_only"`
+	Path        string `json:"path" form:"path"`
+	Destination string `json:"destination" form:"destination"`
+	Content     string `json:"content" form:"content"`
+	HTTPSOnly   bool   `json:"https_only" form:"https_only"`
 }
 
 type RouteHandler interface {
