@@ -218,8 +218,21 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				assert.NoError(t, err)
-				assert.Regexp(t, `upstream rpaas_backend_default {\n\s+server app1.tsuru.example.com;\n\s+}`, result)
-				assert.Regexp(t, `location / {\n\s+proxy_set_header Host app1.tsuru.example.com;\n\s+proxy_set_header X-Real-IP \$remote_addr;\n\s+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;\n\s+proxy_set_header X-Forwarded-Proto \$scheme;\n\s+proxy_set_header X-Forwarded-Host \$host;\n+\s+proxy_pass http://rpaas_backend_default;\n\s+}`, result)
+				assert.Regexp(t, `\s+upstream rpaas_default_upstream {
+\s+server app1.tsuru.example.com;
+\s+}`, result)
+
+				assert.Regexp(t, `\s+location / {
+\s+proxy_set_header Host app1.tsuru.example.com;
+\s+proxy_set_header X-Real-IP \$remote_addr;
+\s+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+\s+proxy_set_header X-Forwarded-Proto \$scheme;
+\s+proxy_set_header X-Forwarded-Host \$host;
+\s+proxy_set_header Connection "";
+\s+proxy_http_version 1.1;
+\s+proxy_pass http://rpaas_default_upstream/;
+\s+proxy_redirect ~\^http://rpaas_default_upstream\(:\\d\+\)\?/\(\.\*\)\$ /\$2;
+\s+}`, result)
 			},
 		},
 		{
@@ -246,6 +259,13 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				assert.NoError(t, err)
+				assert.Regexp(t, `\s+upstream rpaas_locations__path1 {
+\s+server app1.tsuru.example.com;
+\s+}`, result)
+				assert.Regexp(t, `\s+upstream rpaas_locations__path2 {
+\s+server app2.tsuru.example.com;
+\s+}`, result)
+
 				assert.Regexp(t, `location /path1 {\n+
 \s+proxy_set_header Host app1\.tsuru\.example\.com;
 \s+proxy_set_header X-Real-IP \$remote_addr;
@@ -255,7 +275,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_http_version 1.1;
 \s+proxy_pass http://app1.tsuru.example.com/;
-\s+proxy_redirect ~\^http://app1\.tsuru\.example\.com\(:\\d\+\)\?/\(\.\*\)\$ /path1\$2;\n+
+\s+proxy_redirect ~\^http://rpaas_locations__path1\(:\\d\+\)\?/\(\.\*\)\$ /path1\$2;\n+
 \s+}`, result)
 
 				assert.Regexp(t, `location /path2 {\n+
@@ -270,11 +290,51 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_http_version 1.1;
 \s+proxy_pass http://app2.tsuru.example.com/;
-\s+proxy_redirect ~\^http://app2\.tsuru\.example\.com\(:\\d\+\)\?/\(\.\*\)\$ /path2\$2;\n+
+\s+proxy_redirect ~\^http://rpaas_locations__path2\(:\\d\+\)\?/\(\.\*\)\$ /path2\$2;\n+
 \s+}`, result)
 
 				assert.Regexp(t, `location /path3 {\n+
 \s+# My custom configuration for /path3\n+
+\s+}`, result)
+			},
+		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					UpstreamKeepalive: 32,
+				},
+				Instance: &v1alpha1.RpaasInstanceSpec{
+					Host: "app.tsuru.example.com",
+					Locations: []v1alpha1.Location{
+						{
+							Path:        "/",
+							Destination: "app1.tsuru.example.com",
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				assert.NoError(t, err)
+				assert.Regexp(t, `\s+upstream rpaas_default_upstream {
+\s+server app.tsuru.example.com;
+\s+keepalive 32;
+\s+}`, result)
+				assert.Regexp(t, `\s+upstream rpaas_locations_root {
+\s+server app1.tsuru.example.com;
+\s+keepalive 32;
+\s+}`, result)
+
+				assert.Regexp(t, `location / {\n+
+\s+proxy_set_header Host app1\.tsuru\.example\.com;
+\s+proxy_set_header X-Real-IP \$remote_addr;
+\s+proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+\s+proxy_set_header X-Forwarded-Proto \$scheme;
+\s+proxy_set_header X-Forwarded-Host \$host;
+\s+proxy_set_header Connection "";
+\s+proxy_http_version 1.1;
+\s+proxy_pass http://app1.tsuru.example.com/;
+\s+proxy_redirect ~\^http://rpaas_locations_root\(:\\d\+\)\?/\(\.\*\)\$ /\$2;
 \s+}`, result)
 			},
 		},
@@ -284,6 +344,105 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			result, err := testCase.renderer.Render(testCase.data)
 			testCase.assertion(t, result, err)
+		})
+	}
+}
+
+func Test_buildLocationKey(t *testing.T) {
+	tests := []struct {
+		name        string
+		prefix      string
+		path        string
+		expected    string
+		shouldPanic bool
+	}{
+		{
+			name:     "when using a custom prefix and root path",
+			prefix:   "some_custom_prefix_",
+			path:     "/",
+			expected: "some_custom_prefix_root",
+		},
+		{
+			name:     "when using a custom prefix and non-root path",
+			prefix:   "some_custom_prefix_",
+			path:     "/just/another/path",
+			expected: "some_custom_prefix__just_another_path",
+		},
+		{
+			name:     "when using the default prefix and root path",
+			path:     "/",
+			expected: "rpaas_locations_root",
+		},
+		{
+			name:     "when using the default prefix and non-root path",
+			path:     "/custom/path",
+			expected: "rpaas_locations__custom_path",
+		},
+		{
+			name:        "when using the default prefix with no path",
+			expected:    "cannot build location key due path is missing",
+			shouldPanic: true,
+		},
+		{
+			name:        "when using a custom prefix with no path",
+			prefix:      "some_custom_prefix_",
+			expected:    "cannot build location key due path is missing",
+			shouldPanic: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			var got string
+			if !tt.shouldPanic {
+				got = buildLocationKey(tt.prefix, tt.path)
+				assert.Equal(t, tt.expected, got)
+			} else {
+				assert.PanicsWithValue(t, tt.expected, func() { buildLocationKey(tt.prefix, tt.path) })
+			}
+		})
+	}
+}
+
+func Test_hasRootPath(t *testing.T) {
+	tests := []struct {
+		name      string
+		locations []v1alpha1.Location
+		expected  bool
+	}{
+		{
+			name:     "when locations is nil",
+			expected: false,
+		},
+		{
+			name: "when locations has no root path",
+			locations: []v1alpha1.Location{
+				{
+					Path:        "/path1",
+					Destination: "app.tsuru.example.com",
+				},
+			},
+		},
+		{
+			name: "when locations has the root path",
+			locations: []v1alpha1.Location{
+				{
+					Path:        "/path1",
+					Destination: "app.tsuru.example.com",
+				},
+				{
+					Path:        "/",
+					Destination: "app.tsuru.example.com",
+				},
+			},
+			expected: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := hasRootPath(tt.locations)
+			assert.Equal(t, tt.expected, got)
 		})
 	}
 }
