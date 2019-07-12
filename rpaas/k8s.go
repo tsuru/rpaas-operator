@@ -629,7 +629,7 @@ func validateRoute(r Route) error {
 		return &ValidationError{Msg: "path is required"}
 	}
 
-	if !regexp.MustCompile(`^/[^ ]+`).MatchString(r.Path) {
+	if !regexp.MustCompile(`^/[^ ]*`).MatchString(r.Path) {
 		return &ValidationError{Msg: "invalid path format"}
 	}
 
