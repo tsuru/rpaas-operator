@@ -224,7 +224,7 @@ http {
         proxy_send_timeout 20s;
         proxy_http_version 1.1;
 
-        location = /_nginx_healthcheck/ {
+        location = /_nginx_healthcheck {
             default_type "text/plain";
             echo "WORKING";
         }

@@ -41,7 +41,7 @@ func Test_RpaasOperator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int32(2), *nginx.Spec.Replicas)
 		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
-		assert.Equal(t, "/_nginx_healthcheck/", nginx.Spec.HealthcheckPath)
+		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 
 		nginxConf := &corev1.ConfigMap{
 			TypeMeta: metav1.TypeMeta{
@@ -140,7 +140,7 @@ func Test_RpaasApi(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
 		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
-		assert.Equal(t, "/_nginx_healthcheck/", nginx.Spec.HealthcheckPath)
+		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 
 		nginxService := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{

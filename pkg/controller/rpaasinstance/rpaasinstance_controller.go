@@ -306,7 +306,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 				Kind: nginxV1alpha1.ConfigKindConfigMap,
 			},
 			Service:         instance.Spec.Service,
-			HealthcheckPath: "/_nginx_healthcheck/",
+			HealthcheckPath: "/_nginx_healthcheck",
 			ExtraFiles:      instance.Spec.ExtraFiles,
 			Certificates:    instance.Spec.Certificates,
 		},

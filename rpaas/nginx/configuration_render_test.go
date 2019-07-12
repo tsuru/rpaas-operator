@@ -29,7 +29,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `access_log /dev/stdout rpaas_combined;`, result)
 				assert.Regexp(t, `error_log  /dev/stderr;`, result)
 				assert.Regexp(t, `listen 8080 default_server;`, result)
-				assert.Regexp(t, `location = /_nginx_healthcheck/ {\n\s+default_type "text/plain";\n\s+echo "WORKING";\n\s+}`, result)
+				assert.Regexp(t, `location = /_nginx_healthcheck {\n\s+default_type "text/plain";\n\s+echo "WORKING";\n\s+}`, result)
 				assert.Regexp(t, `location / {\n\s+default_type "text/plain";\n\s+echo "instance not bound yet";\n\s+}`, result)
 			},
 		},
