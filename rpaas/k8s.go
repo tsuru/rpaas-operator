@@ -519,15 +519,7 @@ func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path st
 		return &NotFoundError{Msg: "path does not exist"}
 	}
 
-	var newLocations []v1alpha1.Location
-	for i, location := range instance.Spec.Locations {
-		if i == index {
-			continue
-		}
-		newLocations = append(newLocations, location)
-	}
-
-	instance.Spec.Locations = newLocations
+	instance.Spec.Locations = append(instance.Spec.Locations[:index], instance.Spec.Locations[index+1:]...)
 	return m.cli.Update(ctx, instance)
 }
 
