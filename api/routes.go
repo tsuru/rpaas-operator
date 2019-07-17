@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
+	"net/url"
 
 	"github.com/labstack/echo"
 	"github.com/tsuru/rpaas-operator/rpaas"
@@ -18,7 +18,7 @@ func deleteRoute(c echo.Context) error {
 
 	path, err := formValue(c.Request(), "path")
 	if err != nil {
-		return err
+		return &rpaas.ValidationError{Msg: err.Error()}
 	}
 
 	err = manager.DeleteRoute(c.Request().Context(), c.Param("instance"), path)
@@ -71,24 +71,29 @@ func updateRoute(c echo.Context) error {
 // formValue does the same as http.Request.FormValue method and works fine on
 // DELETE request as well.
 func formValue(req *http.Request, key string) (string, error) {
+	if req.Header.Get("content-type") != echo.MIMEApplicationForm {
+		return "", fmt.Errorf("content-type is not application form")
+	}
+
 	rawBody, err := ioutil.ReadAll(req.Body)
 	if err != nil {
 		return "", err
 	}
 	defer req.Body.Close()
 
-	if req.Header.Get("content-type") != echo.MIMEApplicationForm {
-		return "", fmt.Errorf("content-type is not application form")
+	if len(rawBody) == 0 {
+		return "", fmt.Errorf("missing body message")
 	}
 
-	var value string
-	for _, formValues := range strings.Split(string(rawBody), "&") {
-		formValue := strings.Split(formValues, "=")
-		if len(formValue) == 2 && formValue[0] == key {
-			value = formValue[1]
-			break
-		}
+	queryByKey, err := url.ParseQuery(string(rawBody))
+	if err != nil {
+		return "", err
 	}
 
-	return value, nil
+	values := queryByKey[key]
+	if len(values) == 0 {
+		return "", fmt.Errorf("missing key %q", key)
+	}
+
+	return values[0], nil
 }

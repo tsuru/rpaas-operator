@@ -56,6 +56,26 @@ func Test_deleteRoute(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:         "when path is url encoded",
+			instance:     "my-instance",
+			requestBody:  "path=%2Fmy%2Fpath",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeDeleteRoute: func(instanceName, path string) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "/my/path", path)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "when request has no body message",
+			instance:     "my-instance",
+			expectedCode: http.StatusBadRequest,
+			manager:      &fake.RpaasManager{},
+			expectedBody: "missing body message",
+		},
 	}
 
 	for _, tt := range tests {
