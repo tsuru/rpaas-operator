@@ -8,7 +8,7 @@ data:
 
     http {
       server {
-        listen 80;
+        listen 8080;
 
         location / {
           return 200 'hello';

@@ -34,15 +34,21 @@ type NginxSpec struct {
 	// working or not.
 	// +optional
 	HealthcheckPath string `json:"healthcheckPath,omitempty"`
+	// Resources requirements to be set on the NGINX container.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 type NginxPodTemplateSpec struct {
-	// Resources requirements to be set on the nginx container.
-	// +optional
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 	// Affinity to be set on the nginx pod.
 	// +optional
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
+	// Annotations are custom annotations to be set into Pod.
+	// +optional
+	Annotations map[string]string `json:"annotations"`
+	// Labels are custom labels to be added into Pod.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
 }
 
 // NginxStatus defines the observed state of Nginx

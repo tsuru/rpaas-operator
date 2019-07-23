@@ -3,8 +3,10 @@ package k8s
 import (
 	"encoding/json"
 	"fmt"
+	"net/url"
 	"sort"
 
+	tsuruConfig "github.com/tsuru/config"
 	"github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	appv1 "k8s.io/api/apps/v1"
 	corev1 "k8s.io/api/core/v1"
@@ -24,6 +26,13 @@ const (
 	defaultHTTPSPort     = int32(8443)
 	defaultHTTPSPortName = "https"
 
+	// Path and port to the healthcheck service
+	healthcheckPort        = 59999
+	healthcheckPath        = "/healthcheck"
+	healthcheckSidecarName = "nginx-healthchecker"
+
+	defaultSidecarContainerImage = "tsuru/nginx-operator-sidecar:latest"
+
 	// Mount path where nginx.conf will be placed
 	configMountPath = "/etc/nginx"
 
@@ -40,9 +49,23 @@ const (
 	generatedFromAnnotation = "nginx.tsuru.io/generated-from"
 )
 
+var nginxEntrypoint = []string{
+	"/bin/sh",
+	"-c",
+	"while ! [ -f /tmp/done ]; do sleep 0.5; done && nginx -g 'daemon off;'",
+}
+
+var postStartCommand = []string{
+	"/bin/sh",
+	"-c",
+	"nginx -t && touch /tmp/done",
+}
+
 // NewDeployment creates a deployment for a given Nginx resource.
 func NewDeployment(n *v1alpha1.Nginx) (*appv1.Deployment, error) {
 	n.Spec.Image = valueOrDefault(n.Spec.Image, defaultNginxImage)
+	customSidecarContainerImage, _ := tsuruConfig.GetString("nginx-controller:sidecar:image")
+	labels := mergeMap(n.Spec.PodTemplate.Labels, LabelsForNginx(n.Name))
 	deployment := appv1.Deployment{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Deployment",
@@ -62,35 +85,53 @@ func NewDeployment(n *v1alpha1.Nginx) (*appv1.Deployment, error) {
 		Spec: appv1.DeploymentSpec{
 			Replicas: n.Spec.Replicas,
 			Selector: &metav1.LabelSelector{
-				MatchLabels: LabelsForNginx(n.Name),
+				MatchLabels: labels,
 			},
 			Template: corev1.PodTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Namespace: n.Namespace,
-					Labels:    LabelsForNginx(n.Name),
+					Namespace:   n.Namespace,
+					Annotations: n.Spec.PodTemplate.Annotations,
+					Labels:      labels,
 				},
 				Spec: corev1.PodSpec{
 					Containers: []corev1.Container{
 						{
-							Name:  "nginx",
-							Image: n.Spec.Image,
+							Name:    "nginx",
+							Image:   n.Spec.Image,
+							Command: nginxEntrypoint,
 							Ports: []corev1.ContainerPort{
 								{
 									Name:          defaultHTTPPortName,
 									ContainerPort: defaultHTTPPort,
 									Protocol:      corev1.ProtocolTCP,
 								},
+								{
+									Name:          defaultHTTPSPortName,
+									ContainerPort: defaultHTTPSPort,
+									Protocol:      corev1.ProtocolTCP,
+								},
 							},
-							Resources: n.Spec.PodTemplate.Resources,
+							Resources: n.Spec.Resources,
 							ReadinessProbe: &corev1.Probe{
 								Handler: corev1.Handler{
 									HTTPGet: &corev1.HTTPGetAction{
-										Path:   valueOrDefault(n.Spec.HealthcheckPath, "/"),
-										Port:   intstr.FromString(defaultHTTPPortName),
+										Path:   buildHealthcheckPath(n.Spec),
+										Port:   intstr.FromInt(healthcheckPort),
 										Scheme: corev1.URISchemeHTTP,
 									},
 								},
 							},
+							Lifecycle: &corev1.Lifecycle{
+								PostStart: &corev1.Handler{
+									Exec: &corev1.ExecAction{
+										Command: postStartCommand,
+									},
+								},
+							},
+						},
+						{
+							Name:  healthcheckSidecarName,
+							Image: valueOrDefault(customSidecarContainerImage, defaultSidecarContainerImage),
 						},
 					},
 					Affinity: n.Spec.PodTemplate.Affinity,
@@ -155,19 +196,17 @@ func NewService(n *v1alpha1.Nginx) *corev1.Service {
 					TargetPort: intstr.FromString(defaultHTTPPortName),
 					Port:       int32(80),
 				},
+				{
+					Name:       defaultHTTPSPortName,
+					Protocol:   corev1.ProtocolTCP,
+					TargetPort: intstr.FromString(defaultHTTPSPortName),
+					Port:       int32(443),
+				},
 			},
 			Selector:       LabelsForNginx(n.Name),
 			LoadBalancerIP: lbIP,
 			Type:           nginxService(n),
 		},
-	}
-	if n.Spec.Certificates != nil {
-		service.Spec.Ports = append(service.Spec.Ports, corev1.ServicePort{
-			Name:       defaultHTTPSPortName,
-			Protocol:   corev1.ProtocolTCP,
-			TargetPort: intstr.FromString(defaultHTTPSPortName),
-			Port:       int32(443),
-		})
 	}
 	return &service
 }
@@ -211,6 +250,20 @@ func SetNginxSpec(o *metav1.ObjectMeta, spec v1alpha1.NginxSpec) error {
 	}
 	o.Annotations[generatedFromAnnotation] = string(origSpec)
 	return nil
+}
+
+func buildHealthcheckPath(spec v1alpha1.NginxSpec) string {
+	httpURL := fmt.Sprintf("http://localhost:%d%s", defaultHTTPPort, spec.HealthcheckPath)
+
+	query := url.Values{}
+	query.Add("url", httpURL)
+
+	if spec.Certificates != nil {
+		httpsURL := fmt.Sprintf("https://localhost:%d%s", defaultHTTPSPort, spec.HealthcheckPath)
+		query.Add("url", httpsURL)
+	}
+
+	return fmt.Sprintf("%s?%s", healthcheckPath, query.Encode())
 }
 
 func setupConfig(conf *v1alpha1.ConfigRef, dep *appv1.Deployment) {
@@ -264,20 +317,6 @@ func setupTLS(secret *v1alpha1.TLSSecret, dep *appv1.Deployment) {
 		return
 	}
 
-	dep.Spec.Template.Spec.Containers[0].Ports = append(dep.Spec.Template.Spec.Containers[0].Ports, corev1.ContainerPort{
-		Name:          defaultHTTPSPortName,
-		ContainerPort: defaultHTTPSPort,
-		Protocol:      corev1.ProtocolTCP,
-	})
-	dep.Spec.Template.Spec.Containers[0].ReadinessProbe = &corev1.Probe{
-		Handler: corev1.Handler{
-			HTTPGet: &corev1.HTTPGetAction{
-				Path:   dep.Spec.Template.Spec.Containers[0].ReadinessProbe.Handler.HTTPGet.Path,
-				Port:   intstr.FromString(defaultHTTPSPortName),
-				Scheme: corev1.URISchemeHTTPS,
-			},
-		},
-	}
 	dep.Spec.Template.Spec.Containers[0].VolumeMounts = append(dep.Spec.Template.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
 		Name:      "nginx-certs",
 		MountPath: certMountPath,
@@ -286,10 +325,10 @@ func setupTLS(secret *v1alpha1.TLSSecret, dep *appv1.Deployment) {
 	var items []corev1.KeyToPath
 	for _, item := range secret.Items {
 		items = append(items, corev1.KeyToPath{
-			Key: item.CertificateField,
+			Key:  item.CertificateField,
 			Path: valueOrDefault(item.CertificatePath, item.CertificateField),
 		}, corev1.KeyToPath{
-			Key: item.KeyField,
+			Key:  item.KeyField,
 			Path: valueOrDefault(item.KeyPath, item.KeyField),
 		})
 	}
@@ -299,7 +338,7 @@ func setupTLS(secret *v1alpha1.TLSSecret, dep *appv1.Deployment) {
 		VolumeSource: corev1.VolumeSource{
 			Secret: &corev1.SecretVolumeSource{
 				SecretName: secret.SecretName,
-				Items: items,
+				Items:      items,
 			},
 		},
 	})

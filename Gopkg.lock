@@ -540,14 +540,14 @@
 
 [[projects]]
   branch = "master"
-  digest = "1:296c9325950a0983b85094bd22e72285d1f1c7631fb9ec6a22057e1928fc06d5"
+  digest = "1:175e78ebebf56ac3722b26488842e9aa0bc9b9c09f5768fb8bc3c654a5923dfd"
   name = "github.com/tsuru/nginx-operator"
   packages = [
     "pkg/apis",
     "pkg/apis/nginx/v1alpha1",
   ]
   pruneopts = "T"
-  revision = "0aa465f7b71037d6ed17fe0e10cca9a622c5d4b3"
+  revision = "f5a372bcaadae17f74aadaca86d20d9cf16991ce"
 
 [[projects]]
   digest = "1:af354641f23332b1a8d5d361d11b5a9171589e412a67d499633706c611acc064"

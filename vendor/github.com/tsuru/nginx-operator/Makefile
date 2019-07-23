@@ -1,5 +1,6 @@
 TAG=latest
 IMAGE=tsuru/nginx-operator
+SIDECAR_IMAGE=tsuru/nginx-operator-sidecar
 
 .PHONY: test deploy local build push generate
 
@@ -18,5 +19,9 @@ generate:
 build:
 	operator-sdk build $(IMAGE):$(TAG)
 
-push: build
+build-sidecar:
+	docker build -t $(SIDECAR_IMAGE):$(TAG) ./nginx-sidecar/
+
+push: build build-sidecar
 	docker push $(IMAGE):$(TAG)
+	docker push $(SIDECAR_IMAGE):$(TAG)

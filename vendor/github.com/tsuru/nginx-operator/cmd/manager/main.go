@@ -9,6 +9,7 @@ import (
 
 	"github.com/operator-framework/operator-sdk/pkg/leader"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
+	tsuruConfig "github.com/tsuru/config"
 	"github.com/tsuru/nginx-operator/pkg/apis"
 	"github.com/tsuru/nginx-operator/pkg/controller"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -20,10 +21,17 @@ import (
 
 var log = logf.Log.WithName("cmd")
 
+var configFile string
+
 func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+}
+
+func init() {
+	flag.StringVar(&configFile, "config", "", "Path to configuration file")
+	flag.StringVar(&configFile, "c", "", "Path to configuration file")
 }
 
 func main() {
@@ -36,6 +44,17 @@ func main() {
 	logf.SetLogger(logf.ZapLogger(false))
 
 	printVersion()
+
+	if configFile != "" {
+		log.Info(fmt.Sprintf("Attempting to load configuration file at %q", configFile))
+
+		if err := tsuruConfig.ReadConfigFile(configFile); err != nil {
+			log.Error(err, "Could not read the configuration file")
+			os.Exit(1)
+		}
+
+		log.Info("Configuration file successfully loaded")
+	}
 
 	log.Info("Watching all namespaces")
 
