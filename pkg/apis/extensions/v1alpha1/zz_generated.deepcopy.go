@@ -161,6 +161,11 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 		*out = new(nginxv1alpha1.FilesRef)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.ConfigHistoryLimit != nil {
+		in, out := &in.ConfigHistoryLimit, &out.ConfigHistoryLimit
+		*out = new(int32)
+		**out = **in
+	}
 	return
 }
 
