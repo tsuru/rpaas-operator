@@ -250,7 +250,7 @@ func Test_serviceInfo(t *testing.T) {
 				},
 				{
 					"label": "Routes",
-					"value": "",
+					"value": "/status\n/admin",
 				},
 			},
 			manager: &fake.RpaasManager{
@@ -267,6 +267,10 @@ func Test_serviceInfo(t *testing.T) {
 							Replicas: getAddressOfInt32(5),
 							Service: &nginxv1alpha1.NginxService{
 								LoadBalancerIP: "127.0.0.1",
+							},
+							Locations: []v1alpha1.Location{
+								{Path: "/status"},
+								{Path: "/admin"},
 							},
 						},
 					}, nil

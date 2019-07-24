@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/tsuru/rpaas-operator/rpaas"
@@ -86,6 +87,10 @@ func serviceInfo(c echo.Context) error {
 	if address == "" {
 		address = "pending"
 	}
+	var routes []string
+	for _, location := range instance.Spec.Locations {
+		routes = append(routes, location.Path)
+	}
 	ret := []map[string]string{
 		{
 			"label": "Address",
@@ -97,7 +102,7 @@ func serviceInfo(c echo.Context) error {
 		},
 		{
 			"label": "Routes",
-			"value": "",
+			"value": strings.Join(routes, "\n"),
 		},
 	}
 	return c.JSON(http.StatusOK, ret)
