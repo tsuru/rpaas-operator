@@ -45,9 +45,9 @@ type RpaasInstanceSpec struct {
 	// +optional
 	ExtraFiles *nginxv1alpha1.FilesRef `json:"extraFiles,omitempty"`
 
-	// The number of old ReplicaSets to retain to allow rollback.
+	// The number of old Configs to retain to allow rollback.
 	// +optional
-	ConfigHistoryLimit *int32 `json:"ConfigHistoryLimit,omitempty"`
+	ConfigHistoryLimit *int `json:"configHistoryLimit,omitempty"`
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
