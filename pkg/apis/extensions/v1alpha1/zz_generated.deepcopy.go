@@ -163,7 +163,7 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 	}
 	if in.ConfigHistoryLimit != nil {
 		in, out := &in.ConfigHistoryLimit, &out.ConfigHistoryLimit
-		*out = new(int32)
+		*out = new(int)
 		**out = **in
 	}
 	return

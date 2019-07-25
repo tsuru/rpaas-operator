@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"fmt"
+	"sort"
 
 	"github.com/sirupsen/logrus"
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -23,6 +24,10 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+)
+
+const (
+	defaultConfigHistoryLimit = 3
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -86,6 +91,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		reqLogger.Info("Nothing to do due the RpaasInstance was removed")
 		return reconcile.Result{}, nil
 	}
+
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -102,6 +108,15 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	err = r.reconcileConfigMap(configMap)
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+	configList, err := r.listConfigs(instance)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if shouldDeleteOldConfig(instance, configList) {
+		if err := r.deleteOldConfig(instance, configList); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 	nginx := newNginx(instance, plan, configMap)
 	err = r.reconcileNginx(nginx)
@@ -249,7 +264,30 @@ func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasIn
 
 		location.Value = value
 	}
+	return nil
+}
 
+func (r *ReconcileRpaasInstance) listConfigs(instance *v1alpha1.RpaasInstance) (*corev1.ConfigMapList, error) {
+	configList := &corev1.ConfigMapList{}
+	listOptions := &client.ListOptions{Namespace: instance.ObjectMeta.Namespace}
+	labelSelector := fmt.Sprintf("instance=%s,type=config", instance.Name)
+
+	if err := listOptions.SetLabelSelector(labelSelector); err != nil {
+		logrus.Errorf("Failed to query nginx configs: %v", err)
+	}
+
+	err := r.client.List(context.TODO(), listOptions, configList)
+	return configList, err
+}
+
+func (r *ReconcileRpaasInstance) deleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.ConfigMapList) error {
+	list := configList.Items
+	sort.Slice(list, func(i, j int) bool {
+		return list[i].ObjectMeta.CreationTimestamp.String() < list[j].ObjectMeta.CreationTimestamp.String()
+	})
+	if err := r.client.Delete(context.TODO(), &list[0]); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -259,6 +297,10 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-config-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
+			Labels: map[string]string{
+				"type":     "config",
+				"instance": instance.Name,
+			},
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.SchemeGroupVersion.Group,
@@ -307,4 +349,18 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Certificates:    instance.Spec.Certificates,
 		},
 	}
+}
+
+func shouldDeleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.ConfigMapList) bool {
+	limit := defaultConfigHistoryLimit
+
+	if instance.Spec.ConfigHistoryLimit != nil {
+		configLimit := *instance.Spec.ConfigHistoryLimit
+		if configLimit > 0 {
+			limit = configLimit
+		}
+	}
+
+	listSize := len(configList.Items)
+	return listSize > limit
 }
