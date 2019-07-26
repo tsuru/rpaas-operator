@@ -11,7 +11,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"github.com/tsuru/rpaas-operator/rpaas"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -41,7 +43,7 @@ func Test_RpaasOperator(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, int32(2), *nginx.Spec.Replicas)
 		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
-		assert.Equal(t, "/_nginx_healthcheck/", nginx.Spec.HealthcheckPath)
+		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 
 		nginxConf := &corev1.ConfigMap{
 			TypeMeta: metav1.TypeMeta{
@@ -56,9 +58,9 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.Contains(t, "# My custom HTTP block", nginxConf.Data["nginx-conf"])
 		assert.Contains(t, "# My custom server block", nginxConf.Data["nginx-conf"])
 
-		tlsSecret := &v1alpha1.TLSSecret{
+		tlsSecret := &nginxv1alpha1.TLSSecret{
 			SecretName: "my-instance-certificates",
-			Items: []v1alpha1.TLSSecretItem{
+			Items: []nginxv1alpha1.TLSSecretItem{
 				{
 					CertificateField: "default.crt",
 					CertificatePath:  "my-custom-name.crt",
@@ -140,7 +142,7 @@ func Test_RpaasApi(t *testing.T) {
 		assert.NoError(t, err)
 		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
 		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
-		assert.Equal(t, "/_nginx_healthcheck/", nginx.Spec.HealthcheckPath)
+		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 
 		nginxService := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{
@@ -203,6 +205,8 @@ func Test_RpaasApi(t *testing.T) {
 		err = api.bind(instanceName, helloServiceHost)
 		require.NoError(t, err)
 
+		time.Sleep(10 * time.Second)
+
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
@@ -214,6 +218,8 @@ func Test_RpaasApi(t *testing.T) {
 		err = api.unbind(instanceName, helloServiceHost)
 		require.NoError(t, err)
 
+		time.Sleep(10 * time.Second)
+
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
@@ -221,14 +227,105 @@ func Test_RpaasApi(t *testing.T) {
 			assertInstanceReturns(localPort, "instance not bound yet\n")
 		})
 		require.NoError(t, err)
+	})
+
+	t.Run("adding and deleting routes", func(t *testing.T) {
+		instanceName := "my-instance-with-custom-routes"
+		teamName := "team-one"
+		planName := "basic"
+
+		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
 
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
+
+		err = api.updateRoute(instanceName, rpaas.Route{
+			Path:    "/path1",
+			Content: `echo "My custom content at /path1";`,
+		})
+		require.NoError(t, err)
+		time.Sleep(time.Second)
+
+		err = api.updateRoute(instanceName, rpaas.Route{
+			Path:        "/",
+			Destination: "localhost:8080",
+		})
+		require.NoError(t, err)
+		time.Sleep(time.Second)
+
+		err = api.updateRoute(instanceName, rpaas.Route{
+			Path:        "/secure",
+			Destination: "localhost:8080",
+			HTTPSOnly:   true,
+		})
+		require.NoError(t, err)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		rpaasInstance, err := getRpaasInstance(instanceName, namespaceName)
+		require.NoError(t, err)
+
+		assert.Equal(t, []v1alpha1.Location{
+			{
+				Path:  "/path1",
+				Value: `echo "My custom content at /path1";`,
+			},
+			{
+				Path:        "/",
+				Destination: "localhost:8080",
+			},
+			{
+				Path:        "/secure",
+				Destination: "localhost:8080",
+				ForceHTTPS:  true,
+			},
+		}, rpaasInstance.Spec.Locations)
+
+		err = api.deleteRoute(instanceName, "/secure")
+		require.NoError(t, err)
+
+		err = api.updateRoute(instanceName, rpaas.Route{
+			Path:    "/",
+			Content: `echo "My root path response";`,
+		})
+		require.NoError(t, err)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		rpaasInstance, err = getRpaasInstance(instanceName, namespaceName)
+		require.NoError(t, err)
+
+		assert.Equal(t, []v1alpha1.Location{
+			{
+				Path:  "/path1",
+				Value: `echo "My custom content at /path1";`,
+			},
+			{
+				Path:  "/",
+				Value: `echo "My root path response";`,
+			},
+		}, rpaasInstance.Spec.Locations)
 	})
 }
 
-func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*v1alpha1.Nginx, error) {
-	nginx := &v1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
+func getRpaasInstance(name, namespace string) (*v1alpha1.RpaasInstance, error) {
+	instance := &v1alpha1.RpaasInstance{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "RpaasInstance",
+		},
+	}
+	err := get(instance, name, namespace)
+	return instance, err
+}
+
+func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*nginxv1alpha1.Nginx, error) {
+	nginx := &nginxv1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
 	timeout := time.After(60 * time.Second)
 	for {
 		_, err := kubectl("rollout", "status", "-n", namespace, "deploy", name, "--watch")

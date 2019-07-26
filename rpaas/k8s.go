@@ -12,6 +12,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -507,6 +508,137 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	index, found := hasPath(*instance, path)
+	if !found {
+		return &NotFoundError{Msg: "path does not exist"}
+	}
+
+	instance.Spec.Locations = append(instance.Spec.Locations[:index], instance.Spec.Locations[index+1:]...)
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var routes []Route
+	for _, location := range instance.Spec.Locations {
+		hasContent := location.Destination == ""
+		var content string
+		if hasContent && location.Value != "" {
+			content = location.Value
+		}
+
+		isContentFromSource := location.ValueFrom != nil && location.ValueFrom.ConfigMapKeyRef != nil
+		if content == "" && hasContent && isContentFromSource {
+			cmName := types.NamespacedName{
+				Name:      location.ValueFrom.ConfigMapKeyRef.Name,
+				Namespace: instance.Namespace,
+			}
+
+			isOptional := location.ValueFrom.ConfigMapKeyRef.Optional == nil || *location.ValueFrom.ConfigMapKeyRef.Optional
+			var cm corev1.ConfigMap
+			if err = m.cli.Get(ctx, cmName, &cm); err != nil && !isOptional {
+				return nil, err
+			}
+
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Skipping route %q due ConfigMap could not be found\n", location.Path)
+				continue
+			}
+
+			data, ok := cm.Data[location.ValueFrom.ConfigMapKeyRef.Key]
+			if !ok && !isOptional {
+				return nil, fmt.Errorf("could not retrieve the value of path %q: configmap %q has no key %q", location.Path, cm.Name, location.ValueFrom.ConfigMapKeyRef.Key)
+			}
+
+			if !ok {
+				fmt.Fprintf(os.Stderr, "Skipping route %q due the key %q is not found into ConfigMap %q\n", location.Path, location.ValueFrom.ConfigMapKeyRef.Key, cm.Name)
+				continue
+			}
+
+			content = data
+		}
+
+		routes = append(routes, Route{
+			Path:        location.Path,
+			Destination: location.Destination,
+			HTTPSOnly:   location.ForceHTTPS,
+			Content:     content,
+		})
+	}
+
+	return routes, nil
+}
+
+func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, route Route) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if err = validateRoute(route); err != nil {
+		return err
+	}
+
+	newLocation := v1alpha1.Location{
+		Path:        route.Path,
+		Destination: route.Destination,
+		ForceHTTPS:  route.HTTPSOnly,
+		Value:       route.Content,
+	}
+
+	if index, found := hasPath(*instance, route.Path); found {
+		instance.Spec.Locations[index] = newLocation
+	} else {
+		instance.Spec.Locations = append(instance.Spec.Locations, newLocation)
+	}
+
+	return m.cli.Update(ctx, instance)
+}
+
+func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found bool) {
+	for i, location := range instance.Spec.Locations {
+		if location.Path == path {
+			return i, true
+		}
+	}
+
+	return
+}
+
+func validateRoute(r Route) error {
+	if r.Path == "" {
+		return &ValidationError{Msg: "path is required"}
+	}
+
+	if !regexp.MustCompile(`^/[^ ]*`).MatchString(r.Path) {
+		return &ValidationError{Msg: "invalid path format"}
+	}
+
+	if r.Content == "" && r.Destination == "" {
+		return &ValidationError{Msg: "either content or destination are required"}
+	}
+
+	if r.Content != "" && r.Destination != "" {
+		return &ValidationError{Msg: "cannot set both content and destination"}
+	}
+
+	if r.Content != "" && r.HTTPSOnly {
+		return &ValidationError{Msg: "cannot set both content and httpsonly"}
+	}
+
+	return nil
+}
+
 func (m *k8sRpaasManager) createExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance, data map[string][]byte) (*corev1.ConfigMap, error) {
 	hash := util.SHA256(data)
 	cm := corev1.ConfigMap{
@@ -809,6 +941,27 @@ func newSecretForCertificates(instance v1alpha1.RpaasInstance, data map[string][
 	return &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-certificates-%s", instance.Name, hash[:10]),
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Annotations: map[string]string{
+				"rpaas.extensions.tsuru.io/sha256-hash": hash,
+			},
+		},
+		Data: data,
+	}
+}
+
+func newConfigMapForLocations(instance v1alpha1.RpaasInstance, data map[string]string) *corev1.ConfigMap {
+	hash := util.SHA256(data)
+	return &corev1.ConfigMap{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-locations-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{

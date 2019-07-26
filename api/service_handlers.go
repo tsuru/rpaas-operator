@@ -80,16 +80,16 @@ func serviceInfo(c echo.Context) error {
 	if instance.Spec.Replicas != nil {
 		replicas = fmt.Sprintf("%d", *instance.Spec.Replicas)
 	}
-	routes := make([]string, len(instance.Spec.Locations))
-	for i, loc := range instance.Spec.Locations {
-		routes[i] = loc.Config.Value
-	}
 	address, err := manager.GetInstanceAddress(c.Request().Context(), instanceName)
 	if err != nil {
 		return err
 	}
 	if address == "" {
 		address = "pending"
+	}
+	var routes []string
+	for _, location := range instance.Spec.Locations {
+		routes = append(routes, location.Path)
 	}
 	ret := []map[string]string{
 		{

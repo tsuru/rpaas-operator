@@ -14,13 +14,8 @@ install:
   fi
 - |
   if [[ -z $(which operator-sdk) ]]; then
-    operator_sdk_dir="$GOPATH/src/github.com/operator-framework/operator-sdk"
-    mkdir -p ${operator_sdk_dir}
-    git clone --depth 1 https://github.com/operator-framework/operator-sdk.git ${operator_sdk_dir}
-    cd ${operator_sdk_dir}
-    make dep install
-    cd -
-    operator-sdk version
+    sudo curl -L https://github.com/operator-framework/operator-sdk/releases/download/v0.8.1/operator-sdk-v0.8.1-x86_64-linux-gnu -o /usr/local/bin/operator-sdk
+    sudo chmod +x /usr/local/bin/operator-sdk
   fi
 jobs:
   fast_finish: true

@@ -13,6 +13,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/tsuru/rpaas-operator/rpaas"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -227,6 +228,49 @@ func (api *rpaasApi) unbind(name, host string) error {
 			return err
 		}
 		return fmt.Errorf("could not unbind the instance %q: %v - Body %v", name, rsp, string(body))
+	}
+	return nil
+}
+
+func (api *rpaasApi) updateRoute(name string, r rpaas.Route) error {
+	data := url.Values{
+		"path":        []string{r.Path},
+		"content":     []string{r.Content},
+		"destination": []string{r.Destination},
+		"https_only":  []string{fmt.Sprint(r.HTTPSOnly)},
+	}
+	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/route", api.address, name), data)
+	if err != nil {
+		return err
+	}
+	if rsp.StatusCode != http.StatusCreated {
+		defer rsp.Body.Close()
+		body, err := ioutil.ReadAll(rsp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("could not update the route %q: %v - Body %v", r.Path, rsp, string(body))
+	}
+	return nil
+}
+
+func (api *rpaasApi) deleteRoute(name, path string) error {
+	request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/resources/%s/route", api.address, name), strings.NewReader(fmt.Sprintf("path=%s", path)))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	if err != nil {
+		return err
+	}
+	rsp, err := api.client.Do(request)
+	if err != nil {
+		return err
+	}
+	if rsp.StatusCode != http.StatusOK {
+		defer rsp.Body.Close()
+		body, err := ioutil.ReadAll(rsp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("could not delete the route %q: %v - Body %v", path, rsp, string(body))
 	}
 	return nil
 }

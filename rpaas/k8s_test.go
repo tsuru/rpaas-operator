@@ -2,6 +2,7 @@ package rpaas
 
 import (
 	"crypto/tls"
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -9,6 +10,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -612,6 +614,19 @@ func newEmptySecret() *corev1.Secret {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-secrets",
+			Namespace: "default",
+		},
+	}
+}
+
+func newEmptyLocations() *corev1.ConfigMap {
+	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "ConfigMap",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-locations",
 			Namespace: "default",
 		},
 	}
@@ -1412,6 +1427,547 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 			}
 
 			tt.assertion(t, unbindAppErr, instance)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Locations = []v1alpha1.Location{
+		{
+			Path:  "/path1",
+			Value: "# My NGINX config for /path1 location",
+		},
+		{
+			Path:        "/path2",
+			Destination: "app2.tsuru.example.com",
+		},
+	}
+
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "new-instance"
+	instance3.Spec.Locations = []v1alpha1.Location{
+		{
+			Path: "/my/custom/path",
+			ValueFrom: &v1alpha1.ValueSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-custom-config",
+					},
+					Key: "just-another-key",
+				},
+			},
+		},
+	}
+
+	cm := newEmptyLocations()
+	cm.Name = "my-locations-config"
+	cm.Data = map[string]string{
+		"just-another-key": "# Some NGINX custom conf",
+	}
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2, instance3}
+
+	tests := []struct {
+		name      string
+		instance  string
+		path      string
+		assertion func(t *testing.T, err error, ri *v1alpha1.RpaasInstance)
+	}{
+		{
+			name:     "when instance not found",
+			instance: "not-found-instance",
+			path:     "/path",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:     "when locations is nil",
+			instance: "my-instance",
+			path:     "/path/unknown",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+			},
+		},
+		{
+			name:     "when path does not exist",
+			instance: "my-instance",
+			path:     "/path/unknown",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+			},
+		},
+		{
+			name:     "when removing a route with destination",
+			instance: "another-instance",
+			path:     "/path2",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Len(t, ri.Spec.Locations, 1)
+				assert.NotEqual(t, "/path2", ri.Spec.Locations[0].Path)
+			},
+		},
+		{
+			name:     "when removing a route with custom configuration",
+			instance: "another-instance",
+			path:     "/path1",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Len(t, ri.Spec.Locations, 1)
+				assert.NotEqual(t, "/path1", ri.Spec.Locations[0])
+			},
+		},
+		{
+			name:     "when removing the last location",
+			instance: "new-instance",
+			path:     "/my/custom/path",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Nil(t, ri.Spec.Locations)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.DeleteRoute(nil, tt.instance, tt.path)
+			var ri v1alpha1.RpaasInstance
+			if err == nil {
+				require.NoError(t, manager.cli.Get(nil, types.NamespacedName{Name: tt.instance, Namespace: "default"}, &ri))
+			}
+			tt.assertion(t, err, &ri)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
+	boolPointer := func(b bool) *bool {
+		return &b
+	}
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Locations = []v1alpha1.Location{
+		{
+			Path:  "/path1",
+			Value: "# My NGINX config for /path1 location",
+		},
+		{
+			Path:        "/path2",
+			Destination: "app2.tsuru.example.com",
+		},
+		{
+			Path:        "/path3",
+			Destination: "app3.tsuru.example.com",
+			ForceHTTPS:  true,
+		},
+		{
+			Path: "/path4",
+			ValueFrom: &v1alpha1.ValueSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-locations",
+					},
+					Key: "path4",
+				},
+			},
+		},
+		{
+			Path: "/path5",
+			ValueFrom: &v1alpha1.ValueSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "unknown-configmap",
+					},
+					Key: "path4",
+				},
+			},
+		},
+		{
+			Path: "/path6",
+			ValueFrom: &v1alpha1.ValueSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-locations",
+					},
+					Key: "unkonwn-key",
+				},
+			},
+		},
+	}
+
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "instance3"
+	instance3.Spec.Locations = []v1alpha1.Location{
+		{
+			Path: "/path1",
+			ValueFrom: &v1alpha1.ValueSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-locations",
+					},
+					Key:      "unknown-key",
+					Optional: boolPointer(false),
+				},
+			},
+		},
+	}
+
+	instance4 := newEmptyRpaasInstance()
+	instance4.Name = "instance4"
+	instance4.Spec.Locations = []v1alpha1.Location{
+		{
+			Path: "/path1",
+			ValueFrom: &v1alpha1.ValueSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "unknown-configmap",
+					},
+					Key:      "unknown-key",
+					Optional: boolPointer(false),
+				},
+			},
+		},
+	}
+
+	cm := newEmptyLocations()
+	cm.Name = "my-locations"
+	cm.Data = map[string]string{
+		"path4": "# My NGINX config for /path4 location",
+	}
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, cm}
+
+	tests := []struct {
+		name      string
+		instance  string
+		assertion func(t *testing.T, err error, routes []Route)
+	}{
+		{
+			name:     "when instance not found",
+			instance: "not-found-instance",
+			assertion: func(t *testing.T, err error, _ []Route) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:     "when instance has no custom routes",
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, routes []Route) {
+				assert.NoError(t, err)
+				assert.Len(t, routes, 0)
+			},
+		},
+		{
+			name:     "when instance contains multiple locations and with content comes from different sources",
+			instance: "another-instance",
+			assertion: func(t *testing.T, err error, routes []Route) {
+				assert.NoError(t, err)
+				assert.Equal(t, []Route{
+					{
+						Path:    "/path1",
+						Content: "# My NGINX config for /path1 location",
+					},
+					{
+						Path:        "/path2",
+						Destination: "app2.tsuru.example.com",
+					},
+					{
+						Path:        "/path3",
+						Destination: "app3.tsuru.example.com",
+						HTTPSOnly:   true,
+					},
+					{
+						Path:    "/path4",
+						Content: "# My NGINX config for /path4 location",
+					},
+				}, routes)
+			},
+		},
+		{
+			name:     "when a required value is not in the ConfigMap",
+			instance: "instance3",
+			assertion: func(t *testing.T, err error, routes []Route) {
+				assert.Error(t, err)
+				expectedError := `could not retrieve the value of path "/path1": configmap "my-locations" has no key "unknown-key"`
+				assert.Equal(t, fmt.Errorf(expectedError), err)
+			},
+		},
+		{
+			name:     "when a ConfigMap of a required value is not found",
+			instance: "instance4",
+			assertion: func(t *testing.T, err error, routes []Route) {
+				assert.Error(t, err)
+				assert.True(t, k8sErrors.IsNotFound(err))
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			routes, err := manager.GetRoutes(nil, tt.instance)
+			tt.assertion(t, err, routes)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Locations = []v1alpha1.Location{
+		{
+			Path:  "/path1",
+			Value: "# My NGINX config for /path1 location",
+		},
+		{
+			Path:        "/path2",
+			Destination: "app2.tsuru.example.com",
+		},
+		{
+			Path:        "/path3",
+			Destination: "app2.tsuru.example.com",
+			ForceHTTPS:  true,
+		},
+		{
+			Path: "/path4",
+			ValueFrom: &v1alpha1.ValueSource{
+				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					LocalObjectReference: corev1.LocalObjectReference{
+						Name: "my-locations",
+					},
+					Key: "path1",
+				},
+			},
+		},
+	}
+
+	cm := newEmptyLocations()
+	cm.Name = "another-instance-locations"
+	cm.Data = map[string]string{
+		"_path1": "# My NGINX config for /path1 location",
+	}
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2, cm}
+
+	tests := []struct {
+		name      string
+		instance  string
+		route     Route
+		assertion func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, locations *corev1.ConfigMap)
+	}{
+		{
+			name:     "when instance not found",
+			instance: "instance-not-found",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:     "when path is not defined",
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.Error(t, err)
+				assert.True(t, IsValidationError(err))
+				assert.Equal(t, &ValidationError{Msg: "path is required"}, err)
+			},
+		},
+		{
+			name:     "when path is not valid",
+			instance: "my-instance",
+			route: Route{
+				Path: "../../passwd",
+			},
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.Error(t, err)
+				assert.True(t, IsValidationError(err))
+				assert.Equal(t, &ValidationError{Msg: "invalid path format"}, err)
+			},
+		},
+		{
+			name:     "when both content and destination are not defined",
+			instance: "my-instance",
+			route: Route{
+				Path: "/my/custom/path",
+			},
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.Error(t, err)
+				assert.True(t, IsValidationError(err))
+				assert.Equal(t, &ValidationError{Msg: "either content or destination are required"}, err)
+			},
+		},
+		{
+			name:     "when content and destination are defined at same time",
+			instance: "my-instance",
+			route: Route{
+				Path:        "/my/custom/path",
+				Destination: "app2.tsuru.example.com",
+				Content:     "# My NGINX config at location context",
+			},
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.Error(t, err)
+				assert.True(t, IsValidationError(err))
+				assert.Equal(t, &ValidationError{Msg: "cannot set both content and destination"}, err)
+			},
+		},
+		{
+			name:     "when content and httpsOnly are defined at same time",
+			instance: "my-instance",
+			route: Route{
+				Path:      "/my/custom/path",
+				Content:   "# My NGINX config",
+				HTTPSOnly: true,
+			},
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.Error(t, err)
+				assert.True(t, IsValidationError(err))
+				assert.Equal(t, &ValidationError{Msg: "cannot set both content and httpsonly"}, err)
+			},
+		},
+		{
+			name:     "when adding a new route with destination and httpsOnly",
+			instance: "my-instance",
+			route: Route{
+				Path:        "/my/custom/path",
+				Destination: "app2.tsuru.example.com",
+				HTTPSOnly:   true,
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.NoError(t, err)
+				assert.Equal(t, []v1alpha1.Location{
+					{
+						Path:        "/my/custom/path",
+						Destination: "app2.tsuru.example.com",
+						ForceHTTPS:  true,
+					},
+				}, ri.Spec.Locations)
+			},
+		},
+		{
+			name:     "when adding a route with custom NGINX config",
+			instance: "my-instance",
+			route: Route{
+				Path:    "/custom/path",
+				Content: "# My custom NGINX config",
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.NoError(t, err)
+				assert.Len(t, ri.Spec.Locations, 1)
+				assert.Equal(t, "/custom/path", ri.Spec.Locations[0].Path)
+				assert.Equal(t, "# My custom NGINX config", ri.Spec.Locations[0].Value)
+			},
+		},
+		{
+			name:     "when updating destination and httpsOnly fields of an existing route",
+			instance: "another-instance",
+			route: Route{
+				Path:        "/path2",
+				Destination: "another-app.tsuru.example.com",
+				HTTPSOnly:   true,
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, locations *corev1.ConfigMap) {
+				assert.NoError(t, err)
+				assert.Len(t, ri.Spec.Locations, 4)
+				assert.Equal(t, v1alpha1.Location{
+					Path:        "/path2",
+					Destination: "another-app.tsuru.example.com",
+					ForceHTTPS:  true,
+				}, ri.Spec.Locations[1])
+			},
+		},
+		{
+			name:     "when updating the NGINX configuration content",
+			instance: "another-instance",
+			route: Route{
+				Path:    "/path1",
+				Content: "# My new NGINX configuration",
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, locations *corev1.ConfigMap) {
+				assert.NoError(t, err)
+				assert.Equal(t, v1alpha1.Location{
+					Path:  "/path1",
+					Value: "# My new NGINX configuration",
+				}, ri.Spec.Locations[0])
+			},
+		},
+		{
+			name:     "when updating a route to use destination instead of content",
+			instance: "another-instance",
+			route: Route{
+				Path:        "/path1",
+				Destination: "app1.tsuru.example.com",
+				HTTPSOnly:   true,
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.NoError(t, err)
+				assert.Equal(t, v1alpha1.Location{
+					Path:        "/path1",
+					Destination: "app1.tsuru.example.com",
+					ForceHTTPS:  true,
+				}, ri.Spec.Locations[0])
+			},
+		},
+		{
+			name:     "when updating a route to use destination instead of content",
+			instance: "another-instance",
+			route: Route{
+				Path:    "/path2",
+				Content: "# My new NGINX configuration",
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.NoError(t, err)
+				assert.Equal(t, v1alpha1.Location{
+					Path:  "/path2",
+					Value: "# My new NGINX configuration",
+				}, ri.Spec.Locations[1])
+			},
+		},
+		{
+			name:     "when updating a route which its Content was into ConfigMap",
+			instance: "another-instance",
+			route: Route{
+				Path:    "/path4",
+				Content: "# My new NGINX configuration",
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.NoError(t, err)
+				assert.Equal(t, v1alpha1.Location{
+					Path:  "/path4",
+					Value: "# My new NGINX configuration",
+				}, ri.Spec.Locations[3])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.UpdateRoute(nil, tt.instance, tt.route)
+			ri := &v1alpha1.RpaasInstance{}
+			if err == nil {
+				newErr := manager.cli.Get(nil, types.NamespacedName{Name: tt.instance, Namespace: "default"}, ri)
+				require.NoError(t, newErr)
+			}
+			tt.assertion(t, err, ri, nil)
 		})
 	}
 }

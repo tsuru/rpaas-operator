@@ -161,6 +161,9 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 	if err != nil {
 		return "", err
 	}
+	if err = r.updateLocationValues(instance); err != nil {
+		return "", err
+	}
 	data := nginx.ConfigurationData{
 		Instance: &instance.Spec,
 		Config:   &plan.Spec.Config,
@@ -204,6 +207,50 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 		}
 	}
 	return blocks, nil
+}
+
+func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasInstance) error {
+	logger := log.WithValues("rpaasinstance.name", instance.Name, "rpaasinstance.namespace", instance.Namespace)
+	for _, location := range instance.Spec.Locations {
+		if location.Value != "" {
+			continue
+		}
+
+		if location.ValueFrom == nil || location.ValueFrom.ConfigMapKeyRef == nil {
+			logger.Info(fmt.Sprintf("skipping route %q since value source is missing", location.Path))
+			continue
+		}
+
+		isOptional := location.ValueFrom.ConfigMapKeyRef.Optional == nil || *location.ValueFrom.ConfigMapKeyRef.Optional
+
+		var locationConfigMap corev1.ConfigMap
+		err := r.client.Get(context.TODO(), types.NamespacedName{
+			Name:      location.ValueFrom.ConfigMapKeyRef.Name,
+			Namespace: instance.Namespace,
+		}, &locationConfigMap)
+		if err != nil && !isOptional {
+			return err
+		}
+
+		if err != nil {
+			logger.Info(fmt.Sprintf("skipping route %q due ConfigMap could not be retrieved: %v", location.Path, err))
+			continue
+		}
+
+		value, ok := locationConfigMap.Data[location.ValueFrom.ConfigMapKeyRef.Key]
+		if !ok && !isOptional {
+			return fmt.Errorf("could not retrieve the value of the path %q: configmap %q has no key %q", location.Path, location.ValueFrom.ConfigMapKeyRef.Name, location.ValueFrom.ConfigMapKeyRef.Key)
+		}
+
+		if !ok {
+			logger.Info(fmt.Sprintf("skipping route %q due the key %q not found into ConfigMap %q", location.Path, location.ValueFrom.ConfigMapKeyRef.Key, location.ValueFrom.ConfigMapKeyRef.Name))
+			continue
+		}
+
+		location.Value = value
+	}
+
+	return nil
 }
 
 func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
@@ -255,7 +302,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 				Kind: nginxV1alpha1.ConfigKindConfigMap,
 			},
 			Service:         instance.Spec.Service,
-			HealthcheckPath: "/_nginx_healthcheck/",
+			HealthcheckPath: "/_nginx_healthcheck",
 			ExtraFiles:      instance.Spec.ExtraFiles,
 			Certificates:    instance.Spec.Certificates,
 		},
