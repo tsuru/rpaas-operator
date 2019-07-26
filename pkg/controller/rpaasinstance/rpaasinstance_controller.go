@@ -274,6 +274,7 @@ func (r *ReconcileRpaasInstance) listConfigs(instance *v1alpha1.RpaasInstance) (
 
 	if err := listOptions.SetLabelSelector(labelSelector); err != nil {
 		logrus.Errorf("Failed to query nginx configs: %v", err)
+		return nil, err
 	}
 
 	err := r.client.List(context.TODO(), listOptions, configList)
