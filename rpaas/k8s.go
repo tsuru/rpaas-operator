@@ -531,23 +531,22 @@ func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([
 
 	var routes []Route
 	for _, location := range instance.Spec.Locations {
+		hasContent := location.Destination == ""
 		var content string
-
-		if location.Value != "" {
+		if hasContent && location.Value != "" {
 			content = location.Value
 		}
 
-		if location.Value == "" &&
-			location.ValueFrom != nil &&
-			location.ValueFrom.ConfigMapKeyRef != nil {
+		isContentFromSource := location.ValueFrom != nil && location.ValueFrom.ConfigMapKeyRef != nil
+		if content == "" && hasContent && isContentFromSource {
 			cmName := types.NamespacedName{
 				Name:      location.ValueFrom.ConfigMapKeyRef.Name,
 				Namespace: instance.Namespace,
 			}
+
+			isOptional := location.ValueFrom.ConfigMapKeyRef.Optional == nil || *location.ValueFrom.ConfigMapKeyRef.Optional
 			var cm corev1.ConfigMap
-			if err = m.cli.Get(ctx, cmName, &cm); err != nil &&
-				location.ValueFrom.ConfigMapKeyRef.Optional != nil &&
-				!*location.ValueFrom.ConfigMapKeyRef.Optional {
+			if err = m.cli.Get(ctx, cmName, &cm); err != nil && !isOptional {
 				return nil, err
 			}
 
@@ -557,7 +556,7 @@ func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([
 			}
 
 			data, ok := cm.Data[location.ValueFrom.ConfigMapKeyRef.Key]
-			if !ok && location.ValueFrom.ConfigMapKeyRef.Optional != nil && !*location.ValueFrom.ConfigMapKeyRef.Optional {
+			if !ok && !isOptional {
 				return nil, fmt.Errorf("could not retrieve the value of path %q: configmap %q has no key %q", location.Path, cm.Name, location.ValueFrom.ConfigMapKeyRef.Key)
 			}
 
