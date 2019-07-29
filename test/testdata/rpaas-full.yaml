@@ -43,6 +43,7 @@ metadata:
   name: my-instance
 spec:
   replicas: 2
+  configHistoryLimit: 2
   planName: basic
   blocks:
     root:
