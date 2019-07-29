@@ -313,7 +313,7 @@ func Test_RpaasApi(t *testing.T) {
 		}, rpaasInstance.Spec.Locations)
 	})
 
-	t.Run("limits the number of configs to 3 by default", func(t *testing.T) {
+	t.Run("limits the number of configs to 10 by default", func(t *testing.T) {
 		instanceName := "my-instance"
 		teamName := "team-one"
 		planName := "basic"
@@ -328,19 +328,15 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, len(configList.Items), 1)
 
-		cleanBlockFunc, err := api.createBlock(instanceName, teamName, blockName, "content=location=/test1{return 204;}")
-		require.NoError(t, err)
-		defer cleanBlockFunc()
-		cleanBlockFunc, err = api.createBlock(instanceName, teamName, blockName, "content=location=/test2{return 204;}")
-		require.NoError(t, err)
-		defer cleanBlockFunc()
-		cleanBlockFunc, err = api.createBlock(instanceName, teamName, blockName, "content=location=/test3{return 204;}")
-		require.NoError(t, err)
-		defer cleanBlockFunc()
+		for i := 0; i < 11; i++ {
+			cleanBlockFunc, err := api.createBlock(instanceName, teamName, blockName, fmt.Sprintf("content=location=/test%d{return 204;}", i))
+			require.NoError(t, err)
+			defer cleanBlockFunc()
+		}
 
 		configList, err = getConfigList(instanceName, namespaceName)
 		require.NoError(t, err)
-		assert.Equal(t, len(configList.Items), 3)
+		assert.Equal(t, 10, len(configList.Items))
 	})
 }
 
