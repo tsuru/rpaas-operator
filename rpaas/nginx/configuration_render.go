@@ -196,7 +196,7 @@ http {
 {{if .Config.VTSEnabled}}
 			location /status {
 				vhost_traffic_status_display;
-        vhost_traffic_status_display_format prometheus;
+				vhost_traffic_status_display_format prometheus;
 			}
 {{end}}
 
