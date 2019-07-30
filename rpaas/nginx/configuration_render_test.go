@@ -36,6 +36,17 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		{
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
+				Config:   &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstanceSpec{},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				require.NoError(t, err)
+				assert.Regexp(t, `listen 8800;`, result)
+			},
+		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					RequestIDEnabled: true,
 				},
@@ -114,6 +125,10 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
 				assert.Regexp(t, `vhost_traffic_status_zone;`, result)
+				assert.Regexp(t, `\s+location /status {
+\s+vhost_traffic_status_display;
+\s+vhost_traffic_status_display_format prometheus;
+`, result)
 			},
 		},
 		{
