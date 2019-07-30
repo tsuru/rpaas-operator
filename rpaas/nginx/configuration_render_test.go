@@ -338,6 +338,21 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+}`, result)
 			},
 		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{
+				MainBlock: "# My custom main NGINX template.\nuser {{ .Config.User }};\n...",
+			}),
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					User: "my-user",
+				},
+				Instance: &v1alpha1.RpaasInstanceSpec{},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				assert.NoError(t, err)
+				assert.Regexp(t, "# My custom main NGINX template.\nuser my-user;\n...", result)
+			},
+		},
 	}
 
 	for _, testCase := range testCases {

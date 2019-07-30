@@ -9,6 +9,7 @@ import (
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"github.com/tsuru/rpaas-operator/pkg/util"
 	"github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -157,7 +158,7 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxV1alpha1.Nginx) erro
 }
 
 func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
-	blocks, err := r.getConfigurationBlocks(instance)
+	blocks, err := r.getConfigurationBlocks(instance, plan)
 	if err != nil {
 		return "", err
 	}
@@ -171,8 +172,15 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 	return nginx.NewRpaasConfigurationRenderer(blocks).Render(data)
 }
 
-func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.RpaasInstance) (nginx.ConfigurationBlocks, error) {
+func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {
 	var blocks nginx.ConfigurationBlocks
+	if plan.Spec.Template != nil {
+		mainBlock, err := util.GetValue(context.TODO(), r.client, plan.Spec.Template)
+		if err != nil {
+			return blocks, err
+		}
+		blocks.MainBlock = mainBlock
+	}
 	if instance.Spec.Blocks == nil {
 		return blocks, nil
 	}

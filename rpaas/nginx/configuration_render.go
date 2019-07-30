@@ -14,6 +14,7 @@ type ConfigurationRenderer interface {
 }
 
 type ConfigurationBlocks struct {
+	MainBlock   string
 	RootBlock   string
 	HttpBlock   string
 	ServerBlock string
@@ -35,11 +36,16 @@ func (r *rpaasConfigurationRenderer) Render(c ConfigurationData) (string, error)
 }
 
 func NewRpaasConfigurationRenderer(cb ConfigurationBlocks) ConfigurationRenderer {
-	baseTemplate := template.Must(defaultRpaasConfigurationTemplate.Clone())
-	template.Must(baseTemplate.New("root").Parse(cb.RootBlock))
-	template.Must(baseTemplate.New("http").Parse(cb.HttpBlock))
-	template.Must(baseTemplate.New("server").Parse(cb.ServerBlock))
-	return &rpaasConfigurationRenderer{t: baseTemplate}
+	finalTemplate := template.Must(defaultMainTemplate.Clone())
+	if cb.MainBlock != "" {
+		finalTemplate = template.Must(template.New("main").
+			Funcs(templateFuncs).
+			Parse(cb.MainBlock))
+	}
+	template.Must(finalTemplate.New("root").Parse(cb.RootBlock))
+	template.Must(finalTemplate.New("http").Parse(cb.HttpBlock))
+	template.Must(finalTemplate.New("server").Parse(cb.ServerBlock))
+	return &rpaasConfigurationRenderer{t: finalTemplate}
 }
 
 func buildLocationKey(prefix, path string) string {
@@ -68,11 +74,15 @@ func hasRootPath(locations []v1alpha1.Location) bool {
 	return false
 }
 
-var defaultRpaasConfigurationTemplate = template.Must(template.New("rpaas-configuration-template").
-	Funcs(template.FuncMap(map[string]interface{}{
-		"buildLocationKey": buildLocationKey,
-		"hasRootPath":      hasRootPath,
-	})).
+var templateFuncs = template.FuncMap(map[string]interface{}{
+	"buildLocationKey": buildLocationKey,
+	"hasRootPath":      hasRootPath,
+	"toLower":          strings.ToLower,
+	"toUpper":          strings.ToUpper,
+})
+
+var defaultMainTemplate = template.Must(template.New("main").
+	Funcs(templateFuncs).
 	Parse(rawNginxConfiguration))
 
 // NOTE: This nginx's configuration works fine with the "tsuru/nginx-tsuru"

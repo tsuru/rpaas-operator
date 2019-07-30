@@ -74,12 +74,9 @@ type RpaasInstanceList struct {
 type BlockType string
 
 const (
-	BlockTypeHTTP          = "http"
-	BlockTypeServer        = "server"
-	BlockTypeRoot          = "root"
-	BlockTypeHTTPDefault   = "http-default"
-	BlockTypeServerDefault = "server-default"
-	BlockTypeRootDefault   = "root-default"
+	BlockTypeHTTP   = "http"
+	BlockTypeServer = "server"
+	BlockTypeRoot   = "root"
 )
 
 type ConfigRef struct {
@@ -103,6 +100,12 @@ type Location struct {
 
 type ValueSource struct {
 	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+	Namespace       string                       `json:"namespace,omitempty"`
+}
+
+type Value struct {
+	Value     string       `json:"value,omitempty"`
+	ValueFrom *ValueSource `json:"valueFrom,omitempty"`
 }
 
 const (
