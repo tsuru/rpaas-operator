@@ -190,6 +190,18 @@ http {
 
     {{template "http" .}}
 
+		server {
+			listen 8800;
+
+{{if .Config.VTSEnabled}}
+			location /status {
+				vhost_traffic_status_display;
+        vhost_traffic_status_display_format prometheus;
+			}
+{{end}}
+
+		}
+
     server {
         listen 8080 default_server{{with .Config.HTTPListenOptions}} {{.}}{{end}};
 
