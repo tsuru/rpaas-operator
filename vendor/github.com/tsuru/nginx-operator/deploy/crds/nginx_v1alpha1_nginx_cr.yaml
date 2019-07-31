@@ -1,7 +1,0 @@
-apiVersion: nginx.tsuru.io/v1alpha1
-kind: Nginx
-metadata:
-  name: example-nginx
-spec:
-  # Add fields here
-  size: 3
