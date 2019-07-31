@@ -78,12 +78,13 @@ run_nginx_operator() {
   local namespace="${2}"
   local cluster_name="${3}"
   local tag="${4:-"integration"}"
-
-
-  local nginx_operator_module_dir=$(go mod download -json github.com/tsuru/nginx-operator | jq .Dir | tr -d '""')
   local nginx_operator_dir=${GOPATH}/src/github.com/tsuru/nginx-operator
+  local nginx_operator_revision=$(go mod download -json github.com/tsuru/nginx-operator | jq .Version -r | awk -F '-' '{print $NF}')
 
-  cp -R ${nginx_operator_module_dir} ${nginx_operator_dir}
+  git clone  https://github.com/tsuru/nginx-operator.git ${nginx_operator_dir}
+  cd ${nginx_operator_dir}
+  git checkout ${nginx_operator_revision}
+  cd $OLDPWD
 
   echo "Building container image of NGINX operator using tag \"${tag}\"..."
   make -C ${nginx_operator_dir} build TAG="${tag}"
