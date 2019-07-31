@@ -81,7 +81,7 @@ run_nginx_operator() {
 
 
   local nginx_operator_module_dir=$(go mod download -json github.com/tsuru/nginx-operator | jq .Dir | tr -d '""')
-  local nginx_operator_dir=~/nginx-operator
+  local nginx_operator_dir=${GOPATH}/src/github.com/tsuru/nginx-operator
 
   cp -R ${nginx_operator_module_dir} ${nginx_operator_dir}
 
