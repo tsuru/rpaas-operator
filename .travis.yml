@@ -23,6 +23,8 @@ jobs:
   - stage: test
     script: make test
     go: 1.12.x
+    env:
+    - GO111MODULE=on
   - stage: integration
     script: make test/integration
     go: 1.12.x
