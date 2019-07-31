@@ -28,6 +28,7 @@ jobs:
     go: 1.12.x
     env:
     - KUBERNETES_VERSION=v1.14.2
+    - GO111MODULE=on
   - stage: push to docker
     script:
     - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
