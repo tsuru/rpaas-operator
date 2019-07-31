@@ -79,7 +79,7 @@ run_nginx_operator() {
   local cluster_name="${3}"
   local tag="${4:-"integration"}"
 
-  local nginx_operator_dir="vendor/github.com/tsuru/nginx-operator"
+  local nginx_operator_dir=$(go mod download -json github.com/tsuru/nginx-operator | jq .Dir | tr -d '""')
 
   echo "Building container image of NGINX operator using tag \"${tag}\"..."
   make -C ${nginx_operator_dir} build TAG="${tag}"

@@ -8,14 +8,14 @@ cache:
 install:
 - mkdir -p .tmp
 - |
-  if [[ -z $(which dep) ]]; then
-    go get -u github.com/golang/dep/cmd/dep
-    dep version
-  fi
-- |
   if [[ -z $(which operator-sdk) ]]; then
     sudo curl -L https://github.com/operator-framework/operator-sdk/releases/download/v0.8.1/operator-sdk-v0.8.1-x86_64-linux-gnu -o /usr/local/bin/operator-sdk
     sudo chmod +x /usr/local/bin/operator-sdk
+  fi
+  - |
+  if [[ -z $(which jq) ]]; then
+    sudo curl -L https://github.com/stedolan/jq/releases/download/jq-1.6/jq-linux64 -o /usr/local/bin/jq
+    sudo chmod +x /usr/local/bin/jq
   fi
 jobs:
   fast_finish: true
