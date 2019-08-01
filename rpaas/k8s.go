@@ -307,7 +307,7 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {
 	list := &v1alpha1.RpaasInstanceList{}
-	err := m.cli.List(ctx, client.MatchingField("metadata.name", name), list)
+	err := m.cli.List(ctx, list, client.MatchingField("metadata.name", name))
 	if err != nil {
 		return nil, err
 	}
@@ -332,7 +332,7 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 
 func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error) {
 	planList := &v1alpha1.RpaasPlanList{}
-	err := m.cli.List(ctx, &client.ListOptions{}, planList)
+	err := m.cli.List(ctx, planList)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return []v1alpha1.RpaasPlan{}, nil
 	}
@@ -916,12 +916,11 @@ func (m *k8sRpaasManager) podStatus(ctx context.Context, podName, ns string) (Po
 
 func (m *k8sRpaasManager) eventsForPod(ctx context.Context, podName, ns string) ([]corev1.Event, error) {
 	const podKind = "Pod"
-	listOpts := client.
-		MatchingField("involvedObject.kind", podKind).
-		MatchingField("involvedObject.name", podName)
-	listOpts.Namespace = ns
 	var eventList corev1.EventList
-	err := m.nonCachedCli.List(ctx, listOpts, &eventList)
+	err := m.nonCachedCli.List(ctx, &eventList,
+		client.MatchingField("involvedObject.name", podName),
+		client.MatchingField("involvedObject.kind", podKind),
+		client.InNamespace(ns))
 	if err != nil {
 		return nil, err
 	}
