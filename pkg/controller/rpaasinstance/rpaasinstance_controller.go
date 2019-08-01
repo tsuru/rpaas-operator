@@ -166,7 +166,7 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 		return "", err
 	}
 	data := nginx.ConfigurationData{
-		Instance: &instance.Spec,
+		Instance: instance,
 		Config:   &plan.Spec.Config,
 	}
 	return nginx.NewRpaasConfigurationRenderer(blocks).Render(data)

@@ -19,7 +19,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config:   &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -39,7 +39,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					RequestIDEnabled: true,
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -58,7 +58,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 					CacheSize:        "300m",
 					CacheZoneSize:    "100m",
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 					SyslogEnabled:       true,
 					SyslogServerAddress: "syslog.server.example.com",
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -95,7 +95,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 					SyslogFacility:      "local1",
 					SyslogTag:           "my-tag",
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -109,7 +109,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					VTSEnabled: true,
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -120,13 +120,15 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstanceSpec{
-					Certificates: &nginxv1alpha1.TLSSecret{
-						SecretName: "secret-name",
-						Items: []nginxv1alpha1.TLSSecretItem{
-							{
-								CertificateField: "default.crt",
-								KeyField:         "default.key",
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Certificates: &nginxv1alpha1.TLSSecret{
+							SecretName: "secret-name",
+							Items: []nginxv1alpha1.TLSSecretItem{
+								{
+									CertificateField: "default.crt",
+									KeyField:         "default.key",
+								},
 							},
 						},
 					},
@@ -150,15 +152,17 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					HTTPSListenOptions: "http2",
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{
-					Certificates: &nginxv1alpha1.TLSSecret{
-						SecretName: "secret-name",
-						Items: []nginxv1alpha1.TLSSecretItem{
-							{
-								CertificateField: "default.crt",
-								CertificatePath:  "custom_certificate_name.crt",
-								KeyField:         "default.key",
-								KeyPath:          "custom_key_name.key",
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Certificates: &nginxv1alpha1.TLSSecret{
+							SecretName: "secret-name",
+							Items: []nginxv1alpha1.TLSSecretItem{
+								{
+									CertificateField: "default.crt",
+									CertificatePath:  "custom_certificate_name.crt",
+									KeyField:         "default.key",
+									KeyPath:          "custom_key_name.key",
+								},
 							},
 						},
 					},
@@ -184,7 +188,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			}),
 			data: ConfigurationData{
 				Config:   &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -201,7 +205,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					User: "another-user",
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
@@ -212,8 +216,10 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstanceSpec{
-					Host: "app1.tsuru.example.com",
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Host: "app1.tsuru.example.com",
+					},
 				},
 			},
 			assertion: func(t *testing.T, result string, err error) {
@@ -239,20 +245,22 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstanceSpec{
-					Locations: []v1alpha1.Location{
-						{
-							Path:        "/path1",
-							Destination: "app1.tsuru.example.com",
-						},
-						{
-							Path:        "/path2",
-							Destination: "app2.tsuru.example.com",
-							ForceHTTPS:  true,
-						},
-						{
-							Path:  "/path3",
-							Value: "# My custom configuration for /path3",
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Locations: []v1alpha1.Location{
+							{
+								Path:        "/path1",
+								Destination: "app1.tsuru.example.com",
+							},
+							{
+								Path:        "/path2",
+								Destination: "app2.tsuru.example.com",
+								ForceHTTPS:  true,
+							},
+							{
+								Path:  "/path3",
+								Value: "# My custom configuration for /path3",
+							},
 						},
 					},
 				},
@@ -304,12 +312,14 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					UpstreamKeepalive: 32,
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{
-					Host: "app.tsuru.example.com",
-					Locations: []v1alpha1.Location{
-						{
-							Path:        "/",
-							Destination: "app1.tsuru.example.com",
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Host: "app.tsuru.example.com",
+						Locations: []v1alpha1.Location{
+							{
+								Path:        "/",
+								Destination: "app1.tsuru.example.com",
+							},
 						},
 					},
 				},
@@ -346,7 +356,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					User: "my-user",
 				},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				assert.NoError(t, err)
