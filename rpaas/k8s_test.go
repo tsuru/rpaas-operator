@@ -2,7 +2,6 @@ package rpaas
 
 import (
 	"crypto/tls"
-	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -1438,8 +1437,10 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 	instance2.Name = "another-instance"
 	instance2.Spec.Locations = []v1alpha1.Location{
 		{
-			Path:  "/path1",
-			Value: "# My NGINX config for /path1 location",
+			Path: "/path1",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for /path1 location",
+			},
 		},
 		{
 			Path:        "/path2",
@@ -1452,12 +1453,14 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 	instance3.Spec.Locations = []v1alpha1.Location{
 		{
 			Path: "/my/custom/path",
-			ValueFrom: &v1alpha1.ValueSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-custom-config",
+			Content: &v1alpha1.Value{
+				ValueFrom: &v1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-custom-config",
+						},
+						Key: "just-another-key",
 					},
-					Key: "just-another-key",
 				},
 			},
 		},
@@ -1562,8 +1565,10 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 	instance2.Name = "another-instance"
 	instance2.Spec.Locations = []v1alpha1.Location{
 		{
-			Path:  "/path1",
-			Value: "# My NGINX config for /path1 location",
+			Path: "/path1",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for /path1 location",
+			},
 		},
 		{
 			Path:        "/path2",
@@ -1576,34 +1581,43 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 		},
 		{
 			Path: "/path4",
-			ValueFrom: &v1alpha1.ValueSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-locations",
+			Content: &v1alpha1.Value{
+				ValueFrom: &v1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-locations",
+						},
+						Key: "path4",
 					},
-					Key: "path4",
+					Namespace: "default",
 				},
 			},
 		},
 		{
 			Path: "/path5",
-			ValueFrom: &v1alpha1.ValueSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "unknown-configmap",
+			Content: &v1alpha1.Value{
+				ValueFrom: &v1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "unknown-configmap",
+						},
+						Key: "path4",
 					},
-					Key: "path4",
+					Namespace: "default",
 				},
 			},
 		},
 		{
 			Path: "/path6",
-			ValueFrom: &v1alpha1.ValueSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-locations",
+			Content: &v1alpha1.Value{
+				ValueFrom: &v1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-locations",
+						},
+						Key: "unkonwn-key",
 					},
-					Key: "unkonwn-key",
+					Namespace: "default",
 				},
 			},
 		},
@@ -1614,13 +1628,16 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 	instance3.Spec.Locations = []v1alpha1.Location{
 		{
 			Path: "/path1",
-			ValueFrom: &v1alpha1.ValueSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-locations",
+			Content: &v1alpha1.Value{
+				ValueFrom: &v1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-locations",
+						},
+						Key:      "unknown-key",
+						Optional: boolPointer(false),
 					},
-					Key:      "unknown-key",
-					Optional: boolPointer(false),
+					Namespace: "default",
 				},
 			},
 		},
@@ -1631,13 +1648,16 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 	instance4.Spec.Locations = []v1alpha1.Location{
 		{
 			Path: "/path1",
-			ValueFrom: &v1alpha1.ValueSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "unknown-configmap",
+			Content: &v1alpha1.Value{
+				ValueFrom: &v1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "unknown-configmap",
+						},
+						Key:      "unknown-key",
+						Optional: boolPointer(false),
 					},
-					Key:      "unknown-key",
-					Optional: boolPointer(false),
+					Namespace: "default",
 				},
 			},
 		},
@@ -1704,8 +1724,6 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 			instance: "instance3",
 			assertion: func(t *testing.T, err error, routes []Route) {
 				assert.Error(t, err)
-				expectedError := `could not retrieve the value of path "/path1": configmap "my-locations" has no key "unknown-key"`
-				assert.Equal(t, fmt.Errorf(expectedError), err)
 			},
 		},
 		{
@@ -1734,8 +1752,10 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 	instance2.Name = "another-instance"
 	instance2.Spec.Locations = []v1alpha1.Location{
 		{
-			Path:  "/path1",
-			Value: "# My NGINX config for /path1 location",
+			Path: "/path1",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for /path1 location",
+			},
 		},
 		{
 			Path:        "/path2",
@@ -1748,12 +1768,14 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 		},
 		{
 			Path: "/path4",
-			ValueFrom: &v1alpha1.ValueSource{
-				ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-					LocalObjectReference: corev1.LocalObjectReference{
-						Name: "my-locations",
+			Content: &v1alpha1.Value{
+				ValueFrom: &v1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-locations",
+						},
+						Key: "path1",
 					},
-					Key: "path1",
 				},
 			},
 		},
@@ -1873,7 +1895,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				assert.NoError(t, err)
 				assert.Len(t, ri.Spec.Locations, 1)
 				assert.Equal(t, "/custom/path", ri.Spec.Locations[0].Path)
-				assert.Equal(t, "# My custom NGINX config", ri.Spec.Locations[0].Value)
+				assert.Equal(t, "# My custom NGINX config", ri.Spec.Locations[0].Content.Value)
 			},
 		},
 		{
@@ -1904,8 +1926,10 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, locations *corev1.ConfigMap) {
 				assert.NoError(t, err)
 				assert.Equal(t, v1alpha1.Location{
-					Path:  "/path1",
-					Value: "# My new NGINX configuration",
+					Path: "/path1",
+					Content: &v1alpha1.Value{
+						Value: "# My new NGINX configuration",
+					},
 				}, ri.Spec.Locations[0])
 			},
 		},
@@ -1936,8 +1960,10 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
 				assert.NoError(t, err)
 				assert.Equal(t, v1alpha1.Location{
-					Path:  "/path2",
-					Value: "# My new NGINX configuration",
+					Path: "/path2",
+					Content: &v1alpha1.Value{
+						Value: "# My new NGINX configuration",
+					},
 				}, ri.Spec.Locations[1])
 			},
 		},
@@ -1951,8 +1977,10 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
 				assert.NoError(t, err)
 				assert.Equal(t, v1alpha1.Location{
-					Path:  "/path4",
-					Value: "# My new NGINX configuration",
+					Path: "/path4",
+					Content: &v1alpha1.Value{
+						Value: "# My new NGINX configuration",
+					},
 				}, ri.Spec.Locations[3])
 			},
 		},

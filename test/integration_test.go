@@ -272,8 +272,10 @@ func Test_RpaasApi(t *testing.T) {
 
 		assert.Equal(t, []v1alpha1.Location{
 			{
-				Path:  "/path1",
-				Value: `echo "My custom content at /path1";`,
+				Path: "/path1",
+				Content: &v1alpha1.Value{
+					Value: `echo "My custom content at /path1";`,
+				},
 			},
 			{
 				Path:        "/",
@@ -303,12 +305,16 @@ func Test_RpaasApi(t *testing.T) {
 
 		assert.Equal(t, []v1alpha1.Location{
 			{
-				Path:  "/path1",
-				Value: `echo "My custom content at /path1";`,
+				Path: "/path1",
+				Content: &v1alpha1.Value{
+					Value: `echo "My custom content at /path1";`,
+				},
 			},
 			{
-				Path:  "/",
-				Value: `echo "My root path response";`,
+				Path: "/",
+				Content: &v1alpha1.Value{
+					Value: `echo "My root path response";`,
+				},
 			},
 		}, rpaasInstance.Spec.Locations)
 	})

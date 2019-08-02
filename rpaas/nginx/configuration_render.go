@@ -259,7 +259,7 @@ http {
             proxy_pass http://{{$location.Destination}}/;
             proxy_redirect ~^http://{{buildLocationKey "" $location.Path}}(:\d+)?/(.*)$ {{$location.Path}}$2;
 {{else}}
-{{with $location.Value}}
+{{with $location.Content.Value}}
             {{.}}
 {{end}}
 {{end}}

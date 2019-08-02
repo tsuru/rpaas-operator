@@ -258,8 +258,10 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 								ForceHTTPS:  true,
 							},
 							{
-								Path:  "/path3",
-								Value: "# My custom configuration for /path3",
+								Path: "/path3",
+								Content: &v1alpha1.Value{
+									Value: "# My custom configuration for /path3",
+								},
 							},
 						},
 					},
