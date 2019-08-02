@@ -12,7 +12,6 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
-	"os"
 	"reflect"
 	"regexp"
 	"strings"
@@ -531,41 +530,17 @@ func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([
 
 	var routes []Route
 	for _, location := range instance.Spec.Locations {
-		hasContent := location.Destination == ""
 		var content string
-		if hasContent && location.Value != "" {
-			content = location.Value
-		}
 
-		isContentFromSource := location.ValueFrom != nil && location.ValueFrom.ConfigMapKeyRef != nil
-		if content == "" && hasContent && isContentFromSource {
-			cmName := types.NamespacedName{
-				Name:      location.ValueFrom.ConfigMapKeyRef.Name,
-				Namespace: instance.Namespace,
-			}
-
-			isOptional := location.ValueFrom.ConfigMapKeyRef.Optional == nil || *location.ValueFrom.ConfigMapKeyRef.Optional
-			var cm corev1.ConfigMap
-			if err = m.cli.Get(ctx, cmName, &cm); err != nil && !isOptional {
+		if location.Content != nil {
+			content, err = util.GetValue(ctx, m.cli, location.Content)
+			if err != nil {
 				return nil, err
 			}
+		}
 
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "Skipping route %q due ConfigMap could not be found\n", location.Path)
-				continue
-			}
-
-			data, ok := cm.Data[location.ValueFrom.ConfigMapKeyRef.Key]
-			if !ok && !isOptional {
-				return nil, fmt.Errorf("could not retrieve the value of path %q: configmap %q has no key %q", location.Path, cm.Name, location.ValueFrom.ConfigMapKeyRef.Key)
-			}
-
-			if !ok {
-				fmt.Fprintf(os.Stderr, "Skipping route %q due the key %q is not found into ConfigMap %q\n", location.Path, location.ValueFrom.ConfigMapKeyRef.Key, cm.Name)
-				continue
-			}
-
-			content = data
+		if location.Destination == "" && content == "" {
+			continue
 		}
 
 		routes = append(routes, Route{
@@ -589,11 +564,16 @@ func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, 
 		return err
 	}
 
+	var content *v1alpha1.Value
+	if route.Content != "" {
+		content = &v1alpha1.Value{Value: route.Content}
+	}
+
 	newLocation := v1alpha1.Location{
 		Path:        route.Path,
 		Destination: route.Destination,
 		ForceHTTPS:  route.HTTPSOnly,
-		Value:       route.Content,
+		Content:     content,
 	}
 
 	if index, found := hasPath(*instance, route.Path); found {

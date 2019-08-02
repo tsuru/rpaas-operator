@@ -78,12 +78,9 @@ type RpaasInstanceList struct {
 type BlockType string
 
 const (
-	BlockTypeHTTP          = "http"
-	BlockTypeServer        = "server"
-	BlockTypeRoot          = "root"
-	BlockTypeHTTPDefault   = "http-default"
-	BlockTypeServerDefault = "server-default"
-	BlockTypeRootDefault   = "root-default"
+	BlockTypeHTTP   = "http"
+	BlockTypeServer = "server"
+	BlockTypeRoot   = "root"
 )
 
 type ConfigRef struct {
@@ -98,15 +95,20 @@ type ConfigRef struct {
 type ConfigKind string
 
 type Location struct {
-	Path        string       `json:"path"`
-	Destination string       `json:"destination,omitempty"`
-	ForceHTTPS  bool         `json:"forceHTTPS,omitempty"`
-	Value       string       `json:"value,omitempty"`
-	ValueFrom   *ValueSource `json:"valueFrom,omitempty"`
+	Path        string `json:"path"`
+	Destination string `json:"destination,omitempty"`
+	Content     *Value `json:"content,omitempty"`
+	ForceHTTPS  bool   `json:"forceHTTPS,omitempty"`
 }
 
 type ValueSource struct {
 	ConfigMapKeyRef *corev1.ConfigMapKeySelector `json:"configMapKeyRef,omitempty"`
+	Namespace       string                       `json:"namespace,omitempty"`
+}
+
+type Value struct {
+	Value     string       `json:"value,omitempty"`
+	ValueFrom *ValueSource `json:"valueFrom,omitempty"`
 }
 
 const (
