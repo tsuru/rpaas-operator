@@ -312,6 +312,32 @@ func Test_RpaasApi(t *testing.T) {
 			},
 		}, rpaasInstance.Spec.Locations)
 	})
+
+	t.Run("limits the number of configs to 10 by default", func(t *testing.T) {
+		instanceName := "my-instance"
+		teamName := "team-one"
+		planName := "basic"
+		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
+		blockName := "server"
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		configList, err := getConfigList(instanceName, namespaceName)
+		require.NoError(t, err)
+		assert.Equal(t, len(configList.Items), 1)
+
+		for i := 0; i < 11; i++ {
+			cleanBlockFunc, err := api.createBlock(instanceName, teamName, blockName, fmt.Sprintf("content=location=/test%d{return 204;}", i))
+			require.NoError(t, err)
+			defer cleanBlockFunc()
+		}
+
+		configList, err = getConfigList(instanceName, namespaceName)
+		require.NoError(t, err)
+		assert.Equal(t, 10, len(configList.Items))
+	})
 }
 
 func getRpaasInstance(name, namespace string) (*v1alpha1.RpaasInstance, error) {

@@ -14,6 +14,7 @@ import (
 	"strings"
 
 	"github.com/tsuru/rpaas-operator/rpaas"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )
 
@@ -57,6 +58,18 @@ func get(obj runtime.Object, name, ns string) error {
 		return err
 	}
 	return json.Unmarshal(out, obj)
+}
+
+func getConfigList(instanceName, namespaceName string) (*corev1.ConfigMapList, error) {
+	configList := &corev1.ConfigMapList{}
+	out, err := kubectl("get", "cm", "-l", fmt.Sprintf("instance=%s,type=config", instanceName), "-n", namespaceName, "-o", "json")
+	if err != nil {
+		return nil, err
+	}
+	if err = json.Unmarshal(out, configList); err != nil {
+		return nil, err
+	}
+	return configList, nil
 }
 
 func portForward(ctx context.Context, ns, name, port string, fn func(localPort int)) error {
@@ -166,6 +179,46 @@ func (api *rpaasApi) deleteInstance(name string) error {
 			return err
 		}
 		return fmt.Errorf("could not delete the instance %q: %v - Body %s", name, rsp, string(body))
+	}
+	return nil
+}
+
+func (api *rpaasApi) createBlock(instanceName, team, blockName, blockContent string) (func() error, error) {
+	nilFunc := func() error { return nil }
+	data := url.Values{"block_name": []string{blockName}, "content": []string{blockContent}, "team": []string{team}}
+	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/block", api.address, instanceName), data)
+	if err != nil {
+		return nilFunc, err
+	}
+	if rsp.StatusCode != http.StatusCreated {
+		defer rsp.Body.Close()
+		body, err := ioutil.ReadAll(rsp.Body)
+		if err != nil {
+			return nilFunc, err
+		}
+		return nilFunc, fmt.Errorf("could not create the block %q for instance %q: %v - Body %s", blockName, instanceName, rsp, string(body))
+	}
+	return func() error {
+		return api.deleteBlock(instanceName, blockName)
+	}, nil
+}
+
+func (api *rpaasApi) deleteBlock(instanceName, blockName string) error {
+	req, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/resources/%s/block/%s", api.address, instanceName, blockName), nil)
+	if err != nil {
+		return err
+	}
+	rsp, err := api.client.Do(req)
+	if err != nil {
+		return err
+	}
+	if rsp.StatusCode != http.StatusOK {
+		defer rsp.Body.Close()
+		body, err := ioutil.ReadAll(rsp.Body)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("could not delete the block %s from instance %q: %v - Body %s", blockName, instanceName, rsp, string(body))
 	}
 	return nil
 }

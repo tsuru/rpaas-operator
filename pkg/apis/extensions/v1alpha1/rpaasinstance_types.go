@@ -44,6 +44,10 @@ type RpaasInstanceSpec struct {
 	// ExtraFiles points to a ConfigMap where the files are stored.
 	// +optional
 	ExtraFiles *nginxv1alpha1.FilesRef `json:"extraFiles,omitempty"`
+
+	// The number of old Configs to retain to allow rollback.
+	// +optional
+	ConfigHistoryLimit *int `json:"configHistoryLimit,omitempty"`
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
