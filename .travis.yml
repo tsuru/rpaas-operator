@@ -24,13 +24,11 @@ jobs:
     script: make test
     go: 1.12.x
     env:
-    - GO111MODULE=on
   - stage: integration
     script: make test/integration
     go: 1.12.x
     env:
     - KUBERNETES_VERSION=v1.14.2
-    - GO111MODULE=on
   - stage: push to docker
     script:
     - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
@@ -38,6 +36,8 @@ jobs:
     if: "(NOT type IN (pull_request)) AND (branch = master) OR (tag IS present)"
 env:
   global:
+  - GOPROXY=https://proxy.golang.org
+  - GO111MODULE=on
   - secure: TMG5cyxEi8dQnRvAXF/f65lrcJPDOaGnOVHa71I6JYd2R/1kWpWEk69+p4dSFkIJrjwWuuMSXF9Jgl2MXE5iS71/CGmED+Dd1azwcSoLAUbk+kZb0kLlDDjZOBfEcXCi3uQhIANOmWPXBL+VjuR2lQQc6RUXmxwT/ZBvkEoUHXIL8vriydxbldsJo0sN+Umxlpsoj18NI/gAyUFt4yDb1DJfFqDjngjIzrrUqXZCZ793v1ZonosasnGQ9+OTdPkvhlJi6uo9Sv3bIuBxj8clwnXgQB9NUKN8wc9F7pCmoW/F2CbyZqNqL2djRyID0Vy2aWwcBB+xwhOueBcNT1uLGGK9Ub6+hVvLU0aCpippsqkjAeu/Sb2fsgtUrnxWm44h7aDU9qUU+Ak4ws9lYJzsgg2wRUxv8UnzZ9wwUq/f3iOBqw445mHumASZ38+iNZ9wl/+MBZOH2noX4gNns3ai+CzLXKmDFrZRKWDLtshNeWXMxmZdI1un72oDvzK3v/zmpeX5efEdSd+PHrjHcAGQfuGWu4HITfIgR7zxvB3SVy/wlJB/k/1w3QSTyTuKPP5smLU49jLVOwkBIjmvC/isTigWynbySMHbGCWO0xoXAjWl6/aP8of3rPkDylq6zgHbx2gHV0BlPNXd3QlPl4wozEIn8IujcPup8wDLeaIk5DQ=
 notifications:
   slack:
