@@ -37,7 +37,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config:   &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstanceSpec{},
+				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
 				require.NoError(t, err)
