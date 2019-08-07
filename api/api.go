@@ -164,6 +164,8 @@ func newEcho() *echo.Echo {
 
 	e.GET("/healthcheck", healthcheck)
 	e.POST("/resources", serviceCreate)
+	e.GET("/resources/flavors", getServiceFlavors)
+	e.GET("/resources/:instance/flavors", getInstanceFlavors)
 	e.GET("/resources/plans", servicePlans)
 	e.GET("/resources/:instance/plans", servicePlans)
 	e.GET("/resources/:instance", serviceInfo)
