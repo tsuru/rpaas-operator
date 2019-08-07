@@ -123,7 +123,7 @@ func serviceBindApp(c echo.Context) error {
 		return err
 	}
 
-	return c.NoContent(http.StatusCreated)
+	return c.JSON(http.StatusCreated, map[string]string{})
 }
 
 func serviceUnbindApp(c echo.Context) error {
