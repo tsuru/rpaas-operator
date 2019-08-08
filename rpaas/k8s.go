@@ -660,15 +660,47 @@ func (m *k8sRpaasManager) getExtraFiles(ctx context.Context, instance v1alpha1.R
 }
 
 func (m *k8sRpaasManager) getPlan(ctx context.Context, name string) (*v1alpha1.RpaasPlan, error) {
-	plan := &v1alpha1.RpaasPlan{}
-	err := m.cli.Get(ctx, types.NamespacedName{Name: name}, plan)
-	if err != nil && k8sErrors.IsNotFound(err) {
+	if name == "" {
+		return m.getDefaultPlan(ctx)
+	}
+
+	var plan v1alpha1.RpaasPlan
+	if err := m.cli.Get(ctx, types.NamespacedName{Name: name}, &plan); err != nil {
+		if !k8sErrors.IsNotFound(err) {
+			return nil, err
+		}
+
 		return nil, NotFoundError{Msg: fmt.Sprintf("plan %q not found", name)}
 	}
+
+	return &plan, nil
+}
+
+func (m *k8sRpaasManager) getDefaultPlan(ctx context.Context) (*v1alpha1.RpaasPlan, error) {
+	plans, err := m.GetPlans(ctx)
 	if err != nil {
 		return nil, err
 	}
-	return plan, nil
+
+	var defaultPlans []v1alpha1.RpaasPlan
+	for _, p := range plans {
+		if p.Spec.Default {
+			defaultPlans = append(defaultPlans, p)
+		}
+	}
+
+	switch len(defaultPlans) {
+	case 0:
+		return nil, NotFoundError{Msg: "no default plan found"}
+	case 1:
+		return &defaultPlans[0], nil
+	default:
+		var names []string
+		for _, p := range defaultPlans {
+			names = append(names, p.Name)
+		}
+		return nil, ConflictError{Msg: fmt.Sprintf("several default plans found: %v", strings.Join(names, ","))}
+	}
 }
 
 func (m *k8sRpaasManager) createNamespace(ctx context.Context, name string) error {
@@ -796,9 +828,6 @@ func formatConfigurationBlocksName(instance v1alpha1.RpaasInstance) string {
 func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) (*v1alpha1.RpaasPlan, error) {
 	if args.Name == "" {
 		return nil, ValidationError{Msg: "name is required"}
-	}
-	if args.Plan == "" {
-		return nil, ValidationError{Msg: "plan is required"}
 	}
 	if args.Team == "" {
 		return nil, ValidationError{Msg: "team name is required"}

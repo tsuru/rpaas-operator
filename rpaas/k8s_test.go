@@ -2000,6 +2000,99 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 	}
 }
 
+func Test_getPlan(t *testing.T) {
+	tests := []struct {
+		name      string
+		plan      string
+		resources []runtime.Object
+		assertion func(t *testing.T, err error, p *v1alpha1.RpaasPlan)
+	}{
+		{
+			name:      "when plan does not exist",
+			plan:      "unknown-plan",
+			resources: []runtime.Object{},
+			assertion: func(t *testing.T, err error, p *v1alpha1.RpaasPlan) {
+				assert.Error(t, err)
+				assert.Equal(t, NotFoundError{Msg: "plan \"unknown-plan\" not found"}, err)
+			},
+		},
+		{
+			name: "when plan is found by name",
+			plan: "xxl",
+			resources: []runtime.Object{
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{Name: "xxl"},
+				},
+			},
+			assertion: func(t *testing.T, err error, p *v1alpha1.RpaasPlan) {
+				assert.NoError(t, err)
+				assert.NotNil(t, p)
+				assert.Equal(t, p.Name, "xxl")
+			},
+		},
+		{
+			name: "when plan is not set and there is a default plan",
+			resources: []runtime.Object{
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{Name: "some-default-plan"},
+					Spec: v1alpha1.RpaasPlanSpec{
+						Default: true,
+					},
+				},
+			},
+			assertion: func(t *testing.T, err error, p *v1alpha1.RpaasPlan) {
+				assert.NoError(t, err)
+				assert.NotNil(t, p)
+				assert.Equal(t, p.Name, "some-default-plan")
+			},
+		},
+		{
+			name: "when plan is not set and there is no default plan",
+			resources: []runtime.Object{
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{Name: "plan1"},
+				},
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{Name: "plan2"},
+				},
+			},
+			assertion: func(t *testing.T, err error, p *v1alpha1.RpaasPlan) {
+				assert.Error(t, err)
+				assert.Equal(t, NotFoundError{Msg: "no default plan found"}, err)
+			},
+		},
+		{
+			name: "when plan is not set and there are more than one default plan",
+			resources: []runtime.Object{
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{Name: "plan1"},
+					Spec: v1alpha1.RpaasPlanSpec{
+						Default: true,
+					},
+				},
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{Name: "plan2"},
+					Spec: v1alpha1.RpaasPlanSpec{
+						Default: true,
+					},
+				},
+			},
+			assertion: func(t *testing.T, err error, p *v1alpha1.RpaasPlan) {
+				assert.Error(t, err)
+				assert.Error(t, ConflictError{Msg: "several default plans found: [plan1, plan2]"}, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources...)}
+			p, err := manager.getPlan(nil, tt.plan)
+			tt.assertion(t, err, p)
+		})
+	}
+}
+
 func Test_isPathValid(t *testing.T) {
 	tests := []struct {
 		path     string
