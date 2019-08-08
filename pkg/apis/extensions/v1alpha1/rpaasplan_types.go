@@ -16,6 +16,12 @@ type RpaasPlanSpec struct {
 	// Template contains the main NGINX configuration template.
 	// +optional
 	Template *Value `json:"template,omitempty"`
+	// Description describes the plan.
+	// +optional
+	Description string `json:"description,omitempty"`
+	// Default indicates whether plan is default.
+	// +optional
+	Default bool `json:"default,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
