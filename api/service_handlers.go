@@ -45,6 +45,7 @@ func serviceDelete(c echo.Context) error {
 type plan struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
+	Default     bool   `json:"default"`
 }
 
 func servicePlans(c echo.Context) error {
@@ -52,17 +53,25 @@ func servicePlans(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	plans, err := manager.GetPlans(c.Request().Context())
 	if err != nil {
 		return err
 	}
-	result := make([]plan, len(plans))
-	for i, p := range plans {
-		result[i] = plan{
+
+	var result []plan
+	for _, p := range plans {
+		result = append(result, plan{
 			Name:        p.Name,
-			Description: "no plan description",
-		}
+			Description: p.Spec.Description,
+			Default:     p.Spec.Default,
+		})
 	}
+
+	if result == nil {
+		result = []plan{}
+	}
+
 	return c.JSON(http.StatusOK, result)
 }
 

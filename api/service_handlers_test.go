@@ -148,23 +148,60 @@ func Test_serviceDelete(t *testing.T) {
 
 func Test_servicePlans(t *testing.T) {
 	testCases := []struct {
+		name          string
 		expectedCode  int
+		expectedError string
 		expectedPlans []plan
 		manager       rpaas.RpaasManager
 	}{
 		{
+			name:          "when returns some error",
+			expectedCode:  http.StatusConflict,
+			expectedError: "some error",
+			manager: &fake.RpaasManager{
+				FakeGetPlans: func() ([]v1alpha1.RpaasPlan, error) {
+					return nil, rpaas.ConflictError{Msg: "some error"}
+				},
+			},
+		},
+		{
+			name:          "when has no plans",
 			expectedCode:  http.StatusOK,
-			expectedPlans: []plan{{Name: "my-plan", Description: "no plan description"}},
+			expectedPlans: []plan{},
+			manager: &fake.RpaasManager{
+				FakeGetPlans: func() ([]v1alpha1.RpaasPlan, error) {
+					return nil, nil
+				},
+			},
+		},
+		{
+			name:         "when returns several plans",
+			expectedCode: http.StatusOK,
+			expectedPlans: []plan{
+				{
+					Name: "my-plan",
+				},
+				{
+					Name:        "my-default-plan",
+					Description: "Some description about my-default-plan.",
+					Default:     true,
+				},
+			},
 			manager: &fake.RpaasManager{
 				FakeGetPlans: func() ([]v1alpha1.RpaasPlan, error) {
 					return []v1alpha1.RpaasPlan{
 						{
-							TypeMeta: metav1.TypeMeta{
-								Kind:       "RpaasPlan",
-								APIVersion: "extensions.tsuru.io/v1alpha1",
-							},
 							ObjectMeta: metav1.ObjectMeta{
 								Name: "my-plan",
+							},
+						},
+						{
+							ObjectMeta: metav1.ObjectMeta{
+								Name: "my-default-plan",
+							},
+							Spec: v1alpha1.RpaasPlanSpec{
+								Description: "Some description about my-default-plan.",
+								Default:     true,
 							},
 						},
 					}, nil
@@ -174,7 +211,7 @@ func Test_servicePlans(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/plans", srv.URL)
@@ -183,9 +220,13 @@ func Test_servicePlans(t *testing.T) {
 			rsp, err := srv.Client().Do(request)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			var p []plan
-			require.NoError(t, json.Unmarshal([]byte(bodyContent(rsp)), &p))
-			assert.Equal(t, tt.expectedPlans, p)
+			if tt.expectedError != "" {
+				assert.Regexp(t, tt.expectedError, bodyContent(rsp))
+				return
+			}
+			var result []plan
+			require.NoError(t, json.Unmarshal([]byte(bodyContent(rsp)), &result))
+			assert.Equal(t, result, tt.expectedPlans)
 		})
 	}
 }
