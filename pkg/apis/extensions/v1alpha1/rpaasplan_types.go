@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -51,6 +52,8 @@ type NginxConfig struct {
 	UpstreamKeepalive int `json:"upstreamKeepAlive,omitempty"`
 
 	RequestIDEnabled bool `json:"requestIDEnabled,omitempty"`
+
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	CacheEnabled     bool   `json:"cacheEnabled,omitempty"`
 	CacheInactive    string `json:"cacheInactive,omitempty"`
