@@ -2,6 +2,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,6 +38,19 @@ type NginxSpec struct {
 	// Resources requirements to be set on the NGINX container.
 	// +optional
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
+	// Cache allows configuring a cache volume for nginx to use.
+	// +optional
+	Cache NginxCacheSpec `json:"cache,omitempty"`
+}
+
+type NginxCacheSpec struct {
+	// InMemory if set to true creates a memory backed volume.
+	InMemory bool `json:"inMemory,omitempty"`
+	// Path is the mount path for the cache volume.
+	Path string `json:"path"`
+	// Size is the maximum size allowed for the cache volume.
+	// +optional
+	Size *resource.Quantity `json:"size,omitempty"`
 }
 
 type NginxPodTemplateSpec struct {

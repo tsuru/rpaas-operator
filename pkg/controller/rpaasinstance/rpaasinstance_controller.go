@@ -298,6 +298,11 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 }
 
 func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxV1alpha1.Nginx {
+	var cacheConfig nginxV1alpha1.NginxCacheSpec
+	if plan.Spec.Config.CacheEnabled {
+		cacheConfig.Path = plan.Spec.Config.CachePath
+		cacheConfig.InMemory = true
+	}
 	return &nginxV1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
@@ -325,6 +330,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			HealthcheckPath: "/_nginx_healthcheck",
 			ExtraFiles:      instance.Spec.ExtraFiles,
 			Certificates:    instance.Spec.Certificates,
+			Cache:           cacheConfig,
 		},
 	}
 }
