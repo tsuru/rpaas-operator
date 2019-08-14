@@ -6,6 +6,7 @@ import (
 	"github.com/google/gops/agent"
 	"github.com/tsuru/rpaas-operator/api"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/oidc"
 )
 
 func startup() error {
