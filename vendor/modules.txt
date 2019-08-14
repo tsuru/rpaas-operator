@@ -369,6 +369,9 @@ k8s.io/apimachinery/pkg/util/framer
 k8s.io/apimachinery/pkg/apis/meta/internalversion
 # k8s.io/client-go v12.0.0+incompatible => k8s.io/client-go v0.0.0-20190228174230-b40b2a5939e4
 k8s.io/client-go/plugin/pkg/client/auth
+k8s.io/client-go/plugin/pkg/client/auth/gcp
+k8s.io/client-go/plugin/pkg/client/auth/oidc
+k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/rest
 k8s.io/client-go/kubernetes/scheme
 k8s.io/client-go/tools/leaderelection
