@@ -23,6 +23,9 @@ type RpaasPlanSpec struct {
 	// Default indicates whether plan is default.
 	// +optional
 	Default bool `json:"default,omitempty"`
+	// Resources requirements to be set on the NGINX container.
+	// +optional
+	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -52,8 +55,6 @@ type NginxConfig struct {
 	UpstreamKeepalive int `json:"upstreamKeepAlive,omitempty"`
 
 	RequestIDEnabled bool `json:"requestIDEnabled,omitempty"`
-
-	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 
 	CacheEnabled     bool   `json:"cacheEnabled,omitempty"`
 	CacheInactive    string `json:"cacheInactive,omitempty"`
