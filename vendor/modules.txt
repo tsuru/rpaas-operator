@@ -166,7 +166,7 @@ github.com/spf13/pflag
 # github.com/stretchr/testify v1.3.0
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
-# github.com/tsuru/nginx-operator v0.0.0-20190813182140-ec43e4fe42f6
+# github.com/tsuru/nginx-operator v0.0.0-20190814231652-0569a069da69
 github.com/tsuru/nginx-operator/pkg/apis
 github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1
 # github.com/valyala/bytebufferpool v1.0.0

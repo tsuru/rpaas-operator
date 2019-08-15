@@ -394,8 +394,8 @@ github.com/technosophos/moniker v0.0.0-20180509230615-a5dbd03a2245/go.mod h1:O1c
 github.com/tmc/grpc-websocket-proxy v0.0.0-20171017195756-830351dc03c6/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tsuru/config v0.0.0-20180418191556-87403ee7da02/go.mod h1:bilf/jr5AGl9raMFnhM9hsp+ms6PK752UF89ODoRHW4=
-github.com/tsuru/nginx-operator v0.0.0-20190813182140-ec43e4fe42f6 h1:sQe/ktIeB9RKqO+vfHZfVwdJgV3L2eCoL2g6fCscwAM=
-github.com/tsuru/nginx-operator v0.0.0-20190813182140-ec43e4fe42f6/go.mod h1:FfMJvgL048SB8txQNgUGTsVpXoq1oXP9rz0rQjnu1bQ=
+github.com/tsuru/nginx-operator v0.0.0-20190814231652-0569a069da69 h1:thjCpr6F9Ti96oMMxICkcrVa4zvxwBasYbhWlLmenB0=
+github.com/tsuru/nginx-operator v0.0.0-20190814231652-0569a069da69/go.mod h1:FfMJvgL048SB8txQNgUGTsVpXoq1oXP9rz0rQjnu1bQ=
 github.com/ugorji/go v1.1.1/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=

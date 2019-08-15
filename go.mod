@@ -15,7 +15,7 @@ require (
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.3
 	github.com/stretchr/testify v1.3.0
-	github.com/tsuru/nginx-operator v0.0.0-20190813182140-ec43e4fe42f6
+	github.com/tsuru/nginx-operator v0.0.0-20190814231652-0569a069da69
 	github.com/valyala/fasttemplate v1.0.1 // indirect
 	k8s.io/api v0.0.0-20190726022912-69e1bce1dad5
 	k8s.io/apiextensions-apiserver v0.0.0-20190726024412-102230e288fd // indirect
