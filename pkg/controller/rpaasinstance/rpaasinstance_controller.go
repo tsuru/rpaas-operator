@@ -234,6 +234,10 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 
 func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasInstance) error {
 	for _, location := range instance.Spec.Locations {
+		if location.Content == nil {
+			continue
+		}
+
 		content, err := util.GetValue(context.TODO(), r.client, location.Content)
 		if err != nil {
 			return err
