@@ -4,8 +4,10 @@ import (
 	"context"
 	"fmt"
 	"io/ioutil"
+	"math/rand"
 	"net/http"
 	"os"
+	"strconv"
 	"testing"
 	"time"
 
@@ -24,6 +26,7 @@ func TestMain(m *testing.M) {
 		fmt.Println("Skipping the integration tests since RPAAS_OPERATOR_INTEGRATION env var isn't defined")
 		os.Exit(0)
 	}
+	rand.Seed(time.Now().Unix())
 
 	os.Exit(m.Run())
 }
@@ -114,7 +117,7 @@ func Test_RpaasApi(t *testing.T) {
 
 	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := "my-instance"
-		teamName := "team-one"
+		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 
 		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
@@ -158,7 +161,7 @@ func Test_RpaasApi(t *testing.T) {
 
 	t.Run("bind and unbind with a local application", func(t *testing.T) {
 		instanceName := "my-instance"
-		teamName := "team-one"
+		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 
 		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
@@ -177,7 +180,7 @@ func Test_RpaasApi(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "1m", "-n", namespaceName)
+		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "2m", "-n", namespaceName)
 		require.NoError(t, err)
 
 		assertInstanceReturns := func(localPort int, expectedBody string) {
@@ -195,7 +198,6 @@ func Test_RpaasApi(t *testing.T) {
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
-
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
 			assertInstanceReturns(localPort, "instance not bound yet\n")
 		})
@@ -210,6 +212,8 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
 			assertInstanceReturns(localPort, "Hello World!")
 		})
@@ -223,6 +227,8 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
 			assertInstanceReturns(localPort, "instance not bound yet\n")
 		})
@@ -231,7 +237,7 @@ func Test_RpaasApi(t *testing.T) {
 
 	t.Run("adding and deleting routes", func(t *testing.T) {
 		instanceName := "my-instance-with-custom-routes"
-		teamName := "team-one"
+		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 
 		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
@@ -321,7 +327,7 @@ func Test_RpaasApi(t *testing.T) {
 
 	t.Run("limits the number of configs to 10 by default", func(t *testing.T) {
 		instanceName := "my-instance"
-		teamName := "team-one"
+		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
 		blockName := "server"
@@ -334,15 +340,36 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		assert.Equal(t, len(configList.Items), 1)
 
-		for i := 0; i < 11; i++ {
+		for i := 0; i < 15; i++ {
 			cleanBlockFunc, err := api.createBlock(instanceName, teamName, blockName, fmt.Sprintf("content=location=/test%d{return 204;}", i))
 			require.NoError(t, err)
 			defer cleanBlockFunc()
 		}
 
+		timeout := time.After(60 * time.Second)
+		expectedConfigSize := 10
+		expectedStableCount := 10
+		count := 0
+		for {
+			select {
+			case <-timeout:
+				t.Fatalf("timeout waiting for configs to reach %v, last count: %v", expectedConfigSize, len(configList.Items))
+			case <-time.After(100 * time.Millisecond):
+			}
+			configList, err = getConfigList(instanceName, namespaceName)
+			require.NoError(t, err)
+			if len(configList.Items) == expectedConfigSize {
+				count++
+				if count == expectedStableCount {
+					break
+				}
+				continue
+			}
+			count = 0
+		}
 		configList, err = getConfigList(instanceName, namespaceName)
 		require.NoError(t, err)
-		assert.Equal(t, 10, len(configList.Items))
+		assert.Equal(t, expectedConfigSize, len(configList.Items))
 	})
 }
 
@@ -358,9 +385,16 @@ func getRpaasInstance(name, namespace string) (*v1alpha1.RpaasInstance, error) {
 
 func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*nginxv1alpha1.Nginx, error) {
 	nginx := &nginxv1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
-	timeout := time.After(60 * time.Second)
+	timeout := time.After(120 * time.Second)
+	var err error
 	for {
-		_, err := kubectl("rollout", "status", "-n", namespace, "deploy", name, "--watch")
+		select {
+		case <-timeout:
+			return nil, fmt.Errorf("Timeout waiting for nginx status. Last nginx object: %#v. Last error: %v", nginx, err)
+		case <-time.After(time.Millisecond * 100):
+		}
+
+		_, err = kubectl("rollout", "status", "-n", namespace, "deploy", name, "--timeout=5s", "--watch")
 		if err != nil {
 			continue
 		}
@@ -382,12 +416,6 @@ func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*ngi
 
 		if _, err = kubectl(waitArgs...); err == nil {
 			return nginx, nil
-		}
-
-		select {
-		case <-timeout:
-			return nil, fmt.Errorf("Timeout waiting for nginx status. Last nginx object: %#v. Last error: %v", nginx, err)
-		case <-time.After(time.Millisecond * 100):
 		}
 	}
 }

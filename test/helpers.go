@@ -32,7 +32,10 @@ func createNamespace(ns string) (func() error, error) {
 }
 
 func deleteNamespace(ns string) error {
-	if _, err := kubectl("delete", "namespace", ns); err != nil {
+	if _, err := kubectl("delete", "namespace", ns, "--timeout=30s"); err != nil {
+		if strings.Contains(err.Error(), "timed out waiting") {
+			return nil
+		}
 		return fmt.Errorf("failed to delete namespace %q: %v", ns, err)
 	}
 	return nil

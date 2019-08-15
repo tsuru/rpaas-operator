@@ -9,7 +9,7 @@ install:
 - mkdir -p .tmp
 - |
   if [[ -z $(which operator-sdk) ]]; then
-    sudo curl -L https://github.com/operator-framework/operator-sdk/releases/download/v0.8.1/operator-sdk-v0.8.1-x86_64-linux-gnu -o /usr/local/bin/operator-sdk
+    sudo curl -L https://github.com/operator-framework/operator-sdk/releases/download/v0.9.0/operator-sdk-v0.9.0-x86_64-linux-gnu -o /usr/local/bin/operator-sdk
     sudo chmod +x /usr/local/bin/operator-sdk
   fi
   - |
@@ -28,7 +28,7 @@ jobs:
     script: make test/integration
     go: 1.12.x
     env:
-    - KUBERNETES_VERSION=v1.14.2
+    - KUBERNETES_VERSION=v1.14.3
   - stage: push to docker
     script:
     - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
