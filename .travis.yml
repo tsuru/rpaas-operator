@@ -5,6 +5,8 @@ services:
 cache:
   directories:
   - .tmp/
+go:
+- 1.12.x
 install:
 - mkdir -p .tmp
 - |
@@ -22,11 +24,8 @@ jobs:
   include:
   - stage: test
     script: make test
-    go: 1.12.x
-    env:
   - stage: integration
     script: make test/integration
-    go: 1.12.x
     env:
     - KUBERNETES_VERSION=v1.14.3
   - stage: push to docker
