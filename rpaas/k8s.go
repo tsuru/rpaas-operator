@@ -34,11 +34,6 @@ const (
 	defaultNamespacePrefix = "rpaasv2"
 )
 
-var (
-	ErrBlockInvalid      = ValidationError{Msg: fmt.Sprintf("rpaas: block is not valid (acceptable values are: %v)", getAvailableBlocks())}
-	ErrBlockIsNotDefined = ValidationError{Msg: "rpaas: block is not defined"}
-)
-
 type k8sRpaasManager struct {
 	nonCachedCli client.Client
 	cli          client.Client
@@ -158,19 +153,16 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 	if err != nil {
 		return err
 	}
-	if !isBlockValid(blockName) {
-		return ErrBlockInvalid
-	}
-	if err = m.deleteConfigurationBlocks(ctx, *instance, blockName); err != nil {
-		return err
-	}
+
 	if instance.Spec.Blocks == nil {
-		return ErrBlockIsNotDefined
+		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
 	}
+
 	blockType := v1alpha1.BlockType(blockName)
 	if _, ok := instance.Spec.Blocks[blockType]; !ok {
-		return ErrBlockIsNotDefined
+		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
 	}
+
 	delete(instance.Spec.Blocks, blockType)
 	return m.cli.Update(ctx, instance)
 }
@@ -180,19 +172,17 @@ func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) (
 	if err != nil {
 		return nil, err
 	}
-	configBlocks, err := m.getConfigurationBlocks(ctx, *instance)
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return []ConfigurationBlock{}, nil
+
+	var blocks []ConfigurationBlock
+	for blockType, blockValue := range instance.Spec.Blocks {
+		content, err := util.GetValue(ctx, m.cli, &blockValue)
+		if err != nil {
+			return nil, err
+		}
+
+		blocks = append(blocks, ConfigurationBlock{Name: string(blockType), Content: content})
 	}
-	if err != nil {
-		return nil, err
-	}
-	var index int
-	blocks := make([]ConfigurationBlock, len(configBlocks.Data))
-	for name, content := range configBlocks.Data {
-		blocks[index] = ConfigurationBlock{Name: name, Content: content}
-		index++
-	}
+
 	return blocks, nil
 }
 
@@ -201,20 +191,18 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 	if err != nil {
 		return err
 	}
-	if !isBlockValid(block.Name) {
-		return ErrBlockInvalid
-	}
-	if err = m.updateConfigurationBlocks(ctx, *instance, block.Name, block.Content); err != nil {
-		return err
-	}
-	if instance.Spec.Blocks == nil {
-		instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{}
-	}
+
 	blockType := v1alpha1.BlockType(block.Name)
-	instance.Spec.Blocks[blockType] = v1alpha1.ConfigRef{
-		Name: formatConfigurationBlocksName(*instance),
-		Kind: v1alpha1.ConfigKindConfigMap,
+	if !isBlockTypeAllowed(blockType) {
+		return ValidationError{Msg: fmt.Sprintf("block %q is not allowed", block.Name)}
 	}
+
+	if instance.Spec.Blocks == nil {
+		instance.Spec.Blocks = make(map[v1alpha1.BlockType]v1alpha1.Value)
+	}
+
+	instance.Spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
+
 	return m.cli.Update(ctx, instance)
 }
 
@@ -777,69 +765,6 @@ func (m *k8sRpaasManager) createNamespace(ctx context.Context, name string) erro
 	return m.cli.Create(ctx, ns)
 }
 
-func (m *k8sRpaasManager) createConfigurationBlocks(ctx context.Context, instance v1alpha1.RpaasInstance, block, content string) error {
-	configBlocks := &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      formatConfigurationBlocksName(instance),
-			Namespace: instance.ObjectMeta.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
-					Group:   v1alpha1.SchemeGroupVersion.Group,
-					Version: v1alpha1.SchemeGroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-		},
-		Data: map[string]string{
-			block: content,
-		},
-	}
-	return m.cli.Create(ctx, configBlocks)
-}
-
-func (m *k8sRpaasManager) getConfigurationBlocks(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
-	cm := &corev1.ConfigMap{}
-	namespacedName := types.NamespacedName{
-		Name:      formatConfigurationBlocksName(instance),
-		Namespace: instance.ObjectMeta.Namespace,
-	}
-	err := m.cli.Get(ctx, namespacedName, cm)
-	return cm, err
-}
-
-func (m *k8sRpaasManager) updateConfigurationBlocks(ctx context.Context, instance v1alpha1.RpaasInstance, block, content string) error {
-	configBlocks, err := m.getConfigurationBlocks(ctx, instance)
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return m.createConfigurationBlocks(ctx, instance, block, content)
-	}
-	if err != nil {
-		return err
-	}
-	if configBlocks.Data == nil {
-		configBlocks.Data = map[string]string{}
-	}
-	configBlocks.Data[block] = content
-	return m.cli.Update(ctx, configBlocks)
-}
-
-func (m *k8sRpaasManager) deleteConfigurationBlocks(ctx context.Context, instance v1alpha1.RpaasInstance, block string) error {
-	configBlocks, err := m.getConfigurationBlocks(ctx, instance)
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return ErrBlockIsNotDefined
-	}
-	if err != nil {
-		return err
-	}
-	if configBlocks.Data == nil {
-		return ErrBlockIsNotDefined
-	}
-	if _, ok := configBlocks.Data[block]; !ok {
-		return ErrBlockIsNotDefined
-	}
-	delete(configBlocks.Data, block)
-	return m.cli.Update(ctx, configBlocks)
-}
-
 func getRawCertificateAndKey(c tls.Certificate) ([]byte, []byte, error) {
 	certificatePem, err := convertCertificateToPem(c.Certificate)
 	if err != nil {
@@ -919,21 +844,15 @@ func parseTags(args CreateArgs) {
 	parseTagArg(args.Tags, "plan-override", &args.PlanOverride)
 }
 
-func getAvailableBlocks() []v1alpha1.BlockType {
-	return []v1alpha1.BlockType{
-		v1alpha1.BlockTypeRoot,
-		v1alpha1.BlockTypeHTTP,
-		v1alpha1.BlockTypeServer,
+func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {
+	allowedBlockTypes := map[v1alpha1.BlockType]bool{
+		v1alpha1.BlockTypeRoot:   true,
+		v1alpha1.BlockTypeServer: true,
+		v1alpha1.BlockTypeHTTP:   true,
 	}
-}
 
-func isBlockValid(block string) bool {
-	for _, b := range getAvailableBlocks() {
-		if v1alpha1.BlockType(block) == b {
-			return true
-		}
-	}
-	return false
+	_, ok := allowedBlockTypes[bt]
+	return ok
 }
 
 func (m *k8sRpaasManager) GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error) {

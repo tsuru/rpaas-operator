@@ -229,32 +229,22 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 
 func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {
 	var blocks nginx.ConfigurationBlocks
+
 	if plan.Spec.Template != nil {
 		mainBlock, err := util.GetValue(context.TODO(), r.client, plan.Spec.Template)
 		if err != nil {
 			return blocks, err
 		}
+
 		blocks.MainBlock = mainBlock
 	}
-	if instance.Spec.Blocks == nil {
-		return blocks, nil
-	}
-	cm := &corev1.ConfigMap{}
-	cmName := fmt.Sprintf("%s-blocks", instance.Name)
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cmName, Namespace: instance.Namespace}, cm)
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return blocks, err
-	}
-	for blockType, confRef := range instance.Spec.Blocks {
-		var content string
-		switch confRef.Kind {
-		case v1alpha1.ConfigKindInline:
-			content = confRef.Value
-		case v1alpha1.ConfigKindConfigMap:
-			content = cm.Data[string(blockType)]
-		default:
-			return blocks, fmt.Errorf("invalid config kind: %v", confRef)
+
+	for blockType, blockValue := range instance.Spec.Blocks {
+		content, err := util.GetValue(context.TODO(), r.client, &blockValue)
+		if err != nil {
+			return blocks, err
 		}
+
 		switch blockType {
 		case v1alpha1.BlockTypeRoot:
 			blocks.RootBlock = content
@@ -264,6 +254,7 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 			blocks.ServerBlock = content
 		}
 	}
+
 	return blocks, nil
 }
 

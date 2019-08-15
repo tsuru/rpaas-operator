@@ -27,7 +27,7 @@ type RpaasInstanceSpec struct {
 
 	// Blocks are configuration file fragments added to the generated nginx
 	// config.
-	Blocks map[BlockType]ConfigRef `json:"blocks,omitempty"`
+	Blocks map[BlockType]Value `json:"blocks,omitempty"`
 
 	// Locations hold paths that can be configured to forward resquests to
 	// one destination app or include raw NGINX configurations itself.
@@ -86,17 +86,6 @@ const (
 	BlockTypeRoot   = "root"
 )
 
-type ConfigRef struct {
-	// Name of config reference.
-	Name string `json:"name"`
-	// Kind of config referece.
-	Kind ConfigKind `json:"kind"`
-	// Value is optional and can be set for inline config kind.
-	Value string `json:"value,omitempty"`
-}
-
-type ConfigKind string
-
 type Location struct {
 	Path        string `json:"path"`
 	Destination string `json:"destination,omitempty"`
@@ -113,11 +102,6 @@ type Value struct {
 	Value     string       `json:"value,omitempty"`
 	ValueFrom *ValueSource `json:"valueFrom,omitempty"`
 }
-
-const (
-	ConfigKindInline    = "Inline"
-	ConfigKindConfigMap = "ConfigMap"
-)
 
 const CertificateNameDefault = "default"
 

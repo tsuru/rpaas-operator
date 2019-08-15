@@ -1,7 +1,6 @@
 package api
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo"
@@ -13,18 +12,13 @@ func deleteBlock(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	blockName := c.Param("block")
-	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), blockName)
-	switch err {
-	case nil:
-		return c.String(http.StatusOK, fmt.Sprintf("block %q was successfully removed", blockName))
-	case rpaas.ErrBlockInvalid:
-		return c.String(http.StatusBadRequest, fmt.Sprintf("%s", err))
-	case rpaas.ErrBlockIsNotDefined:
-		return c.NoContent(http.StatusNoContent)
-	default:
+
+	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), c.Param("block"))
+	if err != nil {
 		return err
 	}
+
+	return c.NoContent(http.StatusOK)
 }
 
 func listBlocks(c echo.Context) error {
@@ -32,14 +26,19 @@ func listBlocks(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	blocks, err := manager.ListBlocks(c.Request().Context(), c.Param("instance"))
 	if err != nil {
 		return err
 	}
-	result := struct {
+
+	if blocks == nil {
+		blocks = make([]rpaas.ConfigurationBlock, 0)
+	}
+
+	return c.JSON(http.StatusOK, struct {
 		Blocks []rpaas.ConfigurationBlock `json:"blocks"`
-	}{blocks}
-	return c.JSON(http.StatusOK, result)
+	}{blocks})
 }
 
 func updateBlock(c echo.Context) error {
@@ -47,17 +46,16 @@ func updateBlock(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	var block rpaas.ConfigurationBlock
 	if err = c.Bind(&block); err != nil {
 		return err
 	}
+
 	err = manager.UpdateBlock(c.Request().Context(), c.Param("instance"), block)
-	switch err {
-	case nil:
-		return c.NoContent(http.StatusCreated)
-	case rpaas.ErrBlockInvalid:
-		return c.String(http.StatusBadRequest, fmt.Sprintf("%s", err))
-	default:
+	if err != nil {
 		return err
 	}
+
+	return c.NoContent(http.StatusOK)
 }
