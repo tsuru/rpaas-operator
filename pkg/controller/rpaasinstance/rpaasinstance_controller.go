@@ -350,5 +350,5 @@ func shouldDeleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.
 	}
 
 	listSize := len(configList.Items)
-	return listSize >= limit
+	return listSize > limit
 }
