@@ -1,8 +1,31 @@
-#!/bin/bash -e
+#!/bin/bash
+
+set -euo pipefail
+
+download_operator_sdk() {
+  local version="${1}"
+  local destination="${2}"
+
+  local operator_sdk_bin="${destination}/operator-sdk"
+
+  [[ -f "${operator_sdk_bin}" ]] && echo -n "${operator_sdk_bin}" && return
+
+  local os="$(get_os)"
+  case ${os} in
+    linux)
+      os="linux-gnu";;
+    darwin)
+      os="apple-darwin";;
+  esac
+
+  curl -sLo ${operator_sdk_bin} "https://github.com/operator-framework/operator-sdk/releases/download/${version}/operator-sdk-${version}-x86_64-${os}"
+  chmod +x ${operator_sdk_bin}
+  echo -n ${operator_sdk_bin}  
+}
 
 download_kubectl() {
-  local version="${1:-"v1.14.1"}"
-  local destination="${2:-".tmp"}"
+  local version="${1}"
+  local destination="${2}"
 
   local kubectl_bin="${destination}/kubectl"
 
@@ -11,14 +34,14 @@ download_kubectl() {
   local os="$(get_os)"
   local arch="$(get_arch)"
 
-  curl -sLo ${kubectl_bin} "https://storage.googleapis.com/kubernetes-release/release/${version}/bin/${os}/${arch}/kubectl" && \
+  curl -sLo ${kubectl_bin} "https://storage.googleapis.com/kubernetes-release/release/${version}/bin/${os}/${arch}/kubectl"
   chmod +x ${kubectl_bin}
   echo -n ${kubectl_bin}
 }
 
 download_kind() {
-  local version="${1:-"v0.3.0"}"
-  local destination="${2:-".tmp"}"
+  local version="${1}"
+  local destination="${2}"
 
   local kind_bin="${destination}/kind"
 
@@ -27,7 +50,7 @@ download_kind() {
   local os="$(get_os)"
   local arch="$(get_arch)"
 
-  curl -sLo "${kind_bin}" "https://github.com/kubernetes-sigs/kind/releases/download/${version}/kind-${os}-${arch}" && \
+  curl -sLo "${kind_bin}" "https://github.com/kubernetes-sigs/kind/releases/download/${version}/kind-${os}-${arch}"
   chmod +x "${kind_bin}"
   echo -n "${kind_bin}"
 }
@@ -61,9 +84,16 @@ create_k8s_cluster() {
   local name="${2}"
   local wait="${3:-"10m"}"
 
+  clusters=$(kind get clusters)
+
+  if [[ "${clusters}" == *"${cluster_name}"* ]]; then
+
+    return
+  fi
+
   ${kind_bin} create cluster \
     --name "${cluster_name}" --wait "10m" \
-    --image "kindest/node:${KUBERNETES_VERSION:-"v1.14.1"}"
+    --image "kindest/node:${KUBERNETES_VERSION}"
 }
 
 delete_k8s_cluster() {
@@ -76,15 +106,19 @@ delete_k8s_cluster() {
 run_nginx_operator() {
   local kubectl_bin="${1}"
   local namespace="${2}"
-  local cluster_name="${3}"
-  local tag="${4:-"integration"}"
-  local nginx_operator_dir=${GOPATH}/src/github.com/tsuru/nginx-operator
+  local kind_bin="${3}"
+  local cluster_name="${4}"
+  local tag="${5:-"integration"}"
+  local nginx_operator_dir="${GOPATH}/src/github.com/tsuru/nginx-operator"
   local nginx_operator_revision=$(go mod download -json github.com/tsuru/nginx-operator | jq .Version -r | awk -F '-' '{print $NF}')
 
-  git clone  https://github.com/tsuru/nginx-operator.git ${nginx_operator_dir}
-  cd ${nginx_operator_dir}
+  if [[ ! -d ${nginx_operator_dir} ]]; then
+    mkdir -p $(dirname ${nginx_operator_dir})
+    git clone https://github.com/tsuru/nginx-operator.git ${nginx_operator_dir}
+  fi
+  pushd ${nginx_operator_dir}
   git checkout ${nginx_operator_revision}
-  cd $OLDPWD
+  popd
 
   echo "Building container image of NGINX operator using tag \"${tag}\"..."
   make -C ${nginx_operator_dir} build TAG="${tag}"
@@ -115,7 +149,7 @@ run_rpaas_operator() {
   echo "Building container images of RPaaS operator and API using tag \"${tag}\"..."
   make build TAG="${tag}"
 
-  echo tsuru/rpaas-{api,operator} | tr ' ' '\n' |
+  echo tsuru/rpaas-{api,operator}:${tag} | tr ' ' '\n' |
   xargs -I{} ${kind_bin} load docker-image --name ${cluster_name} {}
 
   ls ./deploy | grep -E ".+\.yaml" | grep -vE "api|operator" |
@@ -136,48 +170,77 @@ run_rpaas_operator() {
   xargs -I{} ${kubectl_bin} -n ${namespace} apply -f {}
 }
 
-[[ -n ${DEBUG} ]] && set -x
+function onerror() {
+  echo
+  echo "RPAAS OPERATOR LOGS:"
+  ${kubectl_bin} logs deploy/rpaas-operator
+  echo
+  echo "NGINX OPERATOR LOGS:"
+  ${kubectl_bin} logs deploy/nginx-operator
+  echo
+  echo "RPAAS API LOGS:"
+  ${kubectl_bin} logs deploy/rpaas-api
+  echo
+}
 
-# When KUBERNETES_VERSION isn't defined, use v1.14.1
-[[ -z ${KUBERNETES_VERSION} ]] && export KUBERNETES_VERSION="v1.14.1"
+trap onerror ERR
+
+[[ -n ${DEBUG:-} ]] && set -x
+
+# When KUBERNETES_VERSION isn't defined, use default
+export KUBERNETES_VERSION="${KUBERNETES_VERSION:-"v1.14.3"}"
+kind_version="v0.4.0"
+operator_sdk_version="v0.9.0"
 
 local_tmp_dir="$(pwd)/.tmp"
 mkdir -p "${local_tmp_dir}"
 echo "Using temporary dir: ${local_tmp_dir}"
 echo
 
-kind_version="v0.3.0"
-echo "Downloading the kind (Kubernetes-IN-Docker)..." && \
-kind_bin="$(download_kind ${kind_version} ${local_tmp_dir})" && \
-echo "kind path: ${kind_bin} " && \
-echo "kind version: ${kind_version}" && \
+export PATH="${local_tmp_dir}:${PATH}"
+
+echo "Downloading the kind (Kubernetes-IN-Docker)..."
+kind_bin="$(download_kind ${kind_version} ${local_tmp_dir})"
+echo "kind path: ${kind_bin} "
+echo "kind version: ${kind_version}"
 echo
 
 cluster_name="rpaasv2-integration"
-echo "Creating a Kubernetes cluster \"${cluster_name}\"..." && \
-create_k8s_cluster "${kind_bin}" "${cluster_name}" && \
+echo "Creating a Kubernetes cluster \"${cluster_name}\"..."
+create_k8s_cluster "${kind_bin}" "${cluster_name}"
 echo "Kubernetes version: ${KUBERNETES_VERSION}"
 echo
 
-echo "Downloading the kubectl..." && \
-kubectl_bin="$(download_kubectl)" && \
-kubeconfig="$(${kind_bin} get kubeconfig-path --name ${cluster_name})" && \
-echo "kubectl path: ${kubectl_bin}" && \
-echo "kubectl version: ${KUBERNETES_VERSION}" && \
-echo "kubeconfig path: ${kubeconfig}" && \
+echo "Downloading the kubectl..."
+kubectl_bin="$(download_kubectl ${KUBERNETES_VERSION}  ${local_tmp_dir})"
+kubeconfig="$(${kind_bin} get kubeconfig-path --name ${cluster_name})"
+echo "kubectl path: ${kubectl_bin}"
+echo "kubectl version: ${KUBERNETES_VERSION}"
+echo "kubeconfig path: ${kubeconfig}"
+echo
+
+echo "Downloading the operator-sdk..."
+operator_sdk_bin=$(download_operator_sdk ${operator_sdk_version} ${local_tmp_dir})
+echo "operator-sdk path: ${operator_sdk_bin}"
+echo "operator-sdk version: $(${operator_sdk_bin} version)"
+echo
 
 export KUBECONFIG="${kubeconfig}"
+export GO111MODULE=on
+
+echo $(which operator-sdk)
 
 # show some info about Kubernetes cluster
-${kubectl_bin} cluster-info && \
+${kubectl_bin} cluster-info
 ${kubectl_bin} get all
 
 rpaas_system_namespace="rpaas-system"
 
 echo "Using namespace \"${rpaas_system_namespace}\" to run \"nginx-operator\" and \"rpaas-operator\"..."
+${kubectl_bin} delete namespace "${rpaas_system_namespace}" || true
 ${kubectl_bin} create namespace "${rpaas_system_namespace}"
 
-run_nginx_operator "${kubectl_bin}" "${rpaas_system_namespace}" "${cluster_name}"
+run_nginx_operator "${kubectl_bin}" "${rpaas_system_namespace}" "${kind_bin}" "${cluster_name}"
 run_rpaas_operator "${kubectl_bin}" "${rpaas_system_namespace}" "${kind_bin}" "${cluster_name}"
 
 sleep 30s
@@ -192,11 +255,10 @@ kubectl_port_forward_pid=${!}
 
 sleep 10s
 
-PATH="${PATH}:$(pwd)/.tmp"                                   \
 RPAAS_API_ADDRESS="http://127.0.0.1:${local_rpaas_api_port}" \
 RPAAS_OPERATOR_INTEGRATION=1                                 \
-go test ./...
+go test -test.v ./...
 
 kill ${kubectl_port_forward_pid}
 
-delete_k8s_cluster "${kind_bin}" "${cluster_name}"
+# delete_k8s_cluster "${kind_bin}" "${cluster_name}"
