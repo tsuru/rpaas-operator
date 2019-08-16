@@ -117,6 +117,19 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		{
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
+				Config:   &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				require.NoError(t, err)
+				assert.Regexp(t, `\s+location \~ \^/purge/(.+) {
+\s+proxy_cache_purge  rpaas \$1\$is_args\$args;
+`, result)
+			},
+		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					VTSEnabled: v1alpha1.Bool(true),
 				},

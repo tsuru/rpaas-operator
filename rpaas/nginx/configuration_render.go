@@ -203,6 +203,10 @@ http {
 		server {
 			listen 8800;
 
+      location ~ ^/purge/(.+) {
+        proxy_cache_purge  rpaas $1$is_args$args;
+      }
+
 {{if .Config.VTSEnabled}}
 			location /status {
 				vhost_traffic_status_display;
