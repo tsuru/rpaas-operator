@@ -139,7 +139,7 @@ func Test_RpaasApi(t *testing.T) {
 	}()
 
 	t.Run("creating and deleting an instance", func(t *testing.T) {
-		instanceName := "my-instance"
+		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 
@@ -183,7 +183,7 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("bind and unbind with a local application", func(t *testing.T) {
-		instanceName := "my-instance"
+		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 
@@ -349,7 +349,7 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("limits the number of configs to 10 by default", func(t *testing.T) {
-		instanceName := "my-instance"
+		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
