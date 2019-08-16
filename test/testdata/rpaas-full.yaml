@@ -5,6 +5,9 @@ metadata:
 spec:
   image: tsuru/nginx-tsuru:1.15.0
   config: {}
+  resources:
+    limits:
+      memory: "128Mi"
 ---
 apiVersion: v1
 kind: Secret

@@ -17,6 +17,7 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/rpaas"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -33,7 +34,7 @@ func TestMain(m *testing.M) {
 
 func Test_RpaasOperator(t *testing.T) {
 	t.Run("apply manifests at rpaas-full.yaml", func(t *testing.T) {
-		namespaceName := "rpaasoperator-full"
+		namespaceName := "rpaasoperator-full" + strconv.Itoa(rand.Int())
 
 		cleanNsFunc, err := createNamespace(namespaceName)
 		require.NoError(t, err)
@@ -90,6 +91,28 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.Equal(t, "custom-annotation-value", nginxService.Annotations["rpaas.extensions.tsuru.io/custom-annotation"])
 		assert.Equal(t, "custom-label-value", nginxService.Labels["custom-label"])
 	})
+
+	t.Run("use plan to set resource limits on nginx container", func(t *testing.T) {
+		namespaceName := "rpaasoperator-full" + strconv.Itoa(rand.Int())
+
+		cleanNsFunc, err := createNamespace(namespaceName)
+		require.NoError(t, err)
+		defer cleanNsFunc()
+
+		err = apply("./testdata/rpaas-full.yaml", namespaceName)
+		assert.NoError(t, err)
+
+		nginx, err := getReadyNginx("my-instance", namespaceName, 2, 1)
+		require.NoError(t, err)
+
+		expectedLimits := corev1.ResourceRequirements{
+			Limits: corev1.ResourceList{
+				corev1.ResourceMemory: resource.MustParse("128Mi"),
+			},
+		}
+
+		assert.Equal(t, expectedLimits, nginx.Spec.Resources)
+	})
 }
 
 func Test_RpaasApi(t *testing.T) {
@@ -116,7 +139,7 @@ func Test_RpaasApi(t *testing.T) {
 	}()
 
 	t.Run("creating and deleting an instance", func(t *testing.T) {
-		instanceName := "my-instance"
+		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 
@@ -160,7 +183,7 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("bind and unbind with a local application", func(t *testing.T) {
-		instanceName := "my-instance"
+		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 
@@ -326,7 +349,7 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("limits the number of configs to 10 by default", func(t *testing.T) {
-		instanceName := "my-instance"
+		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
 		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
