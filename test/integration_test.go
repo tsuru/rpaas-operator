@@ -34,7 +34,7 @@ func TestMain(m *testing.M) {
 
 func Test_RpaasOperator(t *testing.T) {
 	t.Run("apply manifests at rpaas-full.yaml", func(t *testing.T) {
-		namespaceName := "rpaasoperator-full"
+		namespaceName := "rpaasoperator-full" + strconv.Itoa(rand.Int())
 
 		cleanNsFunc, err := createNamespace(namespaceName)
 		require.NoError(t, err)
@@ -93,7 +93,7 @@ func Test_RpaasOperator(t *testing.T) {
 	})
 
 	t.Run("use plan to set resource limits on nginx container", func(t *testing.T) {
-		namespaceName := "rpaasoperator-full"
+		namespaceName := "rpaasoperator-full" + strconv.Itoa(rand.Int())
 
 		cleanNsFunc, err := createNamespace(namespaceName)
 		require.NoError(t, err)
