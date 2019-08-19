@@ -12,6 +12,7 @@ type RpaasManager struct {
 	FakeUpdateCertificate func(instance, name string, cert tls.Certificate) error
 	FakeCreateInstance    func(args rpaas.CreateArgs) error
 	FakeDeleteInstance    func(instanceName string) error
+	FakeGetInstanceNodes  func(instanceName string) ([]string, error)
 	FakeGetInstance       func(instanceName string) (*v1alpha1.RpaasInstance, error)
 	FakeDeleteBlock       func(instanceName, blockName string) error
 	FakeListBlocks        func(instanceName string) ([]rpaas.ConfigurationBlock, error)
@@ -50,6 +51,13 @@ func (m *RpaasManager) DeleteInstance(ctx context.Context, name string) error {
 		return m.FakeDeleteInstance(name)
 	}
 	return nil
+}
+
+func (m *RpaasManager) GetInstanceNodes(ctx context.Context, name string) ([]string, error) {
+	if m.FakeGetInstanceNodes != nil {
+		return m.FakeGetInstanceNodes(name)
+	}
+	return nil, nil
 }
 
 func (m *RpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {

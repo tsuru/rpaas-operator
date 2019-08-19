@@ -327,6 +327,10 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 	return svc.Spec.ClusterIP, nil
 }
 
+func (m *k8sRpaasManager) GetInstanceNodes(ctx context.Context, name string) ([]string, error) {
+	return []string{}, nil
+}
+
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {
 	list := &v1alpha1.RpaasInstanceList{}
 	err := m.cli.List(ctx, client.MatchingField("metadata.name", name), list)
