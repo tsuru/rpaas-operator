@@ -181,6 +181,8 @@ function onerror() {
   echo "RPAAS API LOGS:"
   ${kubectl_bin} logs deploy/rpaas-api -n ${rpaas_system_namespace}
   echo
+
+  [[ -n ${kubectl_port_forward_pid} ]] && kill ${kubectl_port_forward_pid}
 }
 
 trap onerror ERR
