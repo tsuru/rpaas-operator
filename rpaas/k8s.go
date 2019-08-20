@@ -10,12 +10,12 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
-	"errors"
 	"fmt"
 	"reflect"
 	"regexp"
 	"strings"
 
+	"github.com/pkg/errors"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
@@ -96,6 +96,13 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	if err = m.createNamespace(ctx, namespaceName); err != nil && !k8sErrors.IsAlreadyExists(err) {
 		return err
 	}
+	var planTemplate *v1alpha1.RpaasPlanSpec
+	if args.PlanOverride != "" {
+		err = json.Unmarshal([]byte(args.PlanOverride), &planTemplate)
+		if err != nil {
+			return errors.Wrapf(err, "unable to parse planOverride from data %q", args.PlanOverride)
+		}
+	}
 	oneReplica := int32(1)
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
@@ -114,7 +121,8 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 				LoadBalancerIP: args.IP,
 				Annotations:    config.StringMap(serviceAnnotationsConfig),
 			},
-			Replicas: &oneReplica,
+			Replicas:     &oneReplica,
+			PlanTemplate: planTemplate,
 		},
 	}
 	err = m.cli.Create(ctx, instance)
@@ -856,6 +864,7 @@ func parseTagArg(tags []string, name string, destination *string) {
 func parseTags(args CreateArgs) {
 	parseTagArg(args.Tags, "flavor", &args.Flavor)
 	parseTagArg(args.Tags, "ip", &args.IP)
+	parseTagArg(args.Tags, "plan-override", &args.PlanOverride)
 }
 
 func getAvailableBlocks() []v1alpha1.BlockType {
