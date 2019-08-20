@@ -3,9 +3,11 @@ package rpaasinstance
 import (
 	"context"
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"sort"
 
+	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/sirupsen/logrus"
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
@@ -18,6 +20,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -101,6 +104,12 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+	if instance.Spec.PlanTemplate != nil {
+		plan.Spec, err = mergePlans(plan.Spec, *instance.Spec.PlanTemplate)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+	}
 	rendered, err := r.renderTemplate(instance, plan)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -122,6 +131,30 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	nginx := newNginx(instance, plan, configMap)
 	err = r.reconcileNginx(nginx)
 	return reconcile.Result{}, err
+}
+
+func mergePlans(base v1alpha1.RpaasPlanSpec, override v1alpha1.RpaasPlanSpec) (v1alpha1.RpaasPlanSpec, error) {
+	baseData, err := json.Marshal(base)
+	if err != nil {
+		return base, err
+	}
+	overrideData, err := json.Marshal(override)
+	if err != nil {
+		return base, err
+	}
+	patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch(baseData, overrideData, baseData)
+	if err != nil {
+		return base, err
+	}
+	merged, err := jsonpatch.MergePatch(baseData, patch)
+	if err != nil {
+		return base, err
+	}
+	err = json.Unmarshal(merged, &base)
+	if err != nil {
+		return base, err
+	}
+	return base, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap) error {
@@ -303,7 +336,7 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 
 func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxV1alpha1.Nginx {
 	var cacheConfig nginxV1alpha1.NginxCacheSpec
-	if plan.Spec.Config.CacheEnabled {
+	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
 	}

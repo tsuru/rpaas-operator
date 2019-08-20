@@ -48,7 +48,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
-					RequestIDEnabled: true,
+					RequestIDEnabled: v1alpha1.Bool(true),
 				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},
@@ -62,7 +62,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
-					CacheEnabled:     true,
+					CacheEnabled:     v1alpha1.Bool(true),
 					CachePath:        "/path/to/cache/dir",
 					CacheInactive:    "12h",
 					CacheLoaderFiles: 1000,
@@ -86,7 +86,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
-					SyslogEnabled:       true,
+					SyslogEnabled:       v1alpha1.Bool(true),
 					SyslogServerAddress: "syslog.server.example.com",
 				},
 				Instance: &v1alpha1.RpaasInstance{},
@@ -101,7 +101,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
-					SyslogEnabled:       true,
+					SyslogEnabled:       v1alpha1.Bool(true),
 					SyslogServerAddress: "syslog.server.example.com",
 					SyslogFacility:      "local1",
 					SyslogTag:           "my-tag",
@@ -118,7 +118,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
-					VTSEnabled: true,
+					VTSEnabled: v1alpha1.Bool(true),
 				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},

@@ -54,9 +54,9 @@ type NginxConfig struct {
 
 	UpstreamKeepalive int `json:"upstreamKeepAlive,omitempty"`
 
-	RequestIDEnabled bool `json:"requestIDEnabled,omitempty"`
+	RequestIDEnabled *bool `json:"requestIDEnabled,omitempty"`
 
-	CacheEnabled     bool   `json:"cacheEnabled,omitempty"`
+	CacheEnabled     *bool  `json:"cacheEnabled,omitempty"`
 	CacheInactive    string `json:"cacheInactive,omitempty"`
 	CacheLoaderFiles int    `json:"cacheLoaderFiles,omitempty"`
 	CachePath        string `json:"cachePath,omitempty"`
@@ -66,15 +66,26 @@ type NginxConfig struct {
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
 
-	VTSEnabled bool `json:"vtsEnabled,omitempty"`
+	VTSEnabled *bool `json:"vtsEnabled,omitempty"`
 
-	SyslogEnabled       bool   `json:"syslogEnabled,omitempty"`
+	SyslogEnabled       *bool  `json:"syslogEnabled,omitempty"`
 	SyslogServerAddress string `json:"syslogServerAddress,omitempty"`
 	SyslogFacility      string `json:"syslogFacility,omitempty"`
 	SyslogTag           string `json:"syslogTag,omitempty"`
 
 	WorkerProcesses   int `json:"workerProcesses,omitempty"`
 	WorkerConnections int `json:"workerConnections,omitempty"`
+}
+
+func Bool(v bool) *bool {
+	return &v
+}
+
+func BoolValue(v *bool) bool {
+	if v == nil {
+		return false
+	}
+	return *v
 }
 
 func init() {
