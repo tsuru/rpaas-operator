@@ -239,7 +239,7 @@ func Test_RpaasApi(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		helloServiceHost := fmt.Sprintf("hello.%s.svc.cluster.local", namespaceName)
+		helloServiceHost := fmt.Sprintf("hello.%s.svc", namespaceName)
 		err = api.bind(instanceName, helloServiceHost)
 		require.NoError(t, err)
 
@@ -377,10 +377,9 @@ func Test_RpaasApi(t *testing.T) {
 		assert.Equal(t, len(configList.Items), 1)
 
 		for i := 0; i < 15; i++ {
-			var cleanBlockFunc func() error
-			cleanBlockFunc, err = api.createBlock(instanceName, teamName, blockName, fmt.Sprintf("content=location=/test%d{return 204;}", i))
+			_, err := api.createBlock(instanceName, blockName, fmt.Sprintf("location = /test%d { return 204; }", i))
 			require.NoError(t, err)
-			defer cleanBlockFunc()
+			time.Sleep(500 * time.Millisecond)
 		}
 
 		timeout := time.After(60 * time.Second)

@@ -12,7 +12,7 @@ import (
 )
 
 // GetValue retrieves the content inside the Value object.
-func GetValue(ctx context.Context, c client.Client, v *rpaasv1alpha1.Value) (string, error) {
+func GetValue(ctx context.Context, c client.Client, defaultNamespace string, v *rpaasv1alpha1.Value) (string, error) {
 	if v == nil {
 		return "", fmt.Errorf("value cannot be nil")
 	}
@@ -21,19 +21,23 @@ func GetValue(ctx context.Context, c client.Client, v *rpaasv1alpha1.Value) (str
 		return v.Value, nil
 	}
 
-	return getValueFromConfigMap(ctx, c, v.ValueFrom)
+	return getValueFromConfigMap(ctx, c, defaultNamespace, v.ValueFrom)
 }
 
-func getValueFromConfigMap(ctx context.Context, c client.Client, vs *rpaasv1alpha1.ValueSource) (string, error) {
+func getValueFromConfigMap(ctx context.Context, c client.Client, namespace string, vs *rpaasv1alpha1.ValueSource) (string, error) {
 	if vs == nil || vs.ConfigMapKeyRef == nil {
 		return "", fmt.Errorf("value source is missing")
 	}
 
 	isOptional := vs.ConfigMapKeyRef.Optional == nil || *vs.ConfigMapKeyRef.Optional
 
+	if vs.Namespace != "" {
+		namespace = vs.Namespace
+	}
+
 	cmName := types.NamespacedName{
 		Name:      vs.ConfigMapKeyRef.Name,
-		Namespace: vs.Namespace,
+		Namespace: namespace,
 	}
 	var cm corev1.ConfigMap
 	if err := c.Get(ctx, cmName, &cm); err != nil {

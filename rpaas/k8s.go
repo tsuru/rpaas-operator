@@ -175,7 +175,7 @@ func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) (
 
 	var blocks []ConfigurationBlock
 	for blockType, blockValue := range instance.Spec.Blocks {
-		content, err := util.GetValue(ctx, m.cli, &blockValue)
+		content, err := util.GetValue(ctx, m.cli, instance.Namespace, &blockValue)
 		if err != nil {
 			return nil, err
 		}
@@ -581,7 +581,7 @@ func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([
 		var content string
 
 		if location.Content != nil {
-			content, err = util.GetValue(ctx, m.cli, location.Content)
+			content, err = util.GetValue(ctx, m.cli, instance.Namespace, location.Content)
 			if err != nil {
 				return nil, err
 			}

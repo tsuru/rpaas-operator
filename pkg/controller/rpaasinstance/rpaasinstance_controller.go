@@ -231,7 +231,7 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 	var blocks nginx.ConfigurationBlocks
 
 	if plan.Spec.Template != nil {
-		mainBlock, err := util.GetValue(context.TODO(), r.client, plan.Spec.Template)
+		mainBlock, err := util.GetValue(context.TODO(), r.client, "", plan.Spec.Template)
 		if err != nil {
 			return blocks, err
 		}
@@ -240,7 +240,7 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 	}
 
 	for blockType, blockValue := range instance.Spec.Blocks {
-		content, err := util.GetValue(context.TODO(), r.client, &blockValue)
+		content, err := util.GetValue(context.TODO(), r.client, instance.Namespace, &blockValue)
 		if err != nil {
 			return blocks, err
 		}
@@ -264,7 +264,7 @@ func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasIn
 			continue
 		}
 
-		content, err := util.GetValue(context.TODO(), r.client, location.Content)
+		content, err := util.GetValue(context.TODO(), r.client, instance.Namespace, location.Content)
 		if err != nil {
 			return err
 		}

@@ -50,14 +50,17 @@ spec:
   planName: basic
   blocks:
     root:
-      kind: Inline
       value: "# My custom root block"
     http:
-      kind: ConfigMap
-      name: my-instance-blocks
+      valueFrom:
+        configMapKeyRef:
+          name: my-instance-blocks
+          key: http
     server:
-      kind: ConfigMap
-      name: my-instance-blocks
+      valueFrom:
+        configMapKeyRef:
+          name: my-instance-blocks
+          key: server
   certificates:
     secretName: my-instance-certificates
     items:

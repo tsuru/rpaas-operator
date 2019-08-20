@@ -25,6 +25,7 @@ func TestGetValue(t *testing.T) {
 	tests := []struct {
 		name      string
 		resources []runtime.Object
+		namespace string
 		value     *rpaasv1alpha1.Value
 		assertion func(t *testing.T, v string, err error)
 	}{
@@ -131,12 +132,88 @@ func TestGetValue(t *testing.T) {
 				assert.Equal(t, fmt.Errorf("key \"unknown-key\" cannot be found in configmap default/my-configmap"), err)
 			},
 		},
+		{
+			name: "when default namespace is set, should try get ConfigMap from it",
+			resources: []runtime.Object{
+				&corev1.Namespace{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "Namespace",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "another-namespace",
+					},
+				},
+				&corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-configmap",
+						Namespace: "another-namespace",
+					},
+					Data: map[string]string{
+						"some-key": "# My expected string value from ConfigMap",
+					},
+				},
+			},
+			namespace: "another-namespace",
+			value: &rpaasv1alpha1.Value{
+				ValueFrom: &rpaasv1alpha1.ValueSource{
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-configmap",
+						},
+						Key: "some-key",
+					},
+				},
+			},
+			assertion: func(t *testing.T, v string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "# My expected string value from ConfigMap", v)
+			},
+		},
+		{
+			name: "when both default namespace and ValueSource namespace are set, should try getting ConfigMap from the last one",
+			resources: []runtime.Object{
+				&corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-configmap",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"some-key": "# My expected string value from ConfigMap",
+					},
+				},
+			},
+			namespace: "another-namespace",
+			value: &rpaasv1alpha1.Value{
+				ValueFrom: &rpaasv1alpha1.ValueSource{
+					Namespace: "default",
+					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "my-configmap",
+						},
+						Key: "some-key",
+					},
+				},
+			},
+			assertion: func(t *testing.T, v string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, "# My expected string value from ConfigMap", v)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k8sClient := fake.NewFakeClientWithScheme(scheme, tt.resources...)
-			value, err := GetValue(context.Background(), k8sClient, tt.value)
+			value, err := GetValue(nil, k8sClient, tt.namespace, tt.value)
 			tt.assertion(t, value, err)
 		})
 	}
