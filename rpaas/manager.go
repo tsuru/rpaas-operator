@@ -111,7 +111,6 @@ type RpaasManager interface {
 	GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error)
 	GetInstanceAddress(ctx context.Context, name string) (string, error)
 	GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error)
-	GetInstanceNodes(ctx context.Context, name string) ([]string, error)
 	Scale(ctx context.Context, name string, replicas int32) error
 	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
