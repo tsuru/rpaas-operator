@@ -17,6 +17,9 @@ type RpaasInstanceSpec struct {
 	// PlanName is the name of the rpaasplan instance.
 	PlanName string `json:"planName"`
 
+	// PlanTemplate allow overriding fields in the specified plan.
+	PlanTemplate *RpaasPlanSpec `json:"planTemplate,omitempty"`
+
 	// Host is the application address where all incoming HTTP will be
 	// forwarded for.
 	// +optional
