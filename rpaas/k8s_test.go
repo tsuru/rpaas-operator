@@ -1,6 +1,7 @@
 package rpaas
 
 import (
+	"context"
 	"crypto/tls"
 	"testing"
 
@@ -2161,6 +2162,127 @@ func Test_convertPathToConfigMapKey(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			assert.Equal(t, tt.expected, convertPathToConfigMapKey(tt.path))
+		})
+	}
+}
+
+func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
+	resources := []runtime.Object{
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{Name: "plan1"},
+			Spec: v1alpha1.RpaasPlanSpec{
+				Default: true,
+			},
+		},
+	}
+	one := int32(1)
+	tests := []struct {
+		name          string
+		args          CreateArgs
+		expected      v1alpha1.RpaasInstance
+		expectedError string
+	}{
+		{
+			name:          "without name",
+			args:          CreateArgs{},
+			expectedError: `name is required`,
+		},
+		{
+			name:          "without team",
+			args:          CreateArgs{Name: "r1"},
+			expectedError: `team name is required`,
+		},
+		{
+			name:          "invalid plan",
+			args:          CreateArgs{Name: "r1", Team: "t1", Plan: "aaaaa"},
+			expectedError: `invalid plan`,
+		},
+		{
+			name: "simplest",
+			args: CreateArgs{Name: "r1", Team: "t1"},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "r1",
+					Namespace: "rpaasv2-t1",
+					Annotations: map[string]string{
+						"description":   "",
+						"eventid":       "",
+						"flavor":        "",
+						"ip":            "",
+						"name":          "r1",
+						"plan":          "",
+						"plan-override": "",
+						"tags":          "<nil>",
+						"team":          "t1",
+						"user":          "",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+					},
+				},
+			},
+		},
+		{
+			name: "with override",
+			args: CreateArgs{Name: "r1", Team: "t1", PlanOverride: `{"config": {"cacheEnabled": false}}`},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "r1",
+					Namespace: "rpaasv2-t1",
+					Annotations: map[string]string{
+						"description":   "",
+						"eventid":       "",
+						"flavor":        "",
+						"ip":            "",
+						"name":          "r1",
+						"plan":          "",
+						"plan-override": `{"config": {"cacheEnabled": false}}`,
+						"tags":          "<nil>",
+						"team":          "t1",
+						"user":          "",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+					},
+					PlanTemplate: &v1alpha1.RpaasPlanSpec{
+						Config: v1alpha1.NginxConfig{
+							CacheEnabled: v1alpha1.Bool(false),
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			scheme := newScheme()
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.CreateInstance(context.Background(), tt.args)
+			if tt.expectedError != "" {
+				require.Error(t, err)
+				assert.Regexp(t, tt.expectedError, err.Error())
+			} else {
+				require.NoError(t, err)
+				result, err := manager.GetInstance(context.Background(), tt.args.Name)
+				require.NoError(t, err)
+				assert.Equal(t, &tt.expected, result)
+			}
 		})
 	}
 }
