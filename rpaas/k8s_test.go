@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -2175,6 +2176,19 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			},
 		},
 	}
+	config.Set(config.RpaasConfig{
+		Flavors: []config.FlavorConfig{
+			{
+				Name: "strawberry",
+				Spec: v1alpha1.RpaasPlanSpec{
+					Config: v1alpha1.NginxConfig{
+						CacheEnabled: v1alpha1.Bool(false),
+					},
+				},
+			},
+		},
+	})
+	defer config.Set(config.RpaasConfig{})
 	one := int32(1)
 	tests := []struct {
 		name          string
@@ -2196,6 +2210,16 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			name:          "invalid plan",
 			args:          CreateArgs{Name: "r1", Team: "t1", Plan: "aaaaa"},
 			expectedError: `invalid plan`,
+		},
+		{
+			name:          "invalid flavor",
+			args:          CreateArgs{Name: "r1", Team: "t1", Flavor: "aaaaa"},
+			expectedError: `flavor "aaaaa" not found`,
+		},
+		{
+			name:          "override and flavor",
+			args:          CreateArgs{Name: "r1", Team: "t1", Flavor: "strawberry", PlanOverride: `{"config": {"cacheEnabled": false}}`},
+			expectedError: `cannot set both plan-override and flavor`,
 		},
 		{
 			name: "simplest",
@@ -2249,6 +2273,44 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						"name":          "r1",
 						"plan":          "",
 						"plan-override": `{"config": {"cacheEnabled": false}}`,
+						"tags":          "<nil>",
+						"team":          "t1",
+						"user":          "",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+					},
+					PlanTemplate: &v1alpha1.RpaasPlanSpec{
+						Config: v1alpha1.NginxConfig{
+							CacheEnabled: v1alpha1.Bool(false),
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "with flavor",
+			args: CreateArgs{Name: "r1", Team: "t1", Flavor: "strawberry"},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "r1",
+					Namespace: "rpaasv2-t1",
+					Annotations: map[string]string{
+						"description":   "",
+						"eventid":       "",
+						"flavor":        "strawberry",
+						"ip":            "",
+						"name":          "r1",
+						"plan":          "",
+						"plan-override": "",
 						"tags":          "<nil>",
 						"team":          "t1",
 						"user":          "",
