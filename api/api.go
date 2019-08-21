@@ -151,12 +151,14 @@ func newEcho() *echo.Echo {
 	e.Use(middleware.Logger())
 	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
 		Skipper: func(c echo.Context) bool {
+			conf := config.Get()
 			return c.Path() == "/healthcheck" ||
-				(config.Value("API_USERNAME") == "" && config.Value("API_PASSWORD") == "")
+				(conf.APIUsername == "" && conf.APIPassword == "")
 		},
 		Validator: func(user, pass string, c echo.Context) (bool, error) {
-			return user == config.Value("API_USERNAME") &&
-				pass == config.Value("API_PASSWORD"), nil
+			conf := config.Get()
+			return user == conf.APIUsername &&
+				pass == conf.APIPassword, nil
 		},
 		Realm: "Restricted",
 	}))

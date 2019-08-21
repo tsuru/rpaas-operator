@@ -153,8 +153,7 @@ func Test_healthcheck(t *testing.T) {
 		{
 			name: "with auth",
 			setup: func(t *testing.T) {
-				config.Set("API_USERNAME", "u1")
-				config.Set("API_PASSWORD", "p1")
+				config.Set(config.RpaasConfig{APIUsername: "u1", APIPassword: "p1"})
 			},
 		},
 	}
@@ -164,8 +163,7 @@ func Test_healthcheck(t *testing.T) {
 			if tt.setup != nil {
 				tt.setup(t)
 			}
-			defer config.Unset("API_USERNAME")
-			defer config.Unset("API_PASSWORD")
+			defer config.Set(config.RpaasConfig{})
 			srv := newTestingServer(t, nil)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/healthcheck", srv.URL)
@@ -192,16 +190,14 @@ func Test_MiddlewareBasicAuth(t *testing.T) {
 		{
 			name: "with auth enabled",
 			setup: func(t *testing.T, r *http.Request) {
-				config.Set("API_USERNAME", "u1")
-				config.Set("API_PASSWORD", "p1")
+				config.Set(config.RpaasConfig{APIUsername: "u1", APIPassword: "p1"})
 			},
 			expectedCode: 401,
 		},
 		{
 			name: "with auth enabled and credentials",
 			setup: func(t *testing.T, r *http.Request) {
-				config.Set("API_USERNAME", "u1")
-				config.Set("API_PASSWORD", "p1")
+				config.Set(config.RpaasConfig{APIUsername: "u1", APIPassword: "p1"})
 				r.SetBasicAuth("u1", "p1")
 			},
 			expectedCode: 404,
@@ -209,8 +205,7 @@ func Test_MiddlewareBasicAuth(t *testing.T) {
 		{
 			name: "with auth enabled and invalid username",
 			setup: func(t *testing.T, r *http.Request) {
-				config.Set("API_USERNAME", "u1")
-				config.Set("API_PASSWORD", "p1")
+				config.Set(config.RpaasConfig{APIUsername: "u1", APIPassword: "p1"})
 				r.SetBasicAuth("u9", "p1")
 			},
 			expectedCode: 401,
@@ -218,8 +213,7 @@ func Test_MiddlewareBasicAuth(t *testing.T) {
 		{
 			name: "with auth enabled and invalid password",
 			setup: func(t *testing.T, r *http.Request) {
-				config.Set("API_USERNAME", "u1")
-				config.Set("API_PASSWORD", "p1")
+				config.Set(config.RpaasConfig{APIUsername: "u1", APIPassword: "p1"})
 				r.SetBasicAuth("u1", "p9")
 			},
 			expectedCode: 401,
@@ -228,8 +222,7 @@ func Test_MiddlewareBasicAuth(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			defer config.Unset("API_USERNAME")
-			defer config.Unset("API_PASSWORD")
+			defer config.Set(config.RpaasConfig{})
 			srv := newTestingServer(t, nil)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/", srv.URL)

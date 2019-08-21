@@ -2,36 +2,123 @@ package config
 
 import (
 	"encoding/json"
-	"fmt"
-	"os"
+	"flag"
+	"log"
+	"reflect"
+	"strings"
+	"sync"
+
+	"github.com/fsnotify/fsnotify"
+	"github.com/mitchellh/mapstructure"
+	"github.com/spf13/pflag"
+	"github.com/spf13/viper"
+	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
 
 const (
 	keyPrefix = "rpaasv2"
 )
 
-func keyName(name string) string {
-	return fmt.Sprintf("%s-%s", keyPrefix, name)
+type RpaasConfig struct {
+	Flavors            []FlavorConfig
+	ServiceAnnotations map[string]string `mapstructure:"service-annotations"`
+	APIUsername        string            `mapstructure:"api-username"`
+	APIPassword        string            `mapstructure:"api-password"`
 }
 
-func Unset(key string) {
-	os.Unsetenv(keyName(key))
+type FlavorConfig struct {
+	Name string
+	Spec v1alpha1.RpaasPlanSpec
 }
 
-func Set(key, value string) {
-	os.Setenv(keyName(key), value)
+var rpaasConfig struct {
+	sync.RWMutex
+	conf RpaasConfig
 }
 
-func Value(key string) string {
-	return os.Getenv(keyName(key))
+func Get() RpaasConfig {
+	rpaasConfig.RLock()
+	defer rpaasConfig.RUnlock()
+	return rpaasConfig.conf
 }
 
-func StringMap(key string) map[string]string {
-	val, isSet := os.LookupEnv(keyName(key))
-	if !isSet {
+func Set(conf RpaasConfig) {
+	rpaasConfig.Lock()
+	defer rpaasConfig.Unlock()
+	rpaasConfig.conf = conf
+}
+
+func Init() error {
+	flag.String("config", "", "Config file")
+	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
+	pflag.Parse()
+	viper.BindPFlags(pflag.CommandLine)
+	viper.SetEnvPrefix(keyPrefix)
+	viper.SetEnvKeyReplacer(strings.NewReplacer(".", "_", "-", "_"))
+	viper.BindEnv("api-username")
+	viper.BindEnv("api-password")
+	viper.BindEnv("service-annotations")
+	viper.AutomaticEnv()
+	err := readConfig()
+	if err != nil {
+		return err
+	}
+	rpaasConfig.Lock()
+	defer rpaasConfig.Unlock()
+	var conf RpaasConfig
+	decodeHook := mapstructure.ComposeDecodeHookFunc(
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToSliceHookFunc(","),
+		jsonStringToMap,
+	)
+	err = viper.Unmarshal(&conf, viper.DecodeHook(decodeHook))
+	if err != nil {
+		return err
+	}
+	rpaasConfig.conf = conf
+	return nil
+}
+
+func readConfig() error {
+	configPath := viper.GetString("config")
+	if configPath == "" {
 		return nil
 	}
+	log.Printf("Using config file from: %v", configPath)
+	viper.SetConfigFile(configPath)
+	err := viper.ReadInConfig()
+	if err != nil {
+		return err
+	}
+	viper.WatchConfig()
+	viper.OnConfigChange(func(e fsnotify.Event) {
+		rpaasConfig.Lock()
+		defer rpaasConfig.Unlock()
+		log.Printf("reloading config file: %v", e.Name)
+		var conf RpaasConfig
+		err = viper.Unmarshal(&conf)
+		if err != nil {
+			log.Printf("error parsing new config file: %v", err)
+		} else {
+			rpaasConfig.conf = conf
+		}
+	})
+	return nil
+}
+
+func jsonStringToMap(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
+	if f != reflect.String || t != reflect.Map {
+		return data, nil
+	}
+	raw := data.(string)
+	if raw == "" {
+		return nil, nil
+	}
 	var ret map[string]string
-	json.Unmarshal([]byte(val), &ret)
-	return ret
+	err := json.Unmarshal([]byte(raw), &ret)
+	if err != nil {
+		log.Printf("ignored error trying to parse %q as json: %v", raw, err)
+		return data, nil
+	}
+	return ret, nil
 }

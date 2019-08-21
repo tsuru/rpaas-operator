@@ -5,6 +5,7 @@ import (
 
 	"github.com/google/gops/agent"
 	"github.com/tsuru/rpaas-operator/api"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 )
 
@@ -14,6 +15,10 @@ func startup() error {
 	}
 	defer agent.Close()
 
+	err := config.Init()
+	if err != nil {
+		return err
+	}
 	manager, err := apis.NewManager()
 	if err != nil {
 		return err

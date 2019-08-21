@@ -30,8 +30,7 @@ import (
 )
 
 const (
-	defaultNamespacePrefix   = "rpaasv2"
-	serviceAnnotationsConfig = "service-annotations"
+	defaultNamespacePrefix = "rpaasv2"
 )
 
 var (
@@ -104,6 +103,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 		}
 	}
 	oneReplica := int32(1)
+	conf := config.Get()
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "RpaasInstance",
@@ -119,7 +119,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 			Service: &nginxv1alpha1.NginxService{
 				Type:           corev1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: args.IP,
-				Annotations:    config.StringMap(serviceAnnotationsConfig),
+				Annotations:    conf.ServiceAnnotations,
 			},
 			Replicas:     &oneReplica,
 			PlanTemplate: planTemplate,
