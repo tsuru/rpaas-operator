@@ -530,6 +530,10 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) PurgeCache(ctx context.Context, args PurgeCacheArgs) error {
+	return nil
+}
+
 func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {

@@ -100,6 +100,11 @@ type BindAppArgs struct {
 	EventID string `form:"eventid"`
 }
 
+type PurgeCacheArgs struct {
+	Path         string `json:"path" form:"path"`
+	PreservePath bool   `json:"preserve_path" form:"preserve_path"`
+}
+
 type RpaasManager interface {
 	ConfigurationBlockHandler
 	ExtraFileHandler
@@ -115,4 +120,5 @@ type RpaasManager interface {
 	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName string) error
+	PurgeCache(ctx context.Context, args PurgeCacheArgs) error
 }
