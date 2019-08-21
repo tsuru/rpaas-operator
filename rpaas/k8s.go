@@ -95,11 +95,26 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	if err = m.createNamespace(ctx, namespaceName); err != nil && !k8sErrors.IsAlreadyExists(err) {
 		return err
 	}
+	if args.PlanOverride != "" && args.Flavor != "" {
+		return errors.New("cannot set both plan-override and flavor")
+	}
 	var planTemplate *v1alpha1.RpaasPlanSpec
 	if args.PlanOverride != "" {
 		err = json.Unmarshal([]byte(args.PlanOverride), &planTemplate)
 		if err != nil {
 			return errors.Wrapf(err, "unable to parse planOverride from data %q", args.PlanOverride)
+		}
+	}
+	if args.Flavor != "" {
+		conf := config.Get()
+		for _, flavor := range conf.Flavors {
+			if flavor.Name == args.Flavor {
+				planTemplate = &flavor.Spec
+				break
+			}
+		}
+		if planTemplate == nil {
+			return errors.Errorf("flavor %q not found", args.Flavor)
 		}
 	}
 	oneReplica := int32(1)
