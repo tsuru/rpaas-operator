@@ -22,6 +22,7 @@ const (
 
 type RpaasConfig struct {
 	Flavors            []FlavorConfig
+	ServiceName        string            `mapstructure:"service-name"`
 	ServiceAnnotations map[string]string `mapstructure:"service-annotations"`
 	APIUsername        string            `mapstructure:"api-username"`
 	APIPassword        string            `mapstructure:"api-password"`
@@ -61,6 +62,7 @@ func Init() error {
 	viper.BindEnv("api-username")
 	viper.BindEnv("api-password")
 	viper.BindEnv("service-annotations")
+	viper.SetDefault("service-name", keyPrefix)
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {

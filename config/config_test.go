@@ -19,7 +19,9 @@ func Test_Init(t *testing.T) {
 		expected RpaasConfig
 	}{
 		{
-			expected: RpaasConfig{},
+			expected: RpaasConfig{
+				ServiceName: "rpaasv2",
+			},
 		},
 		{
 			config: `
@@ -38,6 +40,7 @@ flavors:
 `,
 			expected: RpaasConfig{
 				APIUsername: "u1",
+				ServiceName: "rpaasv2",
 				ServiceAnnotations: map[string]string{
 					"a": "b",
 					"c": "d",
@@ -65,6 +68,7 @@ flavors:
 api-username: ignored1
 service-annotations:
   ig: nored
+service-name: rpaasv2be
 flavors:
 - name: strawberry
 `,
@@ -76,6 +80,7 @@ flavors:
 			expected: RpaasConfig{
 				APIUsername: "u1",
 				APIPassword: "p1",
+				ServiceName: "rpaasv2be",
 				ServiceAnnotations: map[string]string{
 					"x": "y",
 				},
