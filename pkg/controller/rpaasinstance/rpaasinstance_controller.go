@@ -10,6 +10,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/sirupsen/logrus"
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/util"
@@ -32,6 +33,9 @@ import (
 
 const (
 	defaultConfigHistoryLimit = 10
+
+	rpaasServiceNameLabel     = "rpaas_service"
+	rpaasServiceInstanceLabel = "rpaas_instance"
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -338,6 +342,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		cacheConfig.Path = plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
 	}
+	conf := config.Get()
 	return &nginxV1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
@@ -367,6 +372,12 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			ExtraFiles:      instance.Spec.ExtraFiles,
 			Certificates:    instance.Spec.Certificates,
 			Cache:           cacheConfig,
+			PodTemplate: nginxV1alpha1.NginxPodTemplateSpec{
+				Labels: map[string]string{
+					rpaasServiceNameLabel:     conf.ServiceName,
+					rpaasServiceInstanceLabel: instance.Name,
+				},
+			},
 		},
 	}
 }
