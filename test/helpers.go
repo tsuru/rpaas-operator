@@ -226,23 +226,6 @@ func (api *rpaasApi) deleteBlock(instanceName, blockName string) error {
 	return nil
 }
 
-func (api *rpaasApi) scale(name string, n int) error {
-	data := url.Values{"quantity": []string{fmt.Sprint(n)}}
-	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/scale", api.address, name), data)
-	if err != nil {
-		return err
-	}
-	if rsp.StatusCode != http.StatusCreated {
-		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
-		if err != nil {
-			return err
-		}
-		return fmt.Errorf("could not scale the instance %q: %v - Body %v", name, rsp, string(body))
-	}
-	return nil
-}
-
 func (api *rpaasApi) health() (bool, error) {
 	rsp, err := api.client.Get(fmt.Sprintf("%s/healthcheck", api.address))
 	if err != nil {

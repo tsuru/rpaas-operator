@@ -98,25 +98,25 @@ func main() {
 	log.Info("Registering Components.")
 
 	// Setup Scheme for all resources
-	if err := apis.AddToScheme(mgr.GetScheme()); err != nil {
+	if err = apis.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
 	// Indexing required fields
-	if err := apis.AddFieldIndexes(mgr.GetFieldIndexer()); err != nil {
+	if err = apis.AddFieldIndexes(mgr.GetFieldIndexer()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
 	// Register Scheme for Nginx
-	if err := nginxApis.AddToScheme(mgr.GetScheme()); err != nil {
+	if err = nginxApis.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
 	// Setup all Controllers
-	if err := controller.AddToManager(mgr); err != nil {
+	if err = controller.AddToManager(mgr); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
@@ -139,7 +139,7 @@ func main() {
 	log.Info("Starting the Cmd.")
 
 	// Start the Cmd
-	if err := mgr.Start(signals.SetupSignalHandler()); err != nil {
+	if err = mgr.Start(signals.SetupSignalHandler()); err != nil {
 		log.Error(err, "Manager exited non-zero")
 		os.Exit(1)
 	}

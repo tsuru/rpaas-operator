@@ -353,7 +353,7 @@ func Test_serviceBindApp(t *testing.T) {
 			manager:      &fake.RpaasManager{},
 		},
 		{
-			name:         "when bind with application is sucessful",
+			name:         "when bind with application is successful",
 			requestBody:  "app-host=app1.tsuru.example.com&app-name=app1&user=admin@tsuru.example.com&eventid=123456",
 			expectedCode: http.StatusCreated,
 			manager: &fake.RpaasManager{
