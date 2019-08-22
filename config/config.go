@@ -52,7 +52,7 @@ func Set(conf RpaasConfig) {
 
 func Init() error {
 	flagset := pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
-	flagset.String("config", "", "RPaaS API Config file")
+	flagset.String("config", "", "RPaaS Config file")
 	pflag.CommandLine.AddFlagSet(flagset)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
