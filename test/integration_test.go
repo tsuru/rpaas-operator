@@ -48,6 +48,19 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.Equal(t, int32(2), *nginx.Spec.Replicas)
 		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
+		assert.Len(t, nginx.Status.Pods, 2)
+		for _, podStatus := range nginx.Status.Pods {
+			pod := &corev1.Pod{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "v1",
+					Kind:       "Pod",
+				},
+			}
+			err = get(pod, podStatus.Name, namespaceName)
+			require.NoError(t, err)
+			assert.Equal(t, "rpaasv2", pod.Labels["rpaas_service"])
+			assert.Equal(t, "my-instance", pod.Labels["rpaas_instance"])
+		}
 
 		nginxConf := &corev1.ConfigMap{
 			TypeMeta: metav1.TypeMeta{
