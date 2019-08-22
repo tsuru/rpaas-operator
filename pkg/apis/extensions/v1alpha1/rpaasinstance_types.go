@@ -81,9 +81,11 @@ type RpaasInstanceList struct {
 type BlockType string
 
 const (
-	BlockTypeHTTP   = "http"
-	BlockTypeServer = "server"
-	BlockTypeRoot   = "root"
+	BlockTypeRoot      = "root"
+	BlockTypeHTTP      = "http"
+	BlockTypeServer    = "server"
+	BlockTypeLuaServer = "lua-server"
+	BlockTypeLuaWorker = "lua-worker"
 )
 
 type Location struct {

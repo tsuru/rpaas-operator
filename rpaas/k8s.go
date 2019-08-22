@@ -846,9 +846,11 @@ func parseTags(args CreateArgs) {
 
 func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {
 	allowedBlockTypes := map[v1alpha1.BlockType]bool{
-		v1alpha1.BlockTypeRoot:   true,
-		v1alpha1.BlockTypeServer: true,
-		v1alpha1.BlockTypeHTTP:   true,
+		v1alpha1.BlockTypeRoot:      true,
+		v1alpha1.BlockTypeServer:    true,
+		v1alpha1.BlockTypeHTTP:      true,
+		v1alpha1.BlockTypeLuaServer: true,
+		v1alpha1.BlockTypeLuaWorker: true,
 	}
 
 	_, ok := allowedBlockTypes[bt]
