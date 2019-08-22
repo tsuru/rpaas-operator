@@ -343,6 +343,13 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		cacheConfig.InMemory = true
 	}
 	conf := config.Get()
+	affinity := conf.DefaultAffinity
+	if conf.TeamAffinity != nil {
+		teamLabelValue := instance.Labels["team"]
+		if teamAffinity, ok := conf.TeamAffinity[teamLabelValue]; ok {
+			affinity = &teamAffinity
+		}
+	}
 	return &nginxV1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
@@ -373,6 +380,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Certificates:    instance.Spec.Certificates,
 			Cache:           cacheConfig,
 			PodTemplate: nginxV1alpha1.NginxPodTemplateSpec{
+				Affinity: affinity,
 				Labels: map[string]string{
 					rpaasServiceNameLabel:     conf.ServiceName,
 					rpaasServiceInstanceLabel: instance.Name,

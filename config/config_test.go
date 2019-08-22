@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func Test_Init(t *testing.T) {
@@ -87,6 +88,68 @@ flavors:
 				Flavors: []FlavorConfig{
 					{
 						Name: "strawberry",
+					},
+				},
+			},
+		},
+		{
+			config: `
+default-affinity:
+  nodeAffinity:
+    requiredDuringSchedulingIgnoredDuringExecution:
+      nodeSelectorTerms:
+      - matchExpressions:
+        - key: pool
+          operator: In
+          values:
+          - dev
+team-affinity:
+  team1:
+    nodeAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+        nodeSelectorTerms:
+        - matchExpressions:
+          - key: pool
+            operator: NotIn
+            values:
+            - dev
+`,
+			expected: RpaasConfig{
+				ServiceName: "rpaasv2",
+				DefaultAffinity: &corev1.Affinity{
+					NodeAffinity: &corev1.NodeAffinity{
+						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+							NodeSelectorTerms: []corev1.NodeSelectorTerm{
+								{
+									MatchExpressions: []corev1.NodeSelectorRequirement{
+										{
+											Key:      "pool",
+											Operator: corev1.NodeSelectorOpIn,
+											Values:   []string{"dev"},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+				TeamAffinity: map[string]corev1.Affinity{
+					"team1": {
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "pool",
+												Operator: corev1.NodeSelectorOpNotIn,
+												Values:   []string{"dev"},
+											},
+										},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
