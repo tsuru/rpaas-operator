@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"flag"
 	"log"
+	"os"
 	"reflect"
 	"strings"
 	"sync"
@@ -49,7 +50,9 @@ func Set(conf RpaasConfig) {
 }
 
 func Init() error {
-	flag.String("config", "", "Config file")
+	flagset := pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
+	flagset.String("config", "", "RPaaS API Config file")
+	pflag.CommandLine.AddFlagSet(flagset)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()
 	viper.BindPFlags(pflag.CommandLine)
