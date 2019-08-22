@@ -93,7 +93,7 @@ func (a *api) Handler() http.Handler {
 }
 
 func (a *api) handleSignals() {
-	quit := make(chan os.Signal)
+	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-quit:

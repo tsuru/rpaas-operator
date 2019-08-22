@@ -65,6 +65,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
 	})
+	if err != nil {
+		return err
+	}
 
 	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -124,7 +127,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 	if shouldDeleteOldConfig(instance, configList) {
-		if err := r.deleteOldConfig(instance, configList); err != nil {
+		if err = r.deleteOldConfig(instance, configList); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -243,23 +246,18 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 		switch confRef.Kind {
 		case v1alpha1.ConfigKindInline:
 			content = confRef.Value
-			break
 		case v1alpha1.ConfigKindConfigMap:
 			content = cm.Data[string(blockType)]
-			break
 		default:
 			return blocks, fmt.Errorf("invalid config kind: %v", confRef)
 		}
 		switch blockType {
 		case v1alpha1.BlockTypeRoot:
 			blocks.RootBlock = content
-			break
 		case v1alpha1.BlockTypeHTTP:
 			blocks.HttpBlock = content
-			break
 		case v1alpha1.BlockTypeServer:
 			blocks.ServerBlock = content
-			break
 		}
 	}
 	return blocks, nil

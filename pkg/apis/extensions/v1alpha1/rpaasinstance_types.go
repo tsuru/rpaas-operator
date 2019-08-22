@@ -65,8 +65,8 @@ type RpaasInstance struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec   RpaasInstanceSpec   `json:"spec,omitempty"`
 	Status RpaasInstanceStatus `json:"status,omitempty"`
+	Spec   RpaasInstanceSpec   `json:"spec,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

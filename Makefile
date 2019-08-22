@@ -13,6 +13,10 @@ test:
 test/integration:
 	./scripts/localkube-integration.sh
 
+lint:
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin
+	golangci-lint run ./...
+
 deploy:
 	kubectl apply -f deploy/
 

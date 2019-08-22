@@ -24,6 +24,8 @@ jobs:
   include:
   - stage: test
     script: make test
+  - stage: test
+    script: make lint
   - stage: integration
     script: make test/integration
     env:

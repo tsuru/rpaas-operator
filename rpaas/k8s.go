@@ -990,27 +990,6 @@ func newSecretForCertificates(instance v1alpha1.RpaasInstance, data map[string][
 	}
 }
 
-func newConfigMapForLocations(instance v1alpha1.RpaasInstance, data map[string]string) *corev1.ConfigMap {
-	hash := util.SHA256(data)
-	return &corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-locations-%s", instance.Name, hash[:10]),
-			Namespace: instance.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
-					Group:   v1alpha1.SchemeGroupVersion.Group,
-					Version: v1alpha1.SchemeGroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-			Annotations: map[string]string{
-				"rpaas.extensions.tsuru.io/sha256-hash": hash,
-			},
-		},
-		Data: data,
-	}
-}
-
 func formatPodEvents(events []corev1.Event) string {
 	var statuses []string
 	for _, evt := range events {

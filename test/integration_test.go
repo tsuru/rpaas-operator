@@ -207,11 +207,11 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 
 		assertInstanceReturns := func(localPort int, expectedBody string) {
-			rsp, err := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
-			require.NoError(t, err)
+			rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
+			require.NoError(t, iErr)
 			defer rsp.Body.Close()
-			rawBody, err := ioutil.ReadAll(rsp.Body)
-			require.NoError(t, err)
+			rawBody, iErr := ioutil.ReadAll(rsp.Body)
+			require.NoError(t, iErr)
 			assert.Equal(t, expectedBody, string(rawBody))
 			assert.Equal(t, http.StatusOK, rsp.StatusCode)
 		}
@@ -364,7 +364,8 @@ func Test_RpaasApi(t *testing.T) {
 		assert.Equal(t, len(configList.Items), 1)
 
 		for i := 0; i < 15; i++ {
-			cleanBlockFunc, err := api.createBlock(instanceName, teamName, blockName, fmt.Sprintf("content=location=/test%d{return 204;}", i))
+			var cleanBlockFunc func() error
+			cleanBlockFunc, err = api.createBlock(instanceName, teamName, blockName, fmt.Sprintf("content=location=/test%d{return 204;}", i))
 			require.NoError(t, err)
 			defer cleanBlockFunc()
 		}
