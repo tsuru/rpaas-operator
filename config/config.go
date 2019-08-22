@@ -14,6 +14,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 const (
@@ -21,11 +22,13 @@ const (
 )
 
 type RpaasConfig struct {
+	ServiceName        string            `json:"service-name"`
+	ServiceAnnotations map[string]string `json:"service-annotations"`
+	APIUsername        string            `json:"api-username"`
+	APIPassword        string            `json:"api-password"`
 	Flavors            []FlavorConfig
-	ServiceName        string            `mapstructure:"service-name"`
-	ServiceAnnotations map[string]string `mapstructure:"service-annotations"`
-	APIUsername        string            `mapstructure:"api-username"`
-	APIPassword        string            `mapstructure:"api-password"`
+	DefaultAffinity    *corev1.Affinity           `json:"default-affinity"`
+	TeamAffinity       map[string]corev1.Affinity `json:"team-affinity"`
 }
 
 type FlavorConfig struct {
@@ -76,7 +79,9 @@ func Init() error {
 		mapstructure.StringToSliceHookFunc(","),
 		jsonStringToMap,
 	)
-	err = viper.Unmarshal(&conf, viper.DecodeHook(decodeHook))
+	err = viper.Unmarshal(&conf, viper.DecodeHook(decodeHook), func(dc *mapstructure.DecoderConfig) {
+		dc.TagName = "json"
+	})
 	if err != nil {
 		return err
 	}
