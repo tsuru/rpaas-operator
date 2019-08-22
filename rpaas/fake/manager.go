@@ -26,7 +26,7 @@ type RpaasManager struct {
 	FakeUpdateExtraFiles  func(instanceName string, files ...rpaas.File) error
 	FakeBindApp           func(instanceName string, args rpaas.BindAppArgs) error
 	FakeUnbindApp         func(instanceName string) error
-	FakePurgeCache        func(args rpaas.PurgeCacheArgs) error
+	FakePurgeCache        func(instanceName string, args rpaas.PurgeCacheArgs) error
 	FakeDeleteRoute       func(instanceName, path string) error
 	FakeGetRoutes         func(instanceName string) ([]rpaas.Route, error)
 	FakeUpdateRoute       func(instanceName string, route rpaas.Route) error
@@ -151,9 +151,9 @@ func (m *RpaasManager) UnbindApp(ctx context.Context, instanceName string) error
 	return nil
 }
 
-func (m *RpaasManager) PurgeCache(ctx context.Context, args rpaas.PurgeCacheArgs) error {
+func (m *RpaasManager) PurgeCache(ctx context.Context, instanceName string, args rpaas.PurgeCacheArgs) error {
 	if m.FakePurgeCache != nil {
-		return m.FakePurgeCache(args)
+		return m.FakePurgeCache(instanceName, args)
 	}
 	return nil
 }

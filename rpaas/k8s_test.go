@@ -1289,6 +1289,61 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 		})
 	}
 }
+func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "my-instance"
+	nginx1 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance1.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Pods: []nginxv1alpha1.PodStatus{
+				{Name: "my-instance-pod"},
+			},
+		},
+	}
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-pod",
+			Namespace: instance1.Namespace,
+		},
+		Status: corev1.PodStatus{
+			PodIP:             "10.0.0.9",
+			ContainerStatuses: []corev1.ContainerStatus{{Ready: false}},
+		},
+	}
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, nginx1, pod1}
+
+	tests := []struct {
+		name      string
+		instance  string
+		args      PurgeCacheArgs
+		assertion func(t *testing.T, err error)
+	}{
+		{
+			name:     "when instance is not found",
+			instance: "not-found-instance",
+			args:     PurgeCacheArgs{},
+			assertion: func(t *testing.T, err error) {
+				assert.Error(t, err)
+				expected := NotFoundError{Msg: "rpaas instance \"not-found-instance\" not found"}
+				assert.Equal(t, expected, err)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeCli := fake.NewFakeClientWithScheme(scheme, resources...)
+			manager := &k8sRpaasManager{
+				cli:          fakeCli,
+				nonCachedCli: fakeCli,
+			}
+			err := manager.PurgeCache(nil, tt.instance, tt.args)
+			tt.assertion(t, err)
+		})
+	}
+}
 
 func Test_k8sRpaasManager_BindApp(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()

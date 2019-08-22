@@ -12,11 +12,15 @@ func cachePurge(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+	name := c.Param("instance")
+	if len(name) == 0 {
+		return c.String(http.StatusBadRequest, "name is required")
+	}
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
-	err = manager.PurgeCache(c.Request().Context(), args)
+	err = manager.PurgeCache(c.Request().Context(), name, args)
 	if err != nil {
 		return err
 	}

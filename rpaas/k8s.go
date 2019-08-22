@@ -530,7 +530,17 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) PurgeCache(ctx context.Context, args PurgeCacheArgs) error {
+func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) error {
+	podMap, err := m.GetInstanceStatus(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	for _, podStatus := range podMap {
+		if !podStatus.Running {
+			continue
+		}
+	}
 	return nil
 }
 
