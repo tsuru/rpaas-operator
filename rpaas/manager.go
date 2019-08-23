@@ -120,5 +120,5 @@ type RpaasManager interface {
 	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName string) error
-	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) error
+	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
 }

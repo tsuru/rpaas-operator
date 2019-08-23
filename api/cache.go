@@ -20,7 +20,7 @@ func cachePurge(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	err = manager.PurgeCache(c.Request().Context(), name, args)
+	_, err = manager.PurgeCache(c.Request().Context(), name, args)
 	if err != nil {
 		return err
 	}

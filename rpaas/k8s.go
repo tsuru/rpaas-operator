@@ -20,6 +20,7 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/util"
+	nginxManager "github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -530,18 +531,23 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) error {
+func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error) {
 	podMap, err := m.GetInstanceStatus(ctx, instanceName)
 	if err != nil {
-		return err
+		return 0, err
 	}
-
+	purgeCount := 0
 	for _, podStatus := range podMap {
 		if !podStatus.Running {
 			continue
 		}
+		nginx := nginxManager.NewNginxManager(podStatus.Address)
+		if err = nginx.PurgeCache(args.Path, args.PreservePath); err != nil {
+			continue
+		}
+		purgeCount += 1
 	}
-	return nil
+	return purgeCount, nil
 }
 
 func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
