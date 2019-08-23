@@ -34,8 +34,8 @@ func (e NginxError) Error() string {
 func NewNginxManager(host string) NginxManager {
 	return NginxManager{
 		host:          host,
-		managePort:    defaultManagePort,
-		purgeLocation: defaultPurgeLocationMatch,
+		managePort:    managePort(),
+		purgeLocation: purgeLocationMatch(),
 		client: http.Client{
 			Timeout: defaultPurgeTimeout,
 			Transport: &http.Transport{
