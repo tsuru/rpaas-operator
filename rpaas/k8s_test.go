@@ -1339,7 +1339,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 				cli:          fakeCli,
 				nonCachedCli: fakeCli,
 			}
-			_, err := manager.PurgeCache(nil, tt.instance, tt.args)
+			_, err := manager.PurgeCache(context.Background(), tt.instance, tt.args)
 			tt.assertion(t, err)
 		})
 	}

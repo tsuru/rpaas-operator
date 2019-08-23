@@ -19,7 +19,6 @@ type NginxManager struct {
 	managePort    uint16
 	host          string
 	purgeLocation string
-	vtsLocation   string
 	client        http.Client
 }
 

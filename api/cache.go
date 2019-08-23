@@ -1,9 +1,10 @@
 package api
 
 import (
+	"net/http"
+
 	"github.com/labstack/echo"
 	"github.com/tsuru/rpaas-operator/rpaas"
-	"net/http"
 )
 
 func cachePurge(c echo.Context) error {
