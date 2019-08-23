@@ -75,10 +75,13 @@ func hasRootPath(locations []v1alpha1.Location) bool {
 }
 
 var templateFuncs = template.FuncMap(map[string]interface{}{
-	"buildLocationKey": buildLocationKey,
-	"hasRootPath":      hasRootPath,
-	"toLower":          strings.ToLower,
-	"toUpper":          strings.ToUpper,
+	"buildLocationKey":   buildLocationKey,
+	"hasRootPath":        hasRootPath,
+	"toLower":            strings.ToLower,
+	"toUpper":            strings.ToUpper,
+	"managePort":         managePort,
+	"purgeLocationMatch": purgeLocationMatch,
+	"vtsLocationMatch":   vtsLocationMatch,
 })
 
 var defaultMainTemplate = template.Must(template.New("main").
@@ -201,14 +204,14 @@ http {
     {{template "http" .}}
 
 		server {
-			listen 8800;
+			listen {{ managePort }};
 
-      location ~ ^/purge/(.+) {
+      location ~ {{ purgeLocationMatch }} {
         proxy_cache_purge  rpaas $1$is_args$args;
       }
 
 {{if .Config.VTSEnabled}}
-			location /status {
+			location {{ vtsLocationMatch }} {
 				vhost_traffic_status_display;
 				vhost_traffic_status_display_format prometheus;
 			}

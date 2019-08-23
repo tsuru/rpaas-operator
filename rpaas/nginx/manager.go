@@ -47,6 +47,18 @@ func NewNginxManager(host string) NginxManager {
 	}
 }
 
+func managePort() uint16 {
+	return defaultManagePort
+}
+
+func purgeLocationMatch() string {
+	return defaultPurgeLocationMatch
+}
+
+func vtsLocationMatch() string {
+	return defaultVTSLocationMatch
+}
+
 func (m *NginxManager) PurgeCache(purgePath string, preservePath bool) error {
 	for _, encoding := range []string{"gzip", "identity"} {
 		headers := map[string]string{"Accept-Encoding": encoding}
