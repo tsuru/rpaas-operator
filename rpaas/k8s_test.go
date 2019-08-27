@@ -1367,7 +1367,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 		{
 			name:         "return NotFoundError when instance is not found",
 			instance:     "not-found-instance",
-			args:         PurgeCacheArgs{},
+			args:         PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{},
 			assertion: func(t *testing.T, count int, err error) {
 				assert.Error(t, err)
@@ -1376,9 +1376,20 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 			},
 		},
 		{
+			name:         "return ValidationError path parameter was not provided",
+			instance:     "my-instance",
+			args:         PurgeCacheArgs{},
+			cacheManager: fakeCacheManager{},
+			assertion: func(t *testing.T, count int, err error) {
+				assert.Error(t, err)
+				expected := ValidationError{Msg: "path is required"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
 			name:         "return 0 when instance doesn't have any running pods",
 			instance:     "not-running-instance",
-			args:         PurgeCacheArgs{},
+			args:         PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{},
 			assertion: func(t *testing.T, count int, err error) {
 				assert.NoError(t, err)
@@ -1388,7 +1399,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 		{
 			name:         "return the number of nginx instances where cache was purged",
 			instance:     "my-instance",
-			args:         PurgeCacheArgs{},
+			args:         PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{},
 			assertion: func(t *testing.T, count int, err error) {
 				assert.NoError(t, err)
@@ -1398,7 +1409,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 		{
 			name:     "return the number of nginx instances where cache was purged",
 			instance: "my-instance",
-			args:     PurgeCacheArgs{},
+			args:     PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{
 				purgeCacheFunc: func(host, path string, preservePath bool) error {
 					if host == "10.0.0.9" {

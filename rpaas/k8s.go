@@ -538,6 +538,9 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 	if err != nil {
 		return 0, err
 	}
+	if args.Path == "" {
+		return 0, ValidationError{Msg: "path is required"}
+	}
 	purgeCount := 0
 	for _, podStatus := range podMap {
 		if !podStatus.Running {
