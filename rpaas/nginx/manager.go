@@ -56,18 +56,18 @@ func vtsLocationMatch() string {
 	return defaultVTSLocationMatch
 }
 
-func (m NginxManager) PurgeCache(host, path string, preservePath bool) error {
+func (m NginxManager) PurgeCache(host, purgePath string, preservePath bool) error {
 	for _, encoding := range []string{"gzip", "identity"} {
 		headers := map[string]string{"Accept-Encoding": encoding}
 
 		if preservePath {
-			path := fmt.Sprintf("%s%s", defaultPurgeLocation, path)
+			path := fmt.Sprintf("%s%s", defaultPurgeLocation, purgePath)
 			if err := m.purgeRequest(host, path, headers); err != nil {
 				return err
 			}
 		} else {
 			for _, scheme := range []string{"http", "https"} {
-				path := fmt.Sprintf("%s/%s%s", defaultPurgeLocation, scheme, path)
+				path := fmt.Sprintf("%s/%s%s", defaultPurgeLocation, scheme, purgePath)
 				if err := m.purgeRequest(host, path, headers); err != nil {
 					return err
 				}
