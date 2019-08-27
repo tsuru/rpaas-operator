@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/labstack/echo"
@@ -15,15 +16,15 @@ func cachePurge(c echo.Context) error {
 	}
 	name := c.Param("instance")
 	if len(name) == 0 {
-		return c.String(http.StatusBadRequest, "name is required")
+		return c.String(http.StatusBadRequest, "instance is required")
 	}
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
-	_, err = manager.PurgeCache(c.Request().Context(), name, args)
+	count, err := manager.PurgeCache(c.Request().Context(), name, args)
 	if err != nil {
 		return err
 	}
-	return c.NoContent(http.StatusOK)
+	return c.String(http.StatusOK, fmt.Sprintf("Path found and purged on %d servers", count))
 }
