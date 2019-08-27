@@ -42,6 +42,7 @@ var (
 type k8sRpaasManager struct {
 	nonCachedCli client.Client
 	cli          client.Client
+	cacheManager CacheManager
 }
 
 func NewK8S(mgr manager.Manager) (RpaasManager, error) {
@@ -55,6 +56,7 @@ func NewK8S(mgr manager.Manager) (RpaasManager, error) {
 	return &k8sRpaasManager{
 		nonCachedCli: nonCachedCli,
 		cli:          mgr.GetClient(),
+		cacheManager: nginxManager.NewNginxManager(),
 	}, nil
 }
 
@@ -541,8 +543,7 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 		if !podStatus.Running {
 			continue
 		}
-		nginx := nginxManager.NewNginxManager(podStatus.Address)
-		if err = nginx.PurgeCache(args.Path, args.PreservePath); err != nil {
+		if err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, args.PreservePath); err != nil {
 			continue
 		}
 		purgeCount += 1

@@ -109,12 +109,12 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			url, err := url.Parse(server.URL)
 			require.NoError(t, err)
 
-			nginx := NewNginxManager(url.Hostname())
+			nginx := NewNginxManager()
 			port, err := strconv.ParseUint(url.Port(), 10, 16)
 			require.NoError(t, err)
 			nginx.managePort = uint16(port)
 
-			err = nginx.PurgeCache(tt.purgePath, tt.preservePath)
+			err = nginx.PurgeCache(url.Hostname(), tt.purgePath, tt.preservePath)
 			tt.assertion(t, err)
 		})
 	}

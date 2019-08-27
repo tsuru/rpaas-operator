@@ -100,6 +100,10 @@ type BindAppArgs struct {
 	EventID string `form:"eventid"`
 }
 
+type CacheManager interface {
+	PurgeCache(host, path string, preservePath bool) error
+}
+
 type PurgeCacheArgs struct {
 	Path         string `json:"path" form:"path"`
 	PreservePath bool   `json:"preserve_path" form:"preserve_path"`
