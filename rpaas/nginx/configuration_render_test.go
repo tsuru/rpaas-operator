@@ -80,6 +80,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `proxy_cache_lock on;`, result)
 				assert.Regexp(t, `proxy_cache_lock_age 60s;`, result)
 				assert.Regexp(t, `proxy_cache_lock_timeout 60s;`, result)
+				assert.Regexp(t, `proxy_cache_key \$scheme\$request_uri;`, result)
 			},
 		},
 		{

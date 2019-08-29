@@ -249,6 +249,7 @@ http {
         proxy_cache_lock on;
         proxy_cache_lock_age 60s;
         proxy_cache_lock_timeout 60s;
+        proxy_cache_key $scheme$request_uri;
 {{end}}
         proxy_read_timeout 20s;
         proxy_connect_timeout 10s;
