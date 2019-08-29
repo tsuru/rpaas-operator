@@ -206,9 +206,11 @@ http {
 		server {
 			listen {{ managePort }};
 
+{{if .Config.CacheEnabled}}
       location ~ {{ purgeLocationMatch }} {
         proxy_cache_purge  rpaas $1$is_args$args;
       }
+{{end}}
 
 {{if .Config.VTSEnabled}}
 			location {{ vtsLocationMatch }} {

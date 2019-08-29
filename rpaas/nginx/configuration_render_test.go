@@ -117,7 +117,9 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		{
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
-				Config:   &v1alpha1.NginxConfig{},
+				Config: &v1alpha1.NginxConfig{
+					CacheEnabled: v1alpha1.Bool(true),
+				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string, err error) {
