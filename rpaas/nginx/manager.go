@@ -82,7 +82,7 @@ func (m NginxManager) purgeRequest(host, path string, headers map[string]string)
 	if err != nil {
 		return NginxError{Msg: fmt.Sprintf("cannot purge nginx cache - error requesting nginx server: %v", err)}
 	}
-	if resp.StatusCode != 200 {
+	if resp.StatusCode != http.StatusNoContent {
 		return NginxError{Msg: fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %v", resp)}
 	}
 	return nil

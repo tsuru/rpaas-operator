@@ -42,21 +42,21 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 		},
 		{
 			description:  "makes a request to /purge/<purgePath> when preservePath is true",
-			purgePath:    "/index.html",
+			purgePath:    "/some/path/index.html",
 			preservePath: true,
 			assertion: func(t *testing.T, err error) {
 				require.NoError(t, err)
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
-				if r.RequestURI == "/purge/index.html" {
-					w.WriteHeader(http.StatusOK)
+				if r.RequestURI == "/purge/some/path/index.html" {
+					w.WriteHeader(http.StatusNoContent)
 				} else {
 					w.WriteHeader(http.StatusNotFound)
 				}
 			},
 		},
 		{
-			description:  "makes a request to /purge/<protocol>/<cacheKey> when preservePath is false",
+			description:  "makes a request to /purge/<protocol>/<purgePath> when preservePath is false",
 			purgePath:    "/index.html",
 			preservePath: false,
 			assertion: func(t *testing.T, err error) {
@@ -64,7 +64,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				if r.RequestURI == "/purge/http/index.html" || r.RequestURI == "/purge/https/index.html" {
-					w.WriteHeader(http.StatusOK)
+					w.WriteHeader(http.StatusNoContent)
 				} else {
 					w.WriteHeader(http.StatusNotFound)
 				}
@@ -79,7 +79,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity" {
-					w.WriteHeader(http.StatusOK)
+					w.WriteHeader(http.StatusNoContent)
 				} else {
 					w.WriteHeader(http.StatusNotAcceptable)
 				}
@@ -94,7 +94,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity" {
-					w.WriteHeader(http.StatusOK)
+					w.WriteHeader(http.StatusNoContent)
 				} else {
 					w.WriteHeader(http.StatusNotAcceptable)
 				}
