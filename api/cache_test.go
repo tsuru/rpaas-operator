@@ -71,7 +71,7 @@ func Test_cachePurge(t *testing.T) {
 			instanceName: "my-instance",
 			requestBody:  "path=/index.html&preserve_path=true",
 			expectedCode: http.StatusOK,
-			expectedBody: "Path found and purged on 36 servers",
+			expectedBody: "Object purged on 36 servers",
 			manager: &fake.RpaasManager{
 				FakePurgeCache: func(instanceName string, args rpaas.PurgeCacheArgs) (int, error) {
 					return 36, nil

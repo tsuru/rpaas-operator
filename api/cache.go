@@ -26,5 +26,5 @@ func cachePurge(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	return c.String(http.StatusOK, fmt.Sprintf("Path found and purged on %d servers", count))
+	return c.String(http.StatusOK, fmt.Sprintf("Object purged on %d servers", count))
 }
