@@ -300,31 +300,44 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {
-	rpaasInstance, err := m.GetInstance(ctx, name)
+	instance, err := m.GetInstance(ctx, name)
 	if err != nil {
 		return "", err
 	}
-	nginx := nginxv1alpha1.Nginx{}
-	err = m.cli.Get(ctx, types.NamespacedName{Name: rpaasInstance.Name, Namespace: rpaasInstance.Namespace}, &nginx)
+
+	var nginx nginxv1alpha1.Nginx
+	err = m.cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &nginx)
+	if err != nil && IsNotFoundError(err) {
+		return "", nil
+	}
+
 	if err != nil {
-		if IsNotFoundError(err) {
-			return "", nil
-		}
 		return "", err
 	}
+
 	if len(nginx.Status.Services) == 0 {
 		return "", nil
 	}
+
 	svcName := nginx.Status.Services[0].Name
 	var svc corev1.Service
-	err = m.cli.Get(ctx, types.NamespacedName{Name: svcName, Namespace: rpaasInstance.Namespace}, &svc)
+	err = m.cli.Get(ctx, types.NamespacedName{Name: svcName, Namespace: instance.Namespace}, &svc)
 	if err != nil {
 		return "", err
 	}
-	if len(svc.Status.LoadBalancer.Ingress) > 0 {
+
+	switch svc.Spec.Type {
+	case corev1.ServiceTypeLoadBalancer:
+		if len(svc.Status.LoadBalancer.Ingress) == 0 {
+			return "", nil
+		}
+
 		return svc.Status.LoadBalancer.Ingress[0].IP, nil
+	case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
+		return svc.Spec.ClusterIP, nil
 	}
-	return svc.Spec.ClusterIP, nil
+
+	return "", nil
 }
 
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {

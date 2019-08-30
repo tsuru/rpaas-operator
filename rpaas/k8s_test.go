@@ -634,116 +634,182 @@ func newEmptyLocations() *corev1.ConfigMap {
 }
 
 func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-	instance2 := newEmptyRpaasInstance()
-	instance2.ObjectMeta.Name = "another-instance"
-	instance3 := newEmptyRpaasInstance()
-	instance3.ObjectMeta.Name = "instance3"
-	instance4 := newEmptyRpaasInstance()
-	instance4.ObjectMeta.Name = "instance4"
-	nginx1 := &nginxv1alpha1.Nginx{
-		ObjectMeta: instance1.ObjectMeta,
-		Status: nginxv1alpha1.NginxStatus{
-			Services: []nginxv1alpha1.ServiceStatus{
-				{Name: "svc1"},
-			},
-		},
-	}
-	nginx2 := &nginxv1alpha1.Nginx{
-		ObjectMeta: instance2.ObjectMeta,
-		Status: nginxv1alpha1.NginxStatus{
-			Services: []nginxv1alpha1.ServiceStatus{
-				{Name: "svc2"},
-			},
-		},
-	}
-	nginx3 := &nginxv1alpha1.Nginx{
-		ObjectMeta: instance3.ObjectMeta,
-		Status: nginxv1alpha1.NginxStatus{
-			Services: []nginxv1alpha1.ServiceStatus{},
-		},
-	}
-	svc1 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc1",
-			Namespace: instance1.Namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			ClusterIP: "10.1.1.9",
-		},
-		Status: corev1.ServiceStatus{
-			LoadBalancer: corev1.LoadBalancerStatus{
-				Ingress: []corev1.LoadBalancerIngress{
-					{IP: "10.1.2.3"},
-				},
-			},
-		},
-	}
-	svc2 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "svc2",
-			Namespace: instance1.Namespace,
-		},
-		Spec: corev1.ServiceSpec{
-			ClusterIP: "10.1.1.9",
-		},
-	}
-
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx1, nginx2, nginx3, svc1, svc2}
-
 	testCases := []struct {
+		name      string
+		resources func() []runtime.Object
 		instance  string
 		assertion func(*testing.T, string, error)
 	}{
 		{
-			"my-instance",
-			func(t *testing.T, address string, err error) {
+			name: "when the Service is LoadBalancer type and already has an external IP, should returns the provided extenal IP",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				return []runtime.Object{
+					instance,
+					&nginxv1alpha1.Nginx{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name,
+							Namespace: instance.Namespace,
+						},
+						Status: nginxv1alpha1.NginxStatus{
+							Services: []nginxv1alpha1.ServiceStatus{
+								{Name: instance.Name + "-service"},
+							},
+						},
+					},
+					&corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name + "-service",
+							Namespace: instance.Namespace,
+						},
+						Spec: corev1.ServiceSpec{
+							Type:      corev1.ServiceTypeLoadBalancer,
+							ClusterIP: "10.1.1.9",
+						},
+						Status: corev1.ServiceStatus{
+							LoadBalancer: corev1.LoadBalancerStatus{
+								Ingress: []corev1.LoadBalancerIngress{
+									{IP: "10.1.2.3"},
+								},
+							},
+						},
+					},
+				}
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, address string, err error) {
 				assert.NoError(t, err)
 				assert.Equal(t, address, "10.1.2.3")
 			},
 		},
 		{
-			"another-instance",
-			func(t *testing.T, address string, err error) {
+			name: "when the Service is LoadBalancer type with no external IP provided, should returns an empty address",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				return []runtime.Object{
+					instance,
+					&nginxv1alpha1.Nginx{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name,
+							Namespace: instance.Namespace,
+						},
+						Status: nginxv1alpha1.NginxStatus{
+							Services: []nginxv1alpha1.ServiceStatus{
+								{Name: instance.Name + "-service"},
+							},
+						},
+					},
+					&corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name + "-service",
+							Namespace: instance.Namespace,
+						},
+						Spec: corev1.ServiceSpec{
+							Type:      corev1.ServiceTypeLoadBalancer,
+							ClusterIP: "10.1.1.9",
+						},
+					},
+				}
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, address string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, address, "")
+			},
+		},
+		{
+			name: "when the Service is ClusterIP type, should returns the ClusterIP address",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Name = "another-instance"
+				return []runtime.Object{
+					instance,
+					&nginxv1alpha1.Nginx{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name,
+							Namespace: instance.Namespace,
+						},
+						Status: nginxv1alpha1.NginxStatus{
+							Services: []nginxv1alpha1.ServiceStatus{
+								{Name: instance.Name + "-service"},
+							},
+						},
+					},
+					&corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name + "-service",
+							Namespace: instance.Namespace,
+						},
+						Spec: corev1.ServiceSpec{
+							Type:      corev1.ServiceTypeClusterIP,
+							ClusterIP: "10.1.1.9",
+						},
+					},
+				}
+			},
+			instance: "another-instance",
+			assertion: func(t *testing.T, address string, err error) {
 				assert.NoError(t, err)
 				assert.Equal(t, address, "10.1.1.9")
 			},
 		},
 		{
-			"instance3",
-			func(t *testing.T, address string, err error) {
+			name: "when Nginx object has no Services under Status field, should returns an empty address",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Name = "instance3"
+				return []runtime.Object{
+					instance,
+					&nginxv1alpha1.Nginx{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name,
+							Namespace: instance.Namespace,
+						},
+						Status: nginxv1alpha1.NginxStatus{},
+					},
+				}
+			},
+			instance: "instance3",
+			assertion: func(t *testing.T, address string, err error) {
 				assert.NoError(t, err)
 				assert.Equal(t, address, "")
 			},
 		},
 		{
-			"instance4",
-			func(t *testing.T, address string, err error) {
+			name: "when Nginx object is not found, should returns an empty address",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Name = "instance4"
+				return []runtime.Object{
+					instance,
+				}
+			},
+			instance: "instance4",
+			assertion: func(t *testing.T, address string, err error) {
 				assert.NoError(t, err)
 				assert.Equal(t, address, "")
 			},
 		},
 		{
-			"not-found-instance",
-			func(t *testing.T, address string, err error) {
+			name: "when RpaasInstance is not found, should returns an NotFoundError",
+			resources: func() []runtime.Object {
+				return []runtime.Object{}
+			},
+			instance: "not-found-instance",
+			assertion: func(t *testing.T, address string, err error) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
 			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run("", func(t *testing.T) {
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(scheme, resources...),
+				cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...),
 			}
-			address, err := manager.GetInstanceAddress(context.Background(), testCase.instance)
-			testCase.assertion(t, address, err)
+			address, err := manager.GetInstanceAddress(context.Background(), tt.instance)
+			tt.assertion(t, address, err)
 		})
 	}
 }
