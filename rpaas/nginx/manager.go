@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"time"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -72,10 +74,14 @@ func (m NginxManager) PurgeCache(host, purgePath string, preservePath bool) erro
 func (m NginxManager) purgeRequest(host, path string, headers map[string]string) error {
 	resp, err := m.requestNginx(host, path, headers)
 	if err != nil {
-		return NginxError{Msg: fmt.Sprintf("cannot purge nginx cache - error requesting nginx server: %v", err)}
+		errorMessage := fmt.Sprintf("cannot purge nginx cache - error requesting nginx server: %v", err)
+		logrus.Error(errorMessage)
+		return NginxError{Msg: errorMessage}
 	}
 	if resp.StatusCode != http.StatusNoContent {
-		return NginxError{Msg: fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %v", resp)}
+		errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %v", resp)
+		logrus.Error(errorMessage)
+		return NginxError{Msg: errorMessage}
 	}
 	return nil
 }
