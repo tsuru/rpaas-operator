@@ -1,7 +1,6 @@
 package nginx
 
 import (
-	"crypto/tls"
 	"fmt"
 	"net/http"
 	"time"
@@ -33,14 +32,7 @@ func NewNginxManager() NginxManager {
 	return NginxManager{
 		managePort:    managePort(),
 		purgeLocation: purgeLocationMatch(),
-		client: http.Client{
-			Timeout: defaultPurgeTimeout,
-			Transport: &http.Transport{
-				TLSClientConfig: &tls.Config{
-					InsecureSkipVerify: true,
-				},
-			},
-		},
+		client:        http.Client{Timeout: defaultPurgeTimeout},
 	}
 }
 
