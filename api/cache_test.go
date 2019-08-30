@@ -81,7 +81,7 @@ func Test_cachePurge(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tt.description, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/purge", srv.URL, tt.instanceName)
