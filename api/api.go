@@ -190,6 +190,7 @@ func newEcho() *echo.Echo {
 	e.DELETE("/resources/:instance/route", deleteRoute)
 	e.GET("/resources/:instance/route", getRoutes)
 	e.POST("/resources/:instance/route", updateRoute)
+	e.POST("/resources/:instance/purge", cachePurge)
 
 	return e
 }

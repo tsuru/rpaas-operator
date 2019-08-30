@@ -20,6 +20,7 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/util"
+	nginxManager "github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -41,6 +42,7 @@ var (
 type k8sRpaasManager struct {
 	nonCachedCli client.Client
 	cli          client.Client
+	cacheManager CacheManager
 }
 
 func NewK8S(mgr manager.Manager) (RpaasManager, error) {
@@ -54,6 +56,7 @@ func NewK8S(mgr manager.Manager) (RpaasManager, error) {
 	return &k8sRpaasManager{
 		nonCachedCli: nonCachedCli,
 		cli:          mgr.GetClient(),
+		cacheManager: nginxManager.NewNginxManager(),
 	}, nil
 }
 
@@ -528,6 +531,27 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 	instance.Spec.Host = ""
 
 	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error) {
+	podMap, err := m.GetInstanceStatus(ctx, instanceName)
+	if err != nil {
+		return 0, err
+	}
+	if args.Path == "" {
+		return 0, ValidationError{Msg: "path is required"}
+	}
+	purgeCount := 0
+	for _, podStatus := range podMap {
+		if !podStatus.Running {
+			continue
+		}
+		if err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, args.PreservePath); err != nil {
+			continue
+		}
+		purgeCount += 1
+	}
+	return purgeCount, nil
 }
 
 func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {

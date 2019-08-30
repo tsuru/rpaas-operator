@@ -80,6 +80,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `proxy_cache_lock on;`, result)
 				assert.Regexp(t, `proxy_cache_lock_age 60s;`, result)
 				assert.Regexp(t, `proxy_cache_lock_timeout 60s;`, result)
+				assert.Regexp(t, `proxy_cache_key \$scheme\$request_uri;`, result)
 			},
 		},
 		{
@@ -112,6 +113,21 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				require.NoError(t, err)
 				assert.Regexp(t, `access_log syslog:server=syslog.server.example.com,facility=local1,tag=my-tag rpaas_combined;`, result)
 				assert.Regexp(t, `error_log syslog:server=syslog.server.example.com,facility=local1,tag=my-tag;`, result)
+			},
+		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					CacheEnabled: v1alpha1.Bool(true),
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				require.NoError(t, err)
+				assert.Regexp(t, `\s+location \~ \^/purge/(.+) {
+\s+proxy_cache_purge  rpaas \$1\$is_args\$args;
+`, result)
 			},
 		},
 		{

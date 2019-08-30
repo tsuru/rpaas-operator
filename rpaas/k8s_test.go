@@ -10,6 +10,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	nginxManager "github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,17 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
+
+type fakeCacheManager struct {
+	purgeCacheFunc func(host, path string, preservePath bool) error
+}
+
+func (f fakeCacheManager) PurgeCache(host, path string, preservePath bool) error {
+	if f.purgeCacheFunc != nil {
+		return f.purgeCacheFunc(host, path, preservePath)
+	}
+	return nil
+}
 
 func init() {
 	logf.SetLogger(logf.ZapLogger(true))
@@ -1286,6 +1298,143 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
 			err := manager.DeleteExtraFiles(context.Background(), tt.instance, tt.filenames...)
 			tt.assertion(t, err, manager)
+		})
+	}
+}
+func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "my-instance"
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "not-running-instance"
+	nginx1 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance1.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Pods: []nginxv1alpha1.PodStatus{
+				{Name: "my-instance-pod-1"},
+				{Name: "my-instance-pod-2"},
+			},
+		},
+	}
+	nginx2 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance2.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			Pods: []nginxv1alpha1.PodStatus{
+				{Name: "not-running-instance"},
+			},
+		},
+	}
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-pod-1",
+			Namespace: instance1.Namespace,
+		},
+		Status: corev1.PodStatus{
+			PodIP:             "10.0.0.9",
+			ContainerStatuses: []corev1.ContainerStatus{{Ready: true}},
+		},
+	}
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-pod-2",
+			Namespace: instance1.Namespace,
+		},
+		Status: corev1.PodStatus{
+			PodIP:             "10.0.0.10",
+			ContainerStatuses: []corev1.ContainerStatus{{Ready: true}},
+		},
+	}
+	pod3 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "not-running-instance-pod",
+			Namespace: instance2.Namespace,
+		},
+		Status: corev1.PodStatus{
+			PodIP:             "10.0.0.11",
+			ContainerStatuses: []corev1.ContainerStatus{{Ready: false}},
+		},
+	}
+
+	scheme := newScheme()
+	resources := []runtime.Object{instance1, instance2, nginx1, nginx2, pod1, pod2, pod3}
+
+	tests := []struct {
+		name         string
+		instance     string
+		args         PurgeCacheArgs
+		cacheManager fakeCacheManager
+		assertion    func(t *testing.T, count int, err error)
+	}{
+		{
+			name:         "return NotFoundError when instance is not found",
+			instance:     "not-found-instance",
+			args:         PurgeCacheArgs{Path: "/index.html"},
+			cacheManager: fakeCacheManager{},
+			assertion: func(t *testing.T, count int, err error) {
+				assert.Error(t, err)
+				expected := NotFoundError{Msg: "rpaas instance \"not-found-instance\" not found"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
+			name:         "return ValidationError path parameter was not provided",
+			instance:     "my-instance",
+			args:         PurgeCacheArgs{},
+			cacheManager: fakeCacheManager{},
+			assertion: func(t *testing.T, count int, err error) {
+				assert.Error(t, err)
+				expected := ValidationError{Msg: "path is required"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
+			name:         "return 0 when instance doesn't have any running pods",
+			instance:     "not-running-instance",
+			args:         PurgeCacheArgs{Path: "/index.html"},
+			cacheManager: fakeCacheManager{},
+			assertion: func(t *testing.T, count int, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, 0, count)
+			},
+		},
+		{
+			name:         "return the number of nginx instances where cache was purged",
+			instance:     "my-instance",
+			args:         PurgeCacheArgs{Path: "/index.html"},
+			cacheManager: fakeCacheManager{},
+			assertion: func(t *testing.T, count int, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, 2, count)
+			},
+		},
+		{
+			name:     "return the number of nginx instances where cache was purged",
+			instance: "my-instance",
+			args:     PurgeCacheArgs{Path: "/index.html"},
+			cacheManager: fakeCacheManager{
+				purgeCacheFunc: func(host, path string, preservePath bool) error {
+					if host == "10.0.0.9" {
+						return nginxManager.NginxError{Msg: "some nginx error"}
+					}
+					return nil
+				},
+			},
+			assertion: func(t *testing.T, count int, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, 1, count)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			fakeCli := fake.NewFakeClientWithScheme(scheme, resources...)
+			manager := &k8sRpaasManager{
+				cli:          fakeCli,
+				nonCachedCli: fakeCli,
+				cacheManager: tt.cacheManager,
+			}
+			count, err := manager.PurgeCache(context.Background(), tt.instance, tt.args)
+			tt.assertion(t, count, err)
 		})
 	}
 }
