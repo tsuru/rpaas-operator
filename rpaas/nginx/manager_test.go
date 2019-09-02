@@ -49,7 +49,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				if r.RequestURI == "/purge/some/path/index.html" {
-					w.WriteHeader(http.StatusNoContent)
+					w.WriteHeader(http.StatusOK)
 				} else {
 					w.WriteHeader(http.StatusNotFound)
 				}
@@ -64,7 +64,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				if r.RequestURI == "/purge/http/index.html" || r.RequestURI == "/purge/https/index.html" {
-					w.WriteHeader(http.StatusNoContent)
+					w.WriteHeader(http.StatusOK)
 				} else {
 					w.WriteHeader(http.StatusNotFound)
 				}
@@ -79,7 +79,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity" {
-					w.WriteHeader(http.StatusNoContent)
+					w.WriteHeader(http.StatusOK)
 				} else {
 					w.WriteHeader(http.StatusNotAcceptable)
 				}
@@ -94,7 +94,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				if r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity" {
-					w.WriteHeader(http.StatusNoContent)
+					w.WriteHeader(http.StatusOK)
 				} else {
 					w.WriteHeader(http.StatusNotAcceptable)
 				}
