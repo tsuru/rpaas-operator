@@ -1,6 +1,7 @@
 package util
 
 import (
+	"context"
 	"fmt"
 	"testing"
 
@@ -212,7 +213,7 @@ func TestGetValue(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k8sClient := fake.NewFakeClientWithScheme(scheme, tt.resources...)
-			value, err := GetValue(nil, k8sClient, tt.namespace, tt.value)
+			value, err := GetValue(context.TODO(), k8sClient, tt.namespace, tt.value)
 			tt.assertion(t, value, err)
 		})
 	}

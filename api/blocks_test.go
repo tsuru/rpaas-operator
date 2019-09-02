@@ -66,7 +66,7 @@ func Test_deleteBlock(t *testing.T) {
 
 func Test_listBlocks(t *testing.T) {
 	type listBlocksResponse struct {
-		Blocks []rpaas.ConfigurationBlock `json:blocks`
+		Blocks []rpaas.ConfigurationBlock `json:"blocks"`
 	}
 
 	tests := []struct {
@@ -91,7 +91,7 @@ func Test_listBlocks(t *testing.T) {
 			},
 		},
 		{
-			name:         "when sucessfully listing instances blocks",
+			name:         "when successfully listing instances blocks",
 			instance:     "another-instance",
 			expectedCode: http.StatusOK,
 			expectedBlocks: listBlocksResponse{

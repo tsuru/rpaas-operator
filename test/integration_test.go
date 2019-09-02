@@ -377,7 +377,7 @@ func Test_RpaasApi(t *testing.T) {
 		assert.Equal(t, len(configList.Items), 1)
 
 		for i := 0; i < 15; i++ {
-			_, err := api.createBlock(instanceName, blockName, fmt.Sprintf("location = /test%d { return 204; }", i))
+			_, err = api.createBlock(instanceName, blockName, fmt.Sprintf("location = /test%d { return 204; }", i))
 			require.NoError(t, err)
 			time.Sleep(500 * time.Millisecond)
 		}

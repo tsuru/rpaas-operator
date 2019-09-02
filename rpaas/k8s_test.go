@@ -63,7 +63,7 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 				instance := newEmptyRpaasInstance()
 				instance.Name = "another-instance"
 				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
-					v1alpha1.BlockTypeHTTP: v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP: {
 						Value: "# Some NGINX configuration at HTTP scope",
 					},
 				}
@@ -79,10 +79,10 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...)}
-			err := manager.DeleteBlock(nil, tt.instance, tt.block)
+			err := manager.DeleteBlock(context.TODO(), tt.instance, tt.block)
 			var instance v1alpha1.RpaasInstance
 			if err == nil {
-				err1 := manager.cli.Get(nil, types.NamespacedName{
+				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{
 					Name:      tt.instance,
 					Namespace: "default",
 				}, &instance)
@@ -129,10 +129,10 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 			resources: func() []runtime.Object {
 				instance := newEmptyRpaasInstance()
 				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
-					v1alpha1.BlockTypeHTTP: v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP: {
 						Value: "# some NGINX conf at http context",
 					},
-					v1alpha1.BlockTypeServer: v1alpha1.Value{
+					v1alpha1.BlockTypeServer: {
 						ValueFrom: &v1alpha1.ValueSource{
 							ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 								LocalObjectReference: corev1.LocalObjectReference{
@@ -172,7 +172,7 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...)}
-			blocks, err := manager.ListBlocks(nil, tt.instance)
+			blocks, err := manager.ListBlocks(context.TODO(), tt.instance)
 			tt.assertion(t, err, blocks)
 		})
 	}
@@ -224,7 +224,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
 				require.NoError(t, err)
 				assert.Equal(t, map[v1alpha1.BlockType]v1alpha1.Value{
-					v1alpha1.BlockTypeHTTP: v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP: {
 						Value: "# my custom http configuration",
 					},
 				}, instance.Spec.Blocks)
@@ -235,7 +235,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 			resources: func() []runtime.Object {
 				instance := newEmptyRpaasInstance()
 				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
-					v1alpha1.BlockTypeRoot: v1alpha1.Value{Value: "# some old root configuration"},
+					v1alpha1.BlockTypeRoot: {Value: "# some old root configuration"},
 				}
 				return []runtime.Object{instance}
 			},
@@ -244,7 +244,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
 				require.NoError(t, err)
 				assert.Equal(t, map[v1alpha1.BlockType]v1alpha1.Value{
-					v1alpha1.BlockTypeRoot: v1alpha1.Value{
+					v1alpha1.BlockTypeRoot: {
 						Value: "# my custom http configuration",
 					},
 				}, instance.Spec.Blocks)
@@ -257,10 +257,10 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 			manager := &k8sRpaasManager{
 				cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...),
 			}
-			err := manager.UpdateBlock(nil, tt.instance, tt.block)
+			err := manager.UpdateBlock(context.TODO(), tt.instance, tt.block)
 			var instance v1alpha1.RpaasInstance
 			if err == nil {
-				err1 := manager.cli.Get(nil, types.NamespacedName{Name: tt.instance, Namespace: "default"}, &instance)
+				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{Name: tt.instance, Namespace: "default"}, &instance)
 				require.NoError(t, err1)
 			}
 			tt.assertion(t, err, &instance)
@@ -559,19 +559,6 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{},
-	}
-}
-
-func newEmptyConfigurationBlocks() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-instance-blocks",
-			Namespace: "default",
-		},
 	}
 }
 

@@ -806,10 +806,6 @@ func convertPrivateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
 	}
 }
 
-func formatConfigurationBlocksName(instance v1alpha1.RpaasInstance) string {
-	return fmt.Sprintf("%s-blocks", instance.ObjectMeta.Name)
-}
-
 func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) (*v1alpha1.RpaasPlan, error) {
 	if args.Name == "" {
 		return nil, ValidationError{Msg: "name is required"}

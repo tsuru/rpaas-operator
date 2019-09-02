@@ -248,19 +248,14 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 		switch blockType {
 		case v1alpha1.BlockTypeRoot:
 			blocks.RootBlock = content
-			break
 		case v1alpha1.BlockTypeHTTP:
 			blocks.HttpBlock = content
-			break
 		case v1alpha1.BlockTypeServer:
 			blocks.ServerBlock = content
-			break
 		case v1alpha1.BlockTypeLuaServer:
 			blocks.LuaServerBlock = content
-			break
 		case v1alpha1.BlockTypeLuaWorker:
 			blocks.LuaWorkerBlock = content
-			break
 		}
 	}
 
