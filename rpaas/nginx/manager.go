@@ -78,7 +78,7 @@ func (m NginxManager) purgeRequest(host, path string, headers map[string]string)
 		logrus.Error(errorMessage)
 		return NginxError{Msg: errorMessage}
 	}
-	if resp.StatusCode != http.StatusNoContent {
+	if resp.StatusCode != http.StatusOK {
 		errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %v", resp)
 		logrus.Error(errorMessage)
 		return NginxError{Msg: errorMessage}
