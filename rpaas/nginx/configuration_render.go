@@ -205,9 +205,6 @@ http {
 {{end}}
 {{end}}
 
-    lua_package_path  "/usr/local/lib/lua/5.1/?.lua;;";
-    lua_package_cpath "/usr/local/lib/lua/5.1/?.so;;";
-
     init_by_lua_block {
         {{template "lua-server" .}}
     }
