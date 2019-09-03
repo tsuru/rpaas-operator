@@ -3,6 +3,7 @@ package api
 import (
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/labstack/echo"
 	"github.com/tsuru/rpaas-operator/rpaas"
@@ -13,18 +14,13 @@ func deleteBlock(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	blockName := c.Param("block")
-	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), blockName)
-	switch err {
-	case nil:
-		return c.String(http.StatusOK, fmt.Sprintf("block %q was successfully removed", blockName))
-	case rpaas.ErrBlockInvalid:
-		return c.String(http.StatusBadRequest, fmt.Sprintf("%s", err))
-	case rpaas.ErrBlockIsNotDefined:
-		return c.NoContent(http.StatusNoContent)
-	default:
+
+	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), c.Param("block"))
+	if err != nil {
 		return err
 	}
+
+	return c.NoContent(http.StatusOK)
 }
 
 func listBlocks(c echo.Context) error {
@@ -32,14 +28,19 @@ func listBlocks(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	blocks, err := manager.ListBlocks(c.Request().Context(), c.Param("instance"))
 	if err != nil {
 		return err
 	}
-	result := struct {
+
+	if blocks == nil {
+		blocks = make([]rpaas.ConfigurationBlock, 0)
+	}
+
+	return c.JSON(http.StatusOK, struct {
 		Blocks []rpaas.ConfigurationBlock `json:"blocks"`
-	}{blocks}
-	return c.JSON(http.StatusOK, result)
+	}{blocks})
 }
 
 func updateBlock(c echo.Context) error {
@@ -47,17 +48,97 @@ func updateBlock(c echo.Context) error {
 	if err != nil {
 		return err
 	}
+
 	var block rpaas.ConfigurationBlock
 	if err = c.Bind(&block); err != nil {
 		return err
 	}
+
 	err = manager.UpdateBlock(c.Request().Context(), c.Param("instance"), block)
-	switch err {
-	case nil:
-		return c.NoContent(http.StatusCreated)
-	case rpaas.ErrBlockInvalid:
-		return c.String(http.StatusBadRequest, fmt.Sprintf("%s", err))
-	default:
+	if err != nil {
 		return err
 	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func deleteLuaBlock(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	luaBlockType, err := formValue(c.Request(), "lua_module_type")
+	if err != nil {
+		return err
+	}
+
+	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), luaBlockName(luaBlockType))
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func listLuaBlocks(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	blocks, err := manager.ListBlocks(c.Request().Context(), c.Param("instance"))
+	if err != nil {
+		return err
+	}
+
+	type luaBlock struct {
+		LuaName string `json:"lua_name"`
+		Content string `json:"content"`
+	}
+
+	luaBlocks := []luaBlock{}
+	for _, block := range blocks {
+		if strings.HasPrefix(block.Name, luaBlockName("")) {
+			luaBlocks = append(luaBlocks, luaBlock{
+				LuaName: block.Name,
+				Content: block.Content,
+			})
+		}
+	}
+
+	return c.JSON(http.StatusOK, struct {
+		Modules []luaBlock `json:"modules"`
+	}{Modules: luaBlocks})
+}
+
+func updateLuaBlock(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	in := struct {
+		LuaModuleType string `form:"lua_module_type"`
+		Content       string `form:"content"`
+	}{}
+	if err = c.Bind(&in); err != nil {
+		return err
+	}
+
+	block := rpaas.ConfigurationBlock{
+		Name:    luaBlockName(in.LuaModuleType),
+		Content: in.Content,
+	}
+
+	err = manager.UpdateBlock(c.Request().Context(), c.Param("instance"), block)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
+func luaBlockName(blockType string) string {
+	return fmt.Sprintf("lua-%s", blockType)
 }

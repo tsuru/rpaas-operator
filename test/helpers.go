@@ -186,14 +186,14 @@ func (api *rpaasApi) deleteInstance(name string) error {
 	return nil
 }
 
-func (api *rpaasApi) createBlock(instanceName, team, blockName, blockContent string) (func() error, error) {
+func (api *rpaasApi) createBlock(instanceName, blockName, blockContent string) (func() error, error) {
 	nilFunc := func() error { return nil }
-	data := url.Values{"block_name": []string{blockName}, "content": []string{blockContent}, "team": []string{team}}
+	data := url.Values{"block_name": []string{blockName}, "content": []string{blockContent}}
 	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/block", api.address, instanceName), data)
 	if err != nil {
 		return nilFunc, err
 	}
-	if rsp.StatusCode != http.StatusCreated {
+	if rsp.StatusCode != http.StatusOK {
 		defer rsp.Body.Close()
 		body, err := ioutil.ReadAll(rsp.Body)
 		if err != nil {

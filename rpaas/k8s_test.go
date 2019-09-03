@@ -36,265 +36,234 @@ func init() {
 }
 
 func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.ObjectMeta.Name = "another-instance"
-	instance2.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{
-		v1alpha1.BlockTypeHTTP: {
-			Kind: v1alpha1.ConfigKindConfigMap,
-			Name: "another-instance-blocks",
-		},
-	}
-
-	cb := newEmptyConfigurationBlocks()
-	cb.ObjectMeta.Name = "another-instance-blocks"
-	cb.Data = map[string]string{
-		"http": "# just a user configuration on http context",
-	}
-
-	resources := []runtime.Object{instance1, instance2, cb}
-
-	testCases := []struct {
+	tests := []struct {
+		name      string
 		instance  string
 		block     string
-		assertion func(*testing.T, error, *k8sRpaasManager)
+		resources func() []runtime.Object
+		assertion func(*testing.T, error, v1alpha1.RpaasInstance)
 	}{
 		{
-			"my-instance",
-			"unknown-block",
-			func(t *testing.T, err error, m *k8sRpaasManager) {
+			name:     "when block does not exist",
+			instance: "my-instance",
+			block:    "unknown-block",
+			resources: func() []runtime.Object {
+				return []runtime.Object{newEmptyRpaasInstance()}
+			},
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
-				assert.Equal(t, ErrBlockInvalid, err)
+				assert.Equal(t, NotFoundError{Msg: "block \"unknown-block\" not found"}, err)
 			},
 		},
 		{
-			"another-instance",
-			"http",
-			func(t *testing.T, err error, m *k8sRpaasManager) {
+			name:     "when removing the last remaining block",
+			instance: "another-instance",
+			block:    "http",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Name = "another-instance"
+				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP: {
+						Value: "# Some NGINX configuration at HTTP scope",
+					},
+				}
+				return []runtime.Object{instance}
+			},
+			assertion: func(t *testing.T, err error, instance v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
-
-				cm := &corev1.ConfigMap{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance-blocks", Namespace: "default"}, cm)
-				require.NoError(t, err)
-				_, ok := cm.Data["http"]
-				assert.False(t, ok)
-
-				ri := &v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: "default"}, ri)
-				require.NoError(t, err)
-				_, ok = ri.Spec.Blocks[v1alpha1.BlockType("http")]
-				assert.False(t, ok)
-			},
-		},
-		{
-			"my-instance",
-			"server",
-			func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, ErrBlockIsNotDefined, err)
-			},
-		},
-		{
-			"another-instance",
-			"server",
-			func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, ErrBlockIsNotDefined, err)
+				assert.Nil(t, instance.Spec.Blocks)
 			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(scheme, resources...),
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...)}
+			err := manager.DeleteBlock(context.TODO(), tt.instance, tt.block)
+			var instance v1alpha1.RpaasInstance
+			if err == nil {
+				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{
+					Name:      tt.instance,
+					Namespace: "default",
+				}, &instance)
+				require.NoError(t, err1)
 			}
-			err := manager.DeleteBlock(context.Background(), testCase.instance, testCase.block)
-			testCase.assertion(t, err, manager)
+			tt.assertion(t, err, instance)
 		})
 	}
 }
 
 func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.ObjectMeta.Name = "another-instance"
-	instance2.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{
-		v1alpha1.BlockTypeHTTP: {
-			Kind: v1alpha1.ConfigKindConfigMap,
-			Name: "another-instance-blocks",
-		},
-	}
-
-	cb := newEmptyConfigurationBlocks()
-	cb.ObjectMeta.Name = "another-instance-blocks"
-	cb.Data = map[string]string{
-		"http": "# just a user configuration on http context",
-	}
-
-	resources := []runtime.Object{instance1, instance2, cb}
-
-	testCases := []struct {
+	tests := []struct {
+		name      string
+		resources func() []runtime.Object
 		instance  string
-		assertion func(*testing.T, []ConfigurationBlock, error)
+		assertion func(t *testing.T, err error, blocks []ConfigurationBlock)
 	}{
 		{
-			"unknown-instance",
-			func(t *testing.T, blocks []ConfigurationBlock, err error) {
-				assert.Error(t, err)
+			name: "when instance not found",
+			resources: func() []runtime.Object {
+				return []runtime.Object{}
 			},
-		},
-		{
-			"my-instance",
-			func(t *testing.T, blocks []ConfigurationBlock, err error) {
-				assert.NoError(t, err)
-				assert.NotNil(t, blocks)
-				assert.Len(t, blocks, 0)
-			},
-		},
-		{
-			"another-instance",
-			func(t *testing.T, blocks []ConfigurationBlock, err error) {
-				assert.NoError(t, err)
-				expected := []ConfigurationBlock{
-					{Name: "http", Content: "# just a user configuration on http context"},
-				}
-				assert.Equal(t, expected, blocks)
-			},
-		},
-	}
-
-	for _, testCase := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(scheme, resources...),
-			}
-			blocks, err := manager.ListBlocks(context.Background(), testCase.instance)
-			testCase.assertion(t, blocks, err)
-		})
-	}
-}
-
-func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.ObjectMeta.Name = "another-instance"
-	instance2.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.ConfigRef{
-		v1alpha1.BlockTypeHTTP: {
-			Kind: v1alpha1.ConfigKindConfigMap,
-			Name: "another-instance-blocks",
-		},
-	}
-
-	cb := newEmptyConfigurationBlocks()
-	cb.ObjectMeta.Name = "another-instance-blocks"
-	cb.Data = map[string]string{
-		"http": "# just a user configuration on http context",
-	}
-
-	resources := []runtime.Object{instance1, instance2, cb}
-
-	testCases := []struct {
-		instance  string
-		block     ConfigurationBlock
-		assertion func(*testing.T, error, *k8sRpaasManager)
-	}{
-		{
-			"my-instance",
-			ConfigurationBlock{Name: "unknown block"},
-			func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, ErrBlockInvalid, err)
-			},
-		},
-		{
-			"instance-not-found",
-			ConfigurationBlock{Name: "root", Content: "# My root configuration"},
-			func(t *testing.T, err error, m *k8sRpaasManager) {
+			instance: "unknown-instance",
+			assertion: func(t *testing.T, err error, blocks []ConfigurationBlock) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
 			},
 		},
 		{
-			"my-instance",
-			ConfigurationBlock{Name: "http", Content: "# my custom http configuration"},
-			func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.NoError(t, err)
-
-				ri := &v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, ri)
-				require.NoError(t, err)
-				expectedBlocks := map[v1alpha1.BlockType]v1alpha1.ConfigRef{
-					v1alpha1.BlockTypeHTTP: {
-						Name: "my-instance-blocks",
-						Kind: v1alpha1.ConfigKindConfigMap,
-					},
+			name: "when instance has no blocks",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
 				}
-				assert.Equal(t, expectedBlocks, ri.Spec.Blocks)
-
-				cm := &corev1.ConfigMap{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance-blocks", Namespace: "default"}, cm)
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, blocks []ConfigurationBlock) {
 				assert.NoError(t, err)
-				expectedConfigMapData := map[string]string{"http": "# my custom http configuration"}
-				assert.Equal(t, expectedConfigMapData, cm.Data)
+				assert.Nil(t, blocks)
 			},
 		},
 		{
-			"another-instance",
-			ConfigurationBlock{Name: "server", Content: "# my custom server configuration"},
-			func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.NoError(t, err)
-
-				ri := &v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: "default"}, ri)
-				require.NoError(t, err)
-				expectedBlocks := map[v1alpha1.BlockType]v1alpha1.ConfigRef{
+			name: "when instance has two blocks from different sources",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
 					v1alpha1.BlockTypeHTTP: {
-						Name: "another-instance-blocks",
-						Kind: v1alpha1.ConfigKindConfigMap,
+						Value: "# some NGINX conf at http context",
 					},
 					v1alpha1.BlockTypeServer: {
-						Name: "another-instance-blocks",
-						Kind: v1alpha1.ConfigKindConfigMap,
+						ValueFrom: &v1alpha1.ValueSource{
+							ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+								LocalObjectReference: corev1.LocalObjectReference{
+									Name: "my-instance-blocks",
+								},
+								Key: "server",
+							},
+						},
 					},
 				}
-				assert.Equal(t, expectedBlocks, ri.Spec.Blocks)
-
-				cm := &corev1.ConfigMap{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance-blocks", Namespace: "default"}, cm)
-				require.NoError(t, err)
-
-				expectedConfigMapData := map[string]string{
-					"http":   "# just a user configuration on http context",
-					"server": "# my custom server configuration",
+				cm := &corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-blocks",
+						Namespace: "default",
+					},
+					Data: map[string]string{
+						"server": "# some NGINX conf at server context",
+					},
 				}
-				assert.Equal(t, expectedConfigMapData, cm.Data)
+				return []runtime.Object{instance, cm}
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, blocks []ConfigurationBlock) {
+				assert.NoError(t, err)
+				assert.Equal(t, []ConfigurationBlock{
+					{Name: "http", Content: "# some NGINX conf at http context"},
+					{Name: "server", Content: "# some NGINX conf at server context"},
+				}, blocks)
 			},
 		},
 	}
 
-	for _, testCase := range testCases {
-		t.Run("", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...)}
+			blocks, err := manager.ListBlocks(context.TODO(), tt.instance)
+			tt.assertion(t, err, blocks)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
+	tests := []struct {
+		name      string
+		resources func() []runtime.Object
+		instance  string
+		block     ConfigurationBlock
+		assertion func(t *testing.T, err error, instance *v1alpha1.RpaasInstance)
+	}{
+		{
+			name: "when instance is not found",
+			resources: func() []runtime.Object {
+				return []runtime.Object{}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "http", Content: "# some NGINX configuration"},
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name: "when block name is not allowed",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "unknown block"},
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.Equal(t, ValidationError{Msg: "block \"unknown block\" is not allowed"}, err)
+			},
+		},
+		{
+			name: "when adding an HTTP block",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "http", Content: "# my custom http configuration"},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+				assert.Equal(t, map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP: {
+						Value: "# my custom http configuration",
+					},
+				}, instance.Spec.Blocks)
+			},
+		},
+		{
+			name: "when updating an root block",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeRoot: {Value: "# some old root configuration"},
+				}
+				return []runtime.Object{instance}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "root", Content: "# my custom http configuration"},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+				assert.Equal(t, map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeRoot: {
+						Value: "# my custom http configuration",
+					},
+				}, instance.Spec.Blocks)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(scheme, resources...),
+				cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...),
 			}
-			err := manager.UpdateBlock(context.Background(), testCase.instance, testCase.block)
-			testCase.assertion(t, err, manager)
+			err := manager.UpdateBlock(context.TODO(), tt.instance, tt.block)
+			var instance v1alpha1.RpaasInstance
+			if err == nil {
+				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{Name: tt.instance, Namespace: "default"}, &instance)
+				require.NoError(t, err1)
+			}
+			tt.assertion(t, err, &instance)
 		})
 	}
 }
@@ -590,19 +559,6 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{},
-	}
-}
-
-func newEmptyConfigurationBlocks() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-instance-blocks",
-			Namespace: "default",
-		},
 	}
 }
 

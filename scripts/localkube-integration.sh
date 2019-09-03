@@ -173,14 +173,16 @@ run_rpaas_operator() {
 function onerror() {
   echo
   echo "RPAAS OPERATOR LOGS:"
-  ${kubectl_bin} logs deploy/rpaas-operator
+  ${kubectl_bin} logs deploy/rpaas-operator -n ${rpaas_system_namespace}
   echo
   echo "NGINX OPERATOR LOGS:"
-  ${kubectl_bin} logs deploy/nginx-operator
+  ${kubectl_bin} logs deploy/nginx-operator -n ${rpaas_system_namespace}
   echo
   echo "RPAAS API LOGS:"
-  ${kubectl_bin} logs deploy/rpaas-api
+  ${kubectl_bin} logs deploy/rpaas-api -n ${rpaas_system_namespace}
   echo
+
+  [[ -n ${kubectl_port_forward_pid} ]] && kill ${kubectl_port_forward_pid}
 }
 
 trap onerror ERR

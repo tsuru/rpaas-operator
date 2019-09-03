@@ -1,7 +1,7 @@
 package api
 
 import (
-	"errors"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"strings"
@@ -14,170 +14,179 @@ import (
 )
 
 func Test_deleteBlock(t *testing.T) {
-	instanceName := "my-instance"
-	blockName := "http"
-
-	testCases := []struct {
+	tests := []struct {
+		name         string
+		instance     string
+		block        string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
 	}{
 		{
+			name:         "when successfully deleting a instance block",
+			instance:     "my-instance",
+			block:        "root",
 			expectedCode: http.StatusOK,
-			expectedBody: `block "http" was successfully removed`,
-			manager:      &fake.RpaasManager{},
-		},
-		{
-			expectedCode: http.StatusBadRequest,
-			expectedBody: "rpaas: block is not valid (acceptable values are: [root http server])",
 			manager: &fake.RpaasManager{
-				FakeDeleteBlock: func(i, b string) error {
-					return rpaas.ErrBlockInvalid
+				FakeDeleteBlock: func(instance, block string) error {
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "root", block)
+					return nil
 				},
 			},
 		},
 		{
-			expectedCode: http.StatusNoContent,
-			expectedBody: "",
+			name:         "when the manager returns an error",
+			instance:     "my-instance",
+			block:        "http",
+			expectedCode: http.StatusNotFound,
+			expectedBody: `block \\"http\\" not found`,
 			manager: &fake.RpaasManager{
-				FakeDeleteBlock: func(i, b string) error {
-					return rpaas.ErrBlockIsNotDefined
-				},
-			},
-		},
-		{
-			expectedCode: http.StatusInternalServerError,
-			expectedBody: fmt.Sprintf("{\"message\":\"Internal Server Error\"}\n"),
-			manager: &fake.RpaasManager{
-				FakeDeleteBlock: func(i, b string) error {
-					return errors.New("some error")
+				FakeDeleteBlock: func(instance, block string) error {
+					return rpaas.NotFoundError{Msg: "block \"http\" not found"}
 				},
 			},
 		},
 	}
 
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/block/%s", srv.URL, instanceName, blockName)
+			path := fmt.Sprintf("%s/resources/%s/block/%s", srv.URL, tt.instance, tt.block)
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
 			assert.NoError(t, err)
 			rsp, err := srv.Client().Do(request)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+			assert.Regexp(t, tt.expectedBody, bodyContent(rsp))
 		})
 	}
 }
 
 func Test_listBlocks(t *testing.T) {
-	testCases := []struct {
-		expectedCode  int
-		expectedBody  string
-		expectedError error
-		manager       rpaas.RpaasManager
+	type listBlocksResponse struct {
+		Blocks []rpaas.ConfigurationBlock `json:"blocks"`
+	}
+
+	tests := []struct {
+		name           string
+		instance       string
+		expectedCode   int
+		expectedBlocks listBlocksResponse
+		manager        rpaas.RpaasManager
 	}{
 		{
-			http.StatusOK,
-			fmt.Sprintf("{\"blocks\":[]}\n"),
-			nil,
-			&fake.RpaasManager{
-				FakeListBlocks: func(i string) ([]rpaas.ConfigurationBlock, error) {
-					return []rpaas.ConfigurationBlock{}, nil
+			name:         "when instance has no blocks (nil blocks)",
+			instance:     "my-instance",
+			expectedCode: http.StatusOK,
+			expectedBlocks: listBlocksResponse{
+				Blocks: make([]rpaas.ConfigurationBlock, 0),
+			},
+			manager: &fake.RpaasManager{
+				FakeListBlocks: func(instance string) ([]rpaas.ConfigurationBlock, error) {
+					assert.Equal(t, "my-instance", instance)
+					return nil, nil
 				},
 			},
 		},
 		{
-			http.StatusOK,
-			fmt.Sprintf("{\"blocks\":[{\"block_name\":\"http\",\"content\":\"# my nginx configuration\"}]}\n"),
-			nil,
-			&fake.RpaasManager{
-				FakeListBlocks: func(i string) ([]rpaas.ConfigurationBlock, error) {
-					return []rpaas.ConfigurationBlock{{Name: "http", Content: "# my nginx configuration"}}, nil
+			name:         "when successfully listing instances blocks",
+			instance:     "another-instance",
+			expectedCode: http.StatusOK,
+			expectedBlocks: listBlocksResponse{
+				Blocks: []rpaas.ConfigurationBlock{
+					{Name: "http", Content: "# my nginx configuration"},
+					{Name: "root", Content: "events {\nworker_connections 8192;\n}"},
 				},
 			},
-		},
-		{
-			http.StatusInternalServerError,
-			fmt.Sprintf("{\"message\":\"Internal Server Error\"}\n"),
-			errors.New("some error"),
-			&fake.RpaasManager{
-				FakeListBlocks: func(i string) ([]rpaas.ConfigurationBlock, error) {
-					return nil, errors.New("some error")
+			manager: &fake.RpaasManager{
+				FakeListBlocks: func(instance string) ([]rpaas.ConfigurationBlock, error) {
+					assert.Equal(t, "another-instance", instance)
+					return []rpaas.ConfigurationBlock{
+						{Name: "http", Content: "# my nginx configuration"},
+						{Name: "root", Content: "events {\nworker_connections 8192;\n}"},
+					}, nil
 				},
 			},
 		},
 	}
 
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/block", srv.URL, "my-instance")
+			path := fmt.Sprintf("%s/resources/%s/block", srv.URL, tt.instance)
 			request, err := http.NewRequest(http.MethodGet, path, nil)
 			assert.NoError(t, err)
 			rsp, err := srv.Client().Do(request)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+			var got listBlocksResponse
+			err = json.Unmarshal([]byte(bodyContent(rsp)), &got)
+			assert.NoError(t, err)
+			assert.Equal(t, got, tt.expectedBlocks)
 		})
 	}
 }
 
 func Test_updateBlock(t *testing.T) {
-	testCases := []struct {
+	tests := []struct {
+		name         string
+		instance     string
 		requestBody  string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
 	}{
 		{
-			requestBody:  "",
+			name:         "when a request has no body message",
+			instance:     "my-instance",
 			expectedCode: http.StatusBadRequest,
 			expectedBody: fmt.Sprintf("{\"message\":\"Request body can't be empty\"}\n"),
 			manager:      &fake.RpaasManager{},
 		},
 		{
-			requestBody:  "block_name=invalid-block&content=",
+			name:         "when the manager returns an error",
+			instance:     "my-instance",
+			requestBody:  "block_name=invalid-block&content=some%20content",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `rpaas: block is not valid (acceptable values are: [root http server])`,
+			expectedBody: "some error",
 			manager: &fake.RpaasManager{
-				FakeUpdateBlock: func(i string, b rpaas.ConfigurationBlock) error {
-					return rpaas.ErrBlockInvalid
+				FakeUpdateBlock: func(instance string, block rpaas.ConfigurationBlock) error {
+					assert.Equal(t, instance, "my-instance")
+					assert.Equal(t, block, rpaas.ConfigurationBlock{Name: "invalid-block", Content: "some content"})
+					return rpaas.ValidationError{Msg: "some error"}
 				},
 			},
 		},
 		{
+			name:         "when a block is successfully created/updated",
+			instance:     "my-instance",
 			requestBody:  "block_name=server&content=%23%20My%20nginx%20custom%20conf",
-			expectedCode: http.StatusCreated,
-			expectedBody: "",
-			manager:      &fake.RpaasManager{},
-		},
-		{
-			requestBody:  "block_name=server&content=%23%20My%20nginx%20custom%20conf",
-			expectedCode: http.StatusInternalServerError,
-			expectedBody: fmt.Sprintf("{\"message\":\"Internal Server Error\"}\n"),
+			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
-				FakeUpdateBlock: func(i string, b rpaas.ConfigurationBlock) error {
-					return errors.New("just another error")
+				FakeUpdateBlock: func(instance string, block rpaas.ConfigurationBlock) error {
+					assert.Equal(t, instance, "my-instance")
+					assert.Equal(t, block, rpaas.ConfigurationBlock{Name: "server", Content: "# My nginx custom conf"})
+					return nil
 				},
 			},
 		},
 	}
 
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/block", srv.URL, "my-instance")
+			path := fmt.Sprintf("%s/resources/%s/block", srv.URL, tt.instance)
 			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
 			assert.NoError(t, err)
 			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 			rsp, err := srv.Client().Do(request)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+			assert.Regexp(t, tt.expectedBody, bodyContent(rsp))
 		})
 	}
 }

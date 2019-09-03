@@ -14,10 +14,12 @@ type ConfigurationRenderer interface {
 }
 
 type ConfigurationBlocks struct {
-	MainBlock   string
-	RootBlock   string
-	HttpBlock   string
-	ServerBlock string
+	MainBlock      string
+	RootBlock      string
+	HttpBlock      string
+	ServerBlock    string
+	LuaServerBlock string
+	LuaWorkerBlock string
 }
 
 type ConfigurationData struct {
@@ -45,6 +47,8 @@ func NewRpaasConfigurationRenderer(cb ConfigurationBlocks) ConfigurationRenderer
 	template.Must(finalTemplate.New("root").Parse(cb.RootBlock))
 	template.Must(finalTemplate.New("http").Parse(cb.HttpBlock))
 	template.Must(finalTemplate.New("server").Parse(cb.ServerBlock))
+	template.Must(finalTemplate.New("lua-server").Parse(cb.LuaServerBlock))
+	template.Must(finalTemplate.New("lua-worker").Parse(cb.LuaWorkerBlock))
 	return &rpaasConfigurationRenderer{t: finalTemplate}
 }
 
@@ -200,6 +204,14 @@ http {
     }
 {{end}}
 {{end}}
+
+    init_by_lua_block {
+        {{template "lua-server" .}}
+    }
+
+    init_worker_by_lua_block {
+        {{template "lua-worker" .}}
+    }
 
     {{template "http" .}}
 
