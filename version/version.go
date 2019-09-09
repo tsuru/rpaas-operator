@@ -4,6 +4,6 @@
 
 package version
 
-var (
-	Version = "0.0.1"
-)
+// Version is the current version of Rpaas Operator.
+// NOTE: It's provided during the build phase by ldflags.
+var Version string = "NA"

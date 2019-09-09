@@ -27,6 +27,7 @@ import (
 	"github.com/spf13/pflag"
 	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	rpaasConfig "github.com/tsuru/rpaas-operator/config"
+	rpaasOperatorVersion "github.com/tsuru/rpaas-operator/version"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -47,6 +48,7 @@ func printVersion() {
 	log.Info(fmt.Sprintf("Go Version: %s", runtime.Version()))
 	log.Info(fmt.Sprintf("Go OS/Arch: %s/%s", runtime.GOOS, runtime.GOARCH))
 	log.Info(fmt.Sprintf("Version of operator-sdk: %v", sdkVersion.Version))
+	log.Info(fmt.Sprintf("Rpaas Operator version: %s", rpaasOperatorVersion.Version))
 }
 
 func main() {
