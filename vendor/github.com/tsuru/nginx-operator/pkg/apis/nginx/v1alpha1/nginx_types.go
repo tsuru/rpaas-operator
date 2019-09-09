@@ -1,3 +1,7 @@
+// Copyright 2019 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package v1alpha1
 
 import (
@@ -8,15 +12,18 @@ import (
 
 // NginxSpec defines the desired state of Nginx
 type NginxSpec struct {
-	// Number of desired pods. This is a pointer to distinguish between explicit
-	// zero and not specified. Defaults to the default deployment replicas value.
+	// Replicas is the number of desired pods. Defaults to the default deployment
+	// replicas value.
 	// +optional
-	Replicas *int32 `json:"replicas"`
-	// Docker image name. Defaults to "nginx:latest".
+	Replicas *int32 `json:"replicas,omitempty"`
+	// Image is the container image name. Defaults to "nginx:latest".
 	// +optional
-	Image string `json:"image"`
-	// Reference to the nginx config object.
-	Config *ConfigRef `json:"configRef"`
+	Image string `json:"image,omitempty"`
+	// Config is a reference to the NGINX config object which stores the NGINX
+	// configuration file. When provided the file is mounted in NGINX container on
+	// "/etc/nginx/nginx.conf".
+	// +optional
+	Config *ConfigRef `json:"config,omitempty"`
 	// Certificates refers to a Secret containing one or more certificate-key
 	// pairs.
 	// +optional
@@ -59,7 +66,7 @@ type NginxPodTemplateSpec struct {
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// Annotations are custom annotations to be set into Pod.
 	// +optional
-	Annotations map[string]string `json:"annotations"`
+	Annotations map[string]string `json:"annotations,omitmepty"`
 	// Labels are custom labels to be added into Pod.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
@@ -67,14 +74,20 @@ type NginxPodTemplateSpec struct {
 
 // NginxStatus defines the observed state of Nginx
 type NginxStatus struct {
-	Pods     []PodStatus     `json:"pods,omitempty"`
-	Services []ServiceStatus `json:"services,omitempty"`
+	// CurrentReplicas is the last observed number from the NGINX object.
+	CurrentReplicas int32 `json:"currentReplicas,omitempty"`
+	// PodSelector is the NGINX's pod label selector.
+	PodSelector string          `json:"podSelector,omitempty"`
+	Pods        []PodStatus     `json:"pods,omitempty"`
+	Services    []ServiceStatus `json:"services,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
 // Nginx is the Schema for the nginxes API
-// +k8s:openapi-gen=true
+// +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.currentReplicas,selectorpath=.status.podSelector
+// +k8s:openapi-gen=false
 type Nginx struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -96,24 +109,31 @@ type ServiceStatus struct {
 }
 
 type NginxService struct {
-	// Type is the type of the service
-	Type corev1.ServiceType `json:"type"`
-	// LoadBalancerIP is an optional load balancer IP for the service
-	LoadBalancerIP string `json:"loadBalancerIP"`
-	// Labels are extra labels for the service
-	Labels map[string]string `json:"labels"`
-	// Annotations are extra annotations for the service
-	Annotations map[string]string `json:"annotations"`
+	// Type is the type of the service. Defaults to the default service type value.
+	// +optional
+	Type corev1.ServiceType `json:"type,omitempty"`
+	// LoadBalancerIP is an optional load balancer IP for the service.
+	// +optional
+	LoadBalancerIP string `json:"loadBalancerIP,omitempty"`
+	// Labels are extra labels for the service.
+	// +optional
+	Labels map[string]string `json:"labels,omitempty"`
+	// Annotations are extra annotations for the service.
+	// +optional
+	Annotations map[string]string `json:"annotations,omitempty"`
 }
 
 // ConfigRef is a reference to a config object.
 type ConfigRef struct {
-	// Name of the config object.
-	Name string `json:"name"`
+	// Name of the config object. Required when Kind is ConfigKindConfigMap.
+	// +optional
+	Name string `json:"name,omitempty"`
 	// Kind of the config object. Defaults to ConfigKindConfigMap.
-	Kind ConfigKind `json:"kind"`
-	// Optional value used by some ConfigKinds.
-	Value string `json:"value"`
+	// +optional
+	Kind ConfigKind `json:"kind,omitempty"`
+	// Value is a inline configuration content. Required when Kind is ConfigKindInline.
+	// +optional
+	Value string `json:"value,omitempty"`
 }
 
 type ConfigKind string

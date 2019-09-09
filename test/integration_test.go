@@ -100,7 +100,7 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.Equal(t, int32(443), nginxService.Spec.Ports[1].Port)
 		assert.Equal(t, corev1.ServiceType("LoadBalancer"), nginxService.Spec.Type)
 		assert.Equal(t, "127.0.0.1", nginxService.Spec.LoadBalancerIP)
-		assert.Equal(t, "nginx", nginxService.Spec.Selector["app"])
+		assert.Equal(t, "nginx", nginxService.Spec.Selector["nginx.tsuru.io/app"])
 		assert.Equal(t, "custom-annotation-value", nginxService.Annotations["rpaas.extensions.tsuru.io/custom-annotation"])
 		assert.Equal(t, "custom-label-value", nginxService.Labels["custom-label"])
 	})
