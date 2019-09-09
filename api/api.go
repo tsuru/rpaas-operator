@@ -10,8 +10,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/labstack/echo"
-	"github.com/labstack/echo/middleware"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/rpaas"
 	"sigs.k8s.io/controller-runtime/pkg/manager"

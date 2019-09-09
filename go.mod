@@ -9,19 +9,15 @@ require (
 	github.com/go-openapi/spec v0.19.2
 	github.com/google/gops v0.3.6
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
-	github.com/labstack/echo v3.3.10+incompatible
-	github.com/labstack/gommon v0.2.8 // indirect
-	github.com/mattn/go-colorable v0.1.1 // indirect
-	github.com/mattn/go-isatty v0.0.7 // indirect
+	github.com/labstack/echo/v4 v4.1.10
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/operator-framework/operator-sdk v0.9.0
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
-	github.com/stretchr/testify v1.3.0
+	github.com/stretchr/testify v1.4.0
 	github.com/tsuru/nginx-operator v0.0.0-20190814231652-0569a069da69
-	github.com/valyala/fasttemplate v1.0.1 // indirect
 	k8s.io/api v0.0.0-20190726022912-69e1bce1dad5
 	k8s.io/apiextensions-apiserver v0.0.0-20190726024412-102230e288fd // indirect
 	k8s.io/apimachinery v0.0.0-20190727130956-f97a4e5b4abc
