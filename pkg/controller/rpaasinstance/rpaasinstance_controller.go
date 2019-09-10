@@ -21,6 +21,7 @@ import (
 	"github.com/tsuru/rpaas-operator/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8sResources "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -340,6 +341,10 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
+		cacheMaxSize, err := k8sResources.ParseQuantity(plan.Spec.Config.CacheSize)
+		if err == nil && !cacheMaxSize.IsZero() {
+			cacheConfig.Size = &cacheMaxSize
+		}
 	}
 	conf := config.Get()
 	affinity := conf.DefaultAffinity
