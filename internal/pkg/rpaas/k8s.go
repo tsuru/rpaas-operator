@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"strings"
 
 	"github.com/pkg/errors"
@@ -199,6 +200,10 @@ func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) (
 
 		blocks = append(blocks, ConfigurationBlock{Name: string(blockType), Content: content})
 	}
+
+	sort.SliceStable(blocks, func(i, j int) bool {
+		return blocks[i].Name < blocks[j].Name
+	})
 
 	return blocks, nil
 }
