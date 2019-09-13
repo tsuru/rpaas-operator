@@ -10,7 +10,7 @@ import (
 	"strings"
 
 	"github.com/labstack/echo/v4"
-	"github.com/tsuru/rpaas-operator/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
 func serviceCreate(c echo.Context) error {

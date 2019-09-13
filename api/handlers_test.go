@@ -17,8 +17,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/config"
-	"github.com/tsuru/rpaas-operator/rpaas"
-	"github.com/tsuru/rpaas-operator/rpaas/fake"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 )
 
 func Test_updateCertificate(t *testing.T) {

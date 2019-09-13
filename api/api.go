@@ -17,7 +17,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/tsuru/rpaas-operator/config"
-	"github.com/tsuru/rpaas-operator/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 

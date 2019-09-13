@@ -17,7 +17,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/tsuru/rpaas-operator/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 )

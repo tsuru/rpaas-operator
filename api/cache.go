@@ -9,7 +9,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
-	"github.com/tsuru/rpaas-operator/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
 func cachePurge(c echo.Context) error {

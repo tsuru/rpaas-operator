@@ -8,8 +8,8 @@ import (
 	"context"
 	"crypto/tls"
 
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	"github.com/tsuru/rpaas-operator/rpaas"
 )
 
 type RpaasManager struct {

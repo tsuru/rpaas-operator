@@ -13,8 +13,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
-	"github.com/tsuru/rpaas-operator/rpaas"
-	"github.com/tsuru/rpaas-operator/rpaas/fake"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 )
 
 func Test_deleteBlock(t *testing.T) {
