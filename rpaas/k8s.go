@@ -36,6 +36,7 @@ import (
 
 const (
 	defaultNamespacePrefix = "rpaasv2"
+	defaultKeyLabelPrefix  = "rpaas.extensions.tsuru.io"
 )
 
 type k8sRpaasManager struct {
@@ -119,17 +120,24 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 			return errors.Errorf("flavor %q not found", args.Flavor)
 		}
 	}
-	oneReplica := int32(1)
 	conf := config.Get()
+	affinity := conf.DefaultAffinity
+	if conf.TeamAffinity != nil {
+		if teamAffinity, ok := conf.TeamAffinity[args.Team]; ok {
+			affinity = &teamAffinity
+		}
+	}
+	oneReplica := int32(1)
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasInstance",
 			APIVersion: "extensions.tsuru.io/v1alpha1",
+			Kind:       "RpaasInstance",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        args.Name,
 			Namespace:   namespaceName,
 			Annotations: annotations,
+			Labels:      labelsForRpaasInstance(args.Name),
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{
 			PlanName: plan.ObjectMeta.Name,
@@ -137,9 +145,14 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 				Type:           corev1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: args.IP,
 				Annotations:    conf.ServiceAnnotations,
+				Labels:         labelsForRpaasInstance(args.Name),
 			},
 			Replicas:     &oneReplica,
 			PlanTemplate: planTemplate,
+			PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+				Affinity: affinity,
+				Labels:   labelsForRpaasInstance(args.Name),
+			},
 		},
 	}
 	err = m.cli.Create(ctx, instance)
@@ -337,7 +350,7 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {
 	list := &v1alpha1.RpaasInstanceList{}
-	err := m.cli.List(ctx, client.MatchingField("metadata.name", name), list)
+	err := m.cli.List(ctx, client.MatchingLabels(labelsForRpaasInstance(name)), list)
 	if err != nil {
 		return nil, err
 	}
@@ -969,4 +982,17 @@ func isPathValid(p string) bool {
 
 func convertPathToConfigMapKey(s string) string {
 	return regexp.MustCompile("[^a-zA-Z0-9._-]+").ReplaceAllString(s, "_")
+}
+
+func labelsForRpaasInstance(name string) map[string]string {
+	return map[string]string{
+		labelKey("service-name"):  config.Get().ServiceName,
+		labelKey("instance-name"): name,
+		"rpaas_service":           config.Get().ServiceName,
+		"rpaas_instance":          name,
+	}
+}
+
+func labelKey(name string) string {
+	return fmt.Sprintf("%s/%s", defaultKeyLabelPrefix, name)
 }

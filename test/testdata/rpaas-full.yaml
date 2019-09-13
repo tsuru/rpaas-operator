@@ -75,3 +75,6 @@ spec:
       rpaas.extensions.tsuru.io/custom-annotation: custom-annotation-value
     labels:
       custom-label: custom-label-value
+  podTemplate:
+    labels:
+      pod-custom-label: label-value

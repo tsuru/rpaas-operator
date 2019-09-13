@@ -179,6 +179,7 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 		*out = new(int)
 		**out = **in
 	}
+	in.PodTemplate.DeepCopyInto(&out.PodTemplate)
 	return
 }
 

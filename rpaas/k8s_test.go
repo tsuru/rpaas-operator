@@ -2349,14 +2349,47 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				Default: true,
 			},
 		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "r0",
+				Namespace: "rpaasv2-some-team",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+					"rpaas.extensions.tsuru.io/instance-name": "r0",
+					"rpaas_service":  "rpaasv2",
+					"rpaas_instance": "r0",
+				},
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{},
+		},
 	}
 	config.Set(config.RpaasConfig{
+		ServiceName: "rpaasv2",
 		Flavors: []config.FlavorConfig{
 			{
 				Name: "strawberry",
 				Spec: v1alpha1.RpaasPlanSpec{
 					Config: v1alpha1.NginxConfig{
 						CacheEnabled: v1alpha1.Bool(false),
+					},
+				},
+			},
+		},
+		TeamAffinity: map[string]corev1.Affinity{
+			"team-one": {
+				NodeAffinity: &corev1.NodeAffinity{
+					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+						NodeSelectorTerms: []corev1.NodeSelectorTerm{
+							{
+								MatchExpressions: []corev1.NodeSelectorRequirement{
+									{
+										Key:      "machine-type",
+										Operator: corev1.NodeSelectorOpIn,
+										Values:   []string{"ultra-fast-io"},
+									},
+								},
+							},
+						},
 					},
 				},
 			},
@@ -2396,6 +2429,11 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			expectedError: `cannot set both plan-override and flavor`,
 		},
 		{
+			name:          "instance already exists",
+			args:          CreateArgs{Name: "r0", Team: "t2"},
+			expectedError: `rpaas instance named "r0" already exists`,
+		},
+		{
 			name: "simplest",
 			args: CreateArgs{Name: "r1", Team: "t1"},
 			expected: v1alpha1.RpaasInstance{
@@ -2418,12 +2456,32 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						"team":          "t1",
 						"user":          "",
 					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas_service":  "rpaasv2",
+						"rpaas_instance": "r1",
+					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
 						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
+						},
 					},
 				},
 			},
@@ -2451,16 +2509,36 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						"team":          "t1",
 						"user":          "",
 					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas_service":  "rpaasv2",
+						"rpaas_instance": "r1",
+					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
 						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
+						},
 					},
 					PlanTemplate: &v1alpha1.RpaasPlanSpec{
 						Config: v1alpha1.NginxConfig{
 							CacheEnabled: v1alpha1.Bool(false),
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
 						},
 					},
 				},
@@ -2489,16 +2567,106 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						"team":          "t1",
 						"user":          "",
 					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas_service":  "rpaasv2",
+						"rpaas_instance": "r1",
+					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
 						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
+						},
 					},
 					PlanTemplate: &v1alpha1.RpaasPlanSpec{
 						Config: v1alpha1.NginxConfig{
 							CacheEnabled: v1alpha1.Bool(false),
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "with team affinity",
+			args: CreateArgs{Name: "r1", Team: "team-one"},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "r1",
+					Namespace: "rpaasv2-team-one",
+					Annotations: map[string]string{
+						"description":   "",
+						"eventid":       "",
+						"flavor":        "",
+						"ip":            "",
+						"name":          "r1",
+						"plan":          "",
+						"plan-override": "",
+						"tags":          "<nil>",
+						"team":          "team-one",
+						"user":          "",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas_service":  "rpaasv2",
+						"rpaas_instance": "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Affinity: &corev1.Affinity{
+							NodeAffinity: &corev1.NodeAffinity{
+								RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+									NodeSelectorTerms: []corev1.NodeSelectorTerm{
+										{
+											MatchExpressions: []corev1.NodeSelectorRequirement{
+												{
+													Key:      "machine-type",
+													Operator: corev1.NodeSelectorOpIn,
+													Values:   []string{"ultra-fast-io"},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas_service":  "rpaasv2",
+							"rpaas_instance": "r1",
 						},
 					},
 				},

@@ -62,8 +62,7 @@ func Test_RpaasOperator(t *testing.T) {
 			}
 			err = get(pod, podStatus.Name, namespaceName)
 			require.NoError(t, err)
-			assert.Equal(t, "rpaasv2", pod.Labels["rpaas_service"])
-			assert.Equal(t, "my-instance", pod.Labels["rpaas_instance"])
+			assert.Equal(t, "label-value", pod.Labels["pod-custom-label"])
 		}
 
 		nginxConf := &corev1.ConfigMap{

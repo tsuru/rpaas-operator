@@ -55,6 +55,10 @@ type RpaasInstanceSpec struct {
 	// The number of old Configs to retain to allow rollback.
 	// +optional
 	ConfigHistoryLimit *int `json:"configHistoryLimit,omitempty"`
+
+	// PodTemplate used to configure the NGINX pod template.
+	// +optional
+	PodTemplate nginxv1alpha1.NginxPodTemplateSpec `json:"podTemplate,omitmepty"`
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
