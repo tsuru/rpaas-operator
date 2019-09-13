@@ -36,8 +36,8 @@ import (
 )
 
 const (
-	defaultNamespacePrefix = "rpaasv2"
-	defaultKeyLabelPrefix  = "rpaas.extensions.tsuru.io"
+	defaultNamespace      = "rpaasv2"
+	defaultKeyLabelPrefix = "rpaas.extensions.tsuru.io"
 )
 
 type k8sRpaasManager struct {
@@ -95,10 +95,6 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	for k, v := range annotationsBase {
 		annotations[k] = fmt.Sprint(v)
 	}
-	namespaceName := NamespaceName(args.Team)
-	if err = m.createNamespace(ctx, namespaceName); err != nil && !k8sErrors.IsAlreadyExists(err) {
-		return err
-	}
 	if args.PlanOverride != "" && args.Flavor != "" {
 		return errors.New("cannot set both plan-override and flavor")
 	}
@@ -128,6 +124,12 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 			affinity = &teamAffinity
 		}
 	}
+	namespaceName, err := m.ensureNamespaceExists(ctx)
+	if err != nil {
+		return err
+	}
+	labels := labelsForRpaasInstance(args.Name)
+	labels[labelKey("team-owner")] = args.Team
 	oneReplica := int32(1)
 	instance := &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
@@ -138,7 +140,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 			Name:        args.Name,
 			Namespace:   namespaceName,
 			Annotations: annotations,
-			Labels:      labelsForRpaasInstance(args.Name),
+			Labels:      labels,
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{
 			PlanName: plan.ObjectMeta.Name,
@@ -146,13 +148,13 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 				Type:           corev1.ServiceTypeLoadBalancer,
 				LoadBalancerIP: args.IP,
 				Annotations:    conf.ServiceAnnotations,
-				Labels:         labelsForRpaasInstance(args.Name),
+				Labels:         labels,
 			},
 			Replicas:     &oneReplica,
 			PlanTemplate: planTemplate,
 			PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 				Affinity: affinity,
-				Labels:   labelsForRpaasInstance(args.Name),
+				Labels:   labels,
 			},
 		},
 	}
@@ -164,6 +166,16 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 		return err
 	}
 	return nil
+}
+
+func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, error) {
+	nsName := getServiceName()
+	ns := newNamespace(nsName)
+	if err := m.cli.Create(ctx, &ns); err != nil && !k8sErrors.IsAlreadyExists(err) {
+		return "", err
+	}
+
+	return nsName, nil
 }
 
 func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
@@ -773,20 +785,6 @@ func (m *k8sRpaasManager) getDefaultPlan(ctx context.Context) (*v1alpha1.RpaasPl
 	}
 }
 
-func (m *k8sRpaasManager) createNamespace(ctx context.Context, name string) error {
-	ns := &corev1.Namespace{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Namespace",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name: name,
-		},
-		Spec: corev1.NamespaceSpec{},
-	}
-	return m.cli.Create(ctx, ns)
-}
-
 func getRawCertificateAndKey(c tls.Certificate) ([]byte, []byte, error) {
 	certificatePem, err := convertCertificateToPem(c.Certificate)
 	if err != nil {
@@ -840,10 +838,6 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) (
 		return nil, ValidationError{Msg: "invalid plan"}
 	}
 	return plan, err
-}
-
-func NamespaceName(team string) string {
-	return fmt.Sprintf("%s-%s", defaultNamespacePrefix, team)
 }
 
 func parseTagArg(tags []string, name string, destination *string) {
@@ -991,13 +985,32 @@ func convertPathToConfigMapKey(s string) string {
 
 func labelsForRpaasInstance(name string) map[string]string {
 	return map[string]string{
-		labelKey("service-name"):  config.Get().ServiceName,
+		labelKey("service-name"):  getServiceName(),
 		labelKey("instance-name"): name,
-		"rpaas_service":           config.Get().ServiceName,
+		"rpaas_service":           getServiceName(),
 		"rpaas_instance":          name,
 	}
 }
 
 func labelKey(name string) string {
 	return fmt.Sprintf("%s/%s", defaultKeyLabelPrefix, name)
+}
+
+func getServiceName() string {
+	serviceName := config.Get().ServiceName
+	if serviceName == "" {
+		return defaultNamespace
+	}
+
+	return serviceName
+}
+
+func newNamespace(name string) corev1.Namespace {
+	return corev1.Namespace{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Namespace",
+		},
+		ObjectMeta: metav1.ObjectMeta{Name: name},
+	}
 }

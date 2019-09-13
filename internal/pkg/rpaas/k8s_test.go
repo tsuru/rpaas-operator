@@ -2443,7 +2443,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "r1",
-					Namespace: "rpaasv2-t1",
+					Namespace: "rpaasv2",
 					Annotations: map[string]string{
 						"description":   "",
 						"eventid":       "",
@@ -2459,8 +2459,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 						"rpaas.extensions.tsuru.io/instance-name": "r1",
-						"rpaas_service":  "rpaasv2",
-						"rpaas_instance": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
 					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
@@ -2471,16 +2472,18 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 				},
@@ -2496,7 +2499,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "r1",
-					Namespace: "rpaasv2-t1",
+					Namespace: "rpaasv2",
 					Annotations: map[string]string{
 						"description":   "",
 						"eventid":       "",
@@ -2512,8 +2515,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 						"rpaas.extensions.tsuru.io/instance-name": "r1",
-						"rpaas_service":  "rpaasv2",
-						"rpaas_instance": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
 					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
@@ -2524,8 +2528,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 					PlanTemplate: &v1alpha1.RpaasPlanSpec{
@@ -2537,8 +2542,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 				},
@@ -2554,7 +2560,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "r1",
-					Namespace: "rpaasv2-t1",
+					Namespace: "rpaasv2",
 					Annotations: map[string]string{
 						"description":   "",
 						"eventid":       "",
@@ -2570,8 +2576,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 						"rpaas.extensions.tsuru.io/instance-name": "r1",
-						"rpaas_service":  "rpaasv2",
-						"rpaas_instance": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
 					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
@@ -2582,8 +2589,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 					PlanTemplate: &v1alpha1.RpaasPlanSpec{
@@ -2595,8 +2603,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 				},
@@ -2612,7 +2621,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				},
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "r1",
-					Namespace: "rpaasv2-team-one",
+					Namespace: "rpaasv2",
 					Annotations: map[string]string{
 						"description":   "",
 						"eventid":       "",
@@ -2628,8 +2637,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 						"rpaas.extensions.tsuru.io/instance-name": "r1",
-						"rpaas_service":  "rpaasv2",
-						"rpaas_instance": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "team-one",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
 					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
@@ -2640,8 +2650,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "team-one",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
@@ -2665,8 +2676,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
-							"rpaas_service":  "rpaasv2",
-							"rpaas_instance": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "team-one",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
 						},
 					},
 				},

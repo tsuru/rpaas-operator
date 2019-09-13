@@ -154,12 +154,12 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
+	namespaceName := "rpaasv2"
+
 	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
-
-		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
 		require.NoError(t, err)
@@ -181,7 +181,8 @@ func Test_RpaasApi(t *testing.T) {
 		assert.NoError(t, err)
 
 		nginx, err := getReadyNginx(instanceName, namespace.Name, 1, 1)
-		assert.NoError(t, err)
+		require.NoError(t, err)
+		require.NotNil(t, nginx)
 		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
 		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
@@ -202,8 +203,6 @@ func Test_RpaasApi(t *testing.T) {
 		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
-
-		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
 		require.NoError(t, err)
@@ -278,8 +277,6 @@ func Test_RpaasApi(t *testing.T) {
 		instanceName := "my-instance-with-custom-routes"
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
-
-		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
 		require.NoError(t, err)
@@ -368,7 +365,6 @@ func Test_RpaasApi(t *testing.T) {
 		instanceName := "my-instance" + strconv.Itoa(rand.Int())
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
 		planName := "basic"
-		namespaceName := fmt.Sprintf("rpaasv2-%s", teamName)
 		blockName := "server"
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
