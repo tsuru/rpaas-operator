@@ -88,7 +88,7 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 			if err == nil {
 				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{
 					Name:      tt.instance,
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &instance)
 				require.NoError(t, err1)
 			}
@@ -154,7 +154,7 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 					},
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "my-instance-blocks",
-						Namespace: "default",
+						Namespace: namespaceName(),
 					},
 					Data: map[string]string{
 						"server": "# some NGINX conf at server context",
@@ -264,7 +264,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 			err := manager.UpdateBlock(context.TODO(), tt.instance, tt.block)
 			var instance v1alpha1.RpaasInstance
 			if err == nil {
-				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{Name: tt.instance, Namespace: "default"}, &instance)
+				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{Name: tt.instance, Namespace: namespaceName()}, &instance)
 				require.NoError(t, err1)
 			}
 			tt.assertion(t, err, &instance)
@@ -381,7 +381,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				instance := v1alpha1.RpaasInstance{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      "my-instance",
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &instance)
 				require.NoError(t, err)
 
@@ -399,7 +399,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				secret := corev1.Secret{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &secret)
 				require.NoError(t, err)
 
@@ -421,7 +421,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				instance := v1alpha1.RpaasInstance{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      "my-instance",
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &instance)
 				require.NoError(t, err)
 
@@ -439,7 +439,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				secret := corev1.Secret{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &secret)
 				require.NoError(t, err)
 
@@ -461,7 +461,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				instance := v1alpha1.RpaasInstance{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      "another-instance",
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &instance)
 				require.NoError(t, err)
 
@@ -479,7 +479,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				secret := corev1.Secret{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &secret)
 				require.NoError(t, err)
 
@@ -501,7 +501,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				instance := v1alpha1.RpaasInstance{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      "another-instance",
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &instance)
 				require.NoError(t, err)
 				assert.NotNil(t, instance.Spec.Certificates)
@@ -519,7 +519,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				secret := corev1.Secret{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{
 					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &secret)
 				require.NoError(t, err)
 
@@ -560,7 +560,7 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
-			Namespace: "default",
+			Namespace: namespaceName(),
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{},
 	}
@@ -574,7 +574,7 @@ func newEmptyExtraFiles() *corev1.ConfigMap {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance-extra-files",
-			Namespace: "default",
+			Namespace: namespaceName(),
 		},
 	}
 }
@@ -587,7 +587,7 @@ func newEmptySecret() *corev1.Secret {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-secrets",
-			Namespace: "default",
+			Namespace: namespaceName(),
 		},
 	}
 }
@@ -600,7 +600,7 @@ func newEmptyLocations() *corev1.ConfigMap {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-locations",
-			Namespace: "default",
+			Namespace: namespaceName(),
 		},
 	}
 }
@@ -1036,7 +1036,7 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 				assert.NoError(t, err)
 
 				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &instance)
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: namespaceName()}, &instance)
 				require.NoError(t, err)
 
 				expectedFiles := map[string]string{
@@ -1080,7 +1080,7 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 				assert.NoError(t, err)
 
 				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: "default"}, &instance)
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: namespaceName()}, &instance)
 				require.NoError(t, err)
 
 				assert.NotEqual(t, "another-instance-extra-files", instance.Spec.ExtraFiles.Name)
@@ -1233,7 +1233,7 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 				assert.NoError(t, err)
 
 				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: "default"}, &instance)
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: namespaceName()}, &instance)
 				require.NoError(t, err)
 
 				cm, err := m.getExtraFiles(context.Background(), instance)
@@ -1304,7 +1304,7 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 				assert.NoError(t, err)
 
 				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &instance)
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: namespaceName()}, &instance)
 				require.NoError(t, err)
 				assert.Nil(t, instance.Spec.ExtraFiles)
 			},
@@ -1535,7 +1535,7 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			if bindAppErr == nil {
 				require.NoError(t, manager.cli.Get(context.Background(), types.NamespacedName{
 					Name:      tt.instance,
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &instance))
 			}
 
@@ -1597,7 +1597,7 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 			if unbindAppErr == nil {
 				require.NoError(t, manager.cli.Get(context.Background(), types.NamespacedName{
 					Name:      tt.instance,
-					Namespace: "default",
+					Namespace: namespaceName(),
 				}, &instance))
 			}
 
@@ -1723,7 +1723,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 			err := manager.DeleteRoute(context.Background(), tt.instance, tt.path)
 			var ri v1alpha1.RpaasInstance
 			if err == nil {
-				require.NoError(t, manager.cli.Get(context.Background(), types.NamespacedName{Name: tt.instance, Namespace: "default"}, &ri))
+				require.NoError(t, manager.cli.Get(context.Background(), types.NamespacedName{Name: tt.instance, Namespace: namespaceName()}, &ri))
 			}
 			tt.assertion(t, err, &ri)
 		})
@@ -1765,7 +1765,7 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 						},
 						Key: "path4",
 					},
-					Namespace: "default",
+					Namespace: namespaceName(),
 				},
 			},
 		},
@@ -1779,7 +1779,7 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 						},
 						Key: "path4",
 					},
-					Namespace: "default",
+					Namespace: namespaceName(),
 				},
 			},
 		},
@@ -1793,7 +1793,7 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 						},
 						Key: "unknown-key",
 					},
-					Namespace: "default",
+					Namespace: namespaceName(),
 				},
 			},
 		},
@@ -1813,7 +1813,7 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 						Key:      "unknown-key",
 						Optional: boolPointer(false),
 					},
-					Namespace: "default",
+					Namespace: namespaceName(),
 				},
 			},
 		},
@@ -1833,7 +1833,7 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 						Key:      "unknown-key",
 						Optional: boolPointer(false),
 					},
-					Namespace: "default",
+					Namespace: namespaceName(),
 				},
 			},
 		},
@@ -2168,7 +2168,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 			err := manager.UpdateRoute(context.Background(), tt.instance, tt.route)
 			ri := &v1alpha1.RpaasInstance{}
 			if err == nil {
-				newErr := manager.cli.Get(context.Background(), types.NamespacedName{Name: tt.instance, Namespace: "default"}, ri)
+				newErr := manager.cli.Get(context.Background(), types.NamespacedName{Name: tt.instance, Namespace: namespaceName()}, ri)
 				require.NoError(t, newErr)
 			}
 			tt.assertion(t, err, ri, nil)
@@ -2352,7 +2352,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		&v1alpha1.RpaasInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "r0",
-				Namespace: "rpaasv2-some-team",
+				Namespace: namespaceName(),
 				Labels: map[string]string{
 					"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 					"rpaas.extensions.tsuru.io/instance-name": "r0",

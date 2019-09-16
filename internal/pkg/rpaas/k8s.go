@@ -367,7 +367,9 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {
 	list := &v1alpha1.RpaasInstanceList{}
-	err := m.cli.List(ctx, client.MatchingLabels(labelsForRpaasInstance(name)), list)
+	listOpts := client.InNamespace(namespaceName()).
+		MatchingLabels(labelsForRpaasInstance(name))
+	err := m.cli.List(ctx, listOpts, list)
 	if err != nil {
 		return nil, err
 	}
@@ -1003,6 +1005,10 @@ func getServiceName() string {
 	}
 
 	return serviceName
+}
+
+func namespaceName() string {
+	return getServiceName()
 }
 
 func newNamespace(name string) corev1.Namespace {
