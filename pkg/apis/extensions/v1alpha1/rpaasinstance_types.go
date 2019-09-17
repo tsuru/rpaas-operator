@@ -59,6 +59,11 @@ type RpaasInstanceSpec struct {
 	// PodTemplate used to configure the NGINX pod template.
 	// +optional
 	PodTemplate nginxv1alpha1.NginxPodTemplateSpec `json:"podTemplate,omitmepty"`
+
+	// Autoscale holds the infos used to configure the HorizontalPodAutoscaler
+	// for this instance.
+	// +optional
+	Autoscale *RpaasInstanceAutoscaleSpec `json:"autoscale,omitempty"`
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
@@ -114,6 +119,28 @@ type Value struct {
 }
 
 const CertificateNameDefault = "default"
+
+// RpaasInstanceAutoscaleSpec describes the behavior of HorizontalPodAutoscaler.
+type RpaasInstanceAutoscaleSpec struct {
+	// MaxReplicas is the upper limit for the number of replicas that can be set
+	// by the HorizontalPodAutoscaler.
+	MaxReplicas int32 `json:"maxReplicas"`
+	// MinReplicas is the lower limit for the number of replicas that can be set
+	// by the HorizontalPodAutoscaler.
+	// Defaults to the RpaasInstance replicas value.
+	// +optional
+	MinReplicas *int32 `json:"minReplicas,omitempty"`
+	// TargetCPUUtilizationPercentage is the target average CPU utilization over
+	// all the pods. Represented as a percentage of requested CPU, e.g. int32(80)
+	// equals to 80%.
+	// +optional
+	TargetCPUUtilizationPercentage *int32 `json:"targetCPUUtilizationPercentage,omitempty"`
+	// TargetMemoryUtilizationPercentage is the target average memory utilization
+	// over all the pods. Represented as a percentage of requested memory, e.g.
+	// int32(80) equals to 80%.
+	// +optional
+	TargetMemoryUtilizationPercentage *int32 `json:"targetMemoryUtilizationPercentage,omitempty"`
+}
 
 func init() {
 	SchemeBuilder.Register(&RpaasInstance{}, &RpaasInstanceList{})
