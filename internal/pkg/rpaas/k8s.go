@@ -1033,7 +1033,7 @@ func setDescription(instance *v1alpha1.RpaasInstance, description string) {
 	}
 
 	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
-		"description": description,
+		labelKey("description"): description,
 	})
 }
 
@@ -1045,7 +1045,7 @@ func setTags(instance *v1alpha1.RpaasInstance, tags []string) error {
 	sort.Strings(tags)
 
 	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
-		"tags": strings.Join(tags, ","),
+		labelKey("tags"): strings.Join(tags, ","),
 	})
 
 	var ip string

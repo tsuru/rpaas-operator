@@ -2445,9 +2445,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":                          "",
-						"tags":                                 "",
-						"rpaas.extensions.tsuru.io/team-owner": "t1",
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -2494,9 +2494,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":                          "",
-						"tags":                                 `plan-override={"config": {"cacheEnabled": false}}`,
-						"rpaas.extensions.tsuru.io/team-owner": "t1",
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        `plan-override={"config": {"cacheEnabled": false}}`,
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -2548,9 +2548,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":                          "",
-						"tags":                                 "flavor=strawberry",
-						"rpaas.extensions.tsuru.io/team-owner": "t1",
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "flavor=strawberry",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -2602,9 +2602,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":                          "",
-						"tags":                                 "",
-						"rpaas.extensions.tsuru.io/team-owner": "team-one",
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/team-owner":  "team-one",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -2681,8 +2681,8 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 	instance1.Labels = labelsForRpaasInstance(instance1.Name)
 	instance1.Labels["rpaas.extensions.tsuru.io/team-owner"] = "team-one"
 	instance1.Annotations = map[string]string{
-		"description": "Description about instance1",
-		"tags":        "tag1,tag2",
+		"rpaas.extensions.tsuru.io/description": "Description about instance1",
+		"rpaas.extensions.tsuru.io/tags":        "tag1,tag2",
 	}
 	instance1.Spec.PlanName = "plan1"
 
@@ -2750,8 +2750,8 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				require.NotNil(t, instance.Labels)
 				assert.Equal(t, "team-two", instance.Labels["rpaas.extensions.tsuru.io/team-owner"])
 				require.NotNil(t, instance.Annotations)
-				assert.Equal(t, "Another description", instance.Annotations["description"])
-				assert.Equal(t, "tag3,tag4,tag5", instance.Annotations["tags"])
+				assert.Equal(t, "Another description", instance.Annotations["rpaas.extensions.tsuru.io/description"])
+				assert.Equal(t, "tag3,tag4,tag5", instance.Annotations["rpaas.extensions.tsuru.io/tags"])
 				assert.Equal(t, "team-two", instance.Annotations["rpaas.extensions.tsuru.io/team-owner"])
 				require.NotNil(t, instance.Spec.PodTemplate)
 				assert.Equal(t, "v1", instance.Spec.PodTemplate.Labels["pod-label-1"])
