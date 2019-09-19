@@ -150,6 +150,74 @@ func Test_serviceDelete(t *testing.T) {
 	}
 }
 
+func Test_serviceUpdate(t *testing.T) {
+	tests := []struct {
+		name         string
+		instance     string
+		requestBody  string
+		expectedCode int
+		expectedBody string
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "when no body content is sent",
+			instance:     "my-instance",
+			expectedCode: http.StatusBadRequest,
+			expectedBody: "Request body can't be empty",
+			manager:      &fake.RpaasManager{},
+		},
+		{
+			name:         "when UpdateInstance returns no error",
+			instance:     "my-instance",
+			requestBody:  "description=some%20description&plan=huge&team=team-one&tags=tag1&tags=tag2",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeUpdateInstance: func(instanceName string, args rpaas.UpdateInstanceArgs) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, rpaas.UpdateInstanceArgs{
+						Description: "some description",
+						Plan:        "huge",
+						Tags:        []string{"tag1", "tag2"},
+						Team:        "team-one",
+					}, args)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "when UpdateInstance returns a NotFound error",
+			instance:     "my-instance2",
+			requestBody:  "plan=not-found",
+			expectedCode: http.StatusNotFound,
+			expectedBody: "some error",
+			manager: &fake.RpaasManager{
+				FakeUpdateInstance: func(instanceName string, args rpaas.UpdateInstanceArgs) error {
+					assert.Equal(t, "my-instance2", instanceName)
+					assert.Equal(t, rpaas.UpdateInstanceArgs{
+						Plan: "not-found",
+					}, args)
+					return rpaas.NotFoundError{Msg: "some error"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s", srv.URL, tt.instance)
+			request, err := http.NewRequest(http.MethodPut, path, strings.NewReader(tt.requestBody))
+			require.NoError(t, err)
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+			assert.Regexp(t, tt.expectedBody, bodyContent(rsp))
+		})
+	}
+}
+
 func Test_servicePlans(t *testing.T) {
 	testCases := []struct {
 		name          string

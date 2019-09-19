@@ -2703,6 +2703,107 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance1"
+	instance1.Labels = labelsForRpaasInstance(instance1.Name)
+	instance1.Labels["rpaas.extensions.tsuru.io/team-owner"] = "team-one"
+	instance1.Annotations = map[string]string{
+		"description": "Description about instance1",
+		"tags":        "tag1,tag2",
+	}
+	instance1.Spec.PlanName = "plan1"
+
+	podLabels := mergeMap(instance1.Labels, map[string]string{"pod-label-1": "v1"})
+
+	instance1.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+		Annotations: instance1.Annotations,
+		Labels:      podLabels,
+	}
+
+	plan1 := &v1alpha1.RpaasPlan{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+			Kind:       "RpaasPlan",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "plan1",
+		},
+	}
+
+	plan2 := &v1alpha1.RpaasPlan{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+			Kind:       "RpaasPlan",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "plan2",
+		},
+	}
+
+	resources := []runtime.Object{instance1, plan1, plan2}
+
+	tests := []struct {
+		name      string
+		instance  string
+		args      UpdateInstanceArgs
+		assertion func(t *testing.T, err error, instance *v1alpha1.RpaasInstance)
+	}{
+		{
+			name:     "when the newer plan does not exist",
+			instance: "instance1",
+			args: UpdateInstanceArgs{
+				Plan: "not-found",
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Error(t, NotFoundError{
+					Msg: `plan "not-found" not found`,
+				}, err)
+			},
+		},
+		{
+			name:     "when successfully updating an instance",
+			instance: "instance1",
+			args: UpdateInstanceArgs{
+				Description: "Another description",
+				Plan:        "plan2",
+				Tags:        []string{"tag3", "tag4", "tag5"},
+				Team:        "team-two",
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+				require.NotNil(t, instance)
+				assert.Equal(t, "plan2", instance.Spec.PlanName)
+				require.NotNil(t, instance.Labels)
+				assert.Equal(t, "team-two", instance.Labels["rpaas.extensions.tsuru.io/team-owner"])
+				require.NotNil(t, instance.Annotations)
+				assert.Equal(t, "Another description", instance.Annotations["description"])
+				assert.Equal(t, "tag3,tag4,tag5", instance.Annotations["tags"])
+				assert.Equal(t, "team-two", instance.Annotations["rpaas.extensions.tsuru.io/team-owner"])
+				require.NotNil(t, instance.Spec.PodTemplate)
+				assert.Equal(t, "v1", instance.Spec.PodTemplate.Labels["pod-label-1"])
+				assert.Equal(t, "team-two", instance.Spec.PodTemplate.Labels["rpaas.extensions.tsuru.io/team-owner"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{
+				cli: fake.NewFakeClientWithScheme(newScheme(), resources...),
+			}
+			err := manager.UpdateInstance(context.TODO(), tt.instance, tt.args)
+			instance := new(v1alpha1.RpaasInstance)
+			if err == nil {
+				nerr := manager.cli.Get(context.TODO(), types.NamespacedName{Name: tt.instance, Namespace: namespaceName()}, instance)
+				require.NoError(t, nerr)
+			}
+			tt.assertion(t, err, instance)
+		})
+	}
+}
+
 func newScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)

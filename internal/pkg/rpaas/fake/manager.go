@@ -12,10 +12,13 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
 
+var _ rpaas.RpaasManager = &RpaasManager{}
+
 type RpaasManager struct {
 	FakeUpdateCertificate func(instance, name string, cert tls.Certificate) error
 	FakeCreateInstance    func(args rpaas.CreateArgs) error
 	FakeDeleteInstance    func(instanceName string) error
+	FakeUpdateInstance    func(instanceName string, args rpaas.UpdateInstanceArgs) error
 	FakeGetInstance       func(instanceName string) (*v1alpha1.RpaasInstance, error)
 	FakeDeleteBlock       func(instanceName, blockName string) error
 	FakeListBlocks        func(instanceName string) ([]rpaas.ConfigurationBlock, error)
@@ -53,6 +56,13 @@ func (m *RpaasManager) CreateInstance(ctx context.Context, args rpaas.CreateArgs
 func (m *RpaasManager) DeleteInstance(ctx context.Context, name string) error {
 	if m.FakeDeleteInstance != nil {
 		return m.FakeDeleteInstance(name)
+	}
+	return nil
+}
+
+func (m *RpaasManager) UpdateInstance(ctx context.Context, name string, args rpaas.UpdateInstanceArgs) error {
+	if m.FakeUpdateInstance != nil {
+		return m.FakeUpdateInstance(name, args)
 	}
 	return nil
 }

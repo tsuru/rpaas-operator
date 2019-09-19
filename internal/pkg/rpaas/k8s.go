@@ -40,6 +40,8 @@ const (
 	defaultKeyLabelPrefix = "rpaas.extensions.tsuru.io"
 )
 
+var _ RpaasManager = &k8sRpaasManager{}
+
 type k8sRpaasManager struct {
 	nonCachedCli client.Client
 	cli          client.Client
@@ -166,6 +168,24 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 		return err
 	}
 	return nil
+}
+
+func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if _, err = m.getPlan(ctx, args.Plan); err != nil {
+		return err
+	}
+
+	instance.Spec.PlanName = args.Plan
+	setDescription(instance, args.Description)
+	setTags(instance, args.Tags)
+	setTeamOwner(instance, args.Team)
+
+	return m.cli.Update(ctx, instance)
 }
 
 func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, error) {
@@ -1019,4 +1039,46 @@ func newNamespace(name string) corev1.Namespace {
 		},
 		ObjectMeta: metav1.ObjectMeta{Name: name},
 	}
+}
+
+func mergeMap(a, b map[string]string) map[string]string {
+	if a == nil {
+		return b
+	}
+	for k, v := range b {
+		a[k] = v
+	}
+	return a
+}
+
+func setDescription(instance *v1alpha1.RpaasInstance, description string) {
+	if instance == nil {
+		return
+	}
+
+	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
+		"description": description,
+	})
+}
+
+func setTags(instance *v1alpha1.RpaasInstance, tags []string) {
+	if instance == nil {
+		return
+	}
+
+	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
+		"tags": strings.Join(tags, ","),
+	})
+}
+
+func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
+	if instance == nil {
+		return
+	}
+
+	newLabels := map[string]string{labelKey("team-owner"): team}
+
+	instance.Annotations = mergeMap(instance.Annotations, newLabels)
+	instance.Labels = mergeMap(instance.Labels, newLabels)
+	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }

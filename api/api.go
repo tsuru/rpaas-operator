@@ -175,6 +175,7 @@ func newEcho() *echo.Echo {
 	e.GET("/resources/plans", servicePlans)
 	e.GET("/resources/:instance/plans", servicePlans)
 	e.GET("/resources/:instance", serviceInfo)
+	e.PUT("/resources/:instance", serviceUpdate)
 	e.GET("/resources/:instance/node_status", serviceStatus)
 	e.DELETE("/resources/:instance", serviceDelete)
 	e.POST("/resources/:instance/bind-app", serviceBindApp)

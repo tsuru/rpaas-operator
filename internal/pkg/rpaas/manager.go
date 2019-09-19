@@ -89,6 +89,13 @@ type CreateArgs struct {
 	PlanOverride string   `json:"plan-override" form:"plan-override"`
 }
 
+type UpdateInstanceArgs struct {
+	Description string   `json:"description" form:"description"`
+	Plan        string   `json:"plan" form:"plan"`
+	Tags        []string `json:"tags" form:"tags"`
+	Team        string   `json:"team" form:"team"`
+}
+
 type PodStatusMap map[string]PodStatus
 
 type PodStatus struct {
@@ -121,6 +128,7 @@ type RpaasManager interface {
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
 	CreateInstance(ctx context.Context, args CreateArgs) error
 	DeleteInstance(ctx context.Context, name string) error
+	UpdateInstance(ctx context.Context, name string, args UpdateInstanceArgs) error
 	GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error)
 	GetInstanceAddress(ctx context.Context, name string) (string, error)
 	GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error)

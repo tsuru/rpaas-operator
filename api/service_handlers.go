@@ -46,6 +46,24 @@ func serviceDelete(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+func serviceUpdate(c echo.Context) error {
+	var args rpaas.UpdateInstanceArgs
+	if err := c.Bind(&args); err != nil {
+		return err
+	}
+
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	if err = manager.UpdateInstance(c.Request().Context(), c.Param("instance"), args); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
 type plan struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
