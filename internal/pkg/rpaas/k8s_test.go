@@ -2740,7 +2740,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			args: UpdateInstanceArgs{
 				Description: "Another description",
 				Plan:        "plan2",
-				Tags:        []string{"tag3", "tag4", "tag5"},
+				Tags:        []string{"tag3", "tag4", "tag5", `plan-override={"image": "my.registry.test/nginx:latest"}`},
 				Team:        "team-two",
 			},
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
@@ -2751,11 +2751,12 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				assert.Equal(t, "team-two", instance.Labels["rpaas.extensions.tsuru.io/team-owner"])
 				require.NotNil(t, instance.Annotations)
 				assert.Equal(t, "Another description", instance.Annotations["rpaas.extensions.tsuru.io/description"])
-				assert.Equal(t, "tag3,tag4,tag5", instance.Annotations["rpaas.extensions.tsuru.io/tags"])
+				assert.Equal(t, `plan-override={"image": "my.registry.test/nginx:latest"},tag3,tag4,tag5`, instance.Annotations["rpaas.extensions.tsuru.io/tags"])
 				assert.Equal(t, "team-two", instance.Annotations["rpaas.extensions.tsuru.io/team-owner"])
 				require.NotNil(t, instance.Spec.PodTemplate)
 				assert.Equal(t, "v1", instance.Spec.PodTemplate.Labels["pod-label-1"])
 				assert.Equal(t, "team-two", instance.Spec.PodTemplate.Labels["rpaas.extensions.tsuru.io/team-owner"])
+				assert.Equal(t, &v1alpha1.RpaasPlanSpec{Image: "my.registry.test/nginx:latest"}, instance.Spec.PlanTemplate)
 			},
 		},
 	}
