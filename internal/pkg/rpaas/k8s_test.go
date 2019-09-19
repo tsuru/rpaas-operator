@@ -2420,12 +2420,12 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name:          "invalid flavor",
-			args:          CreateArgs{Name: "r1", Team: "t1", Flavor: "aaaaa"},
+			args:          CreateArgs{Name: "r1", Team: "t1", Tags: []string{"flavor=aaaaa"}},
 			expectedError: `flavor "aaaaa" not found`,
 		},
 		{
 			name:          "override and flavor",
-			args:          CreateArgs{Name: "r1", Team: "t1", Flavor: "strawberry", PlanOverride: `{"config": {"cacheEnabled": false}}`},
+			args:          CreateArgs{Name: "r1", Team: "t1", Tags: []string{"flavor=strawberry", `plan-override={"config": {"cacheEnabled": false}}`}},
 			expectedError: `cannot set both plan-override and flavor`,
 		},
 		{
@@ -2445,16 +2445,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":   "",
-						"eventid":       "",
-						"flavor":        "",
-						"ip":            "",
-						"name":          "r1",
-						"plan":          "",
-						"plan-override": "",
-						"tags":          "<nil>",
-						"team":          "t1",
-						"user":          "",
+						"description":                          "",
+						"tags":                                 "",
+						"rpaas.extensions.tsuru.io/team-owner": "t1",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -2491,7 +2484,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name: "with override",
-			args: CreateArgs{Name: "r1", Team: "t1", PlanOverride: `{"config": {"cacheEnabled": false}}`},
+			args: CreateArgs{Name: "r1", Team: "t1", Tags: []string{`plan-override={"config": {"cacheEnabled": false}}`}},
 			expected: v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "RpaasInstance",
@@ -2501,16 +2494,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":   "",
-						"eventid":       "",
-						"flavor":        "",
-						"ip":            "",
-						"name":          "r1",
-						"plan":          "",
-						"plan-override": `{"config": {"cacheEnabled": false}}`,
-						"tags":          "<nil>",
-						"team":          "t1",
-						"user":          "",
+						"description":                          "",
+						"tags":                                 `plan-override={"config": {"cacheEnabled": false}}`,
+						"rpaas.extensions.tsuru.io/team-owner": "t1",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -2552,7 +2538,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name: "with flavor",
-			args: CreateArgs{Name: "r1", Team: "t1", Flavor: "strawberry"},
+			args: CreateArgs{Name: "r1", Team: "t1", Tags: []string{"flavor=strawberry"}},
 			expected: v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "RpaasInstance",
@@ -2562,16 +2548,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":   "",
-						"eventid":       "",
-						"flavor":        "strawberry",
-						"ip":            "",
-						"name":          "r1",
-						"plan":          "",
-						"plan-override": "",
-						"tags":          "<nil>",
-						"team":          "t1",
-						"user":          "",
+						"description":                          "",
+						"tags":                                 "flavor=strawberry",
+						"rpaas.extensions.tsuru.io/team-owner": "t1",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -2623,16 +2602,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Name:      "r1",
 					Namespace: "rpaasv2",
 					Annotations: map[string]string{
-						"description":   "",
-						"eventid":       "",
-						"flavor":        "",
-						"ip":            "",
-						"name":          "r1",
-						"plan":          "",
-						"plan-override": "",
-						"tags":          "<nil>",
-						"team":          "team-one",
-						"user":          "",
+						"description":                          "",
+						"tags":                                 "",
+						"rpaas.extensions.tsuru.io/team-owner": "team-one",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",

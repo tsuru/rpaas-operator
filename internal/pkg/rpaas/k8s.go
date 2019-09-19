@@ -72,102 +72,43 @@ func (m *k8sRpaasManager) DeleteInstance(ctx context.Context, name string) error
 }
 
 func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) error {
-	parseTags(args)
-	plan, err := m.validateCreate(ctx, args)
+	if err := m.validateCreate(ctx, args); err != nil {
+		return err
+	}
+
+	nsName, err := m.ensureNamespaceExists(ctx)
 	if err != nil {
 		return err
 	}
-	_, err = m.GetInstance(ctx, args.Name)
-	if err == nil {
-		return ConflictError{Msg: fmt.Sprintf("rpaas instance named %q already exists", args.Name)}
-	}
-	if !IsNotFoundError(err) {
-		return err
-	}
-	data, err := json.Marshal(args)
+
+	plan, err := m.getPlan(ctx, args.Plan)
 	if err != nil {
 		return err
 	}
-	var annotationsBase map[string]interface{}
-	err = json.Unmarshal(data, &annotationsBase)
-	if err != nil {
+
+	instance := newRpaasInstance(args.Name)
+	instance.Namespace = nsName
+	instance.Spec.PlanName = plan.Name
+	instance.Spec.Replicas = func(n int32) *int32 { return &n }(int32(1)) // one replica
+	instance.Spec.Service = &nginxv1alpha1.NginxService{
+		Type:        corev1.ServiceTypeLoadBalancer,
+		Annotations: config.Get().ServiceAnnotations,
+		Labels:      instance.Labels,
+	}
+	instance.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+		Affinity:    getAffinity(args.Team),
+		Annotations: instance.Annotations,
+		Labels:      instance.Labels,
+	}
+
+	setDescription(instance, args.Description)
+	setTeamOwner(instance, args.Team)
+
+	if err := setTags(instance, args.Tags); err != nil {
 		return err
 	}
-	annotations := map[string]string{}
-	for k, v := range annotationsBase {
-		annotations[k] = fmt.Sprint(v)
-	}
-	if args.PlanOverride != "" && args.Flavor != "" {
-		return errors.New("cannot set both plan-override and flavor")
-	}
-	var planTemplate *v1alpha1.RpaasPlanSpec
-	if args.PlanOverride != "" {
-		err = json.Unmarshal([]byte(args.PlanOverride), &planTemplate)
-		if err != nil {
-			return errors.Wrapf(err, "unable to parse planOverride from data %q", args.PlanOverride)
-		}
-	}
-	if args.Flavor != "" {
-		conf := config.Get()
-		for _, flavor := range conf.Flavors {
-			if flavor.Name == args.Flavor {
-				planTemplate = &flavor.Spec
-				break
-			}
-		}
-		if planTemplate == nil {
-			return errors.Errorf("flavor %q not found", args.Flavor)
-		}
-	}
-	conf := config.Get()
-	affinity := conf.DefaultAffinity
-	if conf.TeamAffinity != nil {
-		if teamAffinity, ok := conf.TeamAffinity[args.Team]; ok {
-			affinity = &teamAffinity
-		}
-	}
-	namespaceName, err := m.ensureNamespaceExists(ctx)
-	if err != nil {
-		return err
-	}
-	labels := labelsForRpaasInstance(args.Name)
-	labels[labelKey("team-owner")] = args.Team
-	oneReplica := int32(1)
-	instance := &v1alpha1.RpaasInstance{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-			Kind:       "RpaasInstance",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        args.Name,
-			Namespace:   namespaceName,
-			Annotations: annotations,
-			Labels:      labels,
-		},
-		Spec: v1alpha1.RpaasInstanceSpec{
-			PlanName: plan.ObjectMeta.Name,
-			Service: &nginxv1alpha1.NginxService{
-				Type:           corev1.ServiceTypeLoadBalancer,
-				LoadBalancerIP: args.IP,
-				Annotations:    conf.ServiceAnnotations,
-				Labels:         labels,
-			},
-			Replicas:     &oneReplica,
-			PlanTemplate: planTemplate,
-			PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-				Affinity: affinity,
-				Labels:   labels,
-			},
-		},
-	}
-	err = m.cli.Create(ctx, instance)
-	if err != nil {
-		if k8sErrors.IsAlreadyExists(err) {
-			return ConflictError{Msg: args.Name + " instance already exists"}
-		}
-		return err
-	}
-	return nil
+
+	return m.cli.Create(ctx, instance)
 }
 
 func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
@@ -176,14 +117,18 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 		return err
 	}
 
-	if _, err = m.getPlan(ctx, args.Plan); err != nil {
+	plan, err := m.getPlan(ctx, args.Plan)
+	if err != nil {
 		return err
 	}
 
-	instance.Spec.PlanName = args.Plan
+	instance.Spec.PlanName = plan.Name
 	setDescription(instance, args.Description)
-	setTags(instance, args.Tags)
 	setTeamOwner(instance, args.Team)
+
+	if err = setTags(instance, args.Tags); err != nil {
+		return err
+	}
 
 	return m.cli.Update(ctx, instance)
 }
@@ -848,18 +793,29 @@ func convertPrivateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
 	}
 }
 
-func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) (*v1alpha1.RpaasPlan, error) {
+func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) error {
 	if args.Name == "" {
-		return nil, ValidationError{Msg: "name is required"}
+		return ValidationError{Msg: "name is required"}
 	}
+
 	if args.Team == "" {
-		return nil, ValidationError{Msg: "team name is required"}
+		return ValidationError{Msg: "team name is required"}
 	}
-	plan, err := m.getPlan(ctx, args.Plan)
-	if err != nil && IsNotFoundError(err) {
-		return nil, ValidationError{Msg: "invalid plan"}
+
+	if _, err := m.getPlan(ctx, args.Plan); err != nil && IsNotFoundError(err) {
+		return ValidationError{Msg: "invalid plan"}
 	}
-	return plan, err
+
+	_, err := m.GetInstance(ctx, args.Name)
+	if err != nil && !IsNotFoundError(err) {
+		return err
+	}
+
+	if err == nil {
+		return ConflictError{Msg: fmt.Sprintf("rpaas instance named %q already exists", args.Name)}
+	}
+
+	return nil
 }
 
 func parseTagArg(tags []string, name string, destination *string) {
@@ -870,12 +826,6 @@ func parseTagArg(tags []string, name string, destination *string) {
 			break
 		}
 	}
-}
-
-func parseTags(args CreateArgs) {
-	parseTagArg(args.Tags, "flavor", &args.Flavor)
-	parseTagArg(args.Tags, "ip", &args.IP)
-	parseTagArg(args.Tags, "plan-override", &args.PlanOverride)
 }
 
 func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {
@@ -1041,6 +991,32 @@ func newNamespace(name string) corev1.Namespace {
 	}
 }
 
+func newRpaasInstance(name string) *v1alpha1.RpaasInstance {
+	return &v1alpha1.RpaasInstance{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+			Kind:       "RpaasInstance",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      name,
+			Namespace: namespaceName(),
+			Labels:    labelsForRpaasInstance(name),
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{},
+	}
+}
+
+func getAffinity(team string) *corev1.Affinity {
+	conf := config.Get()
+	if conf.TeamAffinity != nil {
+		if teamAffinity, ok := conf.TeamAffinity[team]; ok {
+			return &teamAffinity
+		}
+	}
+
+	return conf.DefaultAffinity
+}
+
 func mergeMap(a, b map[string]string) map[string]string {
 	if a == nil {
 		return b
@@ -1061,14 +1037,53 @@ func setDescription(instance *v1alpha1.RpaasInstance, description string) {
 	})
 }
 
-func setTags(instance *v1alpha1.RpaasInstance, tags []string) {
+func setTags(instance *v1alpha1.RpaasInstance, tags []string) error {
 	if instance == nil {
-		return
+		return nil
 	}
+
+	sort.Strings(tags)
 
 	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
 		"tags": strings.Join(tags, ","),
 	})
+
+	var ip string
+	parseTagArg(tags, "ip", &ip)
+
+	if ip != "" && instance.Spec.Service != nil {
+		instance.Spec.Service.LoadBalancerIP = ip
+	}
+
+	var flavor string
+	parseTagArg(tags, "flavor", &flavor)
+
+	var planOverride string
+	parseTagArg(tags, "plan-override", &planOverride)
+
+	if planOverride != "" && flavor != "" {
+		return errors.New("cannot set both plan-override and flavor")
+	}
+
+	if flavor != "" {
+		planTemplate := getFlavor(flavor)
+		if planTemplate == nil {
+			return errors.Errorf("flavor %q not found", flavor)
+		}
+
+		instance.Spec.PlanTemplate = planTemplate
+	}
+
+	if planOverride != "" {
+		var planTemplate v1alpha1.RpaasPlanSpec
+		if err := json.Unmarshal([]byte(planOverride), &planTemplate); err != nil {
+			return errors.Wrapf(err, "unable to parse plan-override from data %q", planOverride)
+		}
+
+		instance.Spec.PlanTemplate = &planTemplate
+	}
+
+	return nil
 }
 
 func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
@@ -1081,4 +1096,14 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Annotations = mergeMap(instance.Annotations, newLabels)
 	instance.Labels = mergeMap(instance.Labels, newLabels)
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
+}
+
+func getFlavor(name string) *v1alpha1.RpaasPlanSpec {
+	for _, flavor := range config.Get().Flavors {
+		if name == flavor.Name {
+			return &flavor.Spec
+		}
+	}
+
+	return nil
 }

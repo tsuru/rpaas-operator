@@ -77,16 +77,11 @@ type RouteHandler interface {
 }
 
 type CreateArgs struct {
-	Name         string   `json:"name" form:"name"`
-	Plan         string   `json:"plan" form:"plan"`
-	Team         string   `json:"team" form:"team"`
-	User         string   `json:"user" form:"user"`
-	Tags         []string `json:"tags" form:"tags"`
-	EventID      string   `json:"eventid" form:"eventid"`
-	Description  string   `json:"description" form:"description"`
-	Flavor       string   `json:"flavor" form:"flavor"`
-	IP           string   `json:"ip" form:"ip"`
-	PlanOverride string   `json:"plan-override" form:"plan-override"`
+	Name        string   `json:"name" form:"name"`
+	Plan        string   `json:"plan" form:"plan"`
+	Team        string   `json:"team" form:"team"`
+	Tags        []string `json:"tags" form:"tags"`
+	Description string   `json:"description" form:"description"`
 }
 
 type UpdateInstanceArgs struct {
