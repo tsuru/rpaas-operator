@@ -16,7 +16,13 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+
 	"github.com/spf13/cobra"
+	"github.com/tsuru/rpaas-operator/build/cli/proxy"
 )
 
 // infoCmd represents the info command
@@ -24,13 +30,36 @@ var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Lists avaiable plans and flavors for the specified rpaas-instance",
 	Long:  `Lists avaiable plans and flavors for the specified rpaas-instance`,
-	Run: func(cmd *cobra.Command, args []string) {
+	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.ParseFlags(args)
 		// fmt.Printf("service = %v\n", cmd.Flag("service").Value)
 		// fmt.Printf("instance = %v\n", cmd.Flag("instance").Value)
-		service := cmd.Flag("service").Value
-		instance := cmd.Flag("instance").Value
+		service := cmd.Flag("service").Value.String()
+		instance := cmd.Flag("instance").Value.String()
+		path := "/resources/" + instance + "/plans"
+		prox := &proxy.Proxy{ServiceName: service, InstanceName: instance, Path: path, Method: "GET"}
+		res, err := prox.ProxyRequest()
+		if err != nil {
+			return err
+		}
+		if res.StatusCode != http.StatusOK {
+			return fmt.Errorf("%v", res.Status)
+		}
+		body, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			return err
+		}
 
+		var plans map[string]string
+		err = json.Unmarshal(body, &plans)
+		if err != nil {
+			return err
+		}
+		for name, description := range plans {
+			fmt.Printf("%vt\t\t%v\n", name, description)
+		}
+		fmt.Println()
+		return nil
 	},
 }
 
