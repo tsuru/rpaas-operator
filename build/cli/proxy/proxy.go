@@ -1,10 +1,8 @@
 package proxy
 
 import (
-	"fmt"
 	"io"
 	"net/http"
-	"os"
 
 	tsuruCmd "github.com/tsuru/tsuru/cmd"
 )
@@ -25,10 +23,15 @@ func (p *Proxy) ProxyRequest() (*http.Response, error) {
 	}
 
 	// target = strings.TrimRight(target, "/")
-	token := os.Getenv("TSURU_TOKEN")
+	// token := os.Getenv("TSURU_TOKEN")
+	token, err := tsuruCmd.ReadToken()
+	// fmt.Printf("TOKEN= %v\n", token)
+	if err != nil {
+		return nil, err
+	}
 	// url := "https:" + target + "/services/" + p.ServiceName + "/proxy/" + p.InstanceName + "?callback=" + p.Path
 	url, err := tsuruCmd.GetURL("/services/" + p.ServiceName + "/proxy/" + p.InstanceName + "?callback=" + p.Path)
-	fmt.Println("URL= ", url)
+	// fmt.Println("URL= ", url)
 	if err != nil {
 		return nil, err
 	}
@@ -37,7 +40,7 @@ func (p *Proxy) ProxyRequest() (*http.Response, error) {
 		return nil, err
 	}
 	req.Header.Add("Authorization", "bearer "+token)
-	fmt.Println(req)
+	//fmt.Println(req)
 
 	if p.Headers != nil {
 		for key, value := range p.Headers {
