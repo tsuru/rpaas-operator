@@ -37,7 +37,6 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 	if err != nil {
 		return err
 	}
-	// fmt.Printf("%s\n", string(body))
 
 	var fp interface{}
 	err = json.Unmarshal(body, &fp)
@@ -48,9 +47,20 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 
 	fmt.Printf("List of avaiable %s:\n\n", infoType)
 	for _, mapVal := range helperSlice {
-		// fmt.Println(mapInt)
 		m := mapVal.(map[string]interface{})
 		fmt.Printf("%v\t\t%v\n", m["name"], m["description"])
+	}
+	return nil
+}
+
+func runInfo(service, instance string) error {
+	prox := &proxy.Proxy{ServiceName: service, InstanceName: instance, Method: "GET"}
+	for _, resource := range []string{"plans", "flavors"} {
+		prox.Path = "/resources/" + instance + "/" + resource
+		if err := getInfo(prox, resource); err != nil {
+			return err
+		}
+		fmt.Printf("\n\n")
 	}
 	return nil
 }
@@ -62,33 +72,14 @@ var infoCmd = &cobra.Command{
 	Long:  `Lists avaiable plans and flavors for the specified rpaas-instance`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.ParseFlags(args)
-		if cmd.Flag("service").Value == nil || cmd.Flag("instance").Value == nil {
-			return nil
-		}
 		service := cmd.Flag("service").Value.String()
 		instance := cmd.Flag("instance").Value.String()
-
-		prox := &proxy.Proxy{ServiceName: service, InstanceName: instance, Method: "GET"}
-
-		for _, service := range []string{"plans", "flavors"} {
-			prox.Path = "/resources/" + instance + "/" + service
-			if err := getInfo(prox, service); err != nil {
-				return err
-			}
-			fmt.Printf("\n\n")
-		}
-		return nil
+		return runInfo(service, instance)
 	},
 }
 
 func init() {
 	rootCmd.AddCommand(infoCmd)
-
-	// Here you will define your flags and configuration settings.
-
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// infoCmd.PersistentFlags().String("foo", "", "A help for foo")
 
 	// Cobra supports local flags which will only run when this command
 	// is called directly, e.g.:
