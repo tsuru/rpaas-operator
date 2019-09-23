@@ -54,7 +54,7 @@ rules:
   verbs:
   - '*'
 - apiGroups:
-  - autoscaling/v2beta2
+  - autoscaling
   resources:
   - HorizontalPodAutoscaler
   verbs:
