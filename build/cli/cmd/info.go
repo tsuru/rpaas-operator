@@ -25,6 +25,36 @@ import (
 	"github.com/tsuru/rpaas-operator/build/cli/proxy"
 )
 
+func getInfo(prox *proxy.Proxy, infoType string) error {
+	res, err := prox.ProxyRequest()
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("%v", res.Status)
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	// fmt.Printf("%s\n", string(body))
+
+	var fp interface{}
+	err = json.Unmarshal(body, &fp)
+	if err != nil {
+		return err
+	}
+	helperSlice := fp.([]interface{})
+
+	fmt.Printf("List of avaiable %s:\n\n", infoType)
+	for _, mapVal := range helperSlice {
+		// fmt.Println(mapInt)
+		m := mapVal.(map[string]interface{})
+		fmt.Printf("%v\t\t%v\n", m["name"], m["description"])
+	}
+	return nil
+}
+
 // infoCmd represents the info command
 var infoCmd = &cobra.Command{
 	Use:   "info",
@@ -32,43 +62,21 @@ var infoCmd = &cobra.Command{
 	Long:  `Lists avaiable plans and flavors for the specified rpaas-instance`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.ParseFlags(args)
-		// fmt.Printf("service = %v\n", cmd.Flag("service").Value)
-		// fmt.Printf("instance = %v\n", cmd.Flag("instance").Value)
+		if cmd.Flag("service").Value == nil || cmd.Flag("instance").Value == nil {
+			return nil
+		}
 		service := cmd.Flag("service").Value.String()
 		instance := cmd.Flag("instance").Value.String()
-		path := "/resources/" + instance + "/plans"
-		prox := &proxy.Proxy{ServiceName: service, InstanceName: instance, Path: path, Method: "GET"}
-		res, err := prox.ProxyRequest()
-		if err != nil {
-			return err
-		}
-		if res.StatusCode != http.StatusOK {
-			return fmt.Errorf("%v", res.Status)
-		}
-		body, err := ioutil.ReadAll(res.Body)
-		if err != nil {
-			return err
-		}
-		// fmt.Printf("%s\n", string(body))
 
-		var fp interface{}
-		err = json.Unmarshal(body, &fp)
-		if err != nil {
-			return err
+		prox := &proxy.Proxy{ServiceName: service, InstanceName: instance, Method: "GET"}
+
+		for _, service := range []string{"plans", "flavors"} {
+			prox.Path = "/resources/" + instance + "/" + service
+			if err := getInfo(prox, service); err != nil {
+				return err
+			}
+			fmt.Printf("\n\n")
 		}
-
-		m := fp.([]interface{})
-
-		for _, mapVal := range m {
-			// fmt.Println(mapInt)
-			d := mapVal.(map[string]interface{})
-			fmt.Printf("%v\t\t%v\n", d["name"], d["description"])
-		}
-
-		// for val := range plans.Name {
-		// 	fmt.Println(val)
-		// }
-
 		return nil
 	},
 }
@@ -86,4 +94,6 @@ func init() {
 	// is called directly, e.g.:
 	infoCmd.Flags().StringP("service", "s", "", "Service name")
 	infoCmd.Flags().StringP("instance", "i", "", "Service instance name")
+	infoCmd.MarkFlagRequired("service")
+	infoCmd.MarkFlagRequired("instance")
 }
