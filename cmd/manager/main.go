@@ -28,6 +28,7 @@ import (
 	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	rpaasConfig "github.com/tsuru/rpaas-operator/config"
 	rpaasOperatorVersion "github.com/tsuru/rpaas-operator/version"
+	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -117,6 +118,12 @@ func main() {
 
 	// Register Scheme for Nginx
 	if err = nginxApis.AddToScheme(mgr.GetScheme()); err != nil {
+		log.Error(err, "")
+		os.Exit(1)
+	}
+
+	// Register scheme for HPA
+	if err = autoscalingv2beta2.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
