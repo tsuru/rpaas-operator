@@ -56,6 +56,6 @@ rules:
 - apiGroups:
   - autoscaling
   resources:
-  - HorizontalPodAutoscaler
+  - horizontalpodautoscalers
   verbs:
   - '*'
