@@ -16,6 +16,7 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -48,15 +49,26 @@ var infoCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		fmt.Printf("%s\n", string(body))
+		// fmt.Printf("%s\n", string(body))
 
-		// var plans map[string]interface{}
-		// err = json.Unmarshal(body, &plans)
-		// if err != nil {
-		// 	return err
+		var fp interface{}
+		err = json.Unmarshal(body, &fp)
+		if err != nil {
+			return err
+		}
+
+		m := fp.([]interface{})
+
+		for _, mapVal := range m {
+			// fmt.Println(mapInt)
+			d := mapVal.(map[string]interface{})
+			fmt.Printf("%v\t\t%v\n", d["name"], d["description"])
+		}
+
+		// for val := range plans.Name {
+		// 	fmt.Println(val)
 		// }
 
-		// fmt.Println(plans)
 		return nil
 	},
 }
