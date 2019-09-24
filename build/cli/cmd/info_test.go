@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"encoding/json"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -33,19 +34,42 @@ func TestGetInfo(t *testing.T) {
 		body         string
 		expectedCode int
 		handler      http.HandlerFunc
-		assertion    func(t *testing.T, err error, httpStatus string)
+		assertion    func(t *testing.T, err error)
 	}{
 		{
 			name:         "when no flags are passed",
 			serviceName:  "",
 			instanceName: "",
 			expectedCode: http.StatusNotFound,
-			assertion: func(t *testing.T, err error, httpStatus string) {
+			assertion: func(t *testing.T, err error) {
 				assert.Error(t, err, err.Error())
-				assert.Equal(t, httpStatus, err.Error())
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
+			},
+		},
+		{
+			name:         "when valid flags are passed",
+			serviceName:  "rpaas-service-test",
+			instanceName: "rpaas-instance-test",
+			expectedCode: http.StatusOK,
+			assertion: func(t *testing.T, err error) {
+				assert.NilError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.Header().Set("Content-Type", "application/json")
+				helper := []struct {
+					instanceName string `json:"name"`
+					serviceName  string `json:"service"`
+				}{
+					{
+						instanceName: "rpaas-instance-test",
+						serviceName:  "rpaas-service-test",
+					},
+				}
+				body, _ := json.Marshal(helper)
+				w.Write(body)
+				w.WriteHeader(http.StatusOK)
 			},
 		},
 	}
@@ -59,7 +83,7 @@ func TestGetInfo(t *testing.T) {
 			info.prox = &proxy.Proxy{ServiceName: info.service, InstanceName: info.instance, Method: "GET"}
 			info.prox.Server = &mockServer{ts: ts}
 			err := runInfo(info)
-			tt.assertion(t, err, "404 Not Found")
+			tt.assertion(t, err)
 		})
 	}
 
