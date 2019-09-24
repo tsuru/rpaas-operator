@@ -3,8 +3,6 @@ package proxy
 import (
 	"io"
 	"net/http"
-
-	tsuruCmd "github.com/tsuru/tsuru/cmd"
 )
 
 type Proxy struct {
@@ -14,23 +12,24 @@ type Proxy struct {
 	Body         io.Reader
 	Headers      map[string]string
 	Method       string
+	Server       Server
 }
 
 func (p *Proxy) ProxyRequest() (*http.Response, error) {
-	_, err := tsuruCmd.GetTarget()
+	_, err := p.Server.GetTarget()
 	if err != nil {
 		return nil, err
 	}
 
 	// target = strings.TrimRight(target, "/")
 	// token := os.Getenv("TSURU_TOKEN")
-	token, err := tsuruCmd.ReadToken()
+	token, err := p.Server.ReadToken()
 	// fmt.Printf("TOKEN= %v\n", token)
 	if err != nil {
 		return nil, err
 	}
 	// url := "https:" + target + "/services/" + p.ServiceName + "/proxy/" + p.InstanceName + "?callback=" + p.Path
-	url, err := tsuruCmd.GetURL("/services/" + p.ServiceName + "/proxy/" + p.InstanceName + "?callback=" + p.Path)
+	url, err := p.Server.GetURL("/services/" + p.ServiceName + "/proxy/" + p.InstanceName + "?callback=" + p.Path)
 	// fmt.Println("URL= ", url)
 	if err != nil {
 		return nil, err

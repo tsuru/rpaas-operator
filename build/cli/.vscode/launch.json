@@ -11,7 +11,7 @@
             "mode": "auto",
             "program": "${fileDirname}",
             "env": {},
-            "args": ["info"/*/, "-s", "rpaas-be-rjdev", "-i", "arthurcgc-rpaas-webapp1"*/]
+            "args": ["info", "-s", "rpaas-be-rjdev", "-i", "arthurcgc-rpaas-webapp1"]
         }
     ]
 }

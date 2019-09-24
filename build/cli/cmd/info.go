@@ -53,11 +53,16 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 	return nil
 }
 
-func runInfo(service, instance string) error {
-	prox := &proxy.Proxy{ServiceName: service, InstanceName: instance, Method: "GET"}
+type infoArgs struct {
+	service  string
+	instance string
+	prox     *proxy.Proxy
+}
+
+func runInfo(info infoArgs) error {
 	for _, resource := range []string{"plans", "flavors"} {
-		prox.Path = "/resources/" + instance + "/" + resource
-		if err := getInfo(prox, resource); err != nil {
+		info.prox.Path = "/resources/" + info.instance + "/" + resource
+		if err := getInfo(info.prox, resource); err != nil {
 			return err
 		}
 		fmt.Printf("\n\n")
@@ -72,9 +77,12 @@ var infoCmd = &cobra.Command{
 	Long:  `Lists avaiable plans and flavors for the specified rpaas-instance`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.ParseFlags(args)
-		service := cmd.Flag("service").Value.String()
-		instance := cmd.Flag("instance").Value.String()
-		return runInfo(service, instance)
+		info := infoArgs{}
+		info.service = cmd.Flag("service").Value.String()
+		info.instance = cmd.Flag("instance").Value.String()
+		info.prox = &proxy.Proxy{ServiceName: info.service, InstanceName: info.instance, Method: "GET"}
+		info.prox.Server = &proxy.TsuruServer{}
+		return runInfo(info)
 	},
 }
 
