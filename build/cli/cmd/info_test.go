@@ -33,12 +33,17 @@ func TestGetInfo(t *testing.T) {
 		body         string
 		expectedCode int
 		handler      http.HandlerFunc
+		assertion    func(t *testing.T, err error, httpStatus string)
 	}{
 		{
 			name:         "when no flags are passed",
 			serviceName:  "",
 			instanceName: "",
 			expectedCode: http.StatusNotFound,
+			assertion: func(t *testing.T, err error, httpStatus string) {
+				assert.Error(t, err, err.Error())
+				assert.Equal(t, httpStatus, err.Error())
+			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
@@ -54,7 +59,7 @@ func TestGetInfo(t *testing.T) {
 			info.prox = &proxy.Proxy{ServiceName: info.service, InstanceName: info.instance, Method: "GET"}
 			info.prox.Server = &mockServer{ts: ts}
 			err := runInfo(info)
-			assert.Error(t, err, err.Error())
+			tt.assertion(t, err, "404 Not Found")
 		})
 	}
 
