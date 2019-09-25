@@ -7,9 +7,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 )
 
-func WriteData(prefix string, data []interface{}) {
-	// flushing stdout
-	fmt.Println()
+func prepareStringSlice(data []interface{}) [][]string {
 	dataSlice := [][]string{}
 	for _, mapVal := range data {
 		m := mapVal.(map[string]interface{})
@@ -18,15 +16,24 @@ func WriteData(prefix string, data []interface{}) {
 		dataSlice = append(dataSlice, target)
 	}
 
+	return dataSlice
+}
+
+func WriteData(prefix string, data []interface{}) {
+	// flushing stdout
+	fmt.Println()
+
+	dataSlice := prepareStringSlice(data)
+
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetRowLine(true)
 	table.SetHeader([]string{prefix, "Description"})
-	table.SetHeaderColor(tablewriter.Colors{tablewriter.Bold, tablewriter.BgCyanColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.BgHiGreenColor},
-	)
-	table.SetColumnColor(tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
-		tablewriter.Colors{tablewriter.Bold, tablewriter.FgHiGreenColor},
-	)
+	// table.SetHeaderColor(tablewriter.Colors{tablewriter.Bold, tablewriter.BgCyanColor},
+	// 	tablewriter.Colors{tablewriter.Bold, tablewriter.BgHiGreenColor},
+	// )
+	// table.SetColumnColor(tablewriter.Colors{tablewriter.Bold, tablewriter.FgCyanColor},
+	// 	tablewriter.Colors{tablewriter.Bold, tablewriter.FgHiGreenColor},
+	// )
 	for _, v := range dataSlice {
 		table.Append(v)
 	}
