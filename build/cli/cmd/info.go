@@ -23,6 +23,7 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/tsuru/rpaas-operator/build/cli/proxy"
+	"github.com/tsuru/rpaas-operator/build/cli/tableWriter"
 )
 
 func getInfo(prox *proxy.Proxy, infoType string) error {
@@ -44,12 +45,8 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 		return err
 	}
 	helperSlice := fp.([]interface{})
+	tableWriter.WriteData(infoType, helperSlice)
 
-	fmt.Printf("List of avaiable %s:\n\n", infoType)
-	for _, mapVal := range helperSlice {
-		m := mapVal.(map[string]interface{})
-		fmt.Printf("%v\t\t%v\n", m["name"], m["description"])
-	}
 	return nil
 }
 
