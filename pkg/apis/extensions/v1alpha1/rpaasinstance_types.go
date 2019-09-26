@@ -58,7 +58,7 @@ type RpaasInstanceSpec struct {
 
 	// PodTemplate used to configure the NGINX pod template.
 	// +optional
-	PodTemplate nginxv1alpha1.NginxPodTemplateSpec `json:"podTemplate,omitmepty"`
+	PodTemplate nginxv1alpha1.NginxPodTemplateSpec `json:"podTemplate,omitempty"`
 
 	// Autoscale holds the infos used to configure the HorizontalPodAutoscaler
 	// for this instance.
