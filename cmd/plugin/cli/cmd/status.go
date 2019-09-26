@@ -16,36 +16,74 @@ limitations under the License.
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+	"net/http"
 
 	"github.com/spf13/cobra"
+	"github.com/tsuru/rpaas-operator/build/cli/proxy"
+	"github.com/tsuru/rpaas-operator/build/cli/tableWriter"
 )
-
-// statusCmd represents the status command
-var statusCmd = &cobra.Command{
-	Use:   "status",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
-	Run: func(cmd *cobra.Command, args []string) {
-		fmt.Println("status called")
-	},
-}
 
 func init() {
 	rootCmd.AddCommand(statusCmd)
 
-	// Here you will define your flags and configuration settings.
+	statusCmd.Flags().StringP("service", "s", "", "Service name")
+	statusCmd.Flags().StringP("instance", "i", "", "Service instance name")
+	statusCmd.MarkFlagRequired("service")
+	statusCmd.MarkFlagRequired("instance")
+}
 
-	// Cobra supports Persistent Flags which will work for this command
-	// and all subcommands, e.g.:
-	// statusCmd.PersistentFlags().String("foo", "", "A help for foo")
+// statusCmd represents the status command
+var statusCmd = &cobra.Command{
+	Use:   "status",
+	Short: "Show status of service instance",
+	Long:  `Displays Node(vm) name, nginx status, and it's respective node ip address`,
+	RunE: func(cmd *cobra.Command, args []string) error {
+		cmd.ParseFlags(args)
+		status := statusArgs{}
+		status.service = cmd.Flag("service").Value.String()
+		status.instance = cmd.Flag("instance").Value.String()
+		status.prox = &proxy.Proxy{ServiceName: status.service, InstanceName: status.instance, Method: "GET"}
+		status.prox.Server = &proxy.TsuruServer{}
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
-	// statusCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
+		return runStatus(status)
+	},
+}
+
+type statusArgs struct {
+	service  string
+	instance string
+	prox     *proxy.Proxy
+}
+
+func runStatus(status statusArgs) error {
+	status.prox.Path = "/resources/" + status.instance + "/node_status"
+	if err := getStatus(status.prox); err != nil {
+		return err
+	}
+	return nil
+}
+
+func getStatus(prox *proxy.Proxy) error {
+	res, err := prox.ProxyRequest()
+	if err != nil {
+		return err
+	}
+	if res.StatusCode != http.StatusOK {
+		return fmt.Errorf("%v", res.Status)
+	}
+	body, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		return err
+	}
+	var fp interface{}
+	err = json.Unmarshal(body, &fp)
+	if err != nil {
+		return err
+	}
+	helperSlice := fp.(map[string]interface{})
+	tableWriter.WriteStatus(helperSlice)
+	return nil
 }
