@@ -4,6 +4,7 @@ go 1.12
 
 require (
 	github.com/docker/docker v0.0.0-00010101000000-000000000000
+	github.com/mailgun/vulcand v0.8.0-beta.3
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/mitchellh/go-homedir v1.1.0
 	github.com/olekukonko/tablewriter v0.0.1

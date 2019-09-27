@@ -167,6 +167,8 @@ github.com/mailgun/minheap v0.0.0-20170619185613-3dbe6c6bf55f/go.mod h1:V3EvCedt
 github.com/mailgun/multibuf v0.0.0-20150714184110-565402cd71fb/go.mod h1:E0vRBBIQUHcRtmL/oR6w/jehh4FJqJFxe86gBnw9gXc=
 github.com/mailgun/timetools v0.0.0-20170619190023-f3a7b8ffff47/go.mod h1:RYmqHbhWwIz3z9eVmQ2rx82rulEMG0t+Q1bzfc9DYN4=
 github.com/mailgun/ttlmap v0.0.0-20170619185759-c1c17f74874f/go.mod h1:8heskWJ5c0v5J9WH89ADhyal1DOZcayll8fSbhB+/9A=
+github.com/mailgun/vulcand v0.8.0-beta.3 h1:Q09/pogf3vM5iuN3yuvnLKHIPS/YXN3BlxBPp+O1Da0=
+github.com/mailgun/vulcand v0.8.0-beta.3/go.mod h1:mHjWhDAKaW+fr75AqvSpsgmafbeE87cE/7i1F18/jtU=
 github.com/mailru/easyjson v0.0.0-20160728113105-d5b7844b561a/go.mod h1:C1wdFJiN94OJF2b5HbByQZoLdCWB1Yqtg26g4irojpc=
 github.com/marstr/guid v1.1.0/go.mod h1:74gB1z2wpxxInTG6yaqA7KrtM0NZ+RbrcqDvYHefzho=
 github.com/mattn/go-runewidth v0.0.4 h1:2BvfKmzob6Bmd4YsL0zygOqfdFnK7GR4QL06Do4/p7Y=
