@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
 	"github.com/spf13/cobra"
 	"github.com/tsuru/rpaas-operator/build/cli/proxy"
-	"github.com/tsuru/rpaas-operator/build/cli/tablewriter"
+	"github.com/olekukonko/tablewriter"
+
 )
 
 func init() {
@@ -74,7 +76,35 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 		return err
 	}
 	helperSlice := fp.([]interface{})
-	tablewriter.WriteInfo(infoType, helperSlice)
+	WriteInfo(infoType, helperSlice)
 
 	return nil
+}
+
+func prepareInfoSlice(data []interface{}) [][]string {
+	dataSlice := [][]string{}
+	for _, mapVal := range data {
+		m := mapVal.(map[string]interface{})
+		target := []string{fmt.Sprintf("%v", m["name"]),
+			fmt.Sprintf("%v", m["description"])}
+		dataSlice = append(dataSlice, target)
+	}
+
+	return dataSlice
+}
+
+func WriteInfo(prefix string, data []interface{}) {
+	// flushing stdout
+	fmt.Println()
+
+	dataSlice := prepareInfoSlice(data)
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetRowLine(true)
+	table.SetHeader([]string{prefix, "Description"})
+	for _, v := range dataSlice {
+		table.Append(v)
+	}
+
+	table.Render()
 }

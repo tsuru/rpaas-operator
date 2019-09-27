@@ -281,6 +281,7 @@ github.com/tsuru/gnuflag v0.0.0-20151217162021-86b8c1b864aa h1:JlLQP1xa13a994p/A
 github.com/tsuru/gnuflag v0.0.0-20151217162021-86b8c1b864aa/go.mod h1:UibOSvkMFKRe/eiwktAPAvQG8L+p8nYsECJvu3Dgw7I=
 github.com/tsuru/go-gandalfclient v0.0.0-20160909010455-9d375d012f75/go.mod h1:R5aDolIXVmn+2YSBa/RFjcgEPAb8dVgx+0F0C/gL9Fg=
 github.com/tsuru/monsterqueue v0.0.0-20160909010522-70e946ec66c3/go.mod h1:3KR1vkjfm5b7Lhu5OXuO0NMIyZNG0d0d9xh6ufWYVxg=
+github.com/tsuru/rpaas-operator v0.4.0 h1:ahP5Alh9LsytRzewW3bUM4wIACZQvJr/HiZRJG0denk=
 github.com/tsuru/tablecli v0.0.0-20190131152944-7ded8a3383c6 h1:1XDdWFAjIbCSG1OjN9v9KdWhuM8UtYlFcfHe/Ldkchk=
 github.com/tsuru/tablecli v0.0.0-20190131152944-7ded8a3383c6/go.mod h1:ztYpOhW+u1k21FEqp7nZNgpWbr0dUKok5lgGCZi+1AQ=
 github.com/tsuru/tsuru v0.0.0-20190917161403-b6b3f8bee958 h1:iLYJX1Nyu+qPCLwcvaptvos7y88SEg/MGtPg1vrz/rM=

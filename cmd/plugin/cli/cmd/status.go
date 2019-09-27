@@ -5,10 +5,11 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"github.com/tsuru/rpaas-operator/build/cli/proxy"
-	"github.com/tsuru/rpaas-operator/build/cli/tablewriter"
 )
 
 func init() {
@@ -68,6 +69,34 @@ func getStatus(prox *proxy.Proxy) error {
 		return err
 	}
 	helperSlice := fp.(map[string]interface{})
-	tablewriter.WriteStatus(helperSlice)
+	WriteStatus(helperSlice)
 	return nil
+}
+
+func prepareStatusSlice(data map[string]interface{}) [][]string {
+	dataSlice := [][]string{}
+	for k, v := range data {
+		v := v.(map[string]interface{})
+		target := []string{
+			fmt.Sprintf("%v", k),
+			fmt.Sprintf("%v", v["status"]),
+			fmt.Sprintf("%v", v["address"]),
+		}
+		dataSlice = append(dataSlice, target)
+	}
+
+	return dataSlice
+}
+
+func WriteStatus(data map[string]interface{}) {
+	dataSlice := prepareStatusSlice(data)
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetRowLine(true)
+	table.SetHeader([]string{"Node Name", "Status", "Address"})
+	for _, v := range dataSlice {
+		table.Append(v)
+	}
+
+	table.Render()
 }
