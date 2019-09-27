@@ -29,9 +29,6 @@ var rootCmd = &cobra.Command{
 	Use:   "cli",
 	Short: "cli application to interface with rpaas API",
 	Long:  `rpaasv2_cli sends the command line commands to rpaas API and displays it's responses to the user`,
-	// Uncomment the following line if your bare application
-	// has an action associated with it:
-	//	Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
