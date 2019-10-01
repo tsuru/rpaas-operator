@@ -1,3 +1,7 @@
+// Copyright 2019 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package cmd
 
 import (
@@ -7,24 +11,20 @@ import (
 	"net/http"
 	"os"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
 	"github.com/tsuru/rpaas-operator/build/cli/proxy"
-	"github.com/olekukonko/tablewriter"
-
 )
 
 func init() {
 	rootCmd.AddCommand(infoCmd)
 
-	// Cobra supports local flags which will only run when this command
-	// is called directly, e.g.:
 	infoCmd.Flags().StringP("service", "s", "", "Service name")
 	infoCmd.Flags().StringP("instance", "i", "", "Service instance name")
 	infoCmd.MarkFlagRequired("service")
 	infoCmd.MarkFlagRequired("instance")
 }
 
-// infoCmd represents the info command
 var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Lists avaiable plans and flavors for the specified rpaas-instance",
