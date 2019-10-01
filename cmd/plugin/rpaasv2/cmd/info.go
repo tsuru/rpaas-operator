@@ -64,12 +64,13 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 	if err != nil {
 		return err
 	}
-	if res.StatusCode != http.StatusOK {
-		return fmt.Errorf("%v", res.Status)
-	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
 		return err
+	}
+	if res.StatusCode != http.StatusOK {
+		bodyString := string(body)
+		return fmt.Errorf("Status Code: %v\nResponse Body:\n%v", res.Status, bodyString)
 	}
 
 	var fp interface{}

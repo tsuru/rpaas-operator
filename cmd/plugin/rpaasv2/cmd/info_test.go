@@ -25,7 +25,7 @@ func TestGetInfo(t *testing.T) {
 			name: "when invalid flags are passed",
 			info: infoArgs{service: "", instance: "", prox: &proxy.Proxy{ServiceName: "", InstanceName: "", Method: "GET"}},
 			assertion: func(t *testing.T, err error) {
-				assert.Error(t, err, "404 Not Found")
+				assert.Error(t, err, "Status Code: 404 Not Found\nResponse Body:\n")
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
