@@ -7,10 +7,10 @@ BINARY_NAME=rpaasv2
 all: test build
 
 build:
-	$(GOBUILD) -o $(BINARY_NAME) -v
+	$(GOBUILD) -o $(BINARY_NAME) -v -mod=vendor
 
 test:
-	$(GOTEST) -v ./...
+	$(GOTEST) -mod=vendor -v ./...
 
 clean:
 	$(GOCLEAN)

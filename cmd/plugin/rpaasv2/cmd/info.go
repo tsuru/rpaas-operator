@@ -13,7 +13,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/spf13/cobra"
-	"github.com/tsuru/rpaas-operator/build/cli/proxy"
+	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/proxy"
 )
 
 func init() {

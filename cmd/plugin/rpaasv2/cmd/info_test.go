@@ -10,7 +10,7 @@ import (
 	"net/http/httptest"
 	"testing"
 
-	"github.com/tsuru/rpaas-operator/build/cli/proxy"
+	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/proxy"
 	"gotest.tools/assert"
 )
 
