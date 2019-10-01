@@ -27,15 +27,17 @@ func init() {
 
 var infoCmd = &cobra.Command{
 	Use:   "info",
-	Short: "Lists avaiable plans and flavors for the specified rpaas-instance",
-	Long:  `Lists avaiable plans and flavors for the specified rpaas-instance`,
+	Short: "Lists available plans and flavors for the specified instance",
+	Long:  `Lists available plans and flavors for the specified instance`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.ParseFlags(args)
-		info := infoArgs{}
-		info.service = cmd.Flag("service").Value.String()
-		info.instance = cmd.Flag("instance").Value.String()
-		info.prox = &proxy.Proxy{ServiceName: info.service, InstanceName: info.instance, Method: "GET"}
-		info.prox.Server = &proxy.TsuruServer{}
+		service := cmd.Flag("service").Value.String()
+		instance := cmd.Flag("instance").Value.String()
+		info := infoArgs{
+			service:  service,
+			instance: instance,
+			prox:     proxy.New(service, instance, "GET", &proxy.TsuruServer{}),
+		}
 		return runInfo(info)
 	},
 }

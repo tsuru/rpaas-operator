@@ -14,9 +14,9 @@ import (
 var cfgFile string
 
 var rootCmd = &cobra.Command{
-	Use:   "cli",
+	Use:   "rpaasv2",
 	Short: "cli application to interface with rpaas API",
-	Long:  `rpaasv2_cli sends the command line commands to rpaas API and displays it's responses to the user`,
+	Long:  `rpaasv2 acts as an interface to connect with rpaas API it executes the available commands and displays their outcome to stdout`,
 }
 
 func Execute() {

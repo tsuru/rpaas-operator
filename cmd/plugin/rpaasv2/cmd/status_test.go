@@ -56,7 +56,7 @@ func TestGetStatus(t *testing.T) {
 		{
 			name: "when invalid body is returned",
 			info: statusArgs{service: "rpaas-service-test", instance: "rpaas-instance-test",
-				prox: &proxy.Proxy{ServiceName: "rpaas-service-test", InstanceName: "rpaas-instance-test", Method: "GET"}},
+				prox: proxy.New("rpaas-service-test", "rpaas-instance-test", "GET", nil)},
 
 			assertion: func(t *testing.T, err error) {
 				assert.Error(t, err, "unexpected end of JSON input")

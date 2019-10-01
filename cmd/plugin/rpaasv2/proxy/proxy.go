@@ -19,6 +19,15 @@ type Proxy struct {
 	Server       Server
 }
 
+func New(serviceName, instanceName, method string, server Server) *Proxy {
+	return &Proxy{
+		ServiceName:  serviceName,
+		InstanceName: instanceName,
+		Method:       method,
+		Server:       server,
+	}
+}
+
 func (p *Proxy) ProxyRequest() (*http.Response, error) {
 	_, err := p.Server.GetTarget()
 	if err != nil {

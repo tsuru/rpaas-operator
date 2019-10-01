@@ -34,7 +34,7 @@ func TestGetInfo(t *testing.T) {
 		{
 			name: "when valid flags are passed",
 			info: infoArgs{service: "rpaas-service-test", instance: "rpaas-instance-test",
-				prox: &proxy.Proxy{ServiceName: "rpaas-service-test", InstanceName: "rpaas-instance-test", Method: "GET"}},
+				prox: proxy.New("rpaas-service-test", "rpaas-instance-test", "GET", nil)},
 
 			assertion: func(t *testing.T, err error) {
 				assert.NilError(t, err)
@@ -58,7 +58,7 @@ func TestGetInfo(t *testing.T) {
 		{
 			name: "when invalid body is returned",
 			info: infoArgs{service: "rpaas-service-test", instance: "rpaas-instance-test",
-				prox: &proxy.Proxy{ServiceName: "rpaas-service-test", InstanceName: "rpaas-instance-test", Method: "GET"}},
+				prox: proxy.New("rpaas-service-test", "rpaas-instance-test", "GET", nil)},
 
 			assertion: func(t *testing.T, err error) {
 				assert.Error(t, err, "unexpected end of JSON input")
