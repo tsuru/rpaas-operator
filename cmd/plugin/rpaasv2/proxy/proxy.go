@@ -42,7 +42,7 @@ func (p *Proxy) ProxyRequest() (*http.Response, error) {
 	if err != nil {
 		return nil, err
 	}
-	req, err := http.NewRequest("GET", url, p.Body)
+	req, err := http.NewRequest(p.Method, url, p.Body)
 	if err != nil {
 		return nil, err
 	}
