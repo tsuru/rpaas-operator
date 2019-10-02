@@ -61,6 +61,15 @@ func New(mgr manager.Manager) (*api, error) {
 	return a, nil
 }
 
+func (a *api) startServer() error {
+	conf := config.Get()
+	if conf.TLSCertificate != "" && conf.TLSKey != "" {
+		return a.e.StartTLS(a.Address, conf.TLSCertificate, conf.TLSKey)
+	} else {
+		return a.e.Start(a.Address)
+	}
+}
+
 // Start runs the web server.
 func (a *api) Start() error {
 	a.Lock()
@@ -68,7 +77,7 @@ func (a *api) Start() error {
 	a.Unlock()
 	go a.handleSignals()
 	go a.mgr.Start(a.shutdown)
-	if err := a.e.Start(a.Address); err != http.ErrServerClosed {
+	if err := a.startServer(); err != http.ErrServerClosed {
 		fmt.Printf("problem to start the webserver: %+v", err)
 		return err
 	}
