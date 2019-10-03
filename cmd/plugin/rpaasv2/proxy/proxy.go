@@ -25,6 +25,7 @@ func New(serviceName, instanceName, method string, server Server) *Proxy {
 		InstanceName: instanceName,
 		Method:       method,
 		Server:       server,
+		Headers:      make(map[string]string),
 	}
 }
 

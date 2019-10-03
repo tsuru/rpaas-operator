@@ -63,24 +63,28 @@ func encodeBody(certInst certificateArgs) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
+
 	keyFile, err := ioutil.ReadFile(certInst.key)
 	if err != nil {
 		return "", "", err
 	}
+
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
-	defer writer.Close()
+
 	certPart, err := writer.CreateFormFile("cert", certInst.certificate)
 	if err != nil {
 		return "", "", err
 	}
 	certPart.Write(certBytes)
+
 	keyPart, err := writer.CreateFormFile("key", certInst.key)
 	if err != nil {
 		return "", "", err
 	}
 	keyPart.Write(keyFile)
 
+	writer.Close()
 	return body.String(), writer.Boundary(), nil
 }
 
