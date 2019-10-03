@@ -12,8 +12,9 @@ import (
 // RpaasPlanSpec defines the desired state of RpaasPlan
 // +k8s:openapi-gen=true
 type RpaasPlanSpec struct {
-	// Image is the NGINX container image name.
-	Image string `json:"image"`
+	// Image is the NGINX container image name. Defaults to Nginx image value.
+	// +optional
+	Image string `json:"image,omitempty"`
 	// Config defines some NGINX configurations values that can be used in the
 	// configuration template.
 	// +optional
