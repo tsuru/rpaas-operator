@@ -71,6 +71,8 @@ func Init() error {
 	viper.BindEnv("api-username")
 	viper.BindEnv("api-password")
 	viper.BindEnv("service-annotations")
+	viper.BindEnv("tls-certificate")
+	viper.BindEnv("tls-key")
 	viper.SetDefault("service-name", keyPrefix)
 	viper.SetDefault("tls-certificate", "")
 	viper.SetDefault("tls-key", "")
