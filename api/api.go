@@ -26,7 +26,8 @@ type api struct {
 
 	// Address is the network address where the web server will listen on.
 	// Defaults to `:9999`.
-	Address string
+	Address    string
+	TLSAddress string
 
 	// ShutdownTimeout defines the max duration used to wait the web server
 	// gracefully shutting down. Defaults to `30 * time.Second`.
@@ -51,6 +52,7 @@ func New(mgr manager.Manager) (*api, error) {
 	}
 	a := &api{
 		Address:         `:9999`,
+		TLSAddress:      `:9993`,
 		ShutdownTimeout: 30 * time.Second,
 		e:               newEcho(),
 		mgr:             mgr,
@@ -64,10 +66,9 @@ func New(mgr manager.Manager) (*api, error) {
 func (a *api) startServer() error {
 	conf := config.Get()
 	if conf.TLSCertificate != "" && conf.TLSKey != "" {
-		return a.e.StartTLS(a.Address, conf.TLSCertificate, conf.TLSKey)
-	} else {
-		return a.e.Start(a.Address)
+		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
 	}
+	return a.e.Start(a.Address)
 }
 
 // Start runs the web server.
