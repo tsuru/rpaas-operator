@@ -30,6 +30,8 @@ type RpaasConfig struct {
 	ServiceAnnotations map[string]string `json:"service-annotations"`
 	APIUsername        string            `json:"api-username"`
 	APIPassword        string            `json:"api-password"`
+	TLSCertificate     string            `json:"tls-certificate"`
+	TLSKey             string            `json:"tls-key"`
 	Flavors            []FlavorConfig
 	DefaultAffinity    *corev1.Affinity           `json:"default-affinity"`
 	TeamAffinity       map[string]corev1.Affinity `json:"team-affinity"`
@@ -69,7 +71,11 @@ func Init() error {
 	viper.BindEnv("api-username")
 	viper.BindEnv("api-password")
 	viper.BindEnv("service-annotations")
+	viper.BindEnv("tls-certificate")
+	viper.BindEnv("tls-key")
 	viper.SetDefault("service-name", keyPrefix)
+	viper.SetDefault("tls-certificate", "")
+	viper.SetDefault("tls-key", "")
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {

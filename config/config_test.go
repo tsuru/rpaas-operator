@@ -30,6 +30,17 @@ func Test_Init(t *testing.T) {
 		},
 		{
 			config: `
+tls-certificate: /var/share/tls/mycert.pem
+tls-key: /var/share/tls/key.pem
+`,
+			expected: RpaasConfig{
+				ServiceName:    "rpaasv2",
+				TLSCertificate: "/var/share/tls/mycert.pem",
+				TLSKey:         "/var/share/tls/key.pem",
+			},
+		},
+		{
+			config: `
 api-username: u1
 service-annotations:
   a: b
