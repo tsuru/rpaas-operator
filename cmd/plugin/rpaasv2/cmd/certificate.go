@@ -124,7 +124,7 @@ func postCertificate(prox *proxy.Proxy, body, boundary string) error {
 	if err != nil {
 		return err
 	}
-	if resp.StatusCode != http.StatusCreated {
+	if resp.StatusCode != http.StatusOK {
 		bodyString := string(respBody)
 		return fmt.Errorf("Status Code: %v\nResponse Body:\n%v", resp.Status, bodyString)
 	}
