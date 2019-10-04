@@ -12,6 +12,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/olekukonko/tablewriter v0.0.1
 	github.com/spf13/cobra v0.0.5
+	github.com/stretchr/testify v1.4.0
 	github.com/tsuru/rpaas-operator v0.4.0 // indirect
 	github.com/tsuru/tsuru v0.0.0-20190917161403-b6b3f8bee958
 	gotest.tools v2.2.0+incompatible

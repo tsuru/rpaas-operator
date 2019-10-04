@@ -76,15 +76,26 @@ func encodeBody(certInst certificateArgs) (string, string, error) {
 	if err != nil {
 		return "", "", err
 	}
-	certPart.Write(certBytes)
+
+	_, err = certPart.Write(certBytes)
+	if err != nil {
+		return "", "", err
+	}
 
 	keyPart, err := writer.CreateFormFile("key", certInst.key)
 	if err != nil {
 		return "", "", err
 	}
-	keyPart.Write(keyFile)
+	_, err = keyPart.Write(keyFile)
+	if err != nil {
+		return "", "", err
+	}
 
-	writer.Close()
+	err = writer.Close()
+	if err != nil {
+		return "", "", err
+	}
+
 	return body.String(), writer.Boundary(), nil
 }
 
