@@ -1,21 +1,32 @@
 package cmd
 
 import (
-	"bytes"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/proxy"
 	"gotest.tools/assert"
 )
 
-func mockEncodeBody() (string, string, error) {
-	boundary := "XXXXXXXXXXXXXXX"
+type testCase struct {
+	name     string
+	cert     certificateArgs
+	handler  http.HandlerFunc
+	certPem  string
+	keyPem   string
+	boundary string
+}
 
-	certPem := `-----BEGIN CERTIFICATE-----
+func TestPostValidCertificate(t *testing.T) {
+	testCase := testCase{
+		name: "when a valid key and certificate are passed",
+
+		boundary: "XXXXXXXXXXXXXXX",
+
+		certPem: `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
 DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
 EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
@@ -25,58 +36,19 @@ BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
 NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
 Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
 6MF9+Yw1Yy0t
------END CERTIFICATE-----`
+-----END CERTIFICATE-----`,
 
-	keyPem := `-----BEGIN EC PRIVATE KEY-----
+		keyPem: `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
 AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
 EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
------END EC PRIVATE KEY-----`
+-----END EC PRIVATE KEY-----`,
 
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-	writer.SetBoundary(boundary)
-
-	certPart, err := writer.CreateFormFile("cert", "cert.pem")
-	if err != nil {
-		return "", "", err
-	}
-
-	_, err = certPart.Write([]byte(certPem))
-	if err != nil {
-		return "", "", nil
-	}
-
-	keyPart, err := writer.CreateFormFile("key", "key.pem")
-	if err != nil {
-		return "", "", err
-	}
-
-	_, err = keyPart.Write([]byte(keyPem))
-	if err != nil {
-		return "", "", err
-	}
-
-	err = writer.Close()
-	if err != nil {
-		return "", "", err
-	}
-
-	return body.String(), writer.Boundary(), nil
-}
-
-func TestPostValidCertificate(t *testing.T) {
-	testCase := struct {
-		name    string
-		cert    certificateArgs
-		handler http.HandlerFunc
-	}{
-		name: "when a valid key and certificate are passed",
 		cert: certificateArgs{
 			service:     "test-service",
 			instance:    "test-instance",
-			certificate: "test-cert-name",
-			key:         "test-key-name",
+			certificate: "../tmp/cert.cert",
+			key:         "../tmp/key.cert",
 		},
 		handler: func(w http.ResponseWriter, r *http.Request) {
 			assert.Equal(t, r.Method, "POST")
@@ -115,9 +87,68 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		testCase.cert.prox = proxy.New(testCase.cert.service, testCase.cert.instance, "POST", &mockServer{ts: ts})
 		testCase.cert.prox.Path = "/resources/test-instance/certificate"
 		defer ts.Close()
-		body, boundary, err := mockEncodeBody()
+		err := createCert(`-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`)
+		assert.NilError(t, err)
+		err = createKey(`-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----`)
+		body, boundary, err := encodeBody(testCase.cert)
 		assert.NilError(t, err)
 		err = postCertificate(testCase.cert.prox, body, boundary)
 		assert.NilError(t, err)
+		err = removeTmpFolder()
+		assert.NilError(t, err)
 	})
+}
+
+func createCert(cert string) error {
+	if _, err := os.Stat("../tmp"); err != nil {
+		if os.IsNotExist(err) {
+			os.Mkdir("../tmp", os.ModePerm)
+		}
+	}
+	f, err := os.Create("../tmp/cert.cert")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(cert)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createKey(key string) error {
+	if _, err := os.Stat("../tmp"); err != nil {
+		if os.IsNotExist(err) {
+			os.Mkdir("../tmp", os.ModePerm)
+		}
+	}
+	f, err := os.Create("../tmp/key.cert")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(key)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func removeTmpFolder() error {
+	return os.RemoveAll("../tmp")
 }
