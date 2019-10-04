@@ -24,6 +24,9 @@ func init() {
 	certificateCmd.Flags().StringP("certificate", "c", "", "Certificate file name")
 	certificateCmd.Flags().StringP("key", "k", "", "Key file name")
 	certificateCmd.MarkFlagRequired("service")
+	certificateCmd.MarkFlagRequired("certificate")
+	certificateCmd.MarkFlagRequired("key")
+	certificateCmd.MarkFlagRequired("instance")
 }
 
 type certificateArgs struct {
