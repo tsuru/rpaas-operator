@@ -48,6 +48,9 @@ type NginxSpec struct {
 	// Cache allows configuring a cache volume for nginx to use.
 	// +optional
 	Cache NginxCacheSpec `json:"cache,omitempty"`
+	// SecurityContext configures security attributes for the nginx container.
+	// +optional
+	SecurityContext *corev1.SecurityContext `json:"securityContext,omitempty"`
 }
 
 type NginxCacheSpec struct {
@@ -66,10 +69,13 @@ type NginxPodTemplateSpec struct {
 	Affinity *corev1.Affinity `json:"affinity,omitempty"`
 	// Annotations are custom annotations to be set into Pod.
 	// +optional
-	Annotations map[string]string `json:"annotations,omitmepty"`
+	Annotations map[string]string `json:"annotations,omitempty"`
 	// Labels are custom labels to be added into Pod.
 	// +optional
 	Labels map[string]string `json:"labels,omitempty"`
+	// HostNetwork enabled causes the pod to use the host's network namespace.
+	// +optional
+	HostNetwork bool `json:"hostNetwork,omitempty"`
 }
 
 // NginxStatus defines the observed state of Nginx

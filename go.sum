@@ -425,6 +425,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/tsuru/config v0.0.0-20180418191556-87403ee7da02/go.mod h1:bilf/jr5AGl9raMFnhM9hsp+ms6PK752UF89ODoRHW4=
 github.com/tsuru/nginx-operator v0.1.0 h1:gYiJJc0jstekEkpHB0INhdLqt/rosEk6r/KMnZ5NTGg=
 github.com/tsuru/nginx-operator v0.1.0/go.mod h1:EIgY52Vao1jlZNjCYB7eRnPwiPJP7CLITIy9CYCcPxo=
+github.com/tsuru/nginx-operator v0.2.1 h1:+yOhlD62no9ZwVotDceF40VIObAsZjTG/t9pHFgAztc=
+github.com/tsuru/nginx-operator v0.2.1/go.mod h1:EIgY52Vao1jlZNjCYB7eRnPwiPJP7CLITIy9CYCcPxo=
 github.com/ugorji/go v1.1.1/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
