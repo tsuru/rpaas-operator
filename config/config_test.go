@@ -47,6 +47,8 @@ service-annotations:
   c: d
 flavors:
 - name: tangerine
+  description: |-
+    Some description about tangerine.
   spec:
     image: img1
 - name: mango
@@ -63,7 +65,8 @@ flavors:
 				},
 				Flavors: []FlavorConfig{
 					{
-						Name: "tangerine",
+						Name:        "tangerine",
+						Description: "Some description about tangerine.",
 						Spec: v1alpha1.RpaasPlanSpec{
 							Image: "img1",
 						},

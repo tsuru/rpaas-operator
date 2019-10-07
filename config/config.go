@@ -26,20 +26,22 @@ const (
 )
 
 type RpaasConfig struct {
-	ServiceName        string            `json:"service-name"`
-	ServiceAnnotations map[string]string `json:"service-annotations"`
-	APIUsername        string            `json:"api-username"`
-	APIPassword        string            `json:"api-password"`
-	TLSCertificate     string            `json:"tls-certificate"`
-	TLSKey             string            `json:"tls-key"`
-	Flavors            []FlavorConfig
+	ServiceName        string                     `json:"service-name"`
+	ServiceAnnotations map[string]string          `json:"service-annotations"`
+	APIUsername        string                     `json:"api-username"`
+	APIPassword        string                     `json:"api-password"`
+	TLSCertificate     string                     `json:"tls-certificate"`
+	TLSKey             string                     `json:"tls-key"`
 	DefaultAffinity    *corev1.Affinity           `json:"default-affinity"`
 	TeamAffinity       map[string]corev1.Affinity `json:"team-affinity"`
+
+	Flavors []FlavorConfig
 }
 
 type FlavorConfig struct {
-	Name string
-	Spec v1alpha1.RpaasPlanSpec
+	Name        string
+	Description string
+	Spec        v1alpha1.RpaasPlanSpec
 }
 
 var rpaasConfig struct {
