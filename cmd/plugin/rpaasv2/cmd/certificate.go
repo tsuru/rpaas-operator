@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"mime/multipart"
@@ -68,12 +69,12 @@ The rpaas instance can now be accessed via HTTPS`,
 func encodeBody(certInst certificateArgs) (string, string, error) {
 	certBytes, err := ioutil.ReadFile(certInst.certificate)
 	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to read certificate file: %w", err)
+		return "", "", errors.Unwrap(fmt.Errorf("Error while trying to read certificate file: %w", err))
 	}
 
 	keyFile, err := ioutil.ReadFile(certInst.key)
 	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to read key file: %w", err)
+		return "", "", errors.Unwrap(fmt.Errorf("Error while trying to read key file: %w", err))
 	}
 
 	body := &bytes.Buffer{}
@@ -81,27 +82,27 @@ func encodeBody(certInst certificateArgs) (string, string, error) {
 
 	certPart, err := writer.CreateFormFile("cert", certInst.certificate)
 	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to create certificate form file: %w", err)
+		return "", "", errors.Unwrap(fmt.Errorf("Error while trying to create certificate form file: %w", err))
 	}
 
 	_, err = certPart.Write(certBytes)
 	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to write the certificate to the file: %w", err)
+		return "", "", errors.Unwrap(fmt.Errorf("Error while trying to write the certificate to the file: %w", err))
 	}
 
 	keyPart, err := writer.CreateFormFile("key", certInst.key)
 	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to create key form file: %w", err)
+		return "", "", errors.Unwrap(fmt.Errorf("Error while trying to create key form file: %w", err))
 	}
 	_, err = keyPart.Write(keyFile)
 	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to write the key to the file: %w", err)
+		return "", "", errors.Unwrap(fmt.Errorf("Error while trying to write the key to the file: %w", err))
 	}
 
 	writer.WriteField("name", certInst.name)
 	err = writer.Close()
 	if err != nil {
-		return "", "", fmt.Errorf("Error while closing file: %w", err)
+		return "", "", errors.Unwrap(fmt.Errorf("Error while closing file: %w", err))
 	}
 
 	return body.String(), writer.Boundary(), nil
