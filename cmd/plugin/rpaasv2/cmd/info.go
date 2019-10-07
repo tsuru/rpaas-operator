@@ -6,7 +6,6 @@ package cmd
 
 import (
 	"encoding/json"
-	"errors"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -67,7 +66,7 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return errors.Unwrap(fmt.Errorf("Error while trying to read body: %w", err))
+		return fmt.Errorf("Error while trying to read body: %v", err)
 	}
 	if res.StatusCode != http.StatusOK {
 		bodyString := string(body)
