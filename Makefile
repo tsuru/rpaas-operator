@@ -1,7 +1,7 @@
 TAG=latest
 IMAGE_OPERATOR=tsuru/rpaas-operator
 IMAGE_API=tsuru/rpaas-api
-KUBECONFIG=~/.kube/config
+KUBECONFIG ?= ~/.kube/config
 
 git_tag    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo 'untagged')
 git_commit := $(shell git rev-parse HEAD 2>/dev/null | cut -c1-7)
@@ -53,4 +53,4 @@ build-api:
 	CGO_ENABLED=0 go build -o rpaas-api ./cmd/api
 
 api: deploy/crds
-	cd cmd/api && KUBECONFIG=$(KUBECONFIG) go run -mod=vendor main.go
+	go run -mod=vendor ./cmd/api
