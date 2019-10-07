@@ -35,7 +35,6 @@ var statusCmd = &cobra.Command{
 		status.service = cmd.Flag("service").Value.String()
 		status.instance = cmd.Flag("instance").Value.String()
 		status.prox = proxy.New(status.service, status.instance, "GET", &proxy.TsuruServer{})
-
 		return runStatus(status)
 	},
 }

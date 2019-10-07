@@ -23,6 +23,7 @@ func init() {
 	certificateCmd.Flags().StringP("instance", "i", "", "Service instance name")
 	certificateCmd.Flags().StringP("certificate", "c", "", "Certificate file name")
 	certificateCmd.Flags().StringP("key", "k", "", "Key file name")
+	certificateCmd.Flags().StringP("name", "", "default", "Names the provided certificate-key file")
 	certificateCmd.MarkFlagRequired("service")
 	certificateCmd.MarkFlagRequired("certificate")
 	certificateCmd.MarkFlagRequired("key")
@@ -34,6 +35,7 @@ type certificateArgs struct {
 	instance    string
 	certificate string
 	key         string
+	name        string
 	prox        *proxy.Proxy
 }
 
@@ -48,12 +50,14 @@ The rpaas instance can now be accessed via HTTPS`,
 		instance := cmd.Flag("instance").Value.String()
 		certificate := cmd.Flag("certificate").Value.String()
 		key := cmd.Flag("key").Value.String()
+		name := cmd.Flag("name").Value.String()
 
 		certInst := certificateArgs{
 			service:     service,
 			instance:    instance,
 			certificate: certificate,
 			key:         key,
+			name:        name,
 			prox:        proxy.New(service, instance, "POST", &proxy.TsuruServer{}),
 		}
 
@@ -64,12 +68,12 @@ The rpaas instance can now be accessed via HTTPS`,
 func encodeBody(certInst certificateArgs) (string, string, error) {
 	certBytes, err := ioutil.ReadFile(certInst.certificate)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("Error while trying to read certificate file: %w", err)
 	}
 
 	keyFile, err := ioutil.ReadFile(certInst.key)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("Error while trying to read key file: %w", err)
 	}
 
 	body := &bytes.Buffer{}
@@ -77,26 +81,27 @@ func encodeBody(certInst certificateArgs) (string, string, error) {
 
 	certPart, err := writer.CreateFormFile("cert", certInst.certificate)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("Error while trying to create certificate form file: %w", err)
 	}
 
 	_, err = certPart.Write(certBytes)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("Error while trying to write the certificate to the file: %w", err)
 	}
 
 	keyPart, err := writer.CreateFormFile("key", certInst.key)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("Error while trying to create key form file: %w", err)
 	}
 	_, err = keyPart.Write(keyFile)
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("Error while trying to write the key to the file: %w", err)
 	}
 
+	writer.WriteField("name", certInst.name)
 	err = writer.Close()
 	if err != nil {
-		return "", "", err
+		return "", "", fmt.Errorf("Error while closing file: %w", err)
 	}
 
 	return body.String(), writer.Boundary(), nil
