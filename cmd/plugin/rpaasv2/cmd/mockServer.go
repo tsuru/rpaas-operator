@@ -17,7 +17,7 @@ type mockServer struct {
 
 func (ms *mockServer) GetURL(path string) (string, error) {
 	if ms.getURLfunc == nil {
-		return ms.ts.URL, nil
+		return ms.ts.URL + path, nil
 	}
 	return ms.getURLfunc(path)
 }

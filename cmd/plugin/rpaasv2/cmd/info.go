@@ -25,6 +25,12 @@ func init() {
 	infoCmd.MarkFlagRequired("instance")
 }
 
+type infoArgs struct {
+	service  string
+	instance string
+	prox     *proxy.Proxy
+}
+
 var infoCmd = &cobra.Command{
 	Use:   "info",
 	Short: "Lists available plans and flavors for the specified instance",
@@ -40,12 +46,6 @@ var infoCmd = &cobra.Command{
 		}
 		return runInfo(info)
 	},
-}
-
-type infoArgs struct {
-	service  string
-	instance string
-	prox     *proxy.Proxy
 }
 
 func runInfo(info infoArgs) error {
@@ -66,7 +66,7 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 	}
 	body, err := ioutil.ReadAll(res.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("Error while trying to read body: %v", err)
 	}
 	if res.StatusCode != http.StatusOK {
 		bodyString := string(body)
