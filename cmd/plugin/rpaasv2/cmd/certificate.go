@@ -41,7 +41,7 @@ var certificateCmd = &cobra.Command{
 	Use:   "certificate",
 	Short: "Sends certificate + private key to existing instance",
 	Long: `Given a certificate and private key located in the filesystem, send them both to the existing instance.
-The rpaas instance can now be accessed via HTPPS`,
+The rpaas instance can now be accessed via HTTPS`,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.ParseFlags(args)
 		service := cmd.Flag("service").Value.String()
