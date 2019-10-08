@@ -58,23 +58,29 @@ func runScale(scale scaleArgs) error {
 	if err != nil {
 		return err
 	}
-
 	scale.prox.Body = bytes.NewBuffer(bodyReq)
-	resp, err := scale.prox.ProxyRequest()
+	strResp, err := postScale(scale.prox, scale.quantity)
 	if err != nil {
 		return err
+	}
+	fmt.Print(strResp)
+	return nil
+}
+
+func postScale(prox *proxy.Proxy, quantity int) (string, error) {
+	resp, err := prox.ProxyRequest()
+	if err != nil {
+		return "", err
 	}
 	respBody, err := ioutil.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return "", err
 	}
 	if resp.StatusCode != http.StatusCreated {
 		bodyString := string(respBody)
-		return fmt.Errorf("Status Code: %v\nResponse Body:\n%v", resp.Status, bodyString)
+		return "", fmt.Errorf("Status Code: %v\nResponse Body:\n%v", resp.Status, bodyString)
 	}
-
-	fmt.Printf("Instance successfully scaled to %d unit(s)\n", scale.quantity)
-	return nil
+	return fmt.Sprintf("Instance successfully scaled to %d unit(s)\n", quantity), nil
 }
 
 func init() {
@@ -85,4 +91,5 @@ func init() {
 	scaleCmd.Flags().StringP("instance", "i", "", "Service instance name")
 	scaleCmd.MarkFlagRequired("service")
 	scaleCmd.MarkFlagRequired("instance")
+	scaleCmd.MarkFlagRequired("quantity")
 }

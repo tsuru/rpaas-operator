@@ -9,7 +9,7 @@ require (
 	github.com/mattn/go-runewidth v0.0.4 // indirect
 	github.com/olekukonko/tablewriter v0.0.1
 	github.com/spf13/cobra v0.0.5
-	github.com/stretchr/testify v1.4.0 // indirect
+	github.com/stretchr/testify v1.4.0
 	github.com/tsuru/config v0.0.0-20180418191556-87403ee7da02 // indirect
 	github.com/tsuru/tsuru v0.0.0-20190917161403-b6b3f8bee958
 	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
