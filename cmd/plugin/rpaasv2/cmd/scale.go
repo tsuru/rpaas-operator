@@ -5,10 +5,12 @@
 package cmd
 
 import (
+	"bytes"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
-	"strings"
+	"strconv"
 
 	"github.com/spf13/cobra"
 	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/proxy"
@@ -36,7 +38,7 @@ to quickly create a Cobra application.`,
 		scale := scaleArgs{}
 		scale.service = cmd.Flag("service").Value.String()
 		scale.instance = cmd.Flag("instance").Value.String()
-		scale.prox = proxy.New(scale.service, scale.instance, "GET", &proxy.TsuruServer{})
+		scale.prox = proxy.New(scale.service, scale.instance, "POST", &proxy.TsuruServer{})
 		var err error
 		scale.quantity, err = cmd.Flags().GetInt("quantity")
 		if err != nil {
@@ -49,7 +51,15 @@ to quickly create a Cobra application.`,
 
 func runScale(scale scaleArgs) error {
 	scale.prox.Path = "/resources/" + scale.instance + "/scale"
-	scale.prox.Body = strings.NewReader(string(scale.quantity))
+	scale.prox.Headers["Content-Type"] = "application/json"
+	bodyReq, err := json.Marshal(map[string]string{
+		"quantity=": strconv.Itoa(scale.quantity),
+	})
+	if err != nil {
+		return err
+	}
+
+	scale.prox.Body = bytes.NewBuffer(bodyReq)
 	resp, err := scale.prox.ProxyRequest()
 	if err != nil {
 		return err
