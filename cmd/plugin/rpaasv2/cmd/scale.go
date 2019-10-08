@@ -26,7 +26,7 @@ type scaleArgs struct {
 // scaleCmd represents the scale command
 var scaleCmd = &cobra.Command{
 	Use:   "scale",
-	Short: "A brief description of your command",
+	Short: "Increase or decrease the number of expected instances",
 	Long: `A longer description that spans multiple lines and likely contains examples
 and usage of using your command. For example:
 
