@@ -37,9 +37,9 @@ var scaleCmd = &cobra.Command{
 		if err != nil {
 			return err
 		}
-		scale := scaleArgs{service: serviceName, instance: instanceName, 
-				quantity: quantity,
-				prox: proxy.New(serviceName, instanceName, "POST", &proxy.TsuruServer{}),
+		scale := scaleArgs{service: serviceName, instance: instanceName,
+			quantity: quantity,
+			prox:     proxy.New(serviceName, instanceName, "POST", &proxy.TsuruServer{}),
 		}
 
 		output, err := runScale(scale)
