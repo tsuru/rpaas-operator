@@ -8,7 +8,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/proxy"
 	"gotest.tools/assert"
 )
@@ -50,7 +49,7 @@ func TestPostScale(t *testing.T) {
 		defer ts.Close()
 		saveStdout := os.Stdout
 		r, w, err := os.Pipe()
-		require.NoError(t, err)
+		assert.NilError(t, err)
 		os.Stdout = w
 		err = runScale(scaleCmd, []string{"./rpaasv2", "scale", "-s", "fake-service", "-i", "fake-instance", "-q", "2"}, testCase.scale.prox.Server)
 		w.Close()
