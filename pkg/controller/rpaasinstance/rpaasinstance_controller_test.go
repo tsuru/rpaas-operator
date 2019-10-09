@@ -65,6 +65,111 @@ func Test_mergePlans(t *testing.T) {
 	}
 }
 
+func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance1"
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "instance2"
+	instance2.Spec.Flavor = "mint"
+	instance2.Spec.Service = &nginxv1alpha1.NginxService{
+		Annotations: map[string]string{
+			"some-instance-annotation-key": "blah",
+		},
+		Labels: map[string]string{
+			"some-instance-label-key": "label1",
+			"conflict-label":          "instance value",
+		},
+	}
+
+	mintFlavor := newRpaasFlavor()
+	mintFlavor.Name = "mint"
+	mintFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		Service: &nginxv1alpha1.NginxService{
+			Annotations: map[string]string{
+				"flavored-service-annotation": "v1",
+			},
+			Labels: map[string]string{
+				"flavored-service-label": "v1",
+				"conflict-label":         "ignored",
+			},
+		},
+		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+			Annotations: map[string]string{
+				"flavored-pod-annotation": "v1",
+			},
+			Labels: map[string]string{
+				"flavored-pod-label": "v1",
+			},
+			HostNetwork: true,
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, mintFlavor}
+
+	tests := []struct {
+		name      string
+		objectKey types.NamespacedName
+		expected  v1alpha1.RpaasInstance
+	}{
+		{
+			name:      "when the fetched RpaasInstance has no flavor provided",
+			objectKey: types.NamespacedName{Name: instance1.Name, Namespace: instance1.Namespace},
+			expected:  *instance1,
+		},
+		{
+			name:      "when instance has a flavor, the returned instance should be merged",
+			objectKey: types.NamespacedName{Name: instance2.Name, Namespace: instance2.Namespace},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance2.Name,
+					Namespace: instance2.Namespace,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Flavor: "mint",
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"some-instance-annotation-key": "blah",
+							"flavored-service-annotation":  "v1",
+						},
+						Labels: map[string]string{
+							"some-instance-label-key": "label1",
+							"conflict-label":          "instance value",
+							"flavored-service-label":  "v1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Annotations: map[string]string{
+							"flavored-pod-annotation": "v1",
+						},
+						Labels: map[string]string{
+							"flavored-pod-label": "v1",
+						},
+						HostNetwork: true,
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			k8sClient := fake.NewFakeClientWithScheme(newScheme(), resources...)
+			reconciler := &ReconcileRpaasInstance{
+				client: k8sClient,
+				scheme: newScheme(),
+			}
+			instance, err := reconciler.getRpaasInstance(context.TODO(), tt.objectKey)
+			require.NoError(t, err)
+			assert.Equal(t, *instance, tt.expected)
+		})
+	}
+}
+
 func Test_reconcileHPA(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
@@ -259,6 +364,10 @@ func int32Ptr(n int32) *int32 {
 	return &n
 }
 
+func intPtr(n int) *int {
+	return &n
+}
+
 func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 	return &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
@@ -270,6 +379,20 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{},
+	}
+}
+
+func newRpaasFlavor() *v1alpha1.RpaasFlavor {
+	return &v1alpha1.RpaasFlavor{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "extensions.tsuru.io/v1alpha1",
+			Kind:       "RpaasFlavor",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-flavor",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasFlavorSpec{},
 	}
 }
 
