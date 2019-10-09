@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -26,45 +27,45 @@ type scaleArgs struct {
 // scaleCmd represents the scale command
 var scaleCmd = &cobra.Command{
 	Use:   "scale",
-	Short: "A brief description of your command",
-	Long: `A longer description that spans multiple lines and likely contains examples
-and usage of using your command. For example:
-
-Cobra is a CLI library for Go that empowers applications.
-This application is a tool to generate the needed files
-to quickly create a Cobra application.`,
+	Short: `Scales the specified rpaas instance to [-q] units`,
+	Long:  ``,
 	RunE: func(cmd *cobra.Command, args []string) error {
 		cmd.ParseFlags(args)
-		scale := scaleArgs{}
-		scale.service = cmd.Flag("service").Value.String()
-		scale.instance = cmd.Flag("instance").Value.String()
-		scale.prox = proxy.New(scale.service, scale.instance, "POST", &proxy.TsuruServer{})
-		var err error
-		scale.quantity, err = cmd.Flags().GetInt("quantity")
+		serviceName := cmd.Flag("service").Value.String()
+		instanceName := cmd.Flag("instance").Value.String()
+		quantity, err := cmd.Flags().GetInt("quantity")
 		if err != nil {
 			return err
 		}
+		scale := scaleArgs{service: serviceName, instance: instanceName, 
+				quantity: quantity,
+				prox: proxy.New(serviceName, instanceName, "POST", &proxy.TsuruServer{}),
+		}
 
-		return runScale(scale)
+		output, err := runScale(scale)
+		if err != nil {
+			return err
+		}
+		_, err = fmt.Fprint(os.Stdout, output)
+		if err != nil {
+			return err
+		}
+		return nil
 	},
 }
 
-func runScale(scale scaleArgs) error {
+func runScale(scale scaleArgs) (string, error) {
 	scale.prox.Path = "/resources/" + scale.instance + "/scale"
 	scale.prox.Headers["Content-Type"] = "application/json"
 	bodyReq, err := json.Marshal(map[string]string{
 		"quantity=": strconv.Itoa(scale.quantity),
 	})
 	if err != nil {
-		return err
+		return "", err
 	}
 	scale.prox.Body = bytes.NewBuffer(bodyReq)
-	strResp, err := postScale(scale.prox, scale.quantity)
-	if err != nil {
-		return err
-	}
-	fmt.Print(strResp)
-	return nil
+
+	return postScale(scale.prox, scale.quantity)
 }
 
 func postScale(prox *proxy.Proxy, quantity int) (string, error) {
