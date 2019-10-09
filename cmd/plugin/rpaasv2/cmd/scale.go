@@ -24,7 +24,6 @@ type scaleArgs struct {
 	prox     *proxy.Proxy
 }
 
-// scaleCmd represents the scale command
 var scaleCmd = &cobra.Command{
 	Use:   "scale",
 	Short: `Scales the specified rpaas instance to [-q] units`,
