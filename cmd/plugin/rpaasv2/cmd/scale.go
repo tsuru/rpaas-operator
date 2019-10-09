@@ -29,31 +29,35 @@ var scaleCmd = &cobra.Command{
 	Short: `Scales the specified rpaas instance to [-q] units`,
 	Long:  ``,
 	RunE: func(cmd *cobra.Command, args []string) error {
-		cmd.ParseFlags(args)
-		serviceName := cmd.Flag("service").Value.String()
-		instanceName := cmd.Flag("instance").Value.String()
-		quantity, err := cmd.Flags().GetInt("quantity")
-		if err != nil {
-			return err
-		}
-		scale := scaleArgs{service: serviceName, instance: instanceName,
-			quantity: quantity,
-			prox:     proxy.New(serviceName, instanceName, "POST", &proxy.TsuruServer{}),
-		}
-
-		output, err := runScale(scale)
-		if err != nil {
-			return err
-		}
-		_, err = fmt.Fprint(os.Stdout, output)
-		if err != nil {
-			return err
-		}
-		return nil
+		return runScale(cmd, args, &proxy.TsuruServer{})
 	},
 }
 
-func runScale(scale scaleArgs) (string, error) {
+func runScale(cmd *cobra.Command, args []string, sv proxy.Server) error {
+	cmd.ParseFlags(args)
+	serviceName := cmd.Flag("service").Value.String()
+	instanceName := cmd.Flag("instance").Value.String()
+	quantity, err := cmd.Flags().GetInt("quantity")
+	if err != nil {
+		return err
+	}
+	scale := scaleArgs{service: serviceName, instance: instanceName,
+		quantity: quantity,
+		prox:     proxy.New(serviceName, instanceName, "POST", sv),
+	}
+
+	output, err := prepareScale(scale)
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprint(os.Stdout, output)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func prepareScale(scale scaleArgs) (string, error) {
 	scale.prox.Path = "/resources/" + scale.instance + "/scale"
 	scale.prox.Headers["Content-Type"] = "application/json"
 	bodyReq, err := json.Marshal(map[string]string{
