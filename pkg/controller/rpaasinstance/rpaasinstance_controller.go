@@ -160,29 +160,31 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 }
 
 func (r *ReconcileRpaasInstance) getRpaasInstance(ctx context.Context, objKey types.NamespacedName) (*v1alpha1.RpaasInstance, error) {
-	logger := log.WithName("getRpaasInstance").
-		WithValues("RpaasInstance", objKey)
-
-	logger.V(4).Info("Starting method to retrieve RpaasInstance resource")
-	defer logger.V(4).Info("Finishing method to retrieve the RpaasInstance resource")
+	logger := log.WithName("getRpaasInstance").WithValues("RpaasInstance", objKey)
+	logger.V(4).Info("Getting the RpaasInstance resource")
 
 	var instance v1alpha1.RpaasInstance
 	if err := r.client.Get(ctx, objKey, &instance); err != nil {
 		return nil, err
 	}
 
-	instance = *instance.DeepCopy()
+	return r.mergeInstanceWithFlavors(ctx, instance.DeepCopy())
+}
 
-	var flavor v1alpha1.RpaasFlavor
-	if instance.Spec.Flavor != "" {
+func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasInstance, error) {
+	logger := log.WithName("mergeInstanceWithFlavors").
+		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
+
+	for _, flavorName := range instance.Spec.Flavors {
 		flavorObjectKey := types.NamespacedName{
-			Name:      instance.Spec.Flavor,
+			Name:      flavorName,
 			Namespace: instance.Namespace,
 		}
 
 		logger := logger.WithValues("RpaasFlavor", flavorObjectKey)
 		logger.V(4).Info("Getting RpaasFlavor resource")
 
+		var flavor v1alpha1.RpaasFlavor
 		if err := r.client.Get(ctx, flavorObjectKey, &flavor); err != nil {
 			logger.Error(err, "Unable to get the RpaasFlavor resource")
 			return nil, err
@@ -209,7 +211,7 @@ func (r *ReconcileRpaasInstance) getRpaasInstance(ctx context.Context, objKey ty
 		}
 	}
 
-	return &instance, nil
+	return instance, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1alpha1.RpaasInstance, nginx nginxV1alpha1.Nginx) error {

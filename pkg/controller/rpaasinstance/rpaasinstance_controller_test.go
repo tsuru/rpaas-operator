@@ -71,8 +71,21 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "instance2"
-	instance2.Spec.Flavor = "mint"
+	instance2.Spec.Flavors = []string{"mint"}
 	instance2.Spec.Service = &nginxv1alpha1.NginxService{
+		Annotations: map[string]string{
+			"some-instance-annotation-key": "blah",
+		},
+		Labels: map[string]string{
+			"some-instance-label-key": "label1",
+			"conflict-label":          "instance value",
+		},
+	}
+
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "instance3"
+	instance3.Spec.Flavors = []string{"mint", "mango"}
+	instance3.Spec.Service = &nginxv1alpha1.NginxService{
 		Annotations: map[string]string{
 			"some-instance-annotation-key": "blah",
 		},
@@ -105,7 +118,30 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, mintFlavor}
+	mangoFlavor := newRpaasFlavor()
+	mangoFlavor.Name = "mango"
+	mangoFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		Service: &nginxv1alpha1.NginxService{
+			Annotations: map[string]string{
+				"mango-service-annotation": "mango",
+			},
+			Labels: map[string]string{
+				"mango-service-label":    "mango",
+				"flavored-service-label": "mango",
+				"conflict-label":         "ignored",
+			},
+		},
+		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+			Annotations: map[string]string{
+				"mango-pod-annotation": "mango",
+			},
+			Labels: map[string]string{
+				"mango-pod-label": "mango",
+			},
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, mintFlavor, mangoFlavor}
 
 	tests := []struct {
 		name      string
@@ -118,7 +154,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 			expected:  *instance1,
 		},
 		{
-			name:      "when instance has a flavor, the returned instance should be merged",
+			name:      "when instance refers to one flavor, the returned instance should be merged with it",
 			objectKey: types.NamespacedName{Name: instance2.Name, Namespace: instance2.Namespace},
 			expected: v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
@@ -130,7 +166,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance2.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavor: "mint",
+					Flavors: []string{"mint"},
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"some-instance-annotation-key": "blah",
@@ -148,6 +184,50 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						},
 						Labels: map[string]string{
 							"flavored-pod-label": "v1",
+						},
+						HostNetwork: true,
+					},
+				},
+			},
+		},
+		{
+			name: "when the instance refers to more than one flavor, the returned instance spec should be merged with those flavors",
+			objectKey: types.NamespacedName{
+				Name:      instance3.Name,
+				Namespace: instance3.Namespace,
+			},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance3.Name,
+					Namespace: instance3.Namespace,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Flavors: []string{"mint", "mango"},
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"some-instance-annotation-key": "blah",
+							"flavored-service-annotation":  "v1",
+							"mango-service-annotation":     "mango",
+						},
+						Labels: map[string]string{
+							"some-instance-label-key": "label1",
+							"conflict-label":          "instance value",
+							"flavored-service-label":  "v1",
+							"mango-service-label":     "mango",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Annotations: map[string]string{
+							"flavored-pod-annotation": "v1",
+							"mango-pod-annotation":    "mango",
+						},
+						Labels: map[string]string{
+							"flavored-pod-label": "v1",
+							"mango-pod-label":    "mango",
 						},
 						HostNetwork: true,
 					},

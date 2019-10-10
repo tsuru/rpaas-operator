@@ -252,6 +252,11 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 		*out = new(int32)
 		**out = **in
 	}
+	if in.Flavors != nil {
+		in, out := &in.Flavors, &out.Flavors
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.PlanTemplate != nil {
 		in, out := &in.PlanTemplate, &out.PlanTemplate
 		*out = new(RpaasPlanSpec)
