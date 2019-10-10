@@ -19,11 +19,6 @@ type RpaasFlavorSpec struct {
 	// associated RpaasInstance.
 	// +optional
 	InstanceTemplate *RpaasInstanceSpec `json:"instanceTemplate,omitempty"`
-
-	// PlanSpecTemplate defines a template which allows to override the
-	// associated RpaasInstance's RpaasPlan.
-	// +optional
-	PlanTemplate *RpaasPlanSpec `json:"planTemplate,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
