@@ -2372,6 +2372,15 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			},
 			Spec: v1alpha1.RpaasInstanceSpec{},
 		},
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "strawberry",
+				Namespace: namespaceName(),
+			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				Description: "aaaaa",
+			},
+		},
 	}
 	one := int32(1)
 	tests := []struct {
@@ -2400,11 +2409,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			name:          "invalid flavor",
 			args:          CreateArgs{Name: "r1", Team: "t1", Tags: []string{"flavor=aaaaa"}},
 			expectedError: `flavor "aaaaa" not found`,
-		},
-		{
-			name:          "override and flavor",
-			args:          CreateArgs{Name: "r1", Team: "t1", Tags: []string{"flavor=strawberry", `plan-override={"config": {"cacheEnabled": false}}`}},
-			expectedError: `cannot set both plan-override and flavor`,
 		},
 		{
 			name:          "instance already exists",
@@ -2541,6 +2545,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Replicas: &one,
 					PlanName: "plan1",
+					Flavors:  []string{"strawberry"},
 					Service: &nginxv1alpha1.NginxService{
 						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
@@ -2549,11 +2554,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 							"rpaas.extensions.tsuru.io/team-owner":    "t1",
 							"rpaas_service":                           "rpaasv2",
 							"rpaas_instance":                          "r1",
-						},
-					},
-					PlanTemplate: &v1alpha1.RpaasPlanSpec{
-						Config: v1alpha1.NginxConfig{
-							CacheEnabled: v1alpha1.Bool(false),
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
@@ -2696,16 +2696,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			baseConfig := config.RpaasConfig{
 				ServiceName: "rpaasv2",
-				Flavors: []config.FlavorConfig{
-					{
-						Name: "strawberry",
-						Spec: v1alpha1.RpaasPlanSpec{
-							Config: v1alpha1.NginxConfig{
-								CacheEnabled: v1alpha1.Bool(false),
-							},
-						},
-					},
-				},
 				TeamAffinity: map[string]corev1.Affinity{
 					"team-one": {
 						NodeAffinity: &corev1.NodeAffinity{
@@ -2845,6 +2835,62 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				require.NoError(t, nerr)
 			}
 			tt.assertion(t, err, instance)
+		})
+	}
+}
+
+func Testk8sRpaasManager_GetFlavors(t *testing.T) {
+	tests := []struct {
+		resources []runtime.Object
+		expected  []Flavor
+	}{
+		{
+			resources: []runtime.Object{},
+			expected:  nil,
+		},
+		{
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mint",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Description: "Awesome description about mint flavor",
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "mango",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Description: "Just a human readable description to mango flavor",
+					},
+				},
+			},
+			expected: []Flavor{
+				{
+					Name:        "mango",
+					Description: "Just a human readable description to mango flavor",
+				},
+				{
+					Name:        "mint",
+					Description: "Awesome description about mint flavor",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{
+				cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources...),
+			}
+
+			flavors, err := manager.GetFlavors(context.TODO())
+			require.NoError(t, err)
+			assert.Equal(t, flavors, tt.expected)
 		})
 	}
 }

@@ -27,6 +27,7 @@ type RpaasManager struct {
 	FakeInstanceStatus    func(name string) (rpaas.PodStatusMap, error)
 	FakeScale             func(instanceName string, replicas int32) error
 	FakeGetPlans          func() ([]v1alpha1.RpaasPlan, error)
+	FakeGetFlavors        func() ([]rpaas.Flavor, error)
 	FakeCreateExtraFiles  func(instanceName string, files ...rpaas.File) error
 	FakeDeleteExtraFiles  func(instanceName string, filenames ...string) error
 	FakeGetExtraFiles     func(instanceName string) ([]rpaas.File, error)
@@ -119,6 +120,13 @@ func (m *RpaasManager) Scale(ctx context.Context, instanceName string, replicas 
 func (m *RpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error) {
 	if m.FakeGetPlans != nil {
 		return m.FakeGetPlans()
+	}
+	return nil, nil
+}
+
+func (m *RpaasManager) GetFlavors(ctx context.Context) ([]rpaas.Flavor, error) {
+	if m.FakeGetFlavors != nil {
+		return m.FakeGetFlavors()
 	}
 	return nil, nil
 }
