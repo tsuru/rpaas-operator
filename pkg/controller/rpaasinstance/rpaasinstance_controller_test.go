@@ -444,10 +444,6 @@ func int32Ptr(n int32) *int32 {
 	return &n
 }
 
-func intPtr(n int) *int {
-	return &n
-}
-
 func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 	return &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{

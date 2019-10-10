@@ -181,7 +181,7 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 			Namespace: instance.Namespace,
 		}
 
-		logger := logger.WithValues("RpaasFlavor", flavorObjectKey)
+		logger = logger.WithValues("RpaasFlavor", flavorObjectKey)
 		logger.V(4).Info("Getting RpaasFlavor resource")
 
 		var flavor v1alpha1.RpaasFlavor

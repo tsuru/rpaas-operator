@@ -2839,7 +2839,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 	}
 }
 
-func Testk8sRpaasManager_GetFlavors(t *testing.T) {
+func Test_k8sRpaasManager_GetFlavors(t *testing.T) {
 	tests := []struct {
 		resources []runtime.Object
 		expected  []Flavor
