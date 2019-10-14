@@ -1,4 +1,4 @@
-FROM golang:1.12-alpine AS builder
+FROM golang:1.13-alpine AS builder
 COPY . /go/src/github.com/tsuru/rpaas-operator
 WORKDIR /go/src/github.com/tsuru/rpaas-operator
 RUN apk add --update gcc git make musl-dev && \

@@ -1,6 +1,6 @@
 module github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2
 
-go 1.12
+go 1.13
 
 require (
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0 // indirect

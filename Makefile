@@ -14,7 +14,7 @@ GO_LDFLAGS ?= -X=github.com/tsuru/rpaas-operator/version.Version=$(RPAAS_OPERATO
 test/all: test test/integration
 
 test: test/plugin/rpaasv2
-	go test -mod=vendor ./...
+	go test ./...
 
 test/plugin/rpaasv2:
 	$(MAKE) -C cmd/plugin/rpaasv2 test
@@ -54,4 +54,4 @@ build-api:
 	CGO_ENABLED=0 go build -o rpaas-api ./cmd/api
 
 api: deploy/crds
-	go run -mod=vendor ./cmd/api
+	go run ./cmd/api
