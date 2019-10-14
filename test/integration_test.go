@@ -147,14 +147,18 @@ func Test_RpaasApi(t *testing.T) {
 	require.NoError(t, err)
 	assert.True(t, ok)
 
-	err = apply("./testdata/rpaasplan-basic.yaml", "no-namespaced")
+	namespaceName := "rpaasv2"
+
+	cleanNsFunc, err := createNamespace(namespaceName)
+	require.NoError(t, err)
+	defer cleanNsFunc()
+
+	err = apply("./testdata/rpaasplan-basic.yaml", namespaceName)
 	require.NoError(t, err)
 	defer func() {
-		err = delete("./testdata/rpaasplan-basic.yaml", "no-namespaced")
+		err = delete("./testdata/rpaasplan-basic.yaml", namespaceName)
 		require.NoError(t, err)
 	}()
-
-	namespaceName := "rpaasv2"
 
 	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := "my-instance" + strconv.Itoa(rand.Int())
@@ -166,21 +170,9 @@ func Test_RpaasApi(t *testing.T) {
 		defer func() {
 			err = cleanFunc()
 			assert.NoError(t, err)
-
-			err = deleteNamespace(namespaceName)
-			assert.NoError(t, err)
 		}()
 
-		namespace := corev1.Namespace{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Namespace",
-			},
-		}
-		err = get(&namespace, namespaceName, "no-namespaced")
-		assert.NoError(t, err)
-
-		nginx, err := getReadyNginx(instanceName, namespace.Name, 1, 1)
+		nginx, err := getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 		require.NotNil(t, nginx)
 		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
@@ -193,7 +185,7 @@ func Test_RpaasApi(t *testing.T) {
 				Kind:       "Service",
 			},
 		}
-		err = get(nginxService, fmt.Sprintf("%s-service", nginx.Name), namespace.Name)
+		err = get(nginxService, fmt.Sprintf("%s-service", nginx.Name), namespaceName)
 		assert.NoError(t, err)
 		assert.Equal(t, int32(80), nginxService.Spec.Ports[0].Port)
 		assert.Equal(t, corev1.ServiceType("LoadBalancer"), nginxService.Spec.Type)
