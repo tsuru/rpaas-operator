@@ -358,14 +358,11 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 }
 
 func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error) {
-	planList := &v1alpha1.RpaasPlanList{}
-	err := m.cli.List(ctx, &client.ListOptions{}, planList)
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return []v1alpha1.RpaasPlan{}, nil
-	}
-	if err != nil {
+	var planList v1alpha1.RpaasPlanList
+	if err := m.cli.List(ctx, client.InNamespace(namespaceName()), &planList); err != nil {
 		return nil, err
 	}
+
 	return planList.Items, nil
 }
 
@@ -713,8 +710,12 @@ func (m *k8sRpaasManager) getPlan(ctx context.Context, name string) (*v1alpha1.R
 		return m.getDefaultPlan(ctx)
 	}
 
+	planName := types.NamespacedName{
+		Name:      name,
+		Namespace: namespaceName(),
+	}
 	var plan v1alpha1.RpaasPlan
-	if err := m.cli.Get(ctx, types.NamespacedName{Name: name}, &plan); err != nil {
+	if err := m.cli.Get(ctx, planName, &plan); err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			return nil, err
 		}

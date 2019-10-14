@@ -2197,7 +2197,10 @@ func Test_getPlan(t *testing.T) {
 			plan: "xxl",
 			resources: []runtime.Object{
 				&v1alpha1.RpaasPlan{
-					ObjectMeta: metav1.ObjectMeta{Name: "xxl"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "xxl",
+						Namespace: namespaceName(),
+					},
 				},
 			},
 			assertion: func(t *testing.T, err error, p *v1alpha1.RpaasPlan) {
@@ -2210,7 +2213,10 @@ func Test_getPlan(t *testing.T) {
 			name: "when plan is not set and there is a default plan",
 			resources: []runtime.Object{
 				&v1alpha1.RpaasPlan{
-					ObjectMeta: metav1.ObjectMeta{Name: "some-default-plan"},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "some-default-plan",
+						Namespace: namespaceName(),
+					},
 					Spec: v1alpha1.RpaasPlanSpec{
 						Default: true,
 					},
@@ -2344,7 +2350,10 @@ func Test_convertPathToConfigMapKey(t *testing.T) {
 func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 	resources := []runtime.Object{
 		&v1alpha1.RpaasPlan{
-			ObjectMeta: metav1.ObjectMeta{Name: "plan1"},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "plan1",
+				Namespace: namespaceName(),
+			},
 			Spec: v1alpha1.RpaasPlanSpec{
 				Default: true,
 			},
@@ -2699,7 +2708,8 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			Kind:       "RpaasPlan",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "plan1",
+			Name:      "plan1",
+			Namespace: namespaceName(),
 		},
 	}
 
@@ -2709,7 +2719,8 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			Kind:       "RpaasPlan",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name: "plan2",
+			Name:      "plan2",
+			Namespace: namespaceName(),
 		},
 	}
 
