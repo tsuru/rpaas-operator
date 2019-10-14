@@ -11,6 +11,7 @@ require (
 	github.com/spf13/cobra v0.0.5
 	github.com/stretchr/testify v1.4.0
 	github.com/tsuru/config v0.0.0-20180418191556-87403ee7da02 // indirect
+	github.com/tsuru/rpaas-operator/pkg/rpaas/client v0.0.0-20191023195432-588451c104bb // indirect
 	github.com/tsuru/tsuru v0.0.0-20190917161403-b6b3f8bee958
 	golang.org/x/sys v0.0.0-20190813064441-fde4db37ae7a // indirect
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127 // indirect
