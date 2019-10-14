@@ -6,6 +6,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,8 +71,30 @@ func TestRpaasClient_Scale(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
-			clientTest := &RpaasClient{httpClient: &http.Client{}}
-			clientTest.hostAPI = sv.URL
+			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
+			assert.Equal(t, tt.expectedErr, clientTest.Scale(context.TODO(), tt.instance, tt.replicas))
+		})
+	}
+}
+
+func TestScaleWithTsuru(t *testing.T) {
+	testCases := []struct {
+		name        string
+		instance    string
+		replicas    int32
+		expectedErr error
+	}{
+		{
+			name:        "testing with existing service and string in tsuru target",
+			instance:    "rpaasv2-test",
+			replicas:    int32(1),
+			expectedErr: nil,
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			clientTest := NewTsuruClient("https://lab.tsuru.globoi.com", "rpaasv2-be-lab", tt.instance, os.Getenv("TSURU_TOKEN"))
 			assert.Equal(t, tt.expectedErr, clientTest.Scale(context.TODO(), tt.instance, tt.replicas))
 		})
 	}

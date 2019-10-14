@@ -17,12 +17,27 @@ import (
 
 type RpaasClient struct {
 	hostAPI    string
+	tsuruAPI   string
+	token      string
+	target     string
+	service    string
+	instance   string
 	httpClient *http.Client
 }
 
 func New(hostAPI string) *RpaasClient {
 	client := &RpaasClient{httpClient: &http.Client{}, hostAPI: hostAPI}
 	return client
+}
+
+func NewTsuruClient(tsuruAPI, service, instance, token string) *RpaasClient {
+	return &RpaasClient{
+		httpClient: &http.Client{},
+		tsuruAPI:   tsuruAPI,
+		token:      token,
+		service:    service,
+		instance:   instance,
+	}
 }
 
 func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32) error {
@@ -38,6 +53,11 @@ func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32
 	req, err := c.newRequest("POST", pathName, bodyReader)
 	if err != nil {
 		return err
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	if c.token != "" {
+		req.Header.Add("Authorization", "bearer "+c.token)
 	}
 
 	resp, err := c.do(ctx, req)
@@ -61,9 +81,16 @@ func (c *RpaasClient) do(ctx context.Context, req *http.Request) (*http.Response
 }
 
 func (c *RpaasClient) newRequest(method, pathName string, body io.Reader) (*http.Request, error) {
-	urlString := fmt.Sprintf("%s%s", c.hostAPI, pathName)
+	var url string
+	if c.tsuruAPI != "" {
+		url = fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s",
+			c.tsuruAPI, c.service, c.instance, pathName)
 
-	return http.NewRequest("POST", urlString, body)
+	} else {
+		url = fmt.Sprintf("%s%s", c.hostAPI, pathName)
+	}
+
+	return http.NewRequest(method, url, body)
 }
 
 func scaleValidate(instance string, replicas int32) error {
@@ -85,5 +112,4 @@ func getBodyString(resp *http.Response) (string, error) {
 	}
 	defer resp.Body.Close()
 	return string(bodyBytes), nil
-
 }
