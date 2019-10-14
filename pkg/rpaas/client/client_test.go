@@ -94,7 +94,7 @@ func TestScaleWithTsuru(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			clientTest := NewTsuruClient("https://lab.tsuru.globoi.com", "rpaasv2-be-lab", tt.instance, os.Getenv("TSURU_TOKEN"))
+			clientTest := NewTsuruClient(os.Getenv("TSURU_TARGET"), "rpaasv2-be-lab", tt.instance, os.Getenv("TSURU_TOKEN"))
 			assert.Equal(t, tt.expectedErr, clientTest.Scale(context.TODO(), tt.instance, tt.replicas))
 		})
 	}
