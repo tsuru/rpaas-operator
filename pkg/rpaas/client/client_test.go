@@ -6,7 +6,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
-	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -83,18 +82,31 @@ func TestScaleWithTsuru(t *testing.T) {
 		instance    string
 		replicas    int32
 		expectedErr error
+		handler     http.HandlerFunc
 	}{
 		{
 			name:        "testing with existing service and string in tsuru target",
 			instance:    "rpaasv2-test",
 			replicas:    int32(1),
 			expectedErr: nil,
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "POST")
+				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/scale", r.URL.RequestURI())
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, string(bodyBytes), "quantity=1")
+				w.WriteHeader(http.StatusCreated)
+				w.Write([]byte("Instance successfully scaled to 1 unit(s)"))
+			},
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			clientTest := NewTsuruClient(os.Getenv("TSURU_TARGET"), "rpaasv2-be-lab", tt.instance, os.Getenv("TSURU_TOKEN"))
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			clientTest := NewTsuruClient(sv.URL, "example-service", tt.instance, "f4k3t0k3n")
 			assert.Equal(t, tt.expectedErr, clientTest.Scale(context.TODO(), tt.instance, tt.replicas))
 		})
 	}

@@ -54,6 +54,7 @@ func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32
 	if err != nil {
 		return err
 	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.do(ctx, req)
 	if err != nil {
@@ -89,10 +90,9 @@ func (c *RpaasClient) newRequest(method, pathName string, body io.Reader) (*http
 	if err != nil {
 		return nil, err
 	}
-	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
 
 	if c.token != "" {
-		req.Header.Add("Authorization", "bearer "+c.token)
+		req.Header.Add("Authorization", "Bearer "+c.token)
 	}
 
 	return req, nil
