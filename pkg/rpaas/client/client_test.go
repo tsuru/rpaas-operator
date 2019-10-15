@@ -92,6 +92,7 @@ func TestScaleWithTsuru(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
 				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/scale", r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
