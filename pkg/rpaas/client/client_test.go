@@ -119,7 +119,6 @@ func TestScaleWithTsuru(t *testing.T) {
 	}
 }
 
-<<<<<<< HEAD
 func TestGetPlansTroughHostAPI(t *testing.T) {
 	testCases := []struct {
 		name      string
@@ -279,46 +278,18 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/flavors")
-=======
-func TestInfoTroughHostAPI(t *testing.T) {
-	testCases := []struct {
-		name        string
-		instance    string
-		expectedErr error
-		handler     http.HandlerFunc
-	}{
-		{
-			name:        "passing nil instance",
-			expectedErr: fmt.Errorf("instance can't be nil"),
-		},
-		{
-			name:     "valid request",
-			instance: "test-instance",
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/info")
->>>>>>> feat: implementing /info
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
 				assert.NotNil(t, bodyBytes)
 				w.Header().Set("Content-Type", "application/json")
 				helper := []struct {
-<<<<<<< HEAD
 					Name        string `json:"name"`
 					Description string `json:"description"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
-=======
-					instanceName string `json:"name"`
-					serviceName  string `json:"service"`
-				}{
-					{
-						instanceName: "rpaas-instance-test",
-						serviceName:  "rpaas-service-test",
->>>>>>> feat: implementing /info
 					},
 				}
 				body, err := json.Marshal(helper)
@@ -332,11 +303,7 @@ func TestInfoTroughHostAPI(t *testing.T) {
 			instance: "test-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-<<<<<<< HEAD
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/flavors")
-=======
-				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/info")
->>>>>>> feat: implementing /info
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
@@ -344,13 +311,9 @@ func TestInfoTroughHostAPI(t *testing.T) {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte("Some Error"))
 			},
-<<<<<<< HEAD
 			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
 				assert.Error(t, fmt.Errorf("unexpected status code: body: Some Error"), err)
 			},
-=======
-			expectedErr: fmt.Errorf("unexpected status code: body: Some Error"),
->>>>>>> feat: implementing /info
 		},
 	}
 
@@ -359,35 +322,22 @@ func TestInfoTroughHostAPI(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-<<<<<<< HEAD
 			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
 			tt.assertion(t, flavors, err)
-=======
-			assert.Equal(t, tt.expectedErr, clientTest.Info(context.TODO(), tt.instance, "plans"))
->>>>>>> feat: implementing /info
 		})
 	}
 }
 
-<<<<<<< HEAD
 func TestFlavorsTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
 		instance  string
 		assertion func(t *testing.T, flavors []types.Flavor, err error)
-=======
-func TestInfoTroughTsuru(t *testing.T) {
-	testCases := []struct {
-		name      string
-		instance  string
-		assertion func(t *testing.T, err error, client *RpaasClient, instance string)
->>>>>>> feat: implementing /info
 		handler   http.HandlerFunc
 	}{
 		{
 			name:     "testing with existing service and string in tsuru target",
 			instance: "rpaasv2-test",
-<<<<<<< HEAD
 			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
 				assert.NoError(t, err)
 				expectedPlans := []types.Flavor{
@@ -401,16 +351,6 @@ func TestInfoTroughTsuru(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/flavors", r.URL.RequestURI())
-=======
-			assertion: func(t *testing.T, err error, client *RpaasClient, instance string) {
-				assert.NoError(t, err)
-				assert.Equal(t, err, client.Info(context.TODO(), instance, "plans"))
-				assert.Equal(t, err, client.Info(context.TODO(), instance, "flavors"))
-			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/info", r.URL.RequestURI())
->>>>>>> feat: implementing /info
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				_, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
@@ -418,31 +358,18 @@ func TestInfoTroughTsuru(t *testing.T) {
 				w.Header().Set("Content-Type", "application/json")
 				w.WriteHeader(http.StatusOK)
 				helper := []struct {
-<<<<<<< HEAD
 					Name        string `json:"name"`
 					Description string `json:"description"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
-=======
-					instanceName string `json:"name"`
-					serviceName  string `json:"service"`
-				}{
-					{
-						instanceName: "rpaas-instance-test",
-						serviceName:  "rpaas-service-test",
->>>>>>> feat: implementing /info
 					},
 				}
 
 				body, err := json.Marshal(helper)
 				require.NoError(t, err)
 				w.Write(body)
-<<<<<<< HEAD
-=======
-				// return table
->>>>>>> feat: implementing /info
 			},
 		},
 	}
@@ -452,12 +379,8 @@ func TestInfoTroughTsuru(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest, err := NewTsuruClient(sv.URL, "example-service", "f4k3t0k3n")
-<<<<<<< HEAD
 			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
 			tt.assertion(t, flavors, err)
-=======
-			tt.assertion(t, err, clientTest, tt.instance)
->>>>>>> feat: implementing /info
 		})
 	}
 }

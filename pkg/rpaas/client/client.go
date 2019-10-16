@@ -16,6 +16,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/olekukonko/tablewriter"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -242,7 +243,7 @@ func prepareInfoSlice(data []interface{}) [][]string {
 	return dataSlice
 }
 
-func WriteInfo(prefix string, data []interface{}) {
+func writeInfo(prefix string, data []interface{}) {
 	// flushing stdout
 	fmt.Println()
 
