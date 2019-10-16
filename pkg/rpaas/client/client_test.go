@@ -219,7 +219,6 @@ func TestInfoTroughTsuru(t *testing.T) {
 				body, err := json.Marshal(helper)
 				require.NoError(t, err)
 				w.Write(body)
-				// return table
 			},
 		},
 	}
