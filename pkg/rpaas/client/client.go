@@ -12,6 +12,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
@@ -226,4 +227,33 @@ func getBodyString(resp *http.Response) (string, error) {
 	}
 	defer resp.Body.Close()
 	return string(bodyBytes), nil
+}
+
+// helper table writer functions
+func prepareInfoSlice(data []interface{}) [][]string {
+	dataSlice := [][]string{}
+	for _, mapVal := range data {
+		m := mapVal.(map[string]interface{})
+		target := []string{fmt.Sprintf("%v", m["name"]),
+			fmt.Sprintf("%v", m["description"])}
+		dataSlice = append(dataSlice, target)
+	}
+
+	return dataSlice
+}
+
+func WriteInfo(prefix string, data []interface{}) {
+	// flushing stdout
+	fmt.Println()
+
+	dataSlice := prepareInfoSlice(data)
+
+	table := tablewriter.NewWriter(os.Stdout)
+	table.SetRowLine(true)
+	table.SetHeader([]string{prefix, "Description"})
+	for _, v := range dataSlice {
+		table.Append(v)
+	}
+
+	table.Render()
 }
