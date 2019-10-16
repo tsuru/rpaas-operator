@@ -72,7 +72,7 @@ func (c *RpaasClient) Info(ctx context.Context, instance string, infoType string
 			return err
 		}
 		helperSlice := fp.([]interface{})
-		WriteInfo(infoType, helperSlice)
+		writeInfo(infoType, helperSlice)
 		return nil
 	}
 
@@ -175,7 +175,7 @@ func prepareInfoSlice(data []interface{}) [][]string {
 	return dataSlice
 }
 
-func WriteInfo(prefix string, data []interface{}) {
+func writeInfo(prefix string, data []interface{}) {
 	// flushing stdout
 	fmt.Println()
 
