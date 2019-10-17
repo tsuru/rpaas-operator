@@ -20,12 +20,12 @@ import (
 )
 
 type RpaasClient struct {
-	hostAPI    string
-	tsuruAPI   string
-	token      string
-	target     string
-	service    string
-	httpClient *http.Client
+	hostAPI      string
+	tsuruTarget  string
+	tsuruToken   string
+	target       string
+	tsuruService string
+	httpClient   *http.Client
 }
 
 func New(hostAPI string) *RpaasClient {
@@ -34,15 +34,20 @@ func New(hostAPI string) *RpaasClient {
 }
 
 func NewTsuruClient(tsuruAPI, service, token string) (*RpaasClient, error) {
-	if service == "" || tsuruAPI == "" {
-		return nil, fmt.Errorf("service can't be nil")
+	if tsuruAPI == "" || token == "" || service == "" {
+		return nil, fmt.Errorf("cannot create client without either tsuru target, token or service")
 	}
 	return &RpaasClient{
-		httpClient: &http.Client{},
-		tsuruAPI:   tsuruAPI,
-		token:      token,
-		service:    service,
+		httpClient:   &http.Client{},
+		tsuruTarget:  tsuruAPI,
+		tsuruToken:   token,
+		tsuruService: service,
 	}, nil
+}
+
+type jsonInfo struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
 }
 
 func (c *RpaasClient) Info(ctx context.Context, instance string, infoType string) error {
@@ -50,7 +55,7 @@ func (c *RpaasClient) Info(ctx context.Context, instance string, infoType string
 		return fmt.Errorf("instance can't be nil")
 	}
 
-	pathName := fmt.Sprintf("/resources/%s/info", instance)
+	pathName := fmt.Sprintf("/resources/%s/%s", instance, infoType)
 	req, err := c.newRequest("GET", instance, pathName, nil)
 	if err != nil {
 		return err
@@ -66,13 +71,13 @@ func (c *RpaasClient) Info(ctx context.Context, instance string, infoType string
 		if err != nil {
 			return fmt.Errorf("Error while trying to read body: %v", err)
 		}
-		var fp interface{}
-		err = json.Unmarshal(body, &fp)
+		var respData []jsonInfo
+		err = json.Unmarshal(body, &respData)
 		if err != nil {
 			return err
 		}
-		helperSlice := fp.([]interface{})
-		writeInfo(infoType, helperSlice)
+
+		writeInfo(infoType, respData)
 		return nil
 	}
 
@@ -121,9 +126,9 @@ func (c *RpaasClient) do(ctx context.Context, req *http.Request) (*http.Response
 
 func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Reader) (*http.Request, error) {
 	var url string
-	if c.tsuruAPI != "" {
+	if c.tsuruTarget != "" {
 		url = fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s",
-			c.tsuruAPI, c.service, instance, pathName)
+			c.tsuruTarget, c.tsuruService, instance, pathName)
 
 	} else {
 		url = fmt.Sprintf("%s%s", c.hostAPI, pathName)
@@ -134,8 +139,8 @@ func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Read
 		return nil, err
 	}
 
-	if c.token != "" {
-		req.Header.Add("Authorization", "Bearer "+c.token)
+	if c.tsuruToken != "" {
+		req.Header.Add("Authorization", "Bearer "+c.tsuruToken)
 	}
 
 	return req, nil
@@ -162,30 +167,15 @@ func getBodyString(resp *http.Response) (string, error) {
 	return string(bodyBytes), nil
 }
 
-// helper table writer functions
-func prepareInfoSlice(data []interface{}) [][]string {
-	dataSlice := [][]string{}
-	for _, mapVal := range data {
-		m := mapVal.(map[string]interface{})
-		target := []string{fmt.Sprintf("%v", m["name"]),
-			fmt.Sprintf("%v", m["description"])}
-		dataSlice = append(dataSlice, target)
-	}
-
-	return dataSlice
-}
-
-func writeInfo(prefix string, data []interface{}) {
+func writeInfo(prefix string, data []jsonInfo) {
 	// flushing stdout
 	fmt.Println()
-
-	dataSlice := prepareInfoSlice(data)
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetRowLine(true)
 	table.SetHeader([]string{prefix, "Description"})
-	for _, v := range dataSlice {
-		table.Append(v)
+	for _, dataStruct := range data {
+		table.Append([]string{dataStruct.Name, dataStruct.Description})
 	}
 
 	table.Render()
