@@ -118,21 +118,28 @@ func TestScaleWithTsuru(t *testing.T) {
 	}
 }
 
-func TestInfoTroughHostAPI(t *testing.T) {
+func TestPlansTroughHostAPI(t *testing.T) {
 	testCases := []struct {
-		name         string
-		instance     string
-		expectedErr  error
-		handlerPlans http.HandlerFunc
+		name      string
+		instance  string
+		assertion func(t *testing.T, plans []plan, err error)
+		handler   http.HandlerFunc
 	}{
-		{
-			name:        "passing nil instance",
-			expectedErr: fmt.Errorf("instance can't be nil"),
-		},
 		{
 			name:     "valid request",
 			instance: "test-instance",
-			handlerPlans: func(w http.ResponseWriter, r *http.Request) {
+			assertion: func(t *testing.T, plans []plan, err error) {
+				assert.NoError(t, err)
+				expectedPlans := []plan{
+					{
+						Name:        "dsr",
+						Description: "rpaas dsr",
+						Default:     true,
+					},
+				}
+				assert.Equal(t, expectedPlans, plans)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/plans")
 				bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -143,10 +150,12 @@ func TestInfoTroughHostAPI(t *testing.T) {
 				helper := []struct {
 					Name        string `json:"name"`
 					Description string `json:"description"`
+					Default     bool   `json:"default"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
+						Default:     true,
 					},
 				}
 				body, err := json.Marshal(helper)
@@ -158,7 +167,7 @@ func TestInfoTroughHostAPI(t *testing.T) {
 		{
 			name:     "some error returned on the request",
 			instance: "test-instance",
-			handlerPlans: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/plans")
 				bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -168,33 +177,43 @@ func TestInfoTroughHostAPI(t *testing.T) {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte("Some Error"))
 			},
-			expectedErr: fmt.Errorf("unexpected status code: body: Some Error"),
+			assertion: func(t *testing.T, plans []plan, err error) {
+				assert.Error(t, fmt.Errorf("unexpected status code: body: Some Error"), err)
+			},
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			sv := httptest.NewServer(tt.handlerPlans)
+			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-			assert.Equal(t, tt.expectedErr, clientTest.Info(context.TODO(), tt.instance, "plans"))
+			plans, err := clientTest.Plans(context.TODO(), &tt.instance)
+			tt.assertion(t, plans, err)
 		})
 	}
 }
 
-func TestInfoTroughTsuru(t *testing.T) {
+func TestPlansTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
 		instance  string
-		assertion func(t *testing.T, err error, client *RpaasClient, instance string)
+		assertion func(t *testing.T, plans []plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name:     "testing with existing service and string in tsuru target",
 			instance: "rpaasv2-test",
-			assertion: func(t *testing.T, err error, client *RpaasClient, instance string) {
+			assertion: func(t *testing.T, plans []plan, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, err, client.Info(context.TODO(), instance, "plans"))
+				expectedPlans := []plan{
+					{
+						Name:        "dsr",
+						Description: "rpaas dsr",
+						Default:     true,
+					},
+				}
+				assert.Equal(t, expectedPlans, plans)
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
@@ -208,10 +227,12 @@ func TestInfoTroughTsuru(t *testing.T) {
 				helper := []struct {
 					Name        string `json:"name"`
 					Description string `json:"description"`
+					Default     bool   `json:"default"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
+						Default:     true,
 					},
 				}
 
@@ -227,7 +248,8 @@ func TestInfoTroughTsuru(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest, err := NewTsuruClient(sv.URL, "example-service", "f4k3t0k3n")
-			tt.assertion(t, err, clientTest, tt.instance)
+			plans, err := clientTest.Plans(context.TODO(), &tt.instance)
+			tt.assertion(t, plans, err)
 		})
 	}
 }

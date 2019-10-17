@@ -12,11 +12,8 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
-
-	"github.com/olekukonko/tablewriter"
 )
 
 type RpaasClient struct {
@@ -45,47 +42,92 @@ func NewTsuruClient(tsuruAPI, service, token string) (*RpaasClient, error) {
 	}, nil
 }
 
-type jsonInfo struct {
+type flavor struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
 }
 
-func (c *RpaasClient) Info(ctx context.Context, instance string, infoType string) error {
-	if instance == "" {
-		return fmt.Errorf("instance can't be nil")
+type plan struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Default     bool   `json:"default"`
+}
+
+func (c *RpaasClient) Plans(ctx context.Context, instance *string) ([]plan, error) {
+
+	var pathName string
+	switch instance {
+	case nil:
+		pathName = fmt.Sprintf("/resources/plans")
+	default:
+		pathName = fmt.Sprintf("/resources/%s/plans", *instance)
 	}
 
-	pathName := fmt.Sprintf("/resources/%s/%s", instance, infoType)
-	req, err := c.newRequest("GET", instance, pathName, nil)
+	req, err := c.newRequest("GET", *instance, pathName, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	resp, err := c.do(ctx, req)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	if resp.StatusCode == http.StatusOK {
 		body, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			return fmt.Errorf("Error while trying to read body: %v", err)
+			return nil, fmt.Errorf("Error while trying to read body: %v", err)
 		}
-		var respData []jsonInfo
-		err = json.Unmarshal(body, &respData)
+		var plans []plan
+		err = json.Unmarshal(body, &plans)
 		if err != nil {
-			return err
+			return nil, err
 		}
-
-		writeInfo(infoType, respData)
-		return nil
+		return plans, nil
 	}
-
 	bodyString, err := getBodyString(resp)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return fmt.Errorf("unexpected status code: body: %v", bodyString)
+	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
+}
+
+func (c *RpaasClient) Flavors(ctx context.Context, instance *string) ([]plan, error) {
+	var pathName string
+	switch instance {
+	case nil:
+		pathName = fmt.Sprintf("/resources/flavors")
+	default:
+		pathName = fmt.Sprintf("/resources/%s/flavors", *instance)
+	}
+
+	req, err := c.newRequest("GET", *instance, pathName, nil)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if resp.StatusCode == http.StatusOK {
+		body, err := ioutil.ReadAll(resp.Body)
+		if err != nil {
+			return nil, fmt.Errorf("Error while trying to read body: %v", err)
+		}
+		var plans []plan
+		err = json.Unmarshal(body, &plans)
+		if err != nil {
+			return nil, err
+		}
+		return plans, nil
+	}
+	bodyString, err := getBodyString(resp)
+	if err != nil {
+		return nil, err
+	}
+	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
 func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32) error {
@@ -165,18 +207,4 @@ func getBodyString(resp *http.Response) (string, error) {
 	}
 	defer resp.Body.Close()
 	return string(bodyBytes), nil
-}
-
-func writeInfo(prefix string, data []jsonInfo) {
-	// flushing stdout
-	fmt.Println()
-
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetRowLine(true)
-	table.SetHeader([]string{prefix, "Description"})
-	for _, dataStruct := range data {
-		table.Append([]string{dataStruct.Name, dataStruct.Description})
-	}
-
-	table.Render()
 }
