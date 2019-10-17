@@ -8,6 +8,7 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-openapi/spec v0.19.2
 	github.com/google/gops v0.3.6
+	github.com/imdario/mergo v0.3.7
 	github.com/kardianos/osext v0.0.0-20190222173326-2bc1f35cddc0 // indirect
 	github.com/labstack/echo/v4 v4.1.10
 	github.com/mitchellh/mapstructure v1.1.2

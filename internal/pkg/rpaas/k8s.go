@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"text/template"
 
 	"github.com/pkg/errors"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -105,6 +106,10 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	setTeamOwner(instance, args.Team)
 
 	if err := setTags(instance, args.Tags); err != nil {
+		return err
+	}
+
+	if err := parseAnnotationsOnService(instance); err != nil {
 		return err
 	}
 
@@ -1104,6 +1109,30 @@ func getFlavor(name string) *v1alpha1.RpaasPlanSpec {
 			return &flavor.Spec
 		}
 	}
+
+	return nil
+}
+
+func parseAnnotationsOnService(instance *v1alpha1.RpaasInstance) error {
+	if instance == nil {
+		return nil
+	}
+
+	newAnnotations := map[string]string{}
+	var err error
+	var tmpl *template.Template
+
+	buffer := &bytes.Buffer{}
+	for k, v := range instance.Spec.Service.Annotations {
+		if tmpl, err = template.New(v).Parse(v); err != nil {
+			return err
+		}
+		if err = tmpl.Execute(buffer, instance.Labels); err != nil {
+			return err
+		}
+		newAnnotations[k] = buffer.String()
+	}
+	instance.Spec.Service.Annotations = mergeMap(instance.Spec.Service.Annotations, newAnnotations)
 
 	return nil
 }
