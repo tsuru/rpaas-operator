@@ -118,19 +118,19 @@ func TestScaleWithTsuru(t *testing.T) {
 	}
 }
 
-func TestPlansTroughHostAPI(t *testing.T) {
+func TestGetPlansTroughHostAPI(t *testing.T) {
 	testCases := []struct {
 		name      string
 		instance  string
-		assertion func(t *testing.T, plans []plan, err error)
+		assertion func(t *testing.T, plans []Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name:     "valid request",
 			instance: "test-instance",
-			assertion: func(t *testing.T, plans []plan, err error) {
+			assertion: func(t *testing.T, plans []Plan, err error) {
 				assert.NoError(t, err)
-				expectedPlans := []plan{
+				expectedPlans := []Plan{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
@@ -177,7 +177,7 @@ func TestPlansTroughHostAPI(t *testing.T) {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte("Some Error"))
 			},
-			assertion: func(t *testing.T, plans []plan, err error) {
+			assertion: func(t *testing.T, plans []Plan, err error) {
 				assert.Error(t, fmt.Errorf("unexpected status code: body: Some Error"), err)
 			},
 		},
@@ -188,7 +188,7 @@ func TestPlansTroughHostAPI(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-			plans, err := clientTest.Plans(context.TODO(), &tt.instance)
+			plans, err := clientTest.GetPlans(context.TODO(), &tt.instance)
 			tt.assertion(t, plans, err)
 		})
 	}
@@ -198,15 +198,15 @@ func TestPlansTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
 		instance  string
-		assertion func(t *testing.T, plans []plan, err error)
+		assertion func(t *testing.T, plans []Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name:     "testing with existing service and string in tsuru target",
 			instance: "rpaasv2-test",
-			assertion: func(t *testing.T, plans []plan, err error) {
+			assertion: func(t *testing.T, plans []Plan, err error) {
 				assert.NoError(t, err)
-				expectedPlans := []plan{
+				expectedPlans := []Plan{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
@@ -248,7 +248,7 @@ func TestPlansTroughTsuru(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest, err := NewTsuruClient(sv.URL, "example-service", "f4k3t0k3n")
-			plans, err := clientTest.Plans(context.TODO(), &tt.instance)
+			plans, err := clientTest.GetPlans(context.TODO(), &tt.instance)
 			tt.assertion(t, plans, err)
 		})
 	}

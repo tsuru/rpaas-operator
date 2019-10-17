@@ -42,28 +42,26 @@ func NewTsuruClient(tsuruAPI, service, token string) (*RpaasClient, error) {
 	}, nil
 }
 
-type flavor struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
-type plan struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Default     bool   `json:"default"`
-}
-
-func (c *RpaasClient) Plans(ctx context.Context, instance *string) ([]plan, error) {
+func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]Plan, error) {
 
 	var pathName string
+	var req *http.Request
+	var err error
 	switch instance {
 	case nil:
 		pathName = fmt.Sprintf("/resources/plans")
+		req, err = c.newRequest("GET", "", pathName, nil)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		pathName = fmt.Sprintf("/resources/%s/plans", *instance)
+		req, err = c.newRequest("GET", *instance, pathName, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	req, err := c.newRequest("GET", *instance, pathName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -78,7 +76,7 @@ func (c *RpaasClient) Plans(ctx context.Context, instance *string) ([]plan, erro
 		if err != nil {
 			return nil, fmt.Errorf("Error while trying to read body: %v", err)
 		}
-		var plans []plan
+		var plans []Plan
 		err = json.Unmarshal(body, &plans)
 		if err != nil {
 			return nil, err
@@ -92,16 +90,26 @@ func (c *RpaasClient) Plans(ctx context.Context, instance *string) ([]plan, erro
 	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
-func (c *RpaasClient) Flavors(ctx context.Context, instance *string) ([]plan, error) {
+func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]Flavor, error) {
 	var pathName string
+	var req *http.Request
+	var err error
+
 	switch instance {
 	case nil:
 		pathName = fmt.Sprintf("/resources/flavors")
+		req, err = c.newRequest("GET", "", pathName, nil)
+		if err != nil {
+			return nil, err
+		}
 	default:
 		pathName = fmt.Sprintf("/resources/%s/flavors", *instance)
+		req, err = c.newRequest("GET", "", pathName, nil)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	req, err := c.newRequest("GET", *instance, pathName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -116,12 +124,12 @@ func (c *RpaasClient) Flavors(ctx context.Context, instance *string) ([]plan, er
 		if err != nil {
 			return nil, fmt.Errorf("Error while trying to read body: %v", err)
 		}
-		var plans []plan
-		err = json.Unmarshal(body, &plans)
+		var flavors []Flavor
+		err = json.Unmarshal(body, &flavors)
 		if err != nil {
 			return nil, err
 		}
-		return plans, nil
+		return flavors, nil
 	}
 	bodyString, err := getBodyString(resp)
 	if err != nil {
@@ -169,9 +177,13 @@ func (c *RpaasClient) do(ctx context.Context, req *http.Request) (*http.Response
 func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Reader) (*http.Request, error) {
 	var url string
 	if c.tsuruTarget != "" {
-		url = fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s",
-			c.tsuruTarget, c.tsuruService, instance, pathName)
-
+		if instance == "" {
+			url = fmt.Sprintf("%s/services/proxy/%s?callback=%s",
+				c.tsuruTarget, c.tsuruService, pathName)
+		} else {
+			url = fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s",
+				c.tsuruTarget, c.tsuruService, instance, pathName)
+		}
 	} else {
 		url = fmt.Sprintf("%s%s", c.hostAPI, pathName)
 	}
