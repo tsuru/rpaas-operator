@@ -4,6 +4,7 @@ go 1.13
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> feat: implementing /info
 require (
@@ -17,3 +18,6 @@ require github.com/stretchr/testify v1.4.0
 >>>>>>> feat: started implementing rpaas client library
 =======
 >>>>>>> feat: implementing /info
+=======
+require github.com/stretchr/testify v1.4.0
+>>>>>>> refactor: minor changes
