@@ -9,6 +9,7 @@ import (
 	"crypto/tls"
 	"testing"
 
+	"github.com/imdario/mergo"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -2372,45 +2373,13 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			Spec: v1alpha1.RpaasInstanceSpec{},
 		},
 	}
-	config.Set(config.RpaasConfig{
-		ServiceName: "rpaasv2",
-		Flavors: []config.FlavorConfig{
-			{
-				Name: "strawberry",
-				Spec: v1alpha1.RpaasPlanSpec{
-					Config: v1alpha1.NginxConfig{
-						CacheEnabled: v1alpha1.Bool(false),
-					},
-				},
-			},
-		},
-		TeamAffinity: map[string]corev1.Affinity{
-			"team-one": {
-				NodeAffinity: &corev1.NodeAffinity{
-					RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
-						NodeSelectorTerms: []corev1.NodeSelectorTerm{
-							{
-								MatchExpressions: []corev1.NodeSelectorRequirement{
-									{
-										Key:      "machine-type",
-										Operator: corev1.NodeSelectorOpIn,
-										Values:   []string{"ultra-fast-io"},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
-		},
-	})
-	defer config.Set(config.RpaasConfig{})
 	one := int32(1)
 	tests := []struct {
 		name          string
 		args          CreateArgs
 		expected      v1alpha1.RpaasInstance
 		expectedError string
+		extraConfig   config.RpaasConfig
 	}{
 		{
 			name:          "without name",
@@ -2665,9 +2634,101 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "using svc template annotations",
+			extraConfig: config.RpaasConfig{
+				ServiceAnnotations: map[string]string{
+					"custom-svc-annotation-template": "{{ .rpaas_service }}-{{ .rpaas_instance }}",
+				},
+			},
+			args: CreateArgs{Name: "r1", Team: "t1"},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "r1",
+					Namespace: "rpaasv2",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+						Annotations: map[string]string{
+							"custom-svc-annotation-template": "rpaasv2-r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			baseConfig := config.RpaasConfig{
+				ServiceName: "rpaasv2",
+				Flavors: []config.FlavorConfig{
+					{
+						Name: "strawberry",
+						Spec: v1alpha1.RpaasPlanSpec{
+							Config: v1alpha1.NginxConfig{
+								CacheEnabled: v1alpha1.Bool(false),
+							},
+						},
+					},
+				},
+				TeamAffinity: map[string]corev1.Affinity{
+					"team-one": {
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "machine-type",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"ultra-fast-io"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			mergo.MergeWithOverwrite(&baseConfig, tt.extraConfig)
+			config.Set(baseConfig)
+			defer config.Set(config.RpaasConfig{})
 			scheme := newScheme()
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
 			err := manager.CreateInstance(context.Background(), tt.args)
