@@ -109,8 +109,13 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	planName := types.NamespacedName{
+		Name:      instance.Spec.PlanName,
+		Namespace: instance.Namespace,
+	}
 	plan := &v1alpha1.RpaasPlan{}
-	err = r.client.Get(context.TODO(), types.NamespacedName{Name: instance.Spec.PlanName}, plan)
+	err = r.client.Get(context.TODO(), planName, plan)
 	if err != nil {
 		return reconcile.Result{}, err
 	}

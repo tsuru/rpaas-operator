@@ -117,6 +117,7 @@ run_nginx_operator() {
     git clone https://github.com/tsuru/nginx-operator.git ${nginx_operator_dir}
   fi
   pushd ${nginx_operator_dir}
+  git fetch --all
   git checkout ${nginx_operator_revision}
   popd
 
