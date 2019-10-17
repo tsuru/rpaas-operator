@@ -220,30 +220,15 @@ func getBodyString(resp *http.Response) (string, error) {
 	return string(bodyBytes), nil
 }
 
-// helper table writer functions
-func prepareInfoSlice(data []interface{}) [][]string {
-	dataSlice := [][]string{}
-	for _, mapVal := range data {
-		m := mapVal.(map[string]interface{})
-		target := []string{fmt.Sprintf("%v", m["name"]),
-			fmt.Sprintf("%v", m["description"])}
-		dataSlice = append(dataSlice, target)
-	}
-
-	return dataSlice
-}
-
-func writeInfo(prefix string, data []interface{}) {
+func writeInfo(prefix string, data []jsonInfo) {
 	// flushing stdout
 	fmt.Println()
-
-	dataSlice := prepareInfoSlice(data)
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetRowLine(true)
 	table.SetHeader([]string{prefix, "Description"})
-	for _, v := range dataSlice {
-		table.Append(v)
+	for _, dataStruct := range data {
+		table.Append([]string{dataStruct.Name, dataStruct.Description})
 	}
 
 	table.Render()

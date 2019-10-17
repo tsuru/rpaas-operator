@@ -301,7 +301,7 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 		{
 			name:     "some error returned on the request",
 			instance: "test-instance",
-			handler: func(w http.ResponseWriter, r *http.Request) {
+			handlerPlans: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/flavors")
 				bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -319,7 +319,7 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			sv := httptest.NewServer(tt.handler)
+			sv := httptest.NewServer(tt.handlerPlans)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
 			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
