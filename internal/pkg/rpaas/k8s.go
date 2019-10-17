@@ -105,7 +105,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	setDescription(instance, args.Description)
 	setTeamOwner(instance, args.Team)
 
-	if err := setTags(instance, args.Tags); err != nil {
+	if err := m.setTags(ctx, instance, args.Tags); err != nil {
 		return err
 	}
 
@@ -131,7 +131,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	setDescription(instance, args.Description)
 	setTeamOwner(instance, args.Team)
 
-	if err = setTags(instance, args.Tags); err != nil {
+	if err = m.setTags(ctx, instance, args.Tags); err != nil {
 		return err
 	}
 
@@ -369,6 +369,49 @@ func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, e
 	}
 
 	return planList.Items, nil
+}
+
+func (m *k8sRpaasManager) GetFlavors(ctx context.Context) ([]Flavor, error) {
+	flavors, err := m.getFlavors(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var result []Flavor
+	for _, flavor := range flavors {
+		result = append(result, Flavor{
+			Name:        flavor.Name,
+			Description: flavor.Spec.Description,
+		})
+	}
+
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+
+	return result, nil
+}
+
+func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavor, error) {
+	flavorList := &v1alpha1.RpaasFlavorList{}
+	if err := m.cli.List(ctx, client.InNamespace(namespaceName()), flavorList); err != nil {
+		return nil, err
+	}
+
+	return flavorList.Items, nil
+}
+
+func (m *k8sRpaasManager) isFlavorAvailable(ctx context.Context, flavorName string) bool {
+	flavors, err := m.getFlavors(ctx)
+	if err != nil {
+		return false
+	}
+
+	for _, flavor := range flavors {
+		if flavor.Name == flavorName {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
@@ -1043,7 +1086,7 @@ func setDescription(instance *v1alpha1.RpaasInstance, description string) {
 	})
 }
 
-func setTags(instance *v1alpha1.RpaasInstance, tags []string) error {
+func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasInstance, tags []string) error {
 	if instance == nil {
 		return nil
 	}
@@ -1063,23 +1106,14 @@ func setTags(instance *v1alpha1.RpaasInstance, tags []string) error {
 
 	var flavor string
 	parseTagArg(tags, "flavor", &flavor)
+	if err := m.setFlavors(ctx, instance, strings.Split(flavor, ",")); err != nil {
+		return err
+	}
+
+	instance.Spec.PlanTemplate = nil
 
 	var planOverride string
 	parseTagArg(tags, "plan-override", &planOverride)
-
-	if planOverride != "" && flavor != "" {
-		return errors.New("cannot set both plan-override and flavor")
-	}
-
-	if flavor != "" {
-		planTemplate := getFlavor(flavor)
-		if planTemplate == nil {
-			return errors.Errorf("flavor %q not found", flavor)
-		}
-
-		instance.Spec.PlanTemplate = planTemplate
-	}
-
 	if planOverride != "" {
 		var planTemplate v1alpha1.RpaasPlanSpec
 		if err := json.Unmarshal([]byte(planOverride), &planTemplate); err != nil {
@@ -1089,6 +1123,24 @@ func setTags(instance *v1alpha1.RpaasInstance, tags []string) error {
 		instance.Spec.PlanTemplate = &planTemplate
 	}
 
+	return nil
+}
+
+func (m *k8sRpaasManager) setFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, flavorNames []string) error {
+	var flavors []string
+	for _, flavor := range flavorNames {
+		if flavor == "" {
+			break
+		}
+
+		if !m.isFlavorAvailable(ctx, flavor) {
+			return NotFoundError{Msg: fmt.Sprintf("flavor %q not found", flavor)}
+		}
+
+		flavors = append(flavors, flavor)
+	}
+
+	instance.Spec.Flavors = flavors
 	return nil
 }
 
@@ -1102,16 +1154,6 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Annotations = mergeMap(instance.Annotations, newLabels)
 	instance.Labels = mergeMap(instance.Labels, newLabels)
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
-}
-
-func getFlavor(name string) *v1alpha1.RpaasPlanSpec {
-	for _, flavor := range config.Get().Flavors {
-		if name == flavor.Name {
-			return &flavor.Spec
-		}
-	}
-
-	return nil
 }
 
 func parseAnnotationsOnService(instance *v1alpha1.RpaasInstance) error {

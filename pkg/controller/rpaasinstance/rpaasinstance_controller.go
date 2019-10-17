@@ -13,6 +13,7 @@ import (
 	"sort"
 
 	jsonpatch "github.com/evanphx/json-patch"
+	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
@@ -99,8 +100,8 @@ type ReconcileRpaasInstance struct {
 func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RpaasInstance")
-	instance := &v1alpha1.RpaasInstance{}
-	err := r.client.Get(context.TODO(), request.NamespacedName, instance)
+
+	instance, err := r.getRpaasInstance(context.TODO(), request.NamespacedName)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		reqLogger.Info("Nothing to do due the RpaasInstance was removed")
 		return reconcile.Result{}, nil
@@ -119,12 +120,14 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	if instance.Spec.PlanTemplate != nil {
 		plan.Spec, err = mergePlans(plan.Spec, *instance.Spec.PlanTemplate)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
+
 	rendered, err := r.renderTemplate(instance, plan)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -154,6 +157,61 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	return reconcile.Result{}, nil
+}
+
+func (r *ReconcileRpaasInstance) getRpaasInstance(ctx context.Context, objKey types.NamespacedName) (*v1alpha1.RpaasInstance, error) {
+	logger := log.WithName("getRpaasInstance").WithValues("RpaasInstance", objKey)
+	logger.V(4).Info("Getting the RpaasInstance resource")
+
+	var instance v1alpha1.RpaasInstance
+	if err := r.client.Get(ctx, objKey, &instance); err != nil {
+		return nil, err
+	}
+
+	return r.mergeInstanceWithFlavors(ctx, instance.DeepCopy())
+}
+
+func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasInstance, error) {
+	logger := log.WithName("mergeInstanceWithFlavors").
+		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
+
+	for _, flavorName := range instance.Spec.Flavors {
+		flavorObjectKey := types.NamespacedName{
+			Name:      flavorName,
+			Namespace: instance.Namespace,
+		}
+
+		logger = logger.WithValues("RpaasFlavor", flavorObjectKey)
+		logger.V(4).Info("Getting RpaasFlavor resource")
+
+		var flavor v1alpha1.RpaasFlavor
+		if err := r.client.Get(ctx, flavorObjectKey, &flavor); err != nil {
+			logger.Error(err, "Unable to get the RpaasFlavor resource")
+			return nil, err
+		}
+
+		if flavor.Spec.InstanceTemplate != nil {
+			mergedInstanceSpec, err := mergeInstance(*flavor.Spec.InstanceTemplate, instance.Spec)
+			if err != nil {
+				logger.Error(err, "Could not merge instance against flavor instance template")
+				return nil, err
+			}
+
+			logger.
+				WithValues("RpaasInstanceSpec", instance.Spec).
+				WithValues("InstanceTemplate", flavor.Spec.InstanceTemplate).
+				WithValues("Merged", mergedInstanceSpec).
+				V(4).
+				Info("RpaasInstanceSpec successfully merged")
+
+			instance.Spec = mergedInstanceSpec
+		} else {
+			logger.V(4).
+				Info("Skipping RpaasInstance merge since there is no instance template in RpaasFlavor")
+		}
+	}
+
+	return instance, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1alpha1.RpaasInstance, nginx nginxV1alpha1.Nginx) error {
@@ -526,4 +584,21 @@ func shouldDeleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.
 
 	listSize := len(configList.Items)
 	return listSize > limit
+}
+
+func mergeInstance(base v1alpha1.RpaasInstanceSpec, override v1alpha1.RpaasInstanceSpec) (merged v1alpha1.RpaasInstanceSpec, err error) {
+	configs := []func(*mergo.Config){
+		mergo.WithOverride,
+		mergo.WithAppendSlice,
+	}
+
+	if err = mergo.Merge(&merged, base, configs...); err != nil {
+		return
+	}
+
+	if err = mergo.Merge(&merged, override, configs...); err != nil {
+		return
+	}
+
+	return
 }

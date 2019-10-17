@@ -11,40 +11,41 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 )
 
 func Test_getServiceFlavors(t *testing.T) {
-	oldConfig := config.Get()
-	defer func() {
-		config.Set(oldConfig)
-	}()
-
 	tests := []struct {
 		name         string
-		conf         config.RpaasConfig
+		manager      rpaas.RpaasManager
 		expectedCode int
 		expectedBody string
 	}{
 		{
-			name:         "when no flavors are available, should return an empty array",
+			name: "when no flavors are available, should return an empty array",
+			manager: &fake.RpaasManager{
+				FakeGetFlavors: func() ([]rpaas.Flavor, error) {
+					return nil, nil
+				},
+			},
 			expectedCode: http.StatusOK,
 			expectedBody: `\[\]`,
 		},
 		{
 			name: "when there are many flavors, should return them",
-			conf: config.RpaasConfig{
-				Flavors: []config.FlavorConfig{
-					{
-						Name:        "flavor-1",
-						Description: "Some description about flavor 1",
-					},
-					{
-						Name:        "a-flavor",
-						Description: "The greatest A flavor",
-					},
+			manager: &fake.RpaasManager{
+				FakeGetFlavors: func() ([]rpaas.Flavor, error) {
+					return []rpaas.Flavor{
+						{
+							Name:        "a-flavor",
+							Description: "The greatest A flavor",
+						},
+						{
+							Name:        "flavor-1",
+							Description: "Some description about flavor 1",
+						},
+					}, nil
 				},
 			},
 			expectedCode: http.StatusOK,
@@ -54,8 +55,7 @@ func Test_getServiceFlavors(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			config.Set(tt.conf)
-			srv := newTestingServer(t, &fake.RpaasManager{})
+			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/flavors", srv.URL)
 			request, err := http.NewRequest(http.MethodGet, path, nil)

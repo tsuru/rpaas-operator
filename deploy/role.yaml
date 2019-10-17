@@ -42,9 +42,9 @@ rules:
 - apiGroups:
   - extensions.tsuru.io
   resources:
-  - '*'
   - rpaasinstances
-  - rpaasbinds
+  - rpaasplans
+  - rpaasflavors
   verbs:
   - '*'
 - apiGroups:

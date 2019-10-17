@@ -17,7 +17,6 @@ import (
 	"github.com/mitchellh/mapstructure"
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -34,14 +33,6 @@ type RpaasConfig struct {
 	TLSKey             string                     `json:"tls-key"`
 	DefaultAffinity    *corev1.Affinity           `json:"default-affinity"`
 	TeamAffinity       map[string]corev1.Affinity `json:"team-affinity"`
-
-	Flavors []FlavorConfig
-}
-
-type FlavorConfig struct {
-	Name        string
-	Description string
-	Spec        v1alpha1.RpaasPlanSpec
 }
 
 var rpaasConfig struct {

@@ -6,28 +6,25 @@ package api
 
 import (
 	"net/http"
-	"sort"
 
 	"github.com/labstack/echo/v4"
-	"github.com/tsuru/rpaas-operator/config"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
-type flavor struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
 func getServiceFlavors(c echo.Context) error {
-	flavors := make([]flavor, 0)
-	conf := config.Get()
-	for _, f := range conf.Flavors {
-		flavors = append(flavors, flavor{
-			Name:        f.Name,
-			Description: f.Description,
-		})
+	manager, err := getManager(c)
+	if err != nil {
+		return err
 	}
 
-	sort.SliceStable(flavors, func(i, j int) bool { return flavors[i].Name < flavors[j].Name })
+	flavors, err := manager.GetFlavors(c.Request().Context())
+	if err != nil {
+		return err
+	}
+
+	if flavors == nil {
+		flavors = make([]rpaas.Flavor, 0)
+	}
 
 	return c.JSON(http.StatusOK, flavors)
 }

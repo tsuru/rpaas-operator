@@ -21,6 +21,11 @@ type RpaasInstanceSpec struct {
 	// PlanName is the name of the rpaasplan instance.
 	PlanName string `json:"planName"`
 
+	// Flavors are references to RpaasFlavors resources. When provided, each flavor
+	// merges its instance template spec with this instance spec.
+	// +optional
+	Flavors []string `json:"flavors,omitempty"`
+
 	// PlanTemplate allow overriding fields in the specified plan.
 	PlanTemplate *RpaasPlanSpec `json:"planTemplate,omitempty"`
 

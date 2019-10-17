@@ -115,6 +115,11 @@ type PurgeCacheArgs struct {
 	PreservePath bool   `json:"preserve_path" form:"preserve_path"`
 }
 
+type Flavor struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 type RpaasManager interface {
 	ConfigurationBlockHandler
 	ExtraFileHandler
@@ -129,6 +134,7 @@ type RpaasManager interface {
 	GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error)
 	Scale(ctx context.Context, name string, replicas int32) error
 	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
+	GetFlavors(ctx context.Context) ([]Flavor, error)
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)

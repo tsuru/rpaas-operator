@@ -13,7 +13,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 )
 
@@ -45,16 +44,6 @@ api-username: u1
 service-annotations:
   a: b
   c: d
-flavors:
-- name: tangerine
-  description: |-
-    Some description about tangerine.
-  spec:
-    image: img1
-- name: mango
-  spec:
-    config:
-      cacheEnabled: false
 `,
 			expected: RpaasConfig{
 				APIUsername: "u1",
@@ -62,23 +51,6 @@ flavors:
 				ServiceAnnotations: map[string]string{
 					"a": "b",
 					"c": "d",
-				},
-				Flavors: []FlavorConfig{
-					{
-						Name:        "tangerine",
-						Description: "Some description about tangerine.",
-						Spec: v1alpha1.RpaasPlanSpec{
-							Image: "img1",
-						},
-					},
-					{
-						Name: "mango",
-						Spec: v1alpha1.RpaasPlanSpec{
-							Config: v1alpha1.NginxConfig{
-								CacheEnabled: v1alpha1.Bool(false),
-							},
-						},
-					},
 				},
 			},
 		},
@@ -88,8 +60,6 @@ api-username: ignored1
 service-annotations:
   ig: nored
 service-name: rpaasv2be
-flavors:
-- name: strawberry
 `,
 			envs: map[string]string{
 				"RPAASV2_API_USERNAME":        "u1",
@@ -102,11 +72,6 @@ flavors:
 				ServiceName: "rpaasv2be",
 				ServiceAnnotations: map[string]string{
 					"x": "y",
-				},
-				Flavors: []FlavorConfig{
-					{
-						Name: "strawberry",
-					},
 				},
 			},
 		},
