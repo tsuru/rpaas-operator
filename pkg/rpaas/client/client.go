@@ -12,7 +12,6 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
 	"strings"
 
@@ -218,18 +217,4 @@ func getBodyString(resp *http.Response) (string, error) {
 	}
 	defer resp.Body.Close()
 	return string(bodyBytes), nil
-}
-
-func writeInfo(prefix string, data []jsonInfo) {
-	// flushing stdout
-	fmt.Println()
-
-	table := tablewriter.NewWriter(os.Stdout)
-	table.SetRowLine(true)
-	table.SetHeader([]string{prefix, "Description"})
-	for _, dataStruct := range data {
-		table.Append([]string{dataStruct.Name, dataStruct.Description})
-	}
-
-	table.Render()
 }

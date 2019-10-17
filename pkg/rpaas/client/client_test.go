@@ -286,10 +286,12 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 				helper := []struct {
 					Name        string `json:"name"`
 					Description string `json:"description"`
+					Default     bool   `json:"default"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
+						Default:     true,
 					},
 				}
 				body, err := json.Marshal(helper)
@@ -301,7 +303,7 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 		{
 			name:     "some error returned on the request",
 			instance: "test-instance",
-			handlerPlans: func(w http.ResponseWriter, r *http.Request) {
+			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/flavors")
 				bodyBytes, err := ioutil.ReadAll(r.Body)
@@ -319,7 +321,7 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			sv := httptest.NewServer(tt.handlerPlans)
+			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
 			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
@@ -360,10 +362,12 @@ func TestFlavorsTroughTsuru(t *testing.T) {
 				helper := []struct {
 					Name        string `json:"name"`
 					Description string `json:"description"`
+					Default     bool   `json:"default"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
+						Default:     true,
 					},
 				}
 
