@@ -11,6 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func TestNewClient(t *testing.T) {
@@ -122,15 +123,15 @@ func TestGetPlansTroughHostAPI(t *testing.T) {
 	testCases := []struct {
 		name      string
 		instance  string
-		assertion func(t *testing.T, plans []Plan, err error)
+		assertion func(t *testing.T, plans []types.Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name:     "valid request",
 			instance: "test-instance",
-			assertion: func(t *testing.T, plans []Plan, err error) {
+			assertion: func(t *testing.T, plans []types.Plan, err error) {
 				assert.NoError(t, err)
-				expectedPlans := []Plan{
+				expectedPlans := []types.Plan{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
@@ -177,7 +178,7 @@ func TestGetPlansTroughHostAPI(t *testing.T) {
 				w.WriteHeader(http.StatusBadRequest)
 				w.Write([]byte("Some Error"))
 			},
-			assertion: func(t *testing.T, plans []Plan, err error) {
+			assertion: func(t *testing.T, plans []types.Plan, err error) {
 				assert.Error(t, fmt.Errorf("unexpected status code: body: Some Error"), err)
 			},
 		},
@@ -198,15 +199,15 @@ func TestPlansTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
 		instance  string
-		assertion func(t *testing.T, plans []Plan, err error)
+		assertion func(t *testing.T, plans []types.Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name:     "testing with existing service and string in tsuru target",
 			instance: "rpaasv2-test",
-			assertion: func(t *testing.T, plans []Plan, err error) {
+			assertion: func(t *testing.T, plans []types.Plan, err error) {
 				assert.NoError(t, err)
-				expectedPlans := []Plan{
+				expectedPlans := []types.Plan{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
@@ -250,6 +251,136 @@ func TestPlansTroughTsuru(t *testing.T) {
 			clientTest, err := NewTsuruClient(sv.URL, "example-service", "f4k3t0k3n")
 			plans, err := clientTest.GetPlans(context.TODO(), &tt.instance)
 			tt.assertion(t, plans, err)
+		})
+	}
+}
+
+func TestGetFlavorsTroughHostAPI(t *testing.T) {
+	testCases := []struct {
+		name      string
+		instance  string
+		assertion func(t *testing.T, flavors []types.Flavor, err error)
+		handler   http.HandlerFunc
+	}{
+		{
+			name:     "valid request",
+			instance: "test-instance",
+			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
+				assert.NoError(t, err)
+				expectedFlavors := []types.Flavor{
+					{
+						Name:        "dsr",
+						Description: "rpaas dsr",
+					},
+				}
+				assert.Equal(t, expectedFlavors, flavors)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/flavors")
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.NotNil(t, bodyBytes)
+				w.Header().Set("Content-Type", "application/json")
+				helper := []struct {
+					Name        string `json:"name"`
+					Description string `json:"description"`
+				}{
+					{
+						Name:        "dsr",
+						Description: "rpaas dsr",
+					},
+				}
+				body, err := json.Marshal(helper)
+				require.NoError(t, err)
+				w.Write(body)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name:     "some error returned on the request",
+			instance: "test-instance",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/flavors")
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.NotNil(t, bodyBytes)
+				w.WriteHeader(http.StatusBadRequest)
+				w.Write([]byte("Some Error"))
+			},
+			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
+				assert.Error(t, fmt.Errorf("unexpected status code: body: Some Error"), err)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
+			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
+			tt.assertion(t, flavors, err)
+		})
+	}
+}
+
+func TestFlavorsTroughTsuru(t *testing.T) {
+	testCases := []struct {
+		name      string
+		instance  string
+		assertion func(t *testing.T, flavors []types.Flavor, err error)
+		handler   http.HandlerFunc
+	}{
+		{
+			name:     "testing with existing service and string in tsuru target",
+			instance: "rpaasv2-test",
+			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
+				assert.NoError(t, err)
+				expectedPlans := []types.Flavor{
+					{
+						Name:        "dsr",
+						Description: "rpaas dsr",
+					},
+				}
+				assert.Equal(t, expectedPlans, flavors)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/flavors", r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				_, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				w.Header().Set("Content-Type", "application/json")
+				w.WriteHeader(http.StatusOK)
+				helper := []struct {
+					Name        string `json:"name"`
+					Description string `json:"description"`
+				}{
+					{
+						Name:        "dsr",
+						Description: "rpaas dsr",
+					},
+				}
+
+				body, err := json.Marshal(helper)
+				require.NoError(t, err)
+				w.Write(body)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			clientTest, err := NewTsuruClient(sv.URL, "example-service", "f4k3t0k3n")
+			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
+			tt.assertion(t, flavors, err)
 		})
 	}
 }

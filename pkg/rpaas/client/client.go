@@ -14,6 +14,8 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 type RpaasClient struct {
@@ -42,7 +44,7 @@ func NewTsuruClient(tsuruAPI, service, token string) (*RpaasClient, error) {
 	}, nil
 }
 
-func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]Plan, error) {
+func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]types.Plan, error) {
 
 	var pathName string
 	var req *http.Request
@@ -76,7 +78,7 @@ func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]Plan, e
 		if err != nil {
 			return nil, fmt.Errorf("Error while trying to read body: %v", err)
 		}
-		var plans []Plan
+		var plans []types.Plan
 		err = json.Unmarshal(body, &plans)
 		if err != nil {
 			return nil, err
@@ -90,7 +92,7 @@ func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]Plan, e
 	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
-func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]Flavor, error) {
+func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]types.Flavor, error) {
 	var pathName string
 	var req *http.Request
 	var err error
@@ -104,7 +106,7 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]Flavo
 		}
 	default:
 		pathName = fmt.Sprintf("/resources/%s/flavors", *instance)
-		req, err = c.newRequest("GET", "", pathName, nil)
+		req, err = c.newRequest("GET", *instance, pathName, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -124,7 +126,7 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]Flavo
 		if err != nil {
 			return nil, fmt.Errorf("Error while trying to read body: %v", err)
 		}
-		var flavors []Flavor
+		var flavors []types.Flavor
 		err = json.Unmarshal(body, &flavors)
 		if err != nil {
 			return nil, err
@@ -174,7 +176,7 @@ func (c *RpaasClient) do(ctx context.Context, req *http.Request) (*http.Response
 	return c.httpClient.Do(req)
 }
 
-func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Reader) (*http.Request, error) {
+func (c *RpaasClient) getUrl(instance, pathName string) string {
 	var url string
 	if c.tsuruTarget != "" {
 		if instance == "" {
@@ -187,6 +189,11 @@ func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Read
 	} else {
 		url = fmt.Sprintf("%s%s", c.hostAPI, pathName)
 	}
+	return url
+}
+
+func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Reader) (*http.Request, error) {
+	url := c.getUrl(instance, pathName)
 
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
