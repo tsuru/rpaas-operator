@@ -59,6 +59,11 @@ func runInfo(info infoArgs) error {
 	return nil
 }
 
+type respData struct {
+	Name        string `json:"name"`
+	Description string `json:"description"`
+}
+
 func getInfo(prox *proxy.Proxy, infoType string) error {
 	res, err := prox.ProxyRequest()
 	if err != nil {
@@ -73,40 +78,26 @@ func getInfo(prox *proxy.Proxy, infoType string) error {
 		return fmt.Errorf("Status Code: %v\nResponse Body:\n%v", res.Status, bodyString)
 	}
 
-	var fp interface{}
+	var fp []respData
 	err = json.Unmarshal(body, &fp)
 	if err != nil {
 		return err
 	}
-	helperSlice := fp.([]interface{})
-	WriteInfo(infoType, helperSlice)
+
+	WriteInfo(infoType, fp)
 
 	return nil
 }
 
-func prepareInfoSlice(data []interface{}) [][]string {
-	dataSlice := [][]string{}
-	for _, mapVal := range data {
-		m := mapVal.(map[string]interface{})
-		target := []string{fmt.Sprintf("%v", m["name"]),
-			fmt.Sprintf("%v", m["description"])}
-		dataSlice = append(dataSlice, target)
-	}
-
-	return dataSlice
-}
-
-func WriteInfo(prefix string, data []interface{}) {
+func WriteInfo(prefix string, data []respData) {
 	// flushing stdout
 	fmt.Println()
-
-	dataSlice := prepareInfoSlice(data)
 
 	table := tablewriter.NewWriter(os.Stdout)
 	table.SetRowLine(true)
 	table.SetHeader([]string{prefix, "Description"})
-	for _, v := range dataSlice {
-		table.Append(v)
+	for _, dataStruct := range data {
+		table.Append([]string{dataStruct.Name, dataStruct.Description})
 	}
 
 	table.Render()
