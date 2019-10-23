@@ -1,11 +1,11 @@
-package cli
+package app
 
 import (
 	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/types"
 	"github.com/urfave/cli"
 )
 
-func AppInit() *cli.App {
+func Init() *cli.App {
 	app := cli.NewApp()
 	app.Flags = append(app.Flags, cli.StringFlag{
 		Name:   "target",
@@ -22,7 +22,18 @@ func AppInit() *cli.App {
 	return app
 }
 
-func SetBeforeFunc(app *cli.App, manager *types.Manager) {
+func TsuruApp() (*cli.App, error) {
+	app := Init()
+	manager, err := types.NewTsuruManager()
+	if err != nil {
+		return nil, err
+	}
+	SetContext(app, manager)
+
+	return app, nil
+}
+
+func SetContext(app *cli.App, manager *types.Manager) {
 	app.Before = func(ctx *cli.Context) error {
 		if err := ctx.GlobalSet("target", manager.Target); err != nil {
 			return err

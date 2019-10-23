@@ -4,33 +4,23 @@ import (
 	"log"
 	"os"
 
-	cliApp "github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/cli"
-	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/types"
+	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/app"
+	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/cmd"
 	"github.com/urfave/cli"
 )
 
-func appendCmds(app *cli.App) {
-	app.Commands = append(app.Commands, cliApp.CreateScale())
-}
-
-func createTsuruCLi() (*cli.App, error) {
-	app := cliApp.AppInit()
-	manager, err := types.NewTsuruManager()
-	if err != nil {
-		return nil, err
-	}
-	cliApp.SetBeforeFunc(app, manager)
-
-	return app, nil
+func appendCmds(cliApp *cli.App) {
+	cliApp.Commands = append(cliApp.Commands, cmd.Scale())
 }
 
 func main() {
-	app, err := createTsuruCLi()
-	appendCmds(app)
-
+	app, err := app.TsuruApp()
 	if err != nil {
 		log.Fatal(err)
 	}
+
+	appendCmds(app)
+
 	err = app.Run(os.Args)
 	if err != nil {
 		log.Fatal(err)

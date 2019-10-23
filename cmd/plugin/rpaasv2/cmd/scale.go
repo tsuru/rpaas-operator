@@ -1,4 +1,4 @@
-package cli
+package cmd
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func createFlags() []cli.Flag {
+func initFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
 			Name:     "service, s",
@@ -28,23 +28,21 @@ func createFlags() []cli.Flag {
 	}
 }
 
-func CreateScale() cli.Command {
+func Scale() cli.Command {
 	scale := cli.Command{
 		Name:  "scale",
 		Usage: "Scales the specified rpaas instance to [-q] units",
-		Flags: createFlags(),
+		Flags: initFlags(),
 
 		Action: func(ctx *cli.Context) error {
-			tsuruTarget := ctx.GlobalString("target")
-			tsuruToken := ctx.GlobalString("token")
-			serviceName := ctx.String("service")
-			instanceName := ctx.String("instance")
-			quantity := ctx.Int("quantity")
-			client, err := client.NewTsuruClient(tsuruTarget, serviceName, tsuruToken)
+			quantity := int32(ctx.Int("quantity"))
+			client, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
 			if err != nil {
 				return err
 			}
-			err = client.Scale(context.TODO(), instanceName, int32(quantity))
+
+			err = client.Scale(context.TODO(), ctx.String("instance"), quantity)
+
 			if err != nil {
 				return err
 			}
