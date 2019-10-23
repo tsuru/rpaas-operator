@@ -7,9 +7,6 @@ require (
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0 // indirect
 	github.com/docker/go-units v0.3.3 // indirect
 	github.com/howeyc/fsnotify v0.9.0 // indirect
-	github.com/mattn/go-runewidth v0.0.4 // indirect
-	github.com/olekukonko/tablewriter v0.0.1
-	github.com/spf13/cobra v0.0.5
 	github.com/tsuru/config v0.0.0-20180418191556-87403ee7da02 // indirect
 	github.com/tsuru/rpaas-operator/pkg/rpaas/client v0.0.0-00000000000000-000000000000
 	github.com/tsuru/tsuru v0.0.0-20190917161403-b6b3f8bee958
