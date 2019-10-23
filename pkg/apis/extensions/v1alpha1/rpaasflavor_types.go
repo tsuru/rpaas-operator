@@ -19,6 +19,11 @@ type RpaasFlavorSpec struct {
 	// associated RpaasInstance.
 	// +optional
 	InstanceTemplate *RpaasInstanceSpec `json:"instanceTemplate,omitempty"`
+
+	// Default defines if the flavor should be applied by default on
+	// every service instance. Default flavors cannot be listed on RpaasFlavorList.
+	// +optional
+	Default bool `json:"default,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
