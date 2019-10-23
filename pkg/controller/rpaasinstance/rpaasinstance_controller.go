@@ -175,6 +175,16 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 	logger := log.WithName("mergeInstanceWithFlavors").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
+	defaultFlavors, err := r.listDefaultFlavors(instance)
+	if err != nil {
+		return nil, err
+	}
+	for _, defaultFlavor := range defaultFlavors {
+		if err := mergeInstanceWithFlavor(instance, defaultFlavor); err != nil {
+			return nil, err
+		}
+	}
+
 	for _, flavorName := range instance.Spec.Flavors {
 		flavorObjectKey := types.NamespacedName{
 			Name:      flavorName,
@@ -190,28 +200,53 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 			return nil, err
 		}
 
-		if flavor.Spec.InstanceTemplate != nil {
-			mergedInstanceSpec, err := mergeInstance(*flavor.Spec.InstanceTemplate, instance.Spec)
-			if err != nil {
-				logger.Error(err, "Could not merge instance against flavor instance template")
-				return nil, err
-			}
-
-			logger.
-				WithValues("RpaasInstanceSpec", instance.Spec).
-				WithValues("InstanceTemplate", flavor.Spec.InstanceTemplate).
-				WithValues("Merged", mergedInstanceSpec).
-				V(4).
-				Info("RpaasInstanceSpec successfully merged")
-
-			instance.Spec = mergedInstanceSpec
-		} else {
-			logger.V(4).
-				Info("Skipping RpaasInstance merge since there is no instance template in RpaasFlavor")
+		if err := mergeInstanceWithFlavor(instance, flavor); err != nil {
+			return nil, err
 		}
+
 	}
 
 	return instance, nil
+}
+
+func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.RpaasFlavor) error {
+	logger := log.WithName("mergeInstanceWithFlavors").
+		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
+	if flavor.Spec.InstanceTemplate != nil {
+		mergedInstanceSpec, err := mergeInstance(*flavor.Spec.InstanceTemplate, instance.Spec)
+		if err != nil {
+			logger.Error(err, "Could not merge instance against flavor instance template")
+			return err
+		}
+
+		logger.
+			WithValues("RpaasInstanceSpec", instance.Spec).
+			WithValues("InstanceTemplate", flavor.Spec.InstanceTemplate).
+			WithValues("Merged", mergedInstanceSpec).
+			V(4).
+			Info("RpaasInstanceSpec successfully merged")
+
+		instance.Spec = mergedInstanceSpec
+	} else {
+		logger.V(4).
+			Info("Skipping RpaasInstance merge since there is no instance template in RpaasFlavor")
+	}
+	return nil
+}
+
+func (r *ReconcileRpaasInstance) listDefaultFlavors(instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
+	flavorList := &v1alpha1.RpaasFlavorList{}
+	if err := r.client.List(context.TODO(), client.InNamespace(instance.Namespace), flavorList); err != nil {
+		return nil, err
+	}
+	var result []v1alpha1.RpaasFlavor
+	for _, flavor := range flavorList.Items {
+		if flavor.Spec.Default {
+			result = append(result, flavor)
+		}
+	}
+	sort.SliceStable(result, func(i, j int) bool { return result[i].Name < result[j].Name })
+	return result, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1alpha1.RpaasInstance, nginx nginxV1alpha1.Nginx) error {
