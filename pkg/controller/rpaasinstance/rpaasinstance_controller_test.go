@@ -141,7 +141,31 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, mintFlavor, mangoFlavor}
+	defaultFlavor := newRpaasFlavor()
+	defaultFlavor.Name = "default"
+	defaultFlavor.Spec.Default = true
+	defaultFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		Service: &nginxv1alpha1.NginxService{
+			Annotations: map[string]string{
+				"default-service-annotation": "default",
+			},
+			Labels: map[string]string{
+				"default-service-label":  "default",
+				"flavored-service-label": "default",
+			},
+		},
+		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+			Annotations: map[string]string{
+				"default-pod-annotation": "default",
+			},
+			Labels: map[string]string{
+				"mango-pod-label":   "not-a-mango",
+				"default-pod-label": "default",
+			},
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, mintFlavor, mangoFlavor, defaultFlavor}
 
 	tests := []struct {
 		name      string
@@ -149,9 +173,38 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		expected  v1alpha1.RpaasInstance
 	}{
 		{
-			name:      "when the fetched RpaasInstance has no flavor provided",
+			name:      "when the fetched RpaasInstance has no flavor provided it should merge with default flavors only",
 			objectKey: types.NamespacedName{Name: instance1.Name, Namespace: instance1.Namespace},
-			expected:  *instance1,
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance1.Name,
+					Namespace: instance1.Namespace,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"default-service-annotation": "default",
+						},
+						Labels: map[string]string{
+							"default-service-label":  "default",
+							"flavored-service-label": "default",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Annotations: map[string]string{
+							"default-pod-annotation": "default",
+						},
+						Labels: map[string]string{
+							"mango-pod-label":   "not-a-mango",
+							"default-pod-label": "default",
+						},
+					},
+				},
+			},
 		},
 		{
 			name:      "when instance refers to one flavor, the returned instance should be merged with it",
@@ -169,20 +222,25 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Flavors: []string{"mint"},
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
+							"default-service-annotation":   "default",
 							"some-instance-annotation-key": "blah",
 							"flavored-service-annotation":  "v1",
 						},
 						Labels: map[string]string{
+							"default-service-label":   "default",
 							"some-instance-label-key": "label1",
 							"conflict-label":          "instance value",
-							"flavored-service-label":  "v1",
+							"flavored-service-label":  "default",
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 						Annotations: map[string]string{
 							"flavored-pod-annotation": "v1",
+							"default-pod-annotation":  "default",
 						},
 						Labels: map[string]string{
+							"mango-pod-label":    "not-a-mango",
+							"default-pod-label":  "default",
 							"flavored-pod-label": "v1",
 						},
 						HostNetwork: true,
@@ -209,25 +267,29 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Flavors: []string{"mint", "mango"},
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
+							"default-service-annotation":   "default",
 							"some-instance-annotation-key": "blah",
 							"flavored-service-annotation":  "v1",
 							"mango-service-annotation":     "mango",
 						},
 						Labels: map[string]string{
+							"default-service-label":   "default",
 							"some-instance-label-key": "label1",
 							"conflict-label":          "instance value",
-							"flavored-service-label":  "v1",
+							"flavored-service-label":  "default",
 							"mango-service-label":     "mango",
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 						Annotations: map[string]string{
+							"default-pod-annotation":  "default",
 							"flavored-pod-annotation": "v1",
 							"mango-pod-annotation":    "mango",
 						},
 						Labels: map[string]string{
 							"flavored-pod-label": "v1",
-							"mango-pod-label":    "mango",
+							"mango-pod-label":    "not-a-mango",
+							"default-pod-label":  "default",
 						},
 						HostNetwork: true,
 					},
@@ -245,7 +307,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 			}
 			instance, err := reconciler.getRpaasInstance(context.TODO(), tt.objectKey)
 			require.NoError(t, err)
-			assert.Equal(t, *instance, tt.expected)
+			assert.Equal(t, tt.expected, *instance)
 		})
 	}
 }

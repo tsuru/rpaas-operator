@@ -200,6 +200,10 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 			return nil, err
 		}
 
+		if flavor.Spec.Default {
+			continue
+		}
+
 		if err := mergeInstanceWithFlavor(instance, flavor); err != nil {
 			return nil, err
 		}
@@ -210,7 +214,7 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 }
 
 func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.RpaasFlavor) error {
-	logger := log.WithName("mergeInstanceWithFlavors").
+	logger := log.WithName("mergeInstanceWithFlavor").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 	if flavor.Spec.InstanceTemplate != nil {
 		mergedInstanceSpec, err := mergeInstance(*flavor.Spec.InstanceTemplate, instance.Spec)
