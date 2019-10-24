@@ -6,34 +6,31 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
-	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/app"
-	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/types"
+	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gotest.tools/assert"
 )
 
-func setupApp(URL string) (*cli.App, *bytes.Buffer) {
-	testApp := app.Init()
+func setupApp() (*cli.App, *bytes.Buffer) {
+	testApp := NewApp()
+
 	buffer := bytes.NewBuffer(nil)
 	writer := io.Writer(buffer)
-	manager := &types.Manager{
-		Target: URL,
-		Token:  "f4k3t0k3n",
-		Writer: writer,
-	}
-	app.SetContext(testApp, manager)
+	testApp.Writer = writer
 	testApp.Commands = append(testApp.Commands, Scale())
 
 	return testApp, buffer
 }
 
-func TestPostScale(t *testing.T) {
+func TestScale(t *testing.T) {
 	testCase := struct {
 		name      string
 		handler   http.HandlerFunc
 		assertion func(t *testing.T, err error, buffer *bytes.Buffer)
+		args      []string
 	}{
 		name: "when a valid command is passed",
 		handler: func(w http.ResponseWriter, r *http.Request) {
@@ -51,17 +48,22 @@ func TestPostScale(t *testing.T) {
 			assert.Equal(t, "Instance successfully scaled to 2 unit(s)\n", str)
 			assert.NilError(t, err)
 		},
+		args: []string{"./rpaasv2", "scale", "-s", "fake-service", "-i", "fake-instance", "-q", "2"},
 	}
 
 	t.Run(testCase.name, func(t *testing.T) {
 		// setup
 		ts := httptest.NewServer(testCase.handler)
 		defer ts.Close()
-		testApp, buffer := setupApp(ts.URL)
+		testApp, buffer := setupApp()
 		testApp.Commands = append(testApp.Commands, Scale())
+		os.Setenv("TSURU_TARGET", ts.URL)
+		os.Setenv("TSURU_TOKEN", "f4k3t0k3n")
 		//end of setup
-
-		err := testApp.Run([]string{"./rpaasv2", "scale", "-s", "fake-service", "-i", "fake-instance", "-q", "2"})
+		err := testApp.Run(testCase.args)
+		// unsetting env variables
+		require.NoError(t, os.Unsetenv("TSURU_TARGET"))
+		require.NoError(t, os.Unsetenv("TSURU_TOKEN"))
 		testCase.assertion(t, err, buffer)
 	})
 }
