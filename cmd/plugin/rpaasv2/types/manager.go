@@ -24,11 +24,5 @@ func NewTsuruManager() (*Manager, error) {
 		return nil, err
 	}
 
-	manager := &Manager{
-		Target: target,
-		Token:  token,
-		Writer: os.Stdout,
-	}
-
-	return manager, nil
+	return &Manager{Target: target, Token: token, Writer: os.Stdout}, nil
 }
