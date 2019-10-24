@@ -379,6 +379,9 @@ func (m *k8sRpaasManager) GetFlavors(ctx context.Context) ([]Flavor, error) {
 
 	var result []Flavor
 	for _, flavor := range flavors {
+		if flavor.Spec.Default {
+			continue
+		}
 		result = append(result, Flavor{
 			Name:        flavor.Name,
 			Description: flavor.Spec.Description,

@@ -2868,6 +2868,16 @@ func Test_k8sRpaasManager_GetFlavors(t *testing.T) {
 						Description: "Just a human readable description to mango flavor",
 					},
 				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Default:     true,
+						Description: "Default flavor that should not appear on flavors list",
+					},
+				},
 			},
 			expected: []Flavor{
 				{
@@ -2890,7 +2900,7 @@ func Test_k8sRpaasManager_GetFlavors(t *testing.T) {
 
 			flavors, err := manager.GetFlavors(context.TODO())
 			require.NoError(t, err)
-			assert.Equal(t, flavors, tt.expected)
+			assert.Equal(t, tt.expected, flavors)
 		})
 	}
 }
