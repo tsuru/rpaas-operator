@@ -301,12 +301,10 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 				helper := []struct {
 					Name        string `json:"name"`
 					Description string `json:"description"`
-					Default     bool   `json:"default"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
-						Default:     true,
 					},
 				}
 				body, err := json.Marshal(helper)
@@ -377,12 +375,10 @@ func TestFlavorsTroughTsuru(t *testing.T) {
 				helper := []struct {
 					Name        string `json:"name"`
 					Description string `json:"description"`
-					Default     bool   `json:"default"`
 				}{
 					{
 						Name:        "dsr",
 						Description: "rpaas dsr",
-						Default:     true,
 					},
 				}
 

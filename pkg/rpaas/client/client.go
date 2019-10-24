@@ -15,7 +15,6 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/olekukonko/tablewriter"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -42,6 +41,7 @@ func NewTsuruClient(tsuruAPI, service, token string) (*RpaasClient, error) {
 		tsuruTarget:  tsuruAPI,
 		tsuruToken:   token,
 		tsuruService: service,
+	}, nil
 }
 
 func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]types.Plan, error) {
@@ -148,6 +148,8 @@ func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32
 	bodyStruct := url.Values{}
 	bodyStruct.Set("quantity", strconv.Itoa(int(replicas)))
 
+	pathName := fmt.Sprintf("/resources/%s/scale", instance)
+	bodyReader := strings.NewReader(bodyStruct.Encode())
 	req, err := c.newRequest("POST", instance, pathName, bodyReader)
 	if err != nil {
 		return err
@@ -182,6 +184,7 @@ func (c *RpaasClient) getUrl(instance, pathName string) string {
 		if instance == "" {
 			url = fmt.Sprintf("%s/services/proxy/%s?callback=%s",
 				c.tsuruTarget, c.tsuruService, pathName)
+		} else {
 			url = fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s",
 				c.tsuruTarget, c.tsuruService, instance, pathName)
 		}
@@ -206,6 +209,12 @@ func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Read
 	return req, nil
 
 }
+
+func scaleValidate(instance string, replicas int32) error {
+	if instance == "" {
+		return fmt.Errorf("instance can't be nil")
+	}
+
 	if replicas < 0 {
 		return fmt.Errorf("replicas number must be greater or equal to zero")
 	}
