@@ -10,6 +10,7 @@ import (
 
 func appendCmds(cliApp *cli.App) {
 	cliApp.Commands = append(cliApp.Commands, Scale())
+	cliApp.Commands = append(cliApp.Commands, Info())
 }
 
 func NewApp() *cli.App {

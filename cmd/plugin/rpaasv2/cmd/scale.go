@@ -12,7 +12,7 @@ import (
 	"github.com/urfave/cli"
 )
 
-func initFlags() []cli.Flag {
+func initScaleFlags() []cli.Flag {
 	return []cli.Flag{
 		cli.StringFlag{
 			Name:     "service, s",
@@ -36,7 +36,7 @@ func Scale() cli.Command {
 	scale := cli.Command{
 		Name:  "scale",
 		Usage: "Scales the specified rpaas instance to [-q] units",
-		Flags: initFlags(),
+		Flags: initScaleFlags(),
 
 		Action: func(ctx *cli.Context) error {
 			quantity := int32(ctx.Int("quantity"))
