@@ -5,95 +5,56 @@
 package cmd
 
 import (
-	"bytes"
-	"encoding/json"
+	"context"
 	"fmt"
-	"io/ioutil"
-	"net/http"
-	"os"
-	"strconv"
 
-	"github.com/spf13/cobra"
-	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/proxy"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	"github.com/urfave/cli"
 )
 
-type scaleArgs struct {
-	service  string
-	instance string
-	quantity int
-	prox     *proxy.Proxy
+func initFlags() []cli.Flag {
+	return []cli.Flag{
+		cli.StringFlag{
+			Name:     "service, s",
+			Usage:    "service name",
+			Required: true,
+		},
+		cli.StringFlag{
+			Name:     "instance, i",
+			Usage:    "instance name",
+			Required: true,
+		},
+		cli.IntFlag{
+			Name:     "quantity, q",
+			Usage:    "amount of units to scale to",
+			Required: true,
+		},
+	}
 }
 
-var scaleCmd = &cobra.Command{
-	Use:   "scale",
-	Short: `Scales the specified rpaas instance to [-q] units`,
-	Long:  ``,
-	RunE: func(cmd *cobra.Command, args []string) error {
-		return runScale(cmd, args, &proxy.TsuruServer{})
-	},
-}
+func Scale() cli.Command {
+	scale := cli.Command{
+		Name:  "scale",
+		Usage: "Scales the specified rpaas instance to [-q] units",
+		Flags: initFlags(),
 
-func runScale(cmd *cobra.Command, args []string, sv proxy.Server) error {
-	cmd.ParseFlags(args)
-	serviceName := cmd.Flag("service").Value.String()
-	instanceName := cmd.Flag("instance").Value.String()
-	quantity, err := cmd.Flags().GetInt("quantity")
-	if err != nil {
-		return err
-	}
-	scale := scaleArgs{service: serviceName, instance: instanceName,
-		quantity: quantity,
-		prox:     proxy.New(serviceName, instanceName, "POST", sv),
+		Action: func(ctx *cli.Context) error {
+			quantity := int32(ctx.Int("quantity"))
+			client, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
+			if err != nil {
+				return err
+			}
+
+			err = client.Scale(context.TODO(), ctx.String("instance"), quantity)
+
+			if err != nil {
+				return err
+			}
+
+			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d unit(s)\n", quantity)
+			return nil
+		},
 	}
 
-	output, err := prepareScale(scale)
-	if err != nil {
-		return err
-	}
-	_, err = fmt.Fprint(os.Stdout, output)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func prepareScale(scale scaleArgs) (string, error) {
-	scale.prox.Path = "/resources/" + scale.instance + "/scale"
-	scale.prox.Headers["Content-Type"] = "application/json"
-	bodyReq, err := json.Marshal(map[string]string{
-		"quantity=": strconv.Itoa(scale.quantity),
-	})
-	if err != nil {
-		return "", err
-	}
-	scale.prox.Body = bytes.NewBuffer(bodyReq)
-
-	return postScale(scale.prox, scale.quantity)
-}
-
-func postScale(prox *proxy.Proxy, quantity int) (string, error) {
-	resp, err := prox.ProxyRequest()
-	if err != nil {
-		return "", err
-	}
-	respBody, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		return "", err
-	}
-	if resp.StatusCode != http.StatusCreated {
-		bodyString := string(respBody)
-		return "", fmt.Errorf("Status Code: %v\nResponse Body:\n%v", resp.Status, bodyString)
-	}
-	return fmt.Sprintf("Instance successfully scaled to %d unit(s)\n", quantity), nil
-}
-
-func init() {
-	rootCmd.AddCommand(scaleCmd)
-
-	scaleCmd.Flags().IntP("quantity", "q", 0, "Quantity of units to scale")
-	scaleCmd.Flags().StringP("service", "s", "", "Service name")
-	scaleCmd.Flags().StringP("instance", "i", "", "Service instance name")
-	scaleCmd.MarkFlagRequired("service")
-	scaleCmd.MarkFlagRequired("instance")
-	scaleCmd.MarkFlagRequired("quantity")
+	return scale
 }

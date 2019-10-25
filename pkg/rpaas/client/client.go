@@ -160,6 +160,7 @@ func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32
 	if err != nil {
 		return err
 	}
+
 	if resp.StatusCode == http.StatusCreated {
 		return nil
 	}
@@ -173,6 +174,7 @@ func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32
 
 func (c *RpaasClient) do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	req = req.WithContext(ctx)
+
 	return c.httpClient.Do(req)
 }
 
@@ -205,6 +207,7 @@ func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Read
 	}
 
 	return req, nil
+
 }
 
 func scaleValidate(instance string, replicas int32) error {

@@ -1,3 +1,7 @@
+// Copyright 2019 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package client
 
 import (
@@ -25,22 +29,33 @@ func TestNewClient(t *testing.T) {
 
 func TestRpaasClient_Scale(t *testing.T) {
 	testCases := []struct {
-		instance    string
-		replicas    int32
-		expectedErr error
-		handler     http.HandlerFunc
+		name      string
+		instance  string
+		replicas  int32
+		assertion func(t *testing.T, err error)
+		handler   http.HandlerFunc
 	}{
 		{
-			expectedErr: fmt.Errorf("instance can't be nil"),
+			name: "passing nil instance",
+			assertion: func(t *testing.T, err error) {
+				assert.Equal(t, fmt.Errorf("instance can't be nil"), err)
+			},
 		},
 		{
-			instance:    "test-instance",
-			replicas:    int32(-1),
-			expectedErr: fmt.Errorf("replicas number must be greater or equal to zero"),
+			name:     "passing invalid number of replicas",
+			instance: "test-instance",
+			replicas: int32(-1),
+			assertion: func(t *testing.T, err error) {
+				assert.Equal(t, fmt.Errorf("replicas number must be greater or equal to zero"), err)
+			},
 		},
 		{
+			name:     "testing valid request",
 			instance: "test-instance",
 			replicas: int32(2),
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/scale")
@@ -52,6 +67,7 @@ func TestRpaasClient_Scale(t *testing.T) {
 			},
 		},
 		{
+			name:     "testing error response from handler",
 			instance: "test-instance",
 			replicas: int32(2),
 			handler: func(w http.ResponseWriter, r *http.Request) {
@@ -64,7 +80,9 @@ func TestRpaasClient_Scale(t *testing.T) {
 				w.Write([]byte("Some Error"))
 				w.WriteHeader(http.StatusBadRequest)
 			},
-			expectedErr: fmt.Errorf("unexpected status code: body: Some Error"),
+			assertion: func(t *testing.T, err error) {
+				assert.Equal(t, fmt.Errorf("unexpected status code: body: Some Error"), err)
+			},
 		},
 	}
 
@@ -73,7 +91,8 @@ func TestRpaasClient_Scale(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-			assert.Equal(t, tt.expectedErr, clientTest.Scale(context.TODO(), tt.instance, tt.replicas))
+			err := clientTest.Scale(context.TODO(), tt.instance, tt.replicas)
+			tt.assertion(t, err)
 		})
 	}
 }
