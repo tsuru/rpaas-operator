@@ -27,11 +27,6 @@ func initInfoFlags() []cli.Flag {
 	}
 }
 
-type respData struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-}
-
 func Info() cli.Command {
 	info := cli.Command{
 		Name:  "info",
