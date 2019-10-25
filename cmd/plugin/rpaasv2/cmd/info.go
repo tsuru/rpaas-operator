@@ -71,9 +71,9 @@ func WritePlans(prefix string, plans []types.Plan, writer io.Writer) {
 
 	table := tablewriter.NewWriter(writer)
 	table.SetRowLine(true)
-	table.SetHeader([]string{prefix, "Description"})
+	table.SetHeader([]string{prefix, "Description", "Default"})
 	for _, plan := range plans {
-		table.Append([]string{plan.Name, plan.Description, "Default: " + strconv.FormatBool(plan.Default)})
+		table.Append([]string{plan.Name, plan.Description, strconv.FormatBool(plan.Default)})
 	}
 
 	table.Render()

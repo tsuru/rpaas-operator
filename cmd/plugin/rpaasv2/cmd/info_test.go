@@ -34,9 +34,9 @@ func testTableInfo(writer io.Writer) {
 
 	tablePlans := tablewriter.NewWriter(writer)
 	tablePlans.SetRowLine(true)
-	tablePlans.SetHeader([]string{"Plans", "Description"})
+	tablePlans.SetHeader([]string{"Plans", "Description", "Default"})
 
-	tablePlans.Append([]string{"plan name", "plan description", "Default: true"})
+	tablePlans.Append([]string{"plan name", "plan description", "true"})
 
 	tablePlans.Render()
 
