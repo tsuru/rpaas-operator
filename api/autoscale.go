@@ -23,7 +23,7 @@ func getAutoscale(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, struct {
-		Autoscale *rpaas.Autoscale `json:"autoscale`
+		Autoscale *rpaas.Autoscale `json:"autoscale"`
 	}{autoscale})
 }
 
