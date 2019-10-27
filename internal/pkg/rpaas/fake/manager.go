@@ -38,6 +38,10 @@ type RpaasManager struct {
 	FakeDeleteRoute       func(instanceName, path string) error
 	FakeGetRoutes         func(instanceName string) ([]rpaas.Route, error)
 	FakeUpdateRoute       func(instanceName string, route rpaas.Route) error
+	FakeGetAutoscale      func(name string) (*rpaas.Autoscale, error)
+	FakeCreateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
+	FakeUpdateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
+	FakeDeleteAutoscale   func(name string) error
 }
 
 func (m *RpaasManager) UpdateCertificate(ctx context.Context, instance, name string, c tls.Certificate) error {
@@ -197,6 +201,34 @@ func (m *RpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]rp
 func (m *RpaasManager) UpdateRoute(ctx context.Context, instanceName string, route rpaas.Route) error {
 	if m.FakeUpdateRoute != nil {
 		return m.FakeUpdateRoute(instanceName, route)
+	}
+	return nil
+}
+
+func (m *RpaasManager) GetAutoscale(ctx context.Context, instanceName string) (*rpaas.Autoscale, error) {
+	if m.FakeGetAutoscale != nil {
+		return m.FakeGetAutoscale(instanceName)
+	}
+	return nil, nil
+}
+
+func (m *RpaasManager) CreateAutoscale(ctx context.Context, instanceName string, autoscale *rpaas.Autoscale) error {
+	if m.FakeCreateAutoscale != nil {
+		return m.FakeCreateAutoscale(instanceName, autoscale)
+	}
+	return nil
+}
+
+func (m *RpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *rpaas.Autoscale) error {
+	if m.FakeUpdateAutoscale != nil {
+		return m.FakeUpdateAutoscale(instanceName, autoscale)
+	}
+	return nil
+}
+
+func (m *RpaasManager) DeleteAutoscale(ctx context.Context, instanceName string) error {
+	if m.FakeDeleteAutoscale != nil {
+		return m.FakeDeleteAutoscale(instanceName)
 	}
 	return nil
 }

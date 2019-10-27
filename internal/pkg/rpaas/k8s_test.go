@@ -2912,3 +2912,310 @@ func newScheme() *runtime.Scheme {
 	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
 	return scheme
 }
+
+func pointerToInt(x int32) *int32 {
+	return &x
+}
+
+func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MaxReplicas:                       3,
+		MinReplicas:                       pointerToInt(1),
+		TargetCPUUtilizationPercentage:    pointerToInt(70),
+		TargetMemoryUtilizationPercentage: pointerToInt(1024),
+	}
+
+	resources := []runtime.Object{instance1}
+
+	testCases := []struct {
+		instance  string
+		assertion func(*testing.T, *Autoscale, error, *k8sRpaasManager)
+	}{
+		{
+			instance: "my-invalid-instance",
+			assertion: func(t *testing.T, s *Autoscale, err error, m *k8sRpaasManager) {
+				assert.Error(t, NotFoundError{
+					Msg: `instance not found`,
+				}, err)
+				assert.Nil(t, s)
+			},
+		},
+		{
+			instance: "my-instance",
+			assertion: func(t *testing.T, s *Autoscale, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				expectedAutoscale := &Autoscale{
+					MaxReplicas: 3,
+					MinReplicas: pointerToInt(1),
+					CPU:         pointerToInt(70),
+					Memory:      pointerToInt(1024),
+				}
+				assert.Equal(t, expectedAutoscale, s)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			autoscale, err := manager.GetAutoscale(context.Background(), tt.instance)
+			tt.assertion(t, autoscale, err, manager)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MaxReplicas: 10,
+	}
+
+	resources := []runtime.Object{instance1, instance2}
+
+	testCases := []struct {
+		instance  string
+		autoscale Autoscale
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			instance: "my-invalid-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 10,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, NotFoundError{
+					Msg: `instance not found`,
+				}, err)
+			},
+		},
+		{
+			instance: "my-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 0,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, ValidationError{
+					Msg: `max replicas is required`,
+				}, err)
+			},
+		},
+		{
+			instance: "another-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 0,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, ValidationError{
+					Msg: `Autoscale already created`,
+				}, err)
+			},
+		},
+		{
+			instance: "my-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 10,
+				MinReplicas: pointerToInt(5),
+				CPU:         pointerToInt(2),
+				Memory:      pointerToInt(1024),
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: namespaceName()}, &instance)
+				require.NoError(t, err)
+
+				assert.NotEqual(t, nil, instance.Spec.Autoscale)
+				expectedAutoscale := &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas:                       10,
+					MinReplicas:                       pointerToInt(5),
+					TargetCPUUtilizationPercentage:    pointerToInt(2),
+					TargetMemoryUtilizationPercentage: pointerToInt(1024),
+				}
+				assert.Equal(t, expectedAutoscale, instance.Spec.Autoscale)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.CreateAutoscale(context.Background(), tt.instance, &tt.autoscale)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MaxReplicas:                       3,
+		MinReplicas:                       pointerToInt(1),
+		TargetCPUUtilizationPercentage:    pointerToInt(70),
+		TargetMemoryUtilizationPercentage: pointerToInt(1024),
+	}
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MaxReplicas: 10,
+	}
+
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "noscale-instance"
+	instance3.Spec.Autoscale = nil
+
+	resources := []runtime.Object{instance1, instance2, instance3}
+
+	testCases := []struct {
+		instance  string
+		autoscale Autoscale
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			instance: "my-invalid-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 10,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, NotFoundError{
+					Msg: `instance not found`,
+				}, err)
+			},
+		},
+		{
+			instance: "my-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 0,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, ValidationError{
+					Msg: `max replicas is required`,
+				}, err)
+			},
+		},
+		{
+			instance: "noscale-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 10,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "noscale-instance", Namespace: namespaceName()}, &instance)
+				require.NoError(t, err)
+
+				assert.NotEqual(t, nil, instance.Spec.Autoscale)
+				expectedAutoscale := &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas: 10,
+				}
+				assert.Equal(t, expectedAutoscale, instance.Spec.Autoscale)
+			},
+		},
+		{
+			instance: "my-instance",
+			autoscale: Autoscale{
+				MaxReplicas: 10,
+				MinReplicas: pointerToInt(5),
+				CPU:         pointerToInt(80),
+				Memory:      pointerToInt(512),
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: namespaceName()}, &instance)
+				require.NoError(t, err)
+
+				assert.NotEqual(t, nil, instance.Spec.Autoscale)
+				expectedAutoscale := &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas:                       10,
+					MinReplicas:                       pointerToInt(5),
+					TargetCPUUtilizationPercentage:    pointerToInt(80),
+					TargetMemoryUtilizationPercentage: pointerToInt(512),
+				}
+				assert.Equal(t, expectedAutoscale, instance.Spec.Autoscale)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.UpdateAutoscale(context.Background(), tt.instance, &tt.autoscale)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MaxReplicas:                       3,
+		MinReplicas:                       pointerToInt(1),
+		TargetCPUUtilizationPercentage:    pointerToInt(70),
+		TargetMemoryUtilizationPercentage: pointerToInt(1024),
+	}
+
+	resources := []runtime.Object{instance1}
+
+	testCases := []struct {
+		instance  string
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			instance: "my-invalid-instance",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, NotFoundError{
+					Msg: `instance not found`,
+				}, err)
+			},
+		},
+		{
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: namespaceName()}, &instance)
+				require.NoError(t, err)
+
+				assert.Nil(t, instance.Spec.Autoscale)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.DeleteAutoscale(context.Background(), tt.instance)
+			tt.assertion(t, err, manager)
+		})
+	}
+}

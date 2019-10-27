@@ -148,6 +148,117 @@ func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, er
 	return nsName, nil
 }
 
+func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string) (*Autoscale, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	autoscale := instance.Spec.Autoscale
+	if autoscale == nil {
+		return nil, NotFoundError{Msg: fmt.Sprintf("autoscale not found")}
+	}
+
+	s := Autoscale{
+		MinReplicas: autoscale.MinReplicas,
+		MaxReplicas: autoscale.MaxReplicas,
+		CPU:         autoscale.TargetCPUUtilizationPercentage,
+		Memory:      autoscale.TargetMemoryUtilizationPercentage,
+	}
+
+	return &s, nil
+}
+
+func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	err = validateAutoscale(ctx, autoscale)
+	if err != nil {
+		return err
+	}
+
+	s := instance.Spec.Autoscale
+	if s != nil {
+		return ValidationError{Msg: fmt.Sprintf("Autoscale already created")}
+	}
+
+	instance.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MinReplicas:                       autoscale.MinReplicas,
+		MaxReplicas:                       autoscale.MaxReplicas,
+		TargetCPUUtilizationPercentage:    autoscale.CPU,
+		TargetMemoryUtilizationPercentage: autoscale.Memory,
+	}
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	s := instance.Spec.Autoscale
+	if s == nil {
+		// Create if empty
+		instance.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{}
+		s = instance.Spec.Autoscale
+	}
+
+	if s.MinReplicas != autoscale.MinReplicas {
+		s.MinReplicas = autoscale.MinReplicas
+	}
+
+	if s.MaxReplicas != autoscale.MaxReplicas {
+		s.MaxReplicas = autoscale.MaxReplicas
+	}
+
+	if s.TargetCPUUtilizationPercentage != autoscale.CPU {
+		s.TargetCPUUtilizationPercentage = autoscale.CPU
+	}
+
+	if s.TargetMemoryUtilizationPercentage != autoscale.Memory {
+		s.TargetMemoryUtilizationPercentage = autoscale.Memory
+	}
+
+	err = validateAutoscaleSpec(ctx, s)
+	if err != nil {
+		return err
+	}
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	instance.Spec.Autoscale = nil
+
+	return m.cli.Update(ctx, instance)
+}
+
+func validateAutoscale(ctx context.Context, s *Autoscale) error {
+	if s.MaxReplicas == 0 {
+		return ValidationError{Msg: "max replicas is required"}
+	}
+
+	return nil
+}
+
+func validateAutoscaleSpec(ctx context.Context, s *v1alpha1.RpaasInstanceAutoscaleSpec) error {
+	if s.MaxReplicas == 0 {
+		return ValidationError{Msg: "max replicas is required"}
+	}
+
+	return nil
+}
+
 func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
