@@ -71,7 +71,8 @@ type NginxConfig struct {
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
 
-	VTSEnabled *bool `json:"vtsEnabled,omitempty"`
+	VTSEnabled                *bool  `json:"vtsEnabled,omitempty"`
+	VTSStatusHistogramBuckets string `json:"vtsStatusHistogramBuckets,omitempty"`
 
 	SyslogEnabled       *bool  `json:"syslogEnabled,omitempty"`
 	SyslogServerAddress string `json:"syslogServerAddress,omitempty"`

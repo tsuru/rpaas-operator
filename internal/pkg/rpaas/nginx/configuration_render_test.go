@@ -154,6 +154,25 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		{
 			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
 			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					VTSEnabled:                v1alpha1.Bool(true),
+					VTSStatusHistogramBuckets: "0.001 0.005 0.01 0.025 0.05 0.1 0.25 0.5 1 2.5 5 10",
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				require.NoError(t, err)
+				assert.Regexp(t, `vhost_traffic_status_zone;`, result)
+				assert.Regexp(t, `vhost_traffic_status_histogram_buckets 0.001 0.005 0.01 0.025 0.05 0.1 0.25 0.5 1 2.5 5 10;`, result)
+				assert.Regexp(t, `\s+location /status {
+\s+vhost_traffic_status_display;
+\s+vhost_traffic_status_display_format prometheus;
+`, result)
+			},
+		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
