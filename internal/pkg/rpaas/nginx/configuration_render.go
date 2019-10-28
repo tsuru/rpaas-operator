@@ -191,6 +191,9 @@ http {
 
 {{if .Config.VTSEnabled}}
     vhost_traffic_status_zone;
+    {{if .Config.VTSStatusHistogramBuckets}}
+    vhost_traffic_status_histogram_buckets {{.Config.VTSStatusHistogramBuckets}};
+    {{end}}
 {{end}}
 
 {{if $instance.Spec.Host}}
