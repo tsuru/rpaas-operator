@@ -62,7 +62,7 @@ func updateAutoscale(c echo.Context) error {
 		return err
 	}
 
-	return c.NoContent(http.StatusOK)
+	return c.NoContent(http.StatusCreated)
 }
 
 func removeAutoscale(c echo.Context) error {
