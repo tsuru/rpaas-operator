@@ -82,12 +82,30 @@ func hasRootPath(locations []v1alpha1.Location) bool {
 	return false
 }
 
+func httpPort(instance *v1alpha1.RpaasInstance) int {
+	if instance != nil && instance.Spec.PodTemplate.HostNetwork {
+		return 80
+	}
+
+	return 8080
+}
+
+func httpsPort(instance *v1alpha1.RpaasInstance) int {
+	if instance != nil && instance.Spec.PodTemplate.HostNetwork {
+		return 443
+	}
+
+	return 8443
+}
+
 var templateFuncs = template.FuncMap(map[string]interface{}{
 	"buildLocationKey":   buildLocationKey,
 	"hasRootPath":        hasRootPath,
 	"toLower":            strings.ToLower,
 	"toUpper":            strings.ToUpper,
 	"managePort":         managePort,
+	"httpPort":           httpPort,
+	"httpsPort":          httpsPort,
 	"purgeLocationMatch": purgeLocationMatch,
 	"vtsLocationMatch":   vtsLocationMatch,
 })
@@ -241,13 +259,13 @@ http {
 		}
 
     server {
-        listen 8080 default_server{{with .Config.HTTPListenOptions}} {{.}}{{end}};
+        listen {{ httpPort $instance }} default_server{{with .Config.HTTPListenOptions}} {{.}}{{end}};
 
 {{if $instance.Spec.Certificates }}
 {{ $opts := .Config.HTTPSListenOptions }}
 {{range $index, $item := $instance.Spec.Certificates.Items}}
 {{if and (eq $item.CertificateField "default.crt") (eq $item.KeyField "default.key")}}
-        listen 8443 ssl{{with $opts}} {{.}}{{end}};
+        listen {{ httpsPort $instance }} ssl{{with $opts}} {{.}}{{end}};
 
         ssl_certificate     certs/{{with $item.CertificatePath}}{{.}}{{else}}{{$item.CertificateField}}{{end}};
         ssl_certificate_key certs/{{with $item.KeyPath}}{{.}}{{else}}{{$item.KeyField}}{{end}};

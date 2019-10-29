@@ -419,6 +419,35 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, "# My custom main NGINX template.\nuser my-user;\n...", result)
 			},
 		},
+		{
+			renderer: NewRpaasConfigurationRenderer(ConfigurationBlocks{}),
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Certificates: &nginxv1alpha1.TLSSecret{
+							SecretName: "secret-name",
+							Items: []nginxv1alpha1.TLSSecretItem{
+								{
+									CertificateField: "default.crt",
+									CertificatePath:  "custom_certificate_name.crt",
+									KeyField:         "default.key",
+									KeyPath:          "custom_key_name.key",
+								},
+							},
+						},
+						PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+							HostNetwork: true,
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, result string, err error) {
+				require.NoError(t, err)
+				assert.Regexp(t, `listen 80 default_server;`, result)
+				assert.Regexp(t, `listen 443 ssl;`, result)
+			},
+		},
 	}
 
 	for _, testCase := range testCases {
