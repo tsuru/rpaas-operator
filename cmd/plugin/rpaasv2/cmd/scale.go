@@ -33,7 +33,7 @@ func initScaleFlags() []cli.Flag {
 }
 
 func Scale() cli.Command {
-	scale := cli.Command{
+	return cli.Command{
 		Name:  "scale",
 		Usage: "Scales the specified rpaas instance to [-q] units",
 		Flags: initScaleFlags(),
@@ -55,6 +55,4 @@ func Scale() cli.Command {
 			return nil
 		},
 	}
-
-	return scale
 }

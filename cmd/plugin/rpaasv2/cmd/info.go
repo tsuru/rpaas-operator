@@ -12,26 +12,22 @@ import (
 	"github.com/urfave/cli"
 )
 
-func initInfoFlags() []cli.Flag {
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:     "service, s",
-			Usage:    "service name",
-			Required: true,
-		},
-		cli.StringFlag{
-			Name:     "instance, i",
-			Usage:    "instance name",
-			Required: true,
-		},
-	}
-}
-
-func Info() cli.Command {
-	info := cli.Command{
+func info() cli.Command {
+	return cli.Command{
 		Name:  "info",
-		Usage: "Displays tables of plans and flavors from the respective instance passed",
-		Flags: initInfoFlags(),
+		Usage: "Display the available plan(s) and flavor(s) for the given instance",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:     "service, s",
+				Usage:    "service name",
+				Required: true,
+			},
+			cli.StringFlag{
+				Name:     "instance, i",
+				Usage:    "instance name",
+				Required: true,
+			},
+		},
 
 		Action: func(ctx *cli.Context) error {
 			client, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
@@ -43,11 +39,11 @@ func Info() cli.Command {
 
 			plans, err := client.GetPlans(context.TODO(), &instance)
 
-			WritePlans("Plans", plans, ctx.App.Writer)
+			writePlans("Plans", plans, ctx.App.Writer)
 
 			flavors, err := client.GetFlavors(context.TODO(), &instance)
 
-			WriteFlavors("Flavors", flavors, ctx.App.Writer)
+			writeFlavors("Flavors", flavors, ctx.App.Writer)
 
 			if err != nil {
 				return err
@@ -56,13 +52,11 @@ func Info() cli.Command {
 			return nil
 		},
 	}
-
-	return info
 }
 
-func WritePlans(prefix string, plans []types.Plan, writer io.Writer) {
+func writePlans(prefix string, plans []types.Plan, writer io.Writer) {
 	// flushing stdout
-	fmt.Println()
+	fmt.Fprintf(writer, "\n")
 
 	table := tablewriter.NewWriter(writer)
 	table.SetRowLine(true)
@@ -74,9 +68,9 @@ func WritePlans(prefix string, plans []types.Plan, writer io.Writer) {
 	table.Render()
 }
 
-func WriteFlavors(prefix string, flavors []types.Flavor, writer io.Writer) {
+func writeFlavors(prefix string, flavors []types.Flavor, writer io.Writer) {
 	// flushing stdout
-	fmt.Println()
+	fmt.Fprintf(writer, "\n")
 
 	table := tablewriter.NewWriter(writer)
 	table.SetRowLine(true)

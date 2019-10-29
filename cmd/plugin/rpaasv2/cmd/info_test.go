@@ -11,7 +11,6 @@ import (
 	"os"
 	"testing"
 
-	"github.com/olekukonko/tablewriter"
 	"github.com/stretchr/testify/require"
 	"github.com/urfave/cli"
 	"gotest.tools/assert"
@@ -23,33 +22,26 @@ func setupInfoApp() (*cli.App, *bytes.Buffer) {
 	buffer := bytes.NewBuffer(nil)
 	writer := io.Writer(buffer)
 	testApp.Writer = writer
-	testApp.Commands = append(testApp.Commands, Info())
+	testApp.Commands = append(testApp.Commands, info())
 
 	return testApp, buffer
 }
 
 func testTableInfo(writer io.Writer) {
-	// flushing stdout
-	fmt.Println()
 
-	tablePlans := tablewriter.NewWriter(writer)
-	tablePlans.SetRowLine(true)
-	tablePlans.SetHeader([]string{"Plans", "Description", "Default"})
+	fmt.Fprintf(writer, `
++-----------+------------------+---------+
+|   PLANS   |   DESCRIPTION    | DEFAULT |
++-----------+------------------+---------+
+| plan name | plan description | true    |
++-----------+------------------+---------+
 
-	tablePlans.Append([]string{"plan name", "plan description", "true"})
-
-	tablePlans.Render()
-
-	// flushing stdout
-	fmt.Println()
-
-	tableFlavors := tablewriter.NewWriter(writer)
-	tableFlavors.SetRowLine(true)
-	tableFlavors.SetHeader([]string{"Flavors", "Description"})
-
-	tableFlavors.Append([]string{"flavor name", "flavor description"})
-
-	tableFlavors.Render()
++-------------+--------------------+
+|   FLAVORS   |    DESCRIPTION     |
++-------------+--------------------+
+| flavor name | flavor description |
++-------------+--------------------+
+`)
 }
 
 func TestInfo(t *testing.T) {
@@ -127,6 +119,7 @@ func TestInfo(t *testing.T) {
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
+			count = 0
 			// setup
 			ts := httptest.NewServer(tt.handlerSwitch)
 			defer ts.Close()
