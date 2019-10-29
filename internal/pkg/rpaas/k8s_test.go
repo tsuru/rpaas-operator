@@ -2952,7 +2952,7 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 				assert.NoError(t, err)
 
 				expectedAutoscale := &Autoscale{
-					MaxReplicas: 3,
+					MaxReplicas: pointerToInt(3),
 					MinReplicas: pointerToInt(1),
 					CPU:         pointerToInt(70),
 					Memory:      pointerToInt(1024),
@@ -2995,7 +2995,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "my-invalid-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 10,
+				MaxReplicas: pointerToInt(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, NotFoundError{
@@ -3006,7 +3006,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 0,
+				MaxReplicas: pointerToInt(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, ValidationError{
@@ -3017,7 +3017,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "another-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 0,
+				MaxReplicas: pointerToInt(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, ValidationError{
@@ -3028,7 +3028,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 10,
+				MaxReplicas: pointerToInt(10),
 				MinReplicas: pointerToInt(5),
 				CPU:         pointerToInt(2),
 				Memory:      pointerToInt(1024),
@@ -3095,7 +3095,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "my-invalid-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 10,
+				MaxReplicas: pointerToInt(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, NotFoundError{
@@ -3106,7 +3106,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 0,
+				MaxReplicas: pointerToInt(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, ValidationError{
@@ -3117,7 +3117,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "noscale-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 10,
+				MaxReplicas: pointerToInt(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -3136,7 +3136,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: Autoscale{
-				MaxReplicas: 10,
+				MaxReplicas: pointerToInt(10),
 				MinReplicas: pointerToInt(5),
 				CPU:         pointerToInt(80),
 				Memory:      pointerToInt(512),

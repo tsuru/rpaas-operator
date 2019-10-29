@@ -61,7 +61,7 @@ func Test_getAutoscale(t *testing.T) {
 				FakeGetAutoscale: func(instance string) (*rpaas.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
 					s := &rpaas.Autoscale{
-						MaxReplicas: 10,
+						MaxReplicas: pointerToInt(10),
 						MinReplicas: pointerToInt(3),
 						CPU:         pointerToInt(60),
 						Memory:      pointerToInt(512),
@@ -105,7 +105,7 @@ func Test_createAutoscale(t *testing.T) {
 			manager: &fake.RpaasManager{
 				FakeCreateAutoscale: func(instance string, autoscale *rpaas.Autoscale) error {
 					assert.Equal(t, "invalid-instance", instance)
-					assert.Equal(t, int32(10), autoscale.MaxReplicas)
+					assert.Equal(t, pointerToInt(10), autoscale.MaxReplicas)
 					return rpaas.NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", instance)}
 				},
 			},
@@ -134,7 +134,7 @@ func Test_createAutoscale(t *testing.T) {
 				FakeCreateAutoscale: func(instance string, autoscale *rpaas.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
 					expectedAutoscale := &rpaas.Autoscale{
-						MaxReplicas: 10,
+						MaxReplicas: pointerToInt(10),
 						MinReplicas: pointerToInt(3),
 						CPU:         pointerToInt(60),
 						Memory:      pointerToInt(512),
@@ -178,10 +178,13 @@ func Test_updateAutoscale(t *testing.T) {
 			expectedCode: http.StatusNotFound,
 			expectedBody: `{"Msg":"rpaas instance \\"invalid-instance\\" not found"}`,
 			manager: &fake.RpaasManager{
-				FakeUpdateAutoscale: func(instance string, autoscale *rpaas.Autoscale) error {
+				FakeGetAutoscale: func(instance string) (*rpaas.Autoscale, error) {
 					assert.Equal(t, "invalid-instance", instance)
-					assert.Equal(t, int32(10), autoscale.MaxReplicas)
-					return rpaas.NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", instance)}
+					return nil, rpaas.NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", instance)}
+				},
+				FakeUpdateAutoscale: func(instance string, autoscale *rpaas.Autoscale) error {
+					assert.Fail(t, "Autoscale update should not be called")
+					return nil
 				},
 			},
 		},
@@ -192,6 +195,10 @@ func Test_updateAutoscale(t *testing.T) {
 			expectedCode: http.StatusBadRequest,
 			expectedBody: `{"Msg":"max replicas is required"}`,
 			manager: &fake.RpaasManager{
+				FakeGetAutoscale: func(instance string) (*rpaas.Autoscale, error) {
+					assert.Equal(t, "my-instance", instance)
+					return nil, nil
+				},
 				FakeUpdateAutoscale: func(instance string, autoscale *rpaas.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
 					assert.Equal(t, pointerToInt(10), autoscale.MinReplicas)
@@ -200,18 +207,28 @@ func Test_updateAutoscale(t *testing.T) {
 			},
 		},
 		{
-			name:         "when successfully creating autoscale settings",
+			name:         "when successfully updating autoscale settings",
 			instance:     "my-instance",
-			requestBody:  "max=10&min=3&cpu=60&memory=512",
-			expectedCode: http.StatusOK,
+			requestBody:  "min=5&memory=512",
+			expectedCode: http.StatusCreated,
 			expectedBody: ``,
 			manager: &fake.RpaasManager{
+				FakeGetAutoscale: func(instance string) (*rpaas.Autoscale, error) {
+					assert.Equal(t, "my-instance", instance)
+					currentAutoscale := &rpaas.Autoscale{
+						MaxReplicas: pointerToInt(10),
+						MinReplicas: pointerToInt(3),
+						CPU:         pointerToInt(80),
+						Memory:      pointerToInt(1024),
+					}
+					return currentAutoscale, nil
+				},
 				FakeUpdateAutoscale: func(instance string, autoscale *rpaas.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
 					expectedAutoscale := &rpaas.Autoscale{
-						MaxReplicas: 10,
-						MinReplicas: pointerToInt(3),
-						CPU:         pointerToInt(60),
+						MaxReplicas: pointerToInt(10),
+						MinReplicas: pointerToInt(5),
+						CPU:         pointerToInt(80),
 						Memory:      pointerToInt(512),
 					}
 					assert.Equal(t, autoscale, expectedAutoscale)

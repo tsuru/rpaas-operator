@@ -161,7 +161,7 @@ func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string)
 
 	s := Autoscale{
 		MinReplicas: autoscale.MinReplicas,
-		MaxReplicas: autoscale.MaxReplicas,
+		MaxReplicas: &autoscale.MaxReplicas,
 		CPU:         autoscale.TargetCPUUtilizationPercentage,
 		Memory:      autoscale.TargetMemoryUtilizationPercentage,
 	}
@@ -187,7 +187,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 
 	instance.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 		MinReplicas:                       autoscale.MinReplicas,
-		MaxReplicas:                       autoscale.MaxReplicas,
+		MaxReplicas:                       *autoscale.MaxReplicas,
 		TargetCPUUtilizationPercentage:    autoscale.CPU,
 		TargetMemoryUtilizationPercentage: autoscale.Memory,
 	}
@@ -212,8 +212,8 @@ func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName stri
 		s.MinReplicas = autoscale.MinReplicas
 	}
 
-	if s.MaxReplicas != autoscale.MaxReplicas {
-		s.MaxReplicas = autoscale.MaxReplicas
+	if &s.MaxReplicas != autoscale.MaxReplicas {
+		s.MaxReplicas = *autoscale.MaxReplicas
 	}
 
 	if s.TargetCPUUtilizationPercentage != autoscale.CPU {
@@ -244,7 +244,7 @@ func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName stri
 }
 
 func validateAutoscale(ctx context.Context, s *Autoscale) error {
-	if s.MaxReplicas == 0 {
+	if *s.MaxReplicas == 0 {
 		return ValidationError{Msg: "max replicas is required"}
 	}
 

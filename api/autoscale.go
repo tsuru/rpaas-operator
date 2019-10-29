@@ -52,17 +52,38 @@ func updateAutoscale(c echo.Context) error {
 		return err
 	}
 
+	ctx := c.Request().Context()
+	originalAutoscale, err := manager.GetAutoscale(ctx, c.Param("instance"))
+	if err != nil {
+		if serr, ok := err.(rpaas.NotFoundError); ok {
+			return serr
+		}
+	}
+
 	var autoscale rpaas.Autoscale
 	if err = c.Bind(&autoscale); err != nil {
 		return err
 	}
 
-	err = manager.UpdateAutoscale(c.Request().Context(), c.Param("instance"), &autoscale)
+	if originalAutoscale != nil {
+		updateValueIfNeeded(&autoscale.MaxReplicas, originalAutoscale.MaxReplicas)
+		updateValueIfNeeded(&autoscale.MinReplicas, originalAutoscale.MinReplicas)
+		updateValueIfNeeded(&autoscale.CPU, originalAutoscale.CPU)
+		updateValueIfNeeded(&autoscale.Memory, originalAutoscale.Memory)
+	}
+
+	err = manager.UpdateAutoscale(ctx, c.Param("instance"), &autoscale)
 	if err != nil {
 		return err
 	}
 
 	return c.NoContent(http.StatusCreated)
+}
+
+func updateValueIfNeeded(field **int32, value *int32) {
+	if *field == nil && value != nil {
+		*field = value
+	}
 }
 
 func removeAutoscale(c echo.Context) error {
