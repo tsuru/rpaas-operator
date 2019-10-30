@@ -19,7 +19,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"text/template"
 
 	"github.com/pkg/errors"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -106,10 +105,6 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	setTeamOwner(instance, args.Team)
 
 	if err := m.setTags(ctx, instance, args.Tags); err != nil {
-		return err
-	}
-
-	if err := parseAnnotationsOnService(instance); err != nil {
 		return err
 	}
 
@@ -1157,28 +1152,4 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Annotations = mergeMap(instance.Annotations, newLabels)
 	instance.Labels = mergeMap(instance.Labels, newLabels)
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
-}
-
-func parseAnnotationsOnService(instance *v1alpha1.RpaasInstance) error {
-	if instance == nil {
-		return nil
-	}
-
-	newAnnotations := map[string]string{}
-	var err error
-	var tmpl *template.Template
-
-	buffer := &bytes.Buffer{}
-	for k, v := range instance.Spec.Service.Annotations {
-		if tmpl, err = template.New(v).Parse(v); err != nil {
-			return err
-		}
-		if err = tmpl.Execute(buffer, instance.Labels); err != nil {
-			return err
-		}
-		newAnnotations[k] = buffer.String()
-	}
-	instance.Spec.Service.Annotations = mergeMap(instance.Spec.Service.Annotations, newAnnotations)
-
-	return nil
 }
