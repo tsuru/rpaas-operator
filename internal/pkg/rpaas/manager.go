@@ -120,10 +120,25 @@ type Flavor struct {
 	Description string `json:"description"`
 }
 
+type Autoscale struct {
+	MinReplicas *int32 `json:"minReplicas,omitempty" form:"min"`
+	MaxReplicas *int32 `json:"maxReplicas,omitempty" form:"max"`
+	CPU         *int32 `json:"cpu,omitempty" form:"cpu"`
+	Memory      *int32 `json:"memory,omitempty" form:"memory"`
+}
+
+type AutoscaleHandler interface {
+	GetAutoscale(ctx context.Context, name string) (*Autoscale, error)
+	CreateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error
+	UpdateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error
+	DeleteAutoscale(ctx context.Context, name string) error
+}
+
 type RpaasManager interface {
 	ConfigurationBlockHandler
 	ExtraFileHandler
 	RouteHandler
+	AutoscaleHandler
 
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
 	CreateInstance(ctx context.Context, args CreateArgs) error
