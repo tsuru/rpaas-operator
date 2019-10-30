@@ -18,7 +18,7 @@ import (
 	"gotest.tools/assert"
 )
 
-func setupApp() (*cli.App, *bytes.Buffer) {
+func setupScaleApp() (*cli.App, *bytes.Buffer) {
 	testApp := NewApp()
 
 	buffer := bytes.NewBuffer(nil)
@@ -54,13 +54,11 @@ func TestScale(t *testing.T) {
 		},
 		args: []string{"./rpaasv2", "scale", "-s", "fake-service", "-i", "fake-instance", "-q", "2"},
 	}
-
 	t.Run(testCase.name, func(t *testing.T) {
 		// setup
 		ts := httptest.NewServer(testCase.handler)
 		defer ts.Close()
-		testApp, buffer := setupApp()
-		testApp.Commands = append(testApp.Commands, Scale())
+		testApp, buffer := setupScaleApp()
 		os.Setenv("TSURU_TARGET", ts.URL)
 		os.Setenv("TSURU_TOKEN", "f4k3t0k3n")
 		//end of setup

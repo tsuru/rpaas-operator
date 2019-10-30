@@ -4,10 +4,12 @@ go 1.13
 
 require (
 	github.com/cpuguy83/go-md2man/v2 v2.0.0 // indirect
-	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/google/go-cmp v0.3.0 // indirect
 	github.com/kr/pretty v0.1.0 // indirect
+	github.com/mattn/go-runewidth v0.0.5 // indirect
+	github.com/olekukonko/tablewriter v0.0.1
 	github.com/pkg/errors v0.8.1 // indirect
+	github.com/spf13/cobra v0.0.5 // indirect
 	github.com/stretchr/testify v1.4.0
 	github.com/tsuru/rpaas-operator/pkg/rpaas/client v0.0.0-00000000000000-000000000000
 	github.com/urfave/cli v1.22.1
