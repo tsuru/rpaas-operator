@@ -24,7 +24,7 @@ func setupScaleApp() (*cli.App, *bytes.Buffer) {
 	buffer := bytes.NewBuffer(nil)
 	writer := io.Writer(buffer)
 	testApp.Writer = writer
-	testApp.Commands = append(testApp.Commands, Scale())
+	testApp.Commands = append(testApp.Commands, scale())
 
 	return testApp, buffer
 }

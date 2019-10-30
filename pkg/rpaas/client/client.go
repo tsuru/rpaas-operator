@@ -112,10 +112,6 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]types
 		}
 	}
 
-	if err != nil {
-		return nil, err
-	}
-
 	resp, err := c.do(ctx, req)
 	if err != nil {
 		return nil, err
@@ -182,7 +178,7 @@ func (c *RpaasClient) getUrl(instance, pathName string) string {
 	var url string
 	if c.tsuruTarget != "" {
 		if instance == "" {
-			url = fmt.Sprintf("%s/services/proxy/%s?callback=%s",
+			url = fmt.Sprintf("%s/services/proxy/service/%s?callback=%s",
 				c.tsuruTarget, c.tsuruService, pathName)
 		} else {
 			url = fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s",
