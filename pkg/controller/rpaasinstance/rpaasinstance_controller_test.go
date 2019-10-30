@@ -72,6 +72,16 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "instance2"
 	instance2.Spec.Flavors = []string{"mint"}
+	instance2.Spec.Lifecycle = &nginxv1alpha1.NginxLifecycle{
+		PostStart: &nginxv1alpha1.NginxLifecycleHandler{
+			Exec: &corev1.ExecAction{
+				Command: []string{
+					"echo",
+					"hello world",
+				},
+			},
+		},
+	}
 	instance2.Spec.Service = &nginxv1alpha1.NginxService{
 		Annotations: map[string]string{
 			"some-instance-annotation-key": "blah",
@@ -232,6 +242,16 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Flavors: []string{"mint"},
+					Lifecycle: &nginxv1alpha1.NginxLifecycle{
+						PostStart: &nginxv1alpha1.NginxLifecycleHandler{
+							Exec: &corev1.ExecAction{
+								Command: []string{
+									"echo",
+									"hello world",
+								},
+							},
+						},
+					},
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation":   "default",

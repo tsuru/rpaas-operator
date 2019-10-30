@@ -69,6 +69,11 @@ type RpaasInstanceSpec struct {
 	// for this instance.
 	// +optional
 	Autoscale *RpaasInstanceAutoscaleSpec `json:"autoscale,omitempty"`
+
+	// Lifecycle describes actions that should be executed when
+	// some event happens to nginx container.
+	// +optional
+	Lifecycle *nginxv1alpha1.NginxLifecycle `json:"lifecycle,omitempty"`
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
