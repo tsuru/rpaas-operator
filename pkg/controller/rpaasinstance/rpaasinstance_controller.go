@@ -5,12 +5,14 @@
 package rpaasinstance
 
 import (
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
+	"text/template"
 
 	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/imdario/mergo"
@@ -168,7 +170,16 @@ func (r *ReconcileRpaasInstance) getRpaasInstance(ctx context.Context, objKey ty
 		return nil, err
 	}
 
-	return r.mergeInstanceWithFlavors(ctx, instance.DeepCopy())
+	mergedInstance, err := r.mergeInstanceWithFlavors(ctx, instance.DeepCopy())
+	if err != nil {
+		return nil, err
+	}
+
+	if err = renderCustomValues(mergedInstance); err != nil {
+		return nil, err
+	}
+
+	return mergedInstance, nil
 }
 
 func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasInstance, error) {
@@ -235,6 +246,7 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 		logger.V(4).
 			Info("Skipping RpaasInstance merge since there is no instance template in RpaasFlavor")
 	}
+
 	return nil
 }
 
@@ -640,4 +652,38 @@ func mergeInstance(base v1alpha1.RpaasInstanceSpec, override v1alpha1.RpaasInsta
 	}
 
 	return
+}
+
+func renderCustomValues(instance *v1alpha1.RpaasInstance) error {
+	if err := renderServiceCustomAnnotations(instance); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func renderServiceCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
+	if instance == nil {
+		return nil
+	}
+
+	if instance.Spec.Service == nil {
+		return nil
+	}
+
+	for k, v := range instance.Spec.Service.Annotations {
+		tmpl, err := template.New("rpaasv2.service.annotations").Parse(v)
+		if err != nil {
+			return err
+		}
+
+		var buffer bytes.Buffer
+		if err = tmpl.Execute(&buffer, instance); err != nil {
+			return err
+		}
+
+		instance.Spec.Service.Annotations[k] = buffer.String()
+	}
+
+	return nil
 }

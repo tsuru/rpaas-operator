@@ -95,6 +95,18 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
+	instance4 := newEmptyRpaasInstance()
+	instance4.Name = "instance4"
+	instance4.Labels = map[string]string{
+		"rpaas_instance": "my-instance-name",
+		"rpaas_service":  "my-service-name",
+	}
+	instance4.Spec.Service = &nginxv1alpha1.NginxService{
+		Annotations: map[string]string{
+			"some-instance-annotation-key": "my custom value: {{ .Labels.rpaas_service }}/{{ .Labels.rpaas_instance }}/{{ .Name }}",
+		},
+	}
+
 	mintFlavor := newRpaasFlavor()
 	mintFlavor.Name = "mint"
 	mintFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
@@ -165,7 +177,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, mintFlavor, mangoFlavor, defaultFlavor}
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, mintFlavor, mangoFlavor, defaultFlavor}
 
 	tests := []struct {
 		name      string
@@ -292,6 +304,48 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 							"default-pod-label":  "default",
 						},
 						HostNetwork: true,
+					},
+				},
+			},
+		},
+		{
+			name: "when service annotations have custom values, should render them",
+			objectKey: types.NamespacedName{
+				Name:      instance4.Name,
+				Namespace: instance4.Namespace,
+			},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance4.Name,
+					Namespace: instance4.Namespace,
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance-name",
+						"rpaas_service":  "my-service-name",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"default-service-annotation":   "default",
+							"some-instance-annotation-key": "my custom value: my-service-name/my-instance-name/instance4",
+						},
+						Labels: map[string]string{
+							"default-service-label":  "default",
+							"flavored-service-label": "default",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Annotations: map[string]string{
+							"default-pod-annotation": "default",
+						},
+						Labels: map[string]string{
+							"mango-pod-label":   "not-a-mango",
+							"default-pod-label": "default",
+						},
 					},
 				},
 			},
