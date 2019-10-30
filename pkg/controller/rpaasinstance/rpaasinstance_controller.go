@@ -556,6 +556,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Certificates:    instance.Spec.Certificates,
 			Cache:           cacheConfig,
 			PodTemplate:     instance.Spec.PodTemplate,
+			Lifecycle:       instance.Spec.Lifecycle,
 		},
 	}
 }

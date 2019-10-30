@@ -18,7 +18,7 @@ require (
 	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.4.0
-	github.com/tsuru/nginx-operator v0.2.1
+	github.com/tsuru/nginx-operator v0.3.1-0.20191029141448-fbe3ae63d1ff
 	k8s.io/api v0.0.0-20190726022912-69e1bce1dad5
 	k8s.io/apiextensions-apiserver v0.0.0-20190726024412-102230e288fd // indirect
 	k8s.io/apimachinery v0.0.0-20190727130956-f97a4e5b4abc
