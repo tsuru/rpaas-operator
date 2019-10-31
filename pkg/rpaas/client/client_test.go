@@ -11,6 +11,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -402,4 +403,137 @@ func TestFlavorsTroughTsuru(t *testing.T) {
 			tt.assertion(t, flavors, err)
 		})
 	}
+}
+
+func TestCertificateTroughTsuru(t *testing.T) {
+	type testStruct struct {
+		name      string
+		certPem   string
+		keyPem    string
+		boundary  string
+		assertion func(t *testing.T, err error)
+		handler   http.HandlerFunc
+	}
+	testCases := []testStruct{
+		{
+			name: "when a valid key and certificate are passed",
+
+			boundary: "XXXXXXXXXXXXXXX",
+
+			certPem: `-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`,
+
+			keyPem: `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----`,
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "POST")
+				assert.Equal(t, "/services/test-service/proxy/test-instance?callback=/resources/test-instance/certificate", r.URL.RequestURI())
+				partReader, err := r.MultipartReader()
+				assert.NoError(t, err)
+				certPart, err := partReader.NextPart()
+				assert.NoError(t, err)
+				certBytes, err := ioutil.ReadAll(certPart)
+				assert.NoError(t, err)
+				assert.Equal(t, `-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`, string(certBytes))
+				keyPart, err := partReader.NextPart()
+				assert.NoError(t, err)
+				keyBytes, err := ioutil.ReadAll(keyPart)
+				assert.NoError(t, err)
+				assert.Equal(t, `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----`, string(keyBytes))
+				w.WriteHeader(http.StatusOK)
+			},
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			// setup
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			clientTest, err := NewTsuruClient(sv.URL, "test-service", "f4k3t0k3n")
+			assert.NoError(t, err)
+			// we create a temporary folder to mock the passed certificate and key
+			defer func() {
+				err := removeTmpFolder()
+				assert.NoError(t, err)
+			}()
+			err = createCert(tt.certPem)
+			assert.NoError(t, err)
+			err = createKey(tt.keyPem)
+			assert.NoError(t, err)
+			// end of setup
+
+			err = clientTest.Certificate(context.TODO(), "test-service", "test-instance", "tmp/cert.cert", "tmp/key.cert", "test-destination")
+			tt.assertion(t, err)
+		})
+	}
+}
+
+func createCert(cert string) error {
+	if _, err := os.Stat("tmp"); err != nil {
+		if os.IsNotExist(err) {
+			os.Mkdir("tmp", os.ModePerm)
+		}
+	}
+	f, err := os.Create("tmp/cert.cert")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(cert)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func createKey(key string) error {
+	if _, err := os.Stat("tmp"); err != nil {
+		if os.IsNotExist(err) {
+			os.Mkdir("tmp", os.ModePerm)
+		}
+	}
+	f, err := os.Create("tmp/key.cert")
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	_, err = f.WriteString(key)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func removeTmpFolder() error {
+	return os.RemoveAll("tmp")
 }
