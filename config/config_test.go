@@ -41,38 +41,36 @@ tls-key: /var/share/tls/key.pem
 		{
 			config: `
 api-username: u1
-service-annotations:
-  a: b
-  c: d
 `,
 			expected: RpaasConfig{
 				APIUsername: "u1",
 				ServiceName: "rpaasv2",
-				ServiceAnnotations: map[string]string{
-					"a": "b",
-					"c": "d",
-				},
 			},
 		},
 		{
 			config: `
 api-username: ignored1
-service-annotations:
-  ig: nored
 service-name: rpaasv2be
 `,
 			envs: map[string]string{
-				"RPAASV2_API_USERNAME":        "u1",
-				"RPAASV2_API_PASSWORD":        "p1",
-				"RPAASV2_SERVICE_ANNOTATIONS": `{"x": "y"}`,
+				"RPAASV2_API_USERNAME": "u1",
+				"RPAASV2_API_PASSWORD": "p1",
 			},
 			expected: RpaasConfig{
 				APIUsername: "u1",
 				APIPassword: "p1",
 				ServiceName: "rpaasv2be",
-				ServiceAnnotations: map[string]string{
-					"x": "y",
-				},
+			},
+		},
+		{
+			config: `
+service-name: ignored-service-name
+`,
+			envs: map[string]string{
+				"RPAASV2_SERVICE_NAME": "my-custom-service-name",
+			},
+			expected: RpaasConfig{
+				ServiceName: "my-custom-service-name",
 			},
 		},
 		{

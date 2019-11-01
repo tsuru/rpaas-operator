@@ -92,7 +92,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	instance.Spec.Replicas = func(n int32) *int32 { return &n }(int32(1)) // one replica
 	instance.Spec.Service = &nginxv1alpha1.NginxService{
 		Type:        corev1.ServiceTypeLoadBalancer,
-		Annotations: config.Get().ServiceAnnotations,
+		Annotations: instance.Annotations,
 		Labels:      instance.Labels,
 	}
 	instance.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
