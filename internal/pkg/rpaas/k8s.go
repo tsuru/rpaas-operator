@@ -1195,10 +1195,10 @@ func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasI
 
 	var ip string
 	parseTagArg(tags, "ip", &ip)
-
-	if ip != "" && instance.Spec.Service != nil {
-		instance.Spec.Service.LoadBalancerIP = ip
+	if instance.Spec.Service == nil {
+		instance.Spec.Service = &nginxv1alpha1.NginxService{}
 	}
+	instance.Spec.Service.LoadBalancerIP = ip
 
 	var flavor string
 	parseTagArg(tags, "flavor", &flavor)
@@ -1206,18 +1206,18 @@ func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasI
 		return err
 	}
 
-	instance.Spec.PlanTemplate = nil
-
 	var planOverride string
 	parseTagArg(tags, "plan-override", &planOverride)
-	if planOverride != "" {
-		var planTemplate v1alpha1.RpaasPlanSpec
-		if err := json.Unmarshal([]byte(planOverride), &planTemplate); err != nil {
-			return errors.Wrapf(err, "unable to parse plan-override from data %q", planOverride)
-		}
-
-		instance.Spec.PlanTemplate = &planTemplate
+	instance.Spec.PlanTemplate = nil
+	if planOverride == "" {
+		return nil
 	}
+
+	var planTemplate v1alpha1.RpaasPlanSpec
+	if err := json.Unmarshal([]byte(planOverride), &planTemplate); err != nil {
+		return errors.Wrapf(err, "unable to parse plan-override from data %q", planOverride)
+	}
+	instance.Spec.PlanTemplate = &planTemplate
 
 	return nil
 }
