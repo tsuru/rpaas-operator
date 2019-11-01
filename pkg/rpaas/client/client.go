@@ -5,11 +5,13 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"strconv"
@@ -140,6 +142,35 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]types
 	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
+func (c *RpaasClient) Certificate(ctx context.Context, service, instance, certificate, key, destName string) error {
+	pathName := "/resources/" + instance + "/certificate"
+	body, boundary, err := encodeCertKey(service, instance, certificate, key, destName)
+	if err != nil {
+		return err
+	}
+
+	readerBody := strings.NewReader(body)
+	req, err := c.newRequest("POST", instance, pathName, readerBody)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Add("Content-Type", "multipart/form-data; boundary="+boundary)
+	resp, err := c.do(ctx, req)
+
+	respBody, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		bodyString := string(respBody)
+		return fmt.Errorf("Status Code: %v\nResponse Body:\n%v", resp.Status, bodyString)
+	}
+
+	return nil
+}
+
 func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32) error {
 	if err := scaleValidate(instance, replicas); err != nil {
 		return err
@@ -196,7 +227,6 @@ func (c *RpaasClient) getUrl(instance, pathName string) string {
 
 func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Reader) (*http.Request, error) {
 	url := c.getUrl(instance, pathName)
-
 	req, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
@@ -207,7 +237,6 @@ func (c *RpaasClient) newRequest(method, instance, pathName string, body io.Read
 	}
 
 	return req, nil
-
 }
 
 func scaleValidate(instance string, replicas int32) error {
@@ -229,4 +258,46 @@ func getBodyString(resp *http.Response) (string, error) {
 	}
 	defer resp.Body.Close()
 	return string(bodyBytes), nil
+}
+
+func encodeCertKey(service, instance, certificate, key, destName string) (string, string, error) {
+	certBytes, err := ioutil.ReadFile(certificate)
+	if err != nil {
+		return "", "", fmt.Errorf("Error while trying to read certificate file: %v", err)
+	}
+
+	keyFile, err := ioutil.ReadFile(key)
+	if err != nil {
+		return "", "", fmt.Errorf("Error while trying to read key file: %v", err)
+	}
+
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
+
+	certPart, err := writer.CreateFormFile("cert", certificate)
+	if err != nil {
+		return "", "", fmt.Errorf("Error while trying to create certificate form file: %v", err)
+	}
+
+	_, err = certPart.Write(certBytes)
+	if err != nil {
+		return "", "", fmt.Errorf("Error while trying to write the certificate to the file: %v", err)
+	}
+
+	keyPart, err := writer.CreateFormFile("key", key)
+	if err != nil {
+		return "", "", fmt.Errorf("Error while trying to create key form file: %v", err)
+	}
+	_, err = keyPart.Write(keyFile)
+	if err != nil {
+		return "", "", fmt.Errorf("Error while trying to write the key to the file: %v", err)
+	}
+
+	writer.WriteField("name", destName)
+	err = writer.Close()
+	if err != nil {
+		return "", "", fmt.Errorf("Error while closing file: %v", err)
+	}
+
+	return body.String(), writer.Boundary(), nil
 }
