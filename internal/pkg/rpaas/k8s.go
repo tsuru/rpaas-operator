@@ -442,30 +442,17 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 }
 
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {
-	list := &v1alpha1.RpaasInstanceList{}
-	listOpts := client.InNamespace(namespaceName()).
-		MatchingLabels(labelsForRpaasInstance(name))
-	err := m.cli.List(ctx, listOpts, list)
+	var instance v1alpha1.RpaasInstance
+	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return nil, NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", name)}
+	}
+
 	if err != nil {
 		return nil, err
 	}
-	// Let's filter the list again, field selector implementation is not always
-	// trustyworthy (mainly on tests). If it works correctly we're only
-	// iterating on 1 item at most, so no problem playing safe here.
-	for i := 0; i < len(list.Items); i++ {
-		if list.Items[i].Name != name {
-			list.Items[i] = list.Items[len(list.Items)-1]
-			list.Items = list.Items[:len(list.Items)-1]
-			i--
-		}
-	}
-	if len(list.Items) == 0 {
-		return nil, NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", name)}
-	}
-	if len(list.Items) > 1 {
-		return nil, ConflictError{Msg: fmt.Sprintf("multiple instances found for name %q: %#v", name, list.Items)}
-	}
-	return &list.Items[0], nil
+
+	return &instance, nil
 }
 
 func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error) {
