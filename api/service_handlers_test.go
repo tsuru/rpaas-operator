@@ -548,6 +548,62 @@ func Test_serviceUnbindUnit(t *testing.T) {
 	})
 }
 
+func Test_serviceStatus(t *testing.T) {
+	tests := []struct {
+		name         string
+		instance     string
+		expectedCode int
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "when manager returns an error, should return it",
+			instance:     "not-found-instance",
+			expectedCode: http.StatusNotFound,
+			manager: &fake.RpaasManager{
+				FakeInstanceAddress: func(name string) (string, error) {
+					assert.Equal(t, "not-found-instance", name)
+					return "", rpaas.NotFoundError{Msg: "instance not found"}
+				},
+			},
+		},
+		{
+			name:         "when returned address empty, should return 202",
+			instance:     "my-instance",
+			expectedCode: http.StatusAccepted,
+			manager: &fake.RpaasManager{
+				FakeInstanceAddress: func(name string) (string, error) {
+					assert.Equal(t, "my-instance", name)
+					return "", nil
+				},
+			},
+		},
+		{
+			name:         "when address is not empty, should return 204",
+			instance:     "another-instance",
+			expectedCode: http.StatusNoContent,
+			manager: &fake.RpaasManager{
+				FakeInstanceAddress: func(name string) (string, error) {
+					assert.Equal(t, "another-instance", name)
+					return "169.254.10.10", nil
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/status", srv.URL, tt.instance)
+			request, err := http.NewRequest(http.MethodGet, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+		})
+	}
+}
+
 func bodyContent(rsp *http.Response) string {
 	data, _ := ioutil.ReadAll(rsp.Body)
 	return string(data)

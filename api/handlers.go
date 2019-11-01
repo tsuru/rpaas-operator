@@ -81,7 +81,7 @@ func getFormFileContent(c echo.Context, key string) ([]byte, error) {
 	return rawContent, nil
 }
 
-func serviceStatus(c echo.Context) error {
+func serviceNodeStatus(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {
 		return err

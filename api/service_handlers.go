@@ -177,3 +177,21 @@ func serviceBindUnit(c echo.Context) error {
 func serviceUnbindUnit(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
+
+func serviceStatus(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	address, err := manager.GetInstanceAddress(c.Request().Context(), c.Param("instance"))
+	if err != nil {
+		return err
+	}
+
+	if address == "" {
+		return c.NoContent(http.StatusAccepted)
+	}
+
+	return c.NoContent(http.StatusNoContent)
+}
