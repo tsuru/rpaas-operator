@@ -629,3 +629,86 @@ func createKey(key string) error {
 func removeTmpFolder() error {
 	return os.RemoveAll("tmp")
 }
+
+func TestUpdateTroughTsuru(t *testing.T) {
+	type testStruct struct {
+		name      string
+		instance  string
+		service   string
+		plan      string
+		flavor    string
+		assertion func(t *testing.T, err error)
+		handler   http.HandlerFunc
+	}
+	testCases := []testStruct{
+		{
+			name:     "testing with existing plan and flavor",
+			instance: "test-instance",
+			service:  "test-service",
+			plan:     "test-plan",
+			flavor:   "test-flavor",
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "PUT")
+				assert.Equal(t, "/services/test-service/proxy/test-instance?callback=/resources/test-instance", r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, string(bodyBytes), "flavor_name=test-flavor&plan_name=test-plan")
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name:     "testing with existing plan and flavor but only plan passed",
+			instance: "test-instance",
+			service:  "test-service",
+			plan:     "test-plan",
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "PUT")
+				assert.Equal(t, "/services/test-service/proxy/test-instance?callback=/resources/test-instance", r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, string(bodyBytes), "plan_name=test-plan")
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name:     "testing with existing plan and flavor but only flavor passed",
+			instance: "test-instance",
+			service:  "test-service",
+			flavor:   "test-flavor",
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "PUT")
+				assert.Equal(t, "/services/test-service/proxy/test-instance?callback=/resources/test-instance", r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, string(bodyBytes), "flavor_name=test-flavor")
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			clientTest, err := NewTsuruClient(sv.URL, tt.service, "f4k3t0k3n")
+			assert.NoError(t, err)
+			err = clientTest.Update(context.TODO(), tt.service, tt.instance, tt.plan, tt.flavor)
+			tt.assertion(t, err)
+		})
+	}
+}

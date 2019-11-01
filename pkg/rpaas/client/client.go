@@ -203,6 +203,39 @@ func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32
 	return fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
+func (c *RpaasClient) Update(ctx context.Context, service, instance, plan, flavor string) error {
+	pathName := "/resources/" + instance
+	var body string
+	if flavor != "" && plan != "" {
+		body = "flavor_name=" + flavor + "&" + "plan_name=" + plan
+	} else if flavor != "" {
+		body = "flavor_name=" + flavor
+	} else {
+		body = "plan_name=" + plan
+	}
+
+	bodyReader := strings.NewReader(body)
+	req, err := c.newRequest("PUT", instance, pathName, bodyReader)
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		bodyString, err := getBodyString(resp)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("unexpected status code: body: %v", bodyString)
+	}
+
+	return nil
+}
+
 func (c *RpaasClient) do(ctx context.Context, req *http.Request) (*http.Response, error) {
 	req = req.WithContext(ctx)
 
