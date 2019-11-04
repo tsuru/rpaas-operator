@@ -633,20 +633,22 @@ func removeTmpFolder() error {
 func TestUpdateTroughTsuru(t *testing.T) {
 	type testStruct struct {
 		name      string
-		instance  string
 		service   string
-		plan      string
-		flavor    string
+		args      UpdateArgs
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
 	testCases := []testStruct{
 		{
-			name:     "testing with existing plan and flavor",
-			instance: "test-instance",
-			service:  "test-service",
-			plan:     "test-plan",
-			flavor:   "test-flavor",
+			name: "testing with existing plan and flavor",
+			args: UpdateArgs{
+				Instance: "test-instance",
+				Plan:     "test-plan",
+				Flavors:  []string{"test-flavor"},
+				User:     "test-user",
+				Team:     "test-team",
+			},
+			service: "test-service",
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
@@ -657,15 +659,19 @@ func TestUpdateTroughTsuru(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, string(bodyBytes), "flavor_name=test-flavor&plan_name=test-plan")
+				assert.Equal(t, "name=test-instance&plan=test-plan&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
 		{
-			name:     "testing with existing plan and flavor but only plan passed",
-			instance: "test-instance",
-			service:  "test-service",
-			plan:     "test-plan",
+			name: "testing with only plan passed",
+			args: UpdateArgs{
+				Instance: "test-instance",
+				Plan:     "test-plan",
+				User:     "test-user",
+				Team:     "test-team",
+			},
+			service: "test-service",
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
@@ -676,27 +682,21 @@ func TestUpdateTroughTsuru(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, string(bodyBytes), "plan_name=test-plan")
+				assert.Equal(t, "name=test-instance&plan=test-plan&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
 		{
-			name:     "testing with existing plan and flavor but only flavor passed",
-			instance: "test-instance",
-			service:  "test-service",
-			flavor:   "test-flavor",
-			assertion: func(t *testing.T, err error) {
-				assert.NoError(t, err)
+			name:    "testing with only flavor passed",
+			service: "test-service",
+			args: UpdateArgs{
+				Instance: "test-instance",
+				Flavors:  []string{"test-flavor"},
+				User:     "test-user",
+				Team:     "test-team",
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, r.Method, "PUT")
-				assert.Equal(t, "/services/test-service/proxy/test-instance?callback=/resources/test-instance", r.URL.RequestURI())
-				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
-				bodyBytes, err := ioutil.ReadAll(r.Body)
-				require.NoError(t, err)
-				defer r.Body.Close()
-				assert.Equal(t, string(bodyBytes), "flavor_name=test-flavor")
-				w.WriteHeader(http.StatusOK)
+			assertion: func(t *testing.T, err error) {
+				assert.Error(t, fmt.Errorf("must provide a valid instance name, plan, team and user"), err)
 			},
 		},
 	}
@@ -707,7 +707,7 @@ func TestUpdateTroughTsuru(t *testing.T) {
 			defer sv.Close()
 			clientTest, err := NewTsuruClient(sv.URL, tt.service, "f4k3t0k3n")
 			assert.NoError(t, err)
-			err = clientTest.Update(context.TODO(), tt.service, tt.instance, tt.plan, tt.flavor)
+			err = clientTest.Update(context.TODO(), tt.args)
 			tt.assertion(t, err)
 		})
 	}
@@ -716,20 +716,22 @@ func TestUpdateTroughTsuru(t *testing.T) {
 func TestUpdateTroughAPI(t *testing.T) {
 	type testStruct struct {
 		name      string
-		instance  string
 		service   string
-		plan      string
-		flavor    string
+		args      UpdateArgs
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
 	testCases := []testStruct{
 		{
-			name:     "testing with existing plan and flavor",
-			instance: "test-instance",
-			service:  "test-service",
-			plan:     "test-plan",
-			flavor:   "test-flavor",
+			name: "testing with existing plan and flavor",
+			args: UpdateArgs{
+				Instance: "test-instance",
+				Plan:     "test-plan",
+				Flavors:  []string{"test-flavor"},
+				User:     "test-user",
+				Team:     "test-team",
+			},
+			service: "test-service",
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
@@ -739,15 +741,19 @@ func TestUpdateTroughAPI(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, string(bodyBytes), "flavor_name=test-flavor&plan_name=test-plan")
+				assert.Equal(t, "name=test-instance&plan=test-plan&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
 		{
-			name:     "testing with existing plan and flavor but only plan passed",
-			instance: "test-instance",
-			service:  "test-service",
-			plan:     "test-plan",
+			name: "testing with only plan passed",
+			args: UpdateArgs{
+				Instance: "test-instance",
+				Plan:     "test-plan",
+				User:     "test-user",
+				Team:     "test-team",
+			},
+			service: "test-service",
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
@@ -757,26 +763,21 @@ func TestUpdateTroughAPI(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, string(bodyBytes), "plan_name=test-plan")
+				assert.Equal(t, "name=test-instance&plan=test-plan&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
 		{
-			name:     "testing with existing plan and flavor but only flavor passed",
-			instance: "test-instance",
-			service:  "test-service",
-			flavor:   "test-flavor",
-			assertion: func(t *testing.T, err error) {
-				assert.NoError(t, err)
+			name:    "testing with only flavor passed",
+			service: "test-service",
+			args: UpdateArgs{
+				Instance: "test-instance",
+				Flavors:  []string{"test-flavor"},
+				User:     "test-user",
+				Team:     "test-team",
 			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, r.Method, "PUT")
-				assert.Equal(t, "/resources/test-instance", r.URL.RequestURI())
-				bodyBytes, err := ioutil.ReadAll(r.Body)
-				require.NoError(t, err)
-				defer r.Body.Close()
-				assert.Equal(t, string(bodyBytes), "flavor_name=test-flavor")
-				w.WriteHeader(http.StatusOK)
+			assertion: func(t *testing.T, err error) {
+				assert.Error(t, fmt.Errorf("must provide a valid instance name, plan, team and user"), err)
 			},
 		},
 	}
@@ -786,7 +787,7 @@ func TestUpdateTroughAPI(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-			err := clientTest.Update(context.TODO(), tt.service, tt.instance, tt.plan, tt.flavor)
+			err := clientTest.Update(context.TODO(), tt.args)
 			tt.assertion(t, err)
 		})
 	}

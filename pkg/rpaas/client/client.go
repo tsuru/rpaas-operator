@@ -302,19 +302,62 @@ func encodeCertKey(service, instance, certificate, key, destName string) (string
 	return body.String(), writer.Boundary(), nil
 }
 
-func (c *RpaasClient) Update(ctx context.Context, service, instance, plan, flavor string) error {
-	pathName := "/resources/" + instance
-	var body string
-	if flavor != "" && plan != "" {
-		body = "flavor_name=" + flavor + "&" + "plan_name=" + plan
-	} else if flavor != "" {
-		body = "flavor_name=" + flavor
-	} else {
-		body = "plan_name=" + plan
+type UpdateArgs struct {
+	Flavors   []string
+	PlanOverr string
+	Plan      string
+	Team      string
+	User      string
+	Ip        string
+	Tags      []string
+	Instance  string
+}
+
+func addOtherTags(tags []string, bodyStruct *url.Values) {
+	for _, tag := range tags {
+		bodyStruct.Add("tag", tag)
+	}
+}
+
+func validateUpdateArgs(args UpdateArgs) error {
+	if args.Instance == "" || args.Plan == "" || args.Team == "" || args.User == "" {
+		return fmt.Errorf("must provide a valid instance name, plan, team and user")
+	}
+	return nil
+}
+
+func (c *RpaasClient) Update(ctx context.Context, args UpdateArgs) error {
+	if err := validateUpdateArgs(args); err != nil {
+		return err
+	}
+	pathName := "/resources/" + args.Instance
+	bodyStruct := url.Values{}
+
+	if args.Flavors != nil {
+		flavorTag := "flavor=" + strings.Join(args.Flavors, ",")
+		bodyStruct.Add("tag", flavorTag)
 	}
 
-	bodyReader := strings.NewReader(body)
-	req, err := c.newRequest("PUT", instance, pathName, bodyReader)
+	if args.PlanOverr != "" {
+		planOvertag := "plan-override=" + args.PlanOverr
+		bodyStruct.Add("tag", planOvertag)
+	}
+
+	if args.Ip != "" {
+		ipTag := "ip=" + args.Ip
+		bodyStruct.Add("tag", ipTag)
+	}
+
+	addOtherTags(args.Tags, &bodyStruct)
+
+	bodyStruct.Add("name", args.Instance)
+	bodyStruct.Add("plan", args.Plan)
+	bodyStruct.Add("team", args.Team)
+	bodyStruct.Add("user", args.User)
+
+	bodyReader := strings.NewReader(bodyStruct.Encode())
+
+	req, err := c.newRequest("PUT", args.Instance, pathName, bodyReader)
 	if err != nil {
 		return err
 	}
