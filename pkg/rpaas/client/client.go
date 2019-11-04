@@ -5,16 +5,13 @@
 package client
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
-	"mime/multipart"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -46,12 +43,12 @@ func NewTsuruClient(tsuruAPI, service, token string) (*RpaasClient, error) {
 	}, nil
 }
 
-func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]types.Plan, error) {
-
+func (c *RpaasClient) GetPlans(ctx context.Context, args InfoParams) ([]types.Plan, error) {
 	var pathName string
 	var req *http.Request
 	var err error
-	switch instance {
+
+	switch args.instance {
 	case nil:
 		pathName = fmt.Sprintf("/resources/plans")
 		req, err = c.newRequest("GET", "", pathName, nil)
@@ -59,8 +56,8 @@ func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]types.P
 			return nil, err
 		}
 	default:
-		pathName = fmt.Sprintf("/resources/%s/plans", *instance)
-		req, err = c.newRequest("GET", *instance, pathName, nil)
+		pathName = fmt.Sprintf("/resources/%s/plans", *args.instance)
+		req, err = c.newRequest("GET", *args.instance, pathName, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -87,19 +84,21 @@ func (c *RpaasClient) GetPlans(ctx context.Context, instance *string) ([]types.P
 		}
 		return plans, nil
 	}
+
 	bodyString, err := getBodyString(resp)
 	if err != nil {
 		return nil, err
 	}
+
 	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
-func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]types.Flavor, error) {
+func (c *RpaasClient) GetFlavors(ctx context.Context, args InfoParams) ([]types.Flavor, error) {
 	var pathName string
 	var req *http.Request
 	var err error
 
-	switch instance {
+	switch args.instance {
 	case nil:
 		pathName = fmt.Sprintf("/resources/flavors")
 		req, err = c.newRequest("GET", "", pathName, nil)
@@ -107,8 +106,8 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]types
 			return nil, err
 		}
 	default:
-		pathName = fmt.Sprintf("/resources/%s/flavors", *instance)
-		req, err = c.newRequest("GET", *instance, pathName, nil)
+		pathName = fmt.Sprintf("/resources/%s/flavors", *args.instance)
+		req, err = c.newRequest("GET", *args.instance, pathName, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -142,15 +141,15 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, instance *string) ([]types
 	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
-func (c *RpaasClient) Certificate(ctx context.Context, service, instance, certificate, key, destName string) error {
-	pathName := "/resources/" + instance + "/certificate"
-	body, boundary, err := encodeCertKey(service, instance, certificate, key, destName)
+func (c *RpaasClient) Certificate(ctx context.Context, args CertificateParams) error {
+	pathName := "/resources/" + args.instance + "/certificate"
+	body, boundary, err := args.encode()
 	if err != nil {
 		return err
 	}
 
 	readerBody := strings.NewReader(body)
-	req, err := c.newRequest("POST", instance, pathName, readerBody)
+	req, err := c.newRequest("POST", args.instance, pathName, readerBody)
 	if err != nil {
 		return err
 	}
@@ -171,17 +170,17 @@ func (c *RpaasClient) Certificate(ctx context.Context, service, instance, certif
 	return nil
 }
 
-func (c *RpaasClient) Scale(ctx context.Context, instance string, replicas int32) error {
-	if err := scaleValidate(instance, replicas); err != nil {
+func (c *RpaasClient) Scale(ctx context.Context, args ScaleParams) error {
+	if err := scaleValidate(args.instance, args.replicas); err != nil {
 		return err
 	}
 
 	bodyStruct := url.Values{}
-	bodyStruct.Set("quantity", strconv.Itoa(int(replicas)))
+	bodyStruct.Set("quantity", args.GetReplicaString())
 
-	pathName := fmt.Sprintf("/resources/%s/scale", instance)
+	pathName := fmt.Sprintf("/resources/%s/scale", args.instance)
 	bodyReader := strings.NewReader(bodyStruct.Encode())
-	req, err := c.newRequest("POST", instance, pathName, bodyReader)
+	req, err := c.newRequest("POST", args.instance, pathName, bodyReader)
 	if err != nil {
 		return err
 	}
@@ -260,57 +259,16 @@ func getBodyString(resp *http.Response) (string, error) {
 	return string(bodyBytes), nil
 }
 
-func encodeCertKey(service, instance, certificate, key, destName string) (string, string, error) {
-	certBytes, err := ioutil.ReadFile(certificate)
-	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to read certificate file: %v", err)
-	}
-
-	keyFile, err := ioutil.ReadFile(key)
-	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to read key file: %v", err)
-	}
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	certPart, err := writer.CreateFormFile("cert", certificate)
-	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to create certificate form file: %v", err)
-	}
-
-	_, err = certPart.Write(certBytes)
-	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to write the certificate to the file: %v", err)
-	}
-
-	keyPart, err := writer.CreateFormFile("key", key)
-	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to create key form file: %v", err)
-	}
-	_, err = keyPart.Write(keyFile)
-	if err != nil {
-		return "", "", fmt.Errorf("Error while trying to write the key to the file: %v", err)
-	}
-
-	writer.WriteField("name", destName)
-	err = writer.Close()
-	if err != nil {
-		return "", "", fmt.Errorf("Error while closing file: %v", err)
-	}
-
-	return body.String(), writer.Boundary(), nil
-}
-
 type UpdateArgs struct {
-	Flavors   []string
-	PlanOverr string
-	Plan      string
-	Team      string
-	User      string
-	Ip        string
-	Tags      []string
-	Instance  string
+	Flavors     []string
+	PlanOverr   string
+	Plan        string
+	Team        string
+	User        string
+	Ip          string
+	Tags        []string
+	Description string
+	Instance    string
 }
 
 func addOtherTags(tags []string, bodyStruct *url.Values) {
@@ -319,18 +277,11 @@ func addOtherTags(tags []string, bodyStruct *url.Values) {
 	}
 }
 
-func validateUpdateArgs(args UpdateArgs) error {
-	if args.Instance == "" || args.Plan == "" || args.Team == "" || args.User == "" {
-		return fmt.Errorf("must provide a valid instance name, plan, team and user")
-	}
-	return nil
-}
-
-func (c *RpaasClient) Update(ctx context.Context, args UpdateArgs) error {
-	if err := validateUpdateArgs(args); err != nil {
+func (c *RpaasClient) Update(ctx context.Context, args UpdateParams) error {
+	if err := args.validateUpdateArgs(); err != nil {
 		return err
 	}
-	pathName := "/resources/" + args.Instance
+	pathName := "/resources/" + args.instance
 	bodyStruct := url.Values{}
 
 	if args.Flavors != nil {
@@ -348,16 +299,20 @@ func (c *RpaasClient) Update(ctx context.Context, args UpdateArgs) error {
 		bodyStruct.Add("tag", ipTag)
 	}
 
+	if args.Description != "" {
+		bodyStruct.Set("description", args.Description)
+	}
+
 	addOtherTags(args.Tags, &bodyStruct)
 
-	bodyStruct.Add("name", args.Instance)
+	bodyStruct.Add("name", args.instance)
 	bodyStruct.Add("plan", args.Plan)
 	bodyStruct.Add("team", args.Team)
 	bodyStruct.Add("user", args.User)
 
 	bodyReader := strings.NewReader(bodyStruct.Encode())
 
-	req, err := c.newRequest("PUT", args.Instance, pathName, bodyReader)
+	req, err := c.newRequest("PUT", args.instance, pathName, bodyReader)
 	if err != nil {
 		return err
 	}
