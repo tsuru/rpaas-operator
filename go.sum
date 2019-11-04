@@ -427,12 +427,8 @@ github.com/technosophos/moniker v0.0.0-20180509230615-a5dbd03a2245/go.mod h1:O1c
 github.com/tmc/grpc-websocket-proxy v0.0.0-20171017195756-830351dc03c6/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tsuru/config v0.0.0-20180418191556-87403ee7da02/go.mod h1:bilf/jr5AGl9raMFnhM9hsp+ms6PK752UF89ODoRHW4=
-github.com/tsuru/nginx-operator v0.2.1 h1:+yOhlD62no9ZwVotDceF40VIObAsZjTG/t9pHFgAztc=
-github.com/tsuru/nginx-operator v0.2.1/go.mod h1:EIgY52Vao1jlZNjCYB7eRnPwiPJP7CLITIy9CYCcPxo=
-github.com/tsuru/nginx-operator v0.3.1-0.20191029141448-fbe3ae63d1ff h1:GYs04HwiiLdQOygJqWMuTX14hmfD2+NsoZrg+UXNSdg=
-github.com/tsuru/nginx-operator v0.3.1-0.20191029141448-fbe3ae63d1ff/go.mod h1:FfMJvgL048SB8txQNgUGTsVpXoq1oXP9rz0rQjnu1bQ=
-github.com/tsuru/nginx-operator v0.3.1-0.20191030232906-98fe1aca1b3f h1:HNHArsnCReKmLR1yieAplGv+5uxATNlwOAXGjekiMcE=
-github.com/tsuru/nginx-operator v0.3.1-0.20191030232906-98fe1aca1b3f/go.mod h1:FfMJvgL048SB8txQNgUGTsVpXoq1oXP9rz0rQjnu1bQ=
+github.com/tsuru/nginx-operator v0.3.1 h1:j5WxoCZR3XpmACmkQ7PftimzTum7cnNcEEwgT3P0/lQ=
+github.com/tsuru/nginx-operator v0.3.1/go.mod h1:FfMJvgL048SB8txQNgUGTsVpXoq1oXP9rz0rQjnu1bQ=
 github.com/ugorji/go v1.1.1/go.mod h1:hnLbHMwcvSihnDhEfx2/BzKp2xb0Y+ErdfYcrs9tkJQ=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181022190402-e5e69e061d4f/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
