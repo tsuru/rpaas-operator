@@ -301,3 +301,37 @@ func encodeCertKey(service, instance, certificate, key, destName string) (string
 
 	return body.String(), writer.Boundary(), nil
 }
+
+func (c *RpaasClient) Update(ctx context.Context, service, instance, plan, flavor string) error {
+	pathName := "/resources/" + instance
+	var body string
+	if flavor != "" && plan != "" {
+		body = "flavor_name=" + flavor + "&" + "plan_name=" + plan
+	} else if flavor != "" {
+		body = "flavor_name=" + flavor
+	} else {
+		body = "plan_name=" + plan
+	}
+
+	bodyReader := strings.NewReader(body)
+	req, err := c.newRequest("PUT", instance, pathName, bodyReader)
+	if err != nil {
+		return err
+	}
+	req.Header.Add("Content-Type", "application/x-www-form-urlencoded")
+
+	resp, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		bodyString, err := getBodyString(resp)
+		if err != nil {
+			return err
+		}
+		return fmt.Errorf("unexpected status code: body: %v", bodyString)
+	}
+
+	return nil
+}
