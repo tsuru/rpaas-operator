@@ -31,15 +31,14 @@ func TestNewClient(t *testing.T) {
 func TestRpaasClient_Scale(t *testing.T) {
 	testCases := []struct {
 		name      string
-		initArgs  func() ScaleParams
+		initArgs  func() ScaleInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name: "passing nil instance",
-			initArgs: func() ScaleParams {
-				args := ScaleParams{}
-				return args
+			initArgs: func() ScaleInstance {
+				return ScaleInstance{}
 			},
 			assertion: func(t *testing.T, err error) {
 				assert.Equal(t, fmt.Errorf("instance can't be nil"), err)
@@ -47,11 +46,11 @@ func TestRpaasClient_Scale(t *testing.T) {
 		},
 		{
 			name: "passing invalid number of replicas",
-			initArgs: func() ScaleParams {
-				args := ScaleParams{}
-				args.SetInstance("test-instance")
-				args.SetReplicas(-1)
-				return args
+			initArgs: func() ScaleInstance {
+				inst := ScaleInstance{}
+				inst.Name = "test-instance"
+				inst.Replicas = -1
+				return inst
 			},
 			assertion: func(t *testing.T, err error) {
 				assert.Equal(t, fmt.Errorf("replicas number must be greater or equal to zero"), err)
@@ -59,11 +58,11 @@ func TestRpaasClient_Scale(t *testing.T) {
 		},
 		{
 			name: "testing valid request",
-			initArgs: func() ScaleParams {
-				args := ScaleParams{}
-				args.SetInstance("test-instance")
-				args.SetReplicas(2)
-				return args
+			initArgs: func() ScaleInstance {
+				inst := ScaleInstance{}
+				inst.Name = "test-instance"
+				inst.Replicas = 2
+				return inst
 			},
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
@@ -80,11 +79,11 @@ func TestRpaasClient_Scale(t *testing.T) {
 		},
 		{
 			name: "testing error response from handler",
-			initArgs: func() ScaleParams {
-				args := ScaleParams{}
-				args.SetInstance("test-instance")
-				args.SetReplicas(2)
-				return args
+			initArgs: func() ScaleInstance {
+				inst := ScaleInstance{}
+				inst.Name = "test-instance"
+				inst.Replicas = 2
+				return inst
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
@@ -117,18 +116,18 @@ func TestRpaasClient_Scale(t *testing.T) {
 func TestScaleWithTsuru(t *testing.T) {
 	type testStruct struct {
 		name      string
-		initArgs  func() ScaleParams
+		initArgs  func() ScaleInstance
 		assertion func(t *testing.T, err error, clientTest *RpaasClient, tt testStruct)
 		handler   http.HandlerFunc
 	}
 	testCases := []testStruct{
 		{
 			name: "testing with existing service and string in tsuru target",
-			initArgs: func() ScaleParams {
-				args := ScaleParams{}
-				args.SetInstance("rpaasv2-test")
-				args.SetReplicas(1)
-				return args
+			initArgs: func() ScaleInstance {
+				inst := ScaleInstance{}
+				inst.Name = "rpaasv2-test"
+				inst.Replicas = 1
+				return inst
 			},
 			assertion: func(t *testing.T, err error, clientTest *RpaasClient, tt testStruct) {
 				assert.NoError(t, err)
@@ -162,16 +161,15 @@ func TestScaleWithTsuru(t *testing.T) {
 func TestGetPlansTroughHostAPI(t *testing.T) {
 	testCases := []struct {
 		name      string
-		initArgs  func() InfoParams
+		initArgs  func() InfoInstance
 		assertion func(t *testing.T, plans []types.Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name: "valid request",
-			initArgs: func() InfoParams {
-				args := InfoParams{}
-				args.SetInstance("test-instance")
-				return args
+			initArgs: func() InfoInstance {
+				sPointer := "test-instance"
+				return InfoInstance{Name: &sPointer}
 			},
 			assertion: func(t *testing.T, plans []types.Plan, err error) {
 				assert.NoError(t, err)
@@ -211,10 +209,9 @@ func TestGetPlansTroughHostAPI(t *testing.T) {
 		},
 		{
 			name: "some error returned on the request",
-			initArgs: func() InfoParams {
-				args := InfoParams{}
-				args.SetInstance("test-instance")
-				return args
+			initArgs: func() InfoInstance {
+				sPointer := "test-instance"
+				return InfoInstance{Name: &sPointer}
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
@@ -247,16 +244,15 @@ func TestGetPlansTroughHostAPI(t *testing.T) {
 func TestPlansTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
-		initArgs  func() InfoParams
+		initArgs  func() InfoInstance
 		assertion func(t *testing.T, plans []types.Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name: "testing with existing service and string in tsuru target",
-			initArgs: func() InfoParams {
-				args := InfoParams{}
-				args.SetInstance("rpaasv2-test")
-				return args
+			initArgs: func() InfoInstance {
+				sPointer := "rpaasv2-test"
+				return InfoInstance{Name: &sPointer}
 			},
 			assertion: func(t *testing.T, plans []types.Plan, err error) {
 				assert.NoError(t, err)
@@ -312,16 +308,15 @@ func TestPlansTroughTsuru(t *testing.T) {
 func TestGetFlavorsTroughHostAPI(t *testing.T) {
 	testCases := []struct {
 		name      string
-		initArgs  func() InfoParams
+		initArgs  func() InfoInstance
 		assertion func(t *testing.T, flavors []types.Flavor, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name: "valid request",
-			initArgs: func() InfoParams {
-				args := InfoParams{}
-				args.SetInstance("test-instance")
-				return args
+			initArgs: func() InfoInstance {
+				sPointer := "test-instance"
+				return InfoInstance{Name: &sPointer}
 			},
 			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
 				assert.NoError(t, err)
@@ -358,10 +353,10 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 		},
 		{
 			name: "some error returned on the request",
-			initArgs: func() InfoParams {
-				args := InfoParams{}
-				args.SetInstance("test-instance")
-				return args
+			initArgs: func() InfoInstance {
+				var sPointer string
+				sPointer = "test-instance"
+				return InfoInstance{Name: &sPointer}
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
@@ -394,16 +389,16 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 func TestFlavorsTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
-		initArgs  func() InfoParams
+		initArgs  func() InfoInstance
 		assertion func(t *testing.T, flavors []types.Flavor, err error)
 		handler   http.HandlerFunc
 	}{
 		{
 			name: "testing with existing service and string in tsuru target",
-			initArgs: func() InfoParams {
-				args := InfoParams{}
-				args.SetInstance("rpaasv2-test")
-				return args
+			initArgs: func() InfoInstance {
+				var sPointer string
+				sPointer = "rpaasv2-test"
+				return InfoInstance{Name: &sPointer}
 			},
 			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
 				assert.NoError(t, err)
@@ -459,7 +454,7 @@ func TestCertificateTroughTsuru(t *testing.T) {
 		certPem   string
 		keyPem    string
 		boundary  string
-		initArgs  func() CertificateParams
+		initArgs  func() CertificateInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
@@ -469,14 +464,13 @@ func TestCertificateTroughTsuru(t *testing.T) {
 
 			boundary: "XXXXXXXXXXXXXXX",
 
-			initArgs: func() CertificateParams {
-				args := CertificateParams{}
-				args.SetInstance("test-instance")
-				args.SetCertificate("tmp/cert.cert")
-				args.SetKey("tmp/key.cert")
-				args.SetDestination("test-destination")
-
-				return args
+			initArgs: func() CertificateInstance {
+				inst := CertificateInstance{}
+				inst.Name = "test-instance"
+				inst.Certificate = "tmp/cert.cert"
+				inst.Key = "tmp/key.cert"
+				inst.DestName = "test-destination"
+				return inst
 			},
 
 			certPem: `-----BEGIN CERTIFICATE-----
@@ -564,7 +558,7 @@ func TestCertificateTroughAPI(t *testing.T) {
 		certPem   string
 		keyPem    string
 		boundary  string
-		initArgs  func() CertificateParams
+		initArgs  func() CertificateInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
@@ -625,14 +619,13 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
-			initArgs: func() CertificateParams {
-				args := CertificateParams{}
-				args.SetInstance("test-instance")
-				args.SetCertificate("tmp/cert.cert")
-				args.SetKey("tmp/key.cert")
-				args.SetDestination("test-destination")
-
-				return args
+			initArgs: func() CertificateInstance {
+				inst := CertificateInstance{}
+				inst.Name = "test-instance"
+				inst.Certificate = "tmp/cert.cert"
+				inst.Key = "tmp/key.cert"
+				inst.DestName = "test-destination"
+				return inst
 			},
 		},
 	}
@@ -705,19 +698,19 @@ func TestUpdateTroughTsuru(t *testing.T) {
 	type testStruct struct {
 		name      string
 		service   string
-		initArgs  func() UpdateParams
+		initArgs  func() UpdateInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
 	testCases := []testStruct{
 		{
 			name: "testing with existing plan and flavor",
-			initArgs: func() UpdateParams {
-				args := NewUpdateParams()
-				args.SetInstance("test-instance")
-				args.SetTeam("test-team")
-				args.SetUser("test-user")
-				args.SetFlavors([]string{"test-flavor"})
+			initArgs: func() UpdateInstance {
+				args := NewUpdateInstance()
+				args.Name = "test-instance"
+				args.Team = "test-team"
+				args.User = "test-user"
+				args.Flavors = []string{"test-flavor"}
 
 				return args
 			},
@@ -732,17 +725,17 @@ func TestUpdateTroughTsuru(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, "name=test-instance&plan=default&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
+				assert.Equal(t, "name=test-instance&plan=&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
 		{
 			name: "testing with only plan passed",
-			initArgs: func() UpdateParams {
-				args := NewUpdateParams()
-				args.SetInstance("test-instance")
-				args.SetTeam("test-team")
-				args.SetUser("test-user")
+			initArgs: func() UpdateInstance {
+				args := NewUpdateInstance()
+				args.Name = "test-instance"
+				args.Team = "test-team"
+				args.User = "test-user"
 
 				return args
 			},
@@ -757,7 +750,7 @@ func TestUpdateTroughTsuru(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, "name=test-instance&plan=default&team=test-team&user=test-user", string(bodyBytes))
+				assert.Equal(t, "name=test-instance&plan=&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
@@ -780,19 +773,19 @@ func TestUpdateTroughAPI(t *testing.T) {
 	type testStruct struct {
 		name      string
 		service   string
-		initArgs  func() UpdateParams
+		initArgs  func() UpdateInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
 	testCases := []testStruct{
 		{
 			name: "testing with existing plan and flavor",
-			initArgs: func() UpdateParams {
-				args := NewUpdateParams()
-				args.SetInstance("test-instance")
-				args.SetTeam("test-team")
-				args.SetUser("test-user")
-				args.SetFlavors([]string{"test-flavor"})
+			initArgs: func() UpdateInstance {
+				args := NewUpdateInstance()
+				args.Name = "test-instance"
+				args.Team = "test-team"
+				args.User = "test-user"
+				args.Flavors = []string{"test-flavor"}
 
 				return args
 			},
@@ -806,17 +799,17 @@ func TestUpdateTroughAPI(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, "name=test-instance&plan=default&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
+				assert.Equal(t, "name=test-instance&plan=&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
 		{
 			name: "testing with only plan passed",
-			initArgs: func() UpdateParams {
-				args := NewUpdateParams()
-				args.SetInstance("test-instance")
-				args.SetTeam("test-team")
-				args.SetUser("test-user")
+			initArgs: func() UpdateInstance {
+				args := NewUpdateInstance()
+				args.Name = "test-instance"
+				args.Team = "test-team"
+				args.User = "test-user"
 
 				return args
 			},
@@ -830,7 +823,7 @@ func TestUpdateTroughAPI(t *testing.T) {
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
-				assert.Equal(t, "name=test-instance&plan=default&team=test-team&user=test-user", string(bodyBytes))
+				assert.Equal(t, "name=test-instance&plan=&team=test-team&user=test-user", string(bodyBytes))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
