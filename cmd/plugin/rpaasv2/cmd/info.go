@@ -38,15 +38,17 @@ func info() cli.Command {
 				return err
 			}
 
-			infoArgs := client.InfoParams{}
+			infoInst := client.InfoInstance{}
 
-			infoArgs.SetInstance(ctx.String("instance"))
+			sPointer := ctx.String("instance")
 
-			plans, err := tsuruClient.GetPlans(context.TODO(), infoArgs)
+			infoInst.Name = &sPointer
+
+			plans, err := tsuruClient.GetPlans(context.TODO(), infoInst)
 
 			writePlans("Plans", plans, ctx.App.Writer)
 
-			flavors, err := tsuruClient.GetFlavors(context.TODO(), infoArgs)
+			flavors, err := tsuruClient.GetFlavors(context.TODO(), infoInst)
 
 			writeFlavors("Flavors", flavors, ctx.App.Writer)
 
