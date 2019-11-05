@@ -39,19 +39,22 @@ func Scale() cli.Command {
 		Flags: initScaleFlags(),
 
 		Action: func(ctx *cli.Context) error {
-			quantity := int32(ctx.Int("quantity"))
-			client, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
+			tsuruClient, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
 			if err != nil {
 				return err
 			}
 
-			err = client.Scale(context.TODO(), ctx.String("instance"), quantity)
+			scaleArgs := client.ScaleParams{}
+			scaleArgs.SetInstance(ctx.String("instance"))
+			scaleArgs.SetReplicas(int32(ctx.Int("quantity")))
+
+			err = tsuruClient.Scale(context.TODO(), scaleArgs)
 
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d unit(s)\n", quantity)
+			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %s unit(s)\n", scaleArgs.GetReplicaString())
 			return nil
 		},
 	}
