@@ -45,9 +45,7 @@ func Scale() cli.Command {
 				return err
 			}
 
-			scaleInst := client.ScaleInstance{}
-			scaleInst.Name = ctx.String("instance")
-			scaleInst.Replicas = int32(ctx.Int("quantity"))
+			scaleInst := client.MakeScaleInstance(ctx.String("instance"), int32(ctx.Int("quantity")))
 
 			err = tsuruClient.Scale(context.TODO(), scaleInst)
 

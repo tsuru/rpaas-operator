@@ -11,8 +11,17 @@ type Instance struct {
 	Name string
 }
 
+func MakeInstance(name string) Instance {
+	return Instance{Name: name}
+}
+
 type InfoInstance struct {
 	Name *string
+}
+
+func MakeInfoInstance(name string) InfoInstance {
+	s := &name
+	return InfoInstance{Name: s}
 }
 
 type CertificateInstance struct {
@@ -20,6 +29,12 @@ type CertificateInstance struct {
 	Certificate string
 	Key         string
 	DestName    string
+}
+
+func MakeCertificateInstance(name, certificate, key, destName string) CertificateInstance {
+	inst := CertificateInstance{Certificate: certificate, Key: key, DestName: destName}
+	inst.Name = name
+	return inst
 }
 
 func (cp *CertificateInstance) encode() (string, string, error) {
@@ -69,26 +84,36 @@ type ScaleInstance struct {
 	Replicas int32
 }
 
+func MakeScaleInstance(name string, replicas int32) ScaleInstance {
+	inst := ScaleInstance{Replicas: replicas}
+	inst.Name = name
+	return inst
+}
+
 type UpdateInstance struct {
 	Instance
-	Flavors     []string
-	PlanOverr   string
-	Plan        string
-	Team        string
-	User        string
-	Ip          string
-	Tags        []string
-	Description string
+	Flavors []string
+	Flags   map[string]string
+	Tags    []string
 }
 
-func NewUpdateInstance() UpdateInstance {
-	return UpdateInstance{
-		Plan: "",
-	}
+func MakeUpdateInstance(name string, flavors, tags []string) UpdateInstance {
+	tmpMap := make(map[string]string)
+	tmpMap["PlanOverr"] = ""
+	tmpMap["Plan"] = ""
+	tmpMap["Team"] = ""
+	tmpMap["User"] = ""
+	tmpMap["Ip"] = ""
+	tmpMap["Description"] = ""
+
+	inst := UpdateInstance{Flags: tmpMap, Flavors: flavors, Tags: tags}
+	inst.Name = name
+
+	return inst
 }
 
-func (up *UpdateInstance) validateUpdateArgs() error {
-	if up.Name == "" || up.Team == "" {
+func (up *UpdateInstance) validateUpdate() error {
+	if up.Name == "" || up.Flags["Team"] == "" {
 		return fmt.Errorf("must provide a valid instance name, plan, team and user")
 	}
 	return nil

@@ -38,11 +38,7 @@ func info() cli.Command {
 				return err
 			}
 
-			infoInst := client.InfoInstance{}
-
-			sPointer := ctx.String("instance")
-
-			infoInst.Name = &sPointer
+			infoInst := client.MakeInfoInstance(ctx.String("instance"))
 
 			plans, err := tsuruClient.GetPlans(context.TODO(), infoInst)
 

@@ -44,12 +44,12 @@ func NewTsuruClient(tsuruAPI, service, token string) (*RpaasClient, error) {
 	}, nil
 }
 
-func (c *RpaasClient) GetPlans(ctx context.Context, args InfoInstance) ([]types.Plan, error) {
+func (c *RpaasClient) GetPlans(ctx context.Context, inst InfoInstance) ([]types.Plan, error) {
 	var pathName string
 	var req *http.Request
 	var err error
 
-	switch args.Name {
+	switch inst.Name {
 	case nil:
 		pathName = fmt.Sprintf("/resources/plans")
 		req, err = c.newRequest("GET", "", pathName, nil)
@@ -57,8 +57,8 @@ func (c *RpaasClient) GetPlans(ctx context.Context, args InfoInstance) ([]types.
 			return nil, err
 		}
 	default:
-		pathName = fmt.Sprintf("/resources/%s/plans", *args.Name)
-		req, err = c.newRequest("GET", *args.Name, pathName, nil)
+		pathName = fmt.Sprintf("/resources/%s/plans", *inst.Name)
+		req, err = c.newRequest("GET", *inst.Name, pathName, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -94,12 +94,12 @@ func (c *RpaasClient) GetPlans(ctx context.Context, args InfoInstance) ([]types.
 	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
-func (c *RpaasClient) GetFlavors(ctx context.Context, args InfoInstance) ([]types.Flavor, error) {
+func (c *RpaasClient) GetFlavors(ctx context.Context, inst InfoInstance) ([]types.Flavor, error) {
 	var pathName string
 	var req *http.Request
 	var err error
 
-	switch args.Name {
+	switch inst.Name {
 	case nil:
 		pathName = fmt.Sprintf("/resources/flavors")
 		req, err = c.newRequest("GET", "", pathName, nil)
@@ -107,8 +107,8 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, args InfoInstance) ([]type
 			return nil, err
 		}
 	default:
-		pathName = fmt.Sprintf("/resources/%s/flavors", *args.Name)
-		req, err = c.newRequest("GET", *args.Name, pathName, nil)
+		pathName = fmt.Sprintf("/resources/%s/flavors", *inst.Name)
+		req, err = c.newRequest("GET", *inst.Name, pathName, nil)
 		if err != nil {
 			return nil, err
 		}
@@ -142,15 +142,15 @@ func (c *RpaasClient) GetFlavors(ctx context.Context, args InfoInstance) ([]type
 	return nil, fmt.Errorf("unexpected status code: body: %v", bodyString)
 }
 
-func (c *RpaasClient) Certificate(ctx context.Context, args CertificateInstance) error {
-	pathName := "/resources/" + args.Name + "/certificate"
-	body, boundary, err := args.encode()
+func (c *RpaasClient) Certificate(ctx context.Context, inst CertificateInstance) error {
+	pathName := "/resources/" + inst.Name + "/certificate"
+	body, boundary, err := inst.encode()
 	if err != nil {
 		return err
 	}
 
 	readerBody := strings.NewReader(body)
-	req, err := c.newRequest("POST", args.Name, pathName, readerBody)
+	req, err := c.newRequest("POST", inst.Name, pathName, readerBody)
 	if err != nil {
 		return err
 	}
@@ -171,17 +171,17 @@ func (c *RpaasClient) Certificate(ctx context.Context, args CertificateInstance)
 	return nil
 }
 
-func (c *RpaasClient) Scale(ctx context.Context, args ScaleInstance) error {
-	if err := scaleValidate(args.Name, args.Replicas); err != nil {
+func (c *RpaasClient) Scale(ctx context.Context, inst ScaleInstance) error {
+	if err := scaleValidate(inst.Name, inst.Replicas); err != nil {
 		return err
 	}
 
 	bodyStruct := url.Values{}
-	bodyStruct.Set("quantity", strconv.Itoa(int(args.Replicas)))
+	bodyStruct.Set("quantity", strconv.Itoa(int(inst.Replicas)))
 
-	pathName := fmt.Sprintf("/resources/%s/scale", args.Name)
+	pathName := fmt.Sprintf("/resources/%s/scale", inst.Name)
 	bodyReader := strings.NewReader(bodyStruct.Encode())
-	req, err := c.newRequest("POST", args.Name, pathName, bodyReader)
+	req, err := c.newRequest("POST", inst.Name, pathName, bodyReader)
 	if err != nil {
 		return err
 	}
@@ -260,60 +260,51 @@ func getBodyString(resp *http.Response) (string, error) {
 	return string(bodyBytes), nil
 }
 
-type UpdateArgs struct {
-	Flavors     []string
-	PlanOverr   string
-	Plan        string
-	Team        string
-	User        string
-	Ip          string
-	Tags        []string
-	Description string
-	Instance    string
-}
-
 func addOtherTags(tags []string, bodyStruct *url.Values) {
 	for _, tag := range tags {
 		bodyStruct.Add("tag", tag)
 	}
 }
 
-func (c *RpaasClient) Update(ctx context.Context, args UpdateInstance) error {
-	if err := args.validateUpdateArgs(); err != nil {
+func (c *RpaasClient) Update(ctx context.Context, inst UpdateInstance) error {
+	if err := inst.validateUpdate(); err != nil {
 		return err
 	}
-	pathName := "/resources/" + args.Name
+	pathName := "/resources/" + inst.Name
 	bodyStruct := url.Values{}
 
-	if args.Flavors != nil {
-		flavorTag := "flavor=" + strings.Join(args.Flavors, ",")
+	if inst.Flavors != nil {
+		flavorTag := "flavor=" + strings.Join(inst.Flavors, ",")
 		bodyStruct.Add("tag", flavorTag)
 	}
 
-	if args.PlanOverr != "" {
-		planOvertag := "plan-override=" + args.PlanOverr
+	if inst.Flags["PlanOverr"] != "" {
+		planOvertag := "plan-override=" + inst.Flags["PlanOverr"]
 		bodyStruct.Add("tag", planOvertag)
 	}
 
-	if args.Ip != "" {
-		ipTag := "ip=" + args.Ip
+	if inst.Flags["Ip"] != "" {
+		ipTag := "ip=" + inst.Flags["Ip"]
 		bodyStruct.Add("tag", ipTag)
 	}
 
-	if args.Description != "" {
-		bodyStruct.Set("description", args.Description)
+	if inst.Flags["Description"] != "" {
+		bodyStruct.Set("description", inst.Flags["Description"])
 	}
 
-	addOtherTags(args.Tags, &bodyStruct)
+	if inst.Flags["User"] != "" {
+		bodyStruct.Set("user", inst.Flags["User"])
+	}
 
-	bodyStruct.Add("name", args.Name)
-	bodyStruct.Add("plan", args.Plan)
-	bodyStruct.Add("team", args.Team)
-	bodyStruct.Add("user", args.User)
+	addOtherTags(inst.Tags, &bodyStruct)
+
+	bodyStruct.Add("name", inst.Name)
+	bodyStruct.Add("team", inst.Flags["Team"])
+	bodyStruct.Add("plan", inst.Flags["Plan"])
 
 	bodyReader := strings.NewReader(bodyStruct.Encode())
 
-	req, err := c.newRequest("PUT", args.Name, pathName, bodyReader)
+	req, err := c.newRequest("PUT", inst.Name, pathName, bodyReader)
 	if err != nil {
 		return err
 	}
