@@ -75,14 +75,14 @@ type ScaleInstance struct {
 
 type UpdateInstance struct {
 	Instance
-	Flavors     []string
-	Tags        []string
-	PlanOverr   string
-	Ip          string
-	Description string
-	User        string
-	Team        string
-	Plan        string
+	Flavors      []string
+	Tags         []string
+	PlanOverride string
+	Ip           string
+	Description  string
+	User         string
+	Team         string
+	Plan         string
 }
 
 func (up *UpdateInstance) validate() error {

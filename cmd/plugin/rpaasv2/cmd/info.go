@@ -43,16 +43,18 @@ func info() cli.Command {
 			infoInst := client.InfoInstance{Name: &instName}
 
 			plans, err := tsuruClient.GetPlans(context.TODO(), infoInst)
+			if err != nil {
+				return err
+			}
 
 			writePlans("Plans", plans, ctx.App.Writer)
 
 			flavors, err := tsuruClient.GetFlavors(context.TODO(), infoInst)
-
-			writeFlavors("Flavors", flavors, ctx.App.Writer)
-
 			if err != nil {
 				return err
 			}
+
+			writeFlavors("Flavors", flavors, ctx.App.Writer)
 
 			return nil
 		},

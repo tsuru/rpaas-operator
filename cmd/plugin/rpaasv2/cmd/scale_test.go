@@ -49,7 +49,7 @@ func TestScale(t *testing.T) {
 		},
 		assertion: func(t *testing.T, err error, buffer *bytes.Buffer) {
 			str := buffer.String()
-			assert.Equal(t, "Instance successfully scaled to 2 unit(s)\n", str)
+			assert.Equal(t, "Instance successfully scaled to 2 replica(s)\n", str)
 			assert.NilError(t, err)
 		},
 		args: []string{"./rpaasv2", "scale", "-s", "fake-service", "-i", "fake-instance", "-q", "2"},

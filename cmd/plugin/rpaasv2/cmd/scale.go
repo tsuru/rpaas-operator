@@ -35,7 +35,7 @@ func initScaleFlags() []cli.Flag {
 func Scale() cli.Command {
 	return cli.Command{
 		Name:  "scale",
-		Usage: "Scales the specified rpaas instance to [-q] units",
+		Usage: "Scales the specified rpaas instance to [-q] replica(s)",
 		Flags: initScaleFlags(),
 
 		Action: func(ctx *cli.Context) error {
@@ -52,7 +52,7 @@ func Scale() cli.Command {
 				return err
 			}
 
-			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d unit(s)\n", inst.Replicas)
+			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d replica(s)\n", inst.Replicas)
 			return nil
 		},
 	}

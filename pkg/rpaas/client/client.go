@@ -278,8 +278,8 @@ func (c *RpaasClient) Update(ctx context.Context, inst UpdateInstance) error {
 		bodyStruct.Add("tag", flavorTag)
 	}
 
-	if inst.PlanOverr != "" {
-		planOvertag := "plan-override=" + inst.PlanOverr
+	if inst.PlanOverride != "" {
+		planOvertag := "plan-override=" + inst.PlanOverride
 		bodyStruct.Add("tag", planOvertag)
 	}
 
