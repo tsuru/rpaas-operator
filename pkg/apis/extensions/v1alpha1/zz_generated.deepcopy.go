@@ -302,6 +302,11 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 		*out = new(RpaasInstanceAutoscaleSpec)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Lifecycle != nil {
+		in, out := &in.Lifecycle, &out.Lifecycle
+		*out = new(nginxv1alpha1.NginxLifecycle)
+		(*in).DeepCopyInto(*out)
+	}
 	return
 }
 
