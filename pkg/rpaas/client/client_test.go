@@ -31,8 +31,7 @@ func TestNewClient(t *testing.T) {
 func TestRpaasClient_Scale(t *testing.T) {
 	testCases := []struct {
 		name      string
-		instance  string
-		replicas  int32
+		scaleInst ScaleInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}{
@@ -43,17 +42,15 @@ func TestRpaasClient_Scale(t *testing.T) {
 			},
 		},
 		{
-			name:     "passing invalid number of replicas",
-			instance: "test-instance",
-			replicas: int32(-1),
+			name:      "passing invalid number of replicas",
+			scaleInst: ScaleInstance{Instance: Instance{Name: "test-instance"}, Replicas: int32(-1)},
 			assertion: func(t *testing.T, err error) {
 				assert.Equal(t, fmt.Errorf("replicas number must be greater or equal to zero"), err)
 			},
 		},
 		{
-			name:     "testing valid request",
-			instance: "test-instance",
-			replicas: int32(2),
+			name:      "testing valid request",
+			scaleInst: ScaleInstance{Instance: Instance{Name: "test-instance"}, Replicas: int32(2)},
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
@@ -68,9 +65,8 @@ func TestRpaasClient_Scale(t *testing.T) {
 			},
 		},
 		{
-			name:     "testing error response from handler",
-			instance: "test-instance",
-			replicas: int32(2),
+			name:      "testing error response from handler",
+			scaleInst: ScaleInstance{Instance: Instance{Name: "test-instance"}, Replicas: int32(2)},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/scale")
@@ -89,10 +85,11 @@ func TestRpaasClient_Scale(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
+			inst := tt.scaleInst
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-			err := clientTest.Scale(context.TODO(), tt.instance, tt.replicas)
+			err := clientTest.Scale(context.TODO(), inst)
 			tt.assertion(t, err)
 		})
 	}
@@ -101,23 +98,22 @@ func TestRpaasClient_Scale(t *testing.T) {
 func TestScaleWithTsuru(t *testing.T) {
 	type testStruct struct {
 		name      string
-		instance  string
-		replicas  int32
+		scaleInst ScaleInstance
 		assertion func(t *testing.T, err error, clientTest *RpaasClient, tt testStruct)
 		handler   http.HandlerFunc
 	}
 	testCases := []testStruct{
 		{
-			name:     "testing with existing service and string in tsuru target",
-			instance: "rpaasv2-test",
-			replicas: int32(1),
+			name:      "testing with existing service and string in tsuru target",
+			scaleInst: ScaleInstance{Instance: Instance{Name: "test-instance"}, Replicas: int32(1)},
 			assertion: func(t *testing.T, err error, clientTest *RpaasClient, tt testStruct) {
 				assert.NoError(t, err)
-				assert.Equal(t, nil, clientTest.Scale(context.TODO(), tt.instance, tt.replicas))
+				inst := tt.scaleInst
+				assert.Equal(t, nil, clientTest.Scale(context.TODO(), inst))
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
-				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/scale", r.URL.RequestURI())
+				assert.Equal(t, "/services/example-service/proxy/test-instance?callback=/resources/test-instance/scale", r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				bodyBytes, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
@@ -142,13 +138,16 @@ func TestScaleWithTsuru(t *testing.T) {
 func TestGetPlansTroughHostAPI(t *testing.T) {
 	testCases := []struct {
 		name      string
-		instance  string
+		infoInst  func() InfoInstance
 		assertion func(t *testing.T, plans []types.Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
-			name:     "valid request",
-			instance: "test-instance",
+			name: "valid request",
+			infoInst: func() InfoInstance {
+				name := "test-instance"
+				return InfoInstance{Name: &name}
+			},
 			assertion: func(t *testing.T, plans []types.Plan, err error) {
 				assert.NoError(t, err)
 				expectedPlans := []types.Plan{
@@ -186,8 +185,11 @@ func TestGetPlansTroughHostAPI(t *testing.T) {
 			},
 		},
 		{
-			name:     "some error returned on the request",
-			instance: "test-instance",
+			name: "some error returned on the request",
+			infoInst: func() InfoInstance {
+				name := "test-instance"
+				return InfoInstance{Name: &name}
+			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/plans")
@@ -209,7 +211,7 @@ func TestGetPlansTroughHostAPI(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-			plans, err := clientTest.GetPlans(context.TODO(), &tt.instance)
+			plans, err := clientTest.GetPlans(context.TODO(), tt.infoInst())
 			tt.assertion(t, plans, err)
 		})
 	}
@@ -218,13 +220,16 @@ func TestGetPlansTroughHostAPI(t *testing.T) {
 func TestPlansTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
-		instance  string
+		infoInst  func() InfoInstance
 		assertion func(t *testing.T, plans []types.Plan, err error)
 		handler   http.HandlerFunc
 	}{
 		{
-			name:     "testing with existing service and string in tsuru target",
-			instance: "rpaasv2-test",
+			name: "testing with existing service and string in tsuru target",
+			infoInst: func() InfoInstance {
+				name := "test-instance"
+				return InfoInstance{Name: &name}
+			},
 			assertion: func(t *testing.T, plans []types.Plan, err error) {
 				assert.NoError(t, err)
 				expectedPlans := []types.Plan{
@@ -238,7 +243,7 @@ func TestPlansTroughTsuru(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/plans", r.URL.RequestURI())
+				assert.Equal(t, "/services/example-service/proxy/test-instance?callback=/resources/test-instance/plans", r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				_, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
@@ -269,7 +274,7 @@ func TestPlansTroughTsuru(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest, err := NewTsuruClient(sv.URL, "example-service", "f4k3t0k3n")
-			plans, err := clientTest.GetPlans(context.TODO(), &tt.instance)
+			plans, err := clientTest.GetPlans(context.TODO(), tt.infoInst())
 			tt.assertion(t, plans, err)
 		})
 	}
@@ -278,13 +283,16 @@ func TestPlansTroughTsuru(t *testing.T) {
 func TestGetFlavorsTroughHostAPI(t *testing.T) {
 	testCases := []struct {
 		name      string
-		instance  string
+		infoInst  func() InfoInstance
 		assertion func(t *testing.T, flavors []types.Flavor, err error)
 		handler   http.HandlerFunc
 	}{
 		{
-			name:     "valid request",
-			instance: "test-instance",
+			name: "valid request",
+			infoInst: func() InfoInstance {
+				name := "test-instance"
+				return InfoInstance{Name: &name}
+			},
 			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
 				assert.NoError(t, err)
 				expectedFlavors := []types.Flavor{
@@ -319,8 +327,11 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 			},
 		},
 		{
-			name:     "some error returned on the request",
-			instance: "test-instance",
+			name: "some error returned on the request",
+			infoInst: func() InfoInstance {
+				name := "test-instance"
+				return InfoInstance{Name: &name}
+			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, r.URL.RequestURI(), "/resources/test-instance/flavors")
@@ -342,7 +353,7 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
-			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
+			flavors, err := clientTest.GetFlavors(context.TODO(), tt.infoInst())
 			tt.assertion(t, flavors, err)
 		})
 	}
@@ -351,13 +362,16 @@ func TestGetFlavorsTroughHostAPI(t *testing.T) {
 func TestFlavorsTroughTsuru(t *testing.T) {
 	testCases := []struct {
 		name      string
-		instance  string
+		infoInst  func() InfoInstance
 		assertion func(t *testing.T, flavors []types.Flavor, err error)
 		handler   http.HandlerFunc
 	}{
 		{
-			name:     "testing with existing service and string in tsuru target",
-			instance: "rpaasv2-test",
+			name: "testing with existing service and string in tsuru target",
+			infoInst: func() InfoInstance {
+				name := "test-instance"
+				return InfoInstance{Name: &name}
+			},
 			assertion: func(t *testing.T, flavors []types.Flavor, err error) {
 				assert.NoError(t, err)
 				expectedPlans := []types.Flavor{
@@ -370,7 +384,7 @@ func TestFlavorsTroughTsuru(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, "/services/example-service/proxy/rpaasv2-test?callback=/resources/rpaasv2-test/flavors", r.URL.RequestURI())
+				assert.Equal(t, "/services/example-service/proxy/test-instance?callback=/resources/test-instance/flavors", r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				_, err := ioutil.ReadAll(r.Body)
 				require.NoError(t, err)
@@ -399,7 +413,7 @@ func TestFlavorsTroughTsuru(t *testing.T) {
 			sv := httptest.NewServer(tt.handler)
 			defer sv.Close()
 			clientTest, err := NewTsuruClient(sv.URL, "example-service", "f4k3t0k3n")
-			flavors, err := clientTest.GetFlavors(context.TODO(), &tt.instance)
+			flavors, err := clientTest.GetFlavors(context.TODO(), tt.infoInst())
 			tt.assertion(t, flavors, err)
 		})
 	}
@@ -411,6 +425,7 @@ func TestCertificateTroughTsuru(t *testing.T) {
 		certPem   string
 		keyPem    string
 		boundary  string
+		certInst  CertificateInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
@@ -419,6 +434,8 @@ func TestCertificateTroughTsuru(t *testing.T) {
 			name: "when a valid key and certificate are passed",
 
 			boundary: "XXXXXXXXXXXXXXX",
+
+			certInst: CertificateInstance{Instance: Instance{Name: "test-instance"}, Certificate: "tmp/cert.cert", Key: "tmp/key.cert", DestName: "test-destination"},
 
 			certPem: `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
@@ -492,7 +509,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			assert.NoError(t, err)
 			// end of setup
 
-			err = clientTest.Certificate(context.TODO(), "test-service", "test-instance", "tmp/cert.cert", "tmp/key.cert", "test-destination")
+			err = clientTest.Certificate(context.TODO(), tt.certInst)
 			tt.assertion(t, err)
 		})
 	}
@@ -504,6 +521,8 @@ func TestCertificateTroughAPI(t *testing.T) {
 		certPem   string
 		keyPem    string
 		boundary  string
+		certInst  CertificateInstance
+		initArgs  func() CertificateInstance
 		assertion func(t *testing.T, err error)
 		handler   http.HandlerFunc
 	}
@@ -564,6 +583,8 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			assertion: func(t *testing.T, err error) {
 				assert.NoError(t, err)
 			},
+
+			certInst: CertificateInstance{Instance: Instance{Name: "test-instance"}, Certificate: "tmp/cert.cert", Key: "tmp/key.cert", DestName: "test-destination"},
 		},
 	}
 
@@ -584,7 +605,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			assert.NoError(t, err)
 			// end of setup
 
-			err = clientTest.Certificate(context.TODO(), "test-service", "test-instance", "tmp/cert.cert", "tmp/key.cert", "test-destination")
+			err = clientTest.Certificate(context.TODO(), tt.certInst)
 			tt.assertion(t, err)
 		})
 	}
@@ -628,4 +649,120 @@ func createKey(key string) error {
 
 func removeTmpFolder() error {
 	return os.RemoveAll("tmp")
+}
+
+func TestUpdateTroughTsuru(t *testing.T) {
+	type testStruct struct {
+		name       string
+		service    string
+		updateInst UpdateInstance
+		assertion  func(t *testing.T, err error)
+		handler    http.HandlerFunc
+	}
+	testCases := []testStruct{
+		{
+			name:       "testing with existing plan and flavor",
+			updateInst: UpdateInstance{Instance: Instance{Name: "test-instance"}, Team: "test-team", User: "test-user", Flavors: []string{"test-flavor"}},
+			service:    "test-service",
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "PUT")
+				assert.Equal(t, "/services/test-service/proxy/test-instance?callback=/resources/test-instance", r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, "name=test-instance&plan=&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name:       "testing with only plan passed",
+			updateInst: UpdateInstance{Instance: Instance{Name: "test-instance"}, Team: "test-team", User: "test-user"},
+			service:    "test-service",
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "PUT")
+				assert.Equal(t, "/services/test-service/proxy/test-instance?callback=/resources/test-instance", r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, "name=test-instance&plan=&team=test-team&user=test-user", string(bodyBytes))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			clientTest, err := NewTsuruClient(sv.URL, tt.service, "f4k3t0k3n")
+			assert.NoError(t, err)
+			err = clientTest.Update(context.TODO(), tt.updateInst)
+			tt.assertion(t, err)
+		})
+	}
+}
+
+func TestUpdateTroughAPI(t *testing.T) {
+	type testStruct struct {
+		name       string
+		service    string
+		updateInst UpdateInstance
+		assertion  func(t *testing.T, err error)
+		handler    http.HandlerFunc
+	}
+	testCases := []testStruct{
+		{
+			name:       "testing with existing plan and flavor",
+			updateInst: UpdateInstance{Instance: Instance{Name: "test-instance"}, Team: "test-team", User: "test-user", Flavors: []string{"test-flavor"}},
+			service:    "test-service",
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "PUT")
+				assert.Equal(t, "/resources/test-instance", r.URL.RequestURI())
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, "name=test-instance&plan=&tag=flavor%3Dtest-flavor&team=test-team&user=test-user", string(bodyBytes))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name:       "testing with only plan passed",
+			updateInst: UpdateInstance{Instance: Instance{Name: "test-instance"}, Team: "test-team", User: "test-user"},
+
+			service: "test-service",
+			assertion: func(t *testing.T, err error) {
+				assert.NoError(t, err)
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "PUT")
+				assert.Equal(t, "/resources/test-instance", r.URL.RequestURI())
+				bodyBytes, err := ioutil.ReadAll(r.Body)
+				require.NoError(t, err)
+				defer r.Body.Close()
+				assert.Equal(t, "name=test-instance&plan=&team=test-team&user=test-user", string(bodyBytes))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			clientTest := &RpaasClient{httpClient: &http.Client{}, hostAPI: sv.URL}
+			err := clientTest.Update(context.TODO(), tt.updateInst)
+			tt.assertion(t, err)
+		})
+	}
 }

@@ -35,23 +35,24 @@ func initScaleFlags() []cli.Flag {
 func Scale() cli.Command {
 	return cli.Command{
 		Name:  "scale",
-		Usage: "Scales the specified rpaas instance to [-q] units",
+		Usage: "Scales the specified rpaas instance to [-q] replica(s)",
 		Flags: initScaleFlags(),
 
 		Action: func(ctx *cli.Context) error {
-			quantity := int32(ctx.Int("quantity"))
-			client, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
+			tsuruClient, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
 			if err != nil {
 				return err
 			}
 
-			err = client.Scale(context.TODO(), ctx.String("instance"), quantity)
+			inst := client.ScaleInstance{Instance: client.Instance{Name: ctx.String("instance")}, Replicas: int32(ctx.Int("quantity"))}
+
+			err = tsuruClient.Scale(context.TODO(), inst)
 
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d unit(s)\n", quantity)
+			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d replica(s)\n", inst.Replicas)
 			return nil
 		},
 	}

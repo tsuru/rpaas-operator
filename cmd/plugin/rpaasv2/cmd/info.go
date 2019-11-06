@@ -33,24 +33,28 @@ func info() cli.Command {
 		},
 
 		Action: func(ctx *cli.Context) error {
-			client, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
+			tsuruClient, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
 			if err != nil {
 				return err
 			}
 
-			instance := ctx.String("instance")
+			instName := ctx.String("instance")
 
-			plans, err := client.GetPlans(context.TODO(), &instance)
+			infoInst := client.InfoInstance{Name: &instName}
+
+			plans, err := tsuruClient.GetPlans(context.TODO(), infoInst)
+			if err != nil {
+				return err
+			}
 
 			writePlans("Plans", plans, ctx.App.Writer)
 
-			flavors, err := client.GetFlavors(context.TODO(), &instance)
-
-			writeFlavors("Flavors", flavors, ctx.App.Writer)
-
+			flavors, err := tsuruClient.GetFlavors(context.TODO(), infoInst)
 			if err != nil {
 				return err
 			}
+
+			writeFlavors("Flavors", flavors, ctx.App.Writer)
 
 			return nil
 		},
