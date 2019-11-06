@@ -7,7 +7,6 @@ package cmd
 import (
 	"context"
 	"fmt"
-	"strconv"
 
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli"
@@ -45,15 +44,15 @@ func Scale() cli.Command {
 				return err
 			}
 
-			scaleInst := client.MakeScaleInstance(ctx.String("instance"), int32(ctx.Int("quantity")))
+			inst := client.ScaleInstance{Instance: client.Instance{Name: ctx.String("instance")}, Replicas: int32(ctx.Int("quantity"))}
 
-			err = tsuruClient.Scale(context.TODO(), scaleInst)
+			err = tsuruClient.Scale(context.TODO(), inst)
 
 			if err != nil {
 				return err
 			}
 
-			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %s unit(s)\n", strconv.Itoa(int(scaleInst.Replicas)))
+			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d unit(s)\n", inst.Replicas)
 			return nil
 		},
 	}

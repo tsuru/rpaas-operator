@@ -267,7 +267,7 @@ func addOtherTags(tags []string, bodyStruct *url.Values) {
 }
 
 func (c *RpaasClient) Update(ctx context.Context, inst UpdateInstance) error {
-	if err := inst.validateUpdate(); err != nil {
+	if err := inst.validate(); err != nil {
 		return err
 	}
 	pathName := "/resources/" + inst.Name
@@ -278,29 +278,29 @@ func (c *RpaasClient) Update(ctx context.Context, inst UpdateInstance) error {
 		bodyStruct.Add("tag", flavorTag)
 	}
 
-	if inst.Flags["PlanOverr"] != "" {
-		planOvertag := "plan-override=" + inst.Flags["PlanOverr"]
+	if inst.PlanOverr != "" {
+		planOvertag := "plan-override=" + inst.PlanOverr
 		bodyStruct.Add("tag", planOvertag)
 	}
 
-	if inst.Flags["Ip"] != "" {
-		ipTag := "ip=" + inst.Flags["Ip"]
+	if inst.Ip != "" {
+		ipTag := "ip=" + inst.Ip
 		bodyStruct.Add("tag", ipTag)
 	}
 
-	if inst.Flags["Description"] != "" {
-		bodyStruct.Set("description", inst.Flags["Description"])
+	if inst.Description != "" {
+		bodyStruct.Set("description", inst.Description)
 	}
 
-	if inst.Flags["User"] != "" {
-		bodyStruct.Set("user", inst.Flags["User"])
+	if inst.User != "" {
+		bodyStruct.Set("user", inst.User)
 	}
 
 	addOtherTags(inst.Tags, &bodyStruct)
 
-	bodyStruct.Add("name", inst.Name)
-	bodyStruct.Add("team", inst.Flags["Team"])
-	bodyStruct.Add("plan", inst.Flags["Plan"])
+	bodyStruct.Set("name", inst.Name)
+	bodyStruct.Set("team", inst.Team)
+	bodyStruct.Set("plan", inst.Plan)
 
 	bodyReader := strings.NewReader(bodyStruct.Encode())
 
