@@ -99,6 +99,7 @@ func httpsPort(instance *v1alpha1.RpaasInstance) int {
 }
 
 var templateFuncs = template.FuncMap(map[string]interface{}{
+	"boolValue":          v1alpha1.BoolValue,
 	"buildLocationKey":   buildLocationKey,
 	"hasRootPath":        hasRootPath,
 	"toLower":            strings.ToLower,
