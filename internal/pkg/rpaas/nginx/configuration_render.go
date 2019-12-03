@@ -41,19 +41,40 @@ func (r *rpaasConfigurationRenderer) Render(c ConfigurationData) (string, error)
 	return buffer.String(), err
 }
 
-func NewRpaasConfigurationRenderer(cb ConfigurationBlocks) ConfigurationRenderer {
-	finalTemplate := template.Must(defaultMainTemplate.Clone())
-	if cb.MainBlock != "" {
-		finalTemplate = template.Must(template.New("main").
-			Funcs(templateFuncs).
-			Parse(cb.MainBlock))
+func NewConfigurationRenderer(cb ConfigurationBlocks) (ConfigurationRenderer, error) {
+	tpl, err := defaultMainTemplate.Clone()
+	if err != nil {
+		return nil, err
 	}
-	template.Must(finalTemplate.New("root").Parse(cb.RootBlock))
-	template.Must(finalTemplate.New("http").Parse(cb.HttpBlock))
-	template.Must(finalTemplate.New("server").Parse(cb.ServerBlock))
-	template.Must(finalTemplate.New("lua-server").Parse(cb.LuaServerBlock))
-	template.Must(finalTemplate.New("lua-worker").Parse(cb.LuaWorkerBlock))
-	return &rpaasConfigurationRenderer{t: finalTemplate}
+
+	if cb.MainBlock != "" {
+		tpl, err = template.New("main").Funcs(templateFuncs).Parse(cb.MainBlock)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	if _, err = tpl.New("root").Parse(cb.RootBlock); err != nil {
+		return nil, err
+	}
+
+	if _, err = tpl.New("http").Parse(cb.HttpBlock); err != nil {
+		return nil, err
+	}
+
+	if _, err = tpl.New("server").Parse(cb.ServerBlock); err != nil {
+		return nil, err
+	}
+
+	if _, err = tpl.New("lua-server").Parse(cb.LuaServerBlock); err != nil {
+		return nil, err
+	}
+
+	if _, err = tpl.New("lua-worker").Parse(cb.LuaWorkerBlock); err != nil {
+		return nil, err
+	}
+
+	return &rpaasConfigurationRenderer{t: tpl}, nil
 }
 
 func buildLocationKey(prefix, path string) string {
