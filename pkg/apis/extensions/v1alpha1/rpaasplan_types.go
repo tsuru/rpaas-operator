@@ -59,8 +59,6 @@ type NginxConfig struct {
 
 	UpstreamKeepalive int `json:"upstreamKeepAlive,omitempty"`
 
-	RequestIDEnabled *bool `json:"requestIDEnabled,omitempty"`
-
 	CacheEnabled     *bool  `json:"cacheEnabled,omitempty"`
 	CacheInactive    string `json:"cacheInactive,omitempty"`
 	CacheLoaderFiles int    `json:"cacheLoaderFiles,omitempty"`

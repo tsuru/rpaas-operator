@@ -220,7 +220,6 @@ func Test_RpaasApi(t *testing.T) {
 			rawBody, iErr := ioutil.ReadAll(rsp.Body)
 			require.NoError(t, iErr)
 			assert.Equal(t, expectedBody, string(rawBody))
-			assert.Equal(t, http.StatusOK, rsp.StatusCode)
 		}
 
 		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
@@ -229,7 +228,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "instance not bound yet\n")
+			assertInstanceReturns(localPort, "instance not bound\n")
 		})
 		require.NoError(t, err)
 
@@ -260,7 +259,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "instance not bound yet\n")
+			assertInstanceReturns(localPort, "instance not bound\n")
 		})
 		require.NoError(t, err)
 	})
