@@ -402,14 +402,20 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 	if err != nil {
 		return "", err
 	}
+
 	if err = r.updateLocationValues(instance); err != nil {
 		return "", err
 	}
-	data := nginx.ConfigurationData{
+
+	cr, err := nginx.NewConfigurationRenderer(blocks)
+	if err != nil {
+		return "", err
+	}
+
+	return cr.Render(nginx.ConfigurationData{
 		Instance: instance,
 		Config:   &plan.Spec.Config,
-	}
-	return nginx.NewRpaasConfigurationRenderer(blocks).Render(data)
+	})
 }
 
 func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {

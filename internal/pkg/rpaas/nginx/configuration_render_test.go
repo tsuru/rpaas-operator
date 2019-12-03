@@ -405,7 +405,9 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result, err := NewRpaasConfigurationRenderer(tt.blocks).Render(tt.data)
+			cr, err := NewConfigurationRenderer(tt.blocks)
+			require.NoError(t, err)
+			result, err := cr.Render(tt.data)
 			require.NoError(t, err)
 			tt.assertion(t, result)
 		})
