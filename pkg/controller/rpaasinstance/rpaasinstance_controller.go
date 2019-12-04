@@ -8,13 +8,11 @@ import (
 	"bytes"
 	"context"
 	"crypto/sha256"
-	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
 	"text/template"
 
-	jsonpatch "github.com/evanphx/json-patch"
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
 	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -30,7 +28,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/jsonmergepatch"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
@@ -190,6 +187,7 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 	if err != nil {
 		return nil, err
 	}
+
 	for _, defaultFlavor := range defaultFlavors {
 		if err := mergeInstanceWithFlavor(instance, defaultFlavor); err != nil {
 			return nil, err
@@ -323,30 +321,6 @@ func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1al
 	}
 
 	return nil
-}
-
-func mergePlans(base v1alpha1.RpaasPlanSpec, override v1alpha1.RpaasPlanSpec) (v1alpha1.RpaasPlanSpec, error) {
-	baseData, err := json.Marshal(base)
-	if err != nil {
-		return base, err
-	}
-	overrideData, err := json.Marshal(override)
-	if err != nil {
-		return base, err
-	}
-	patch, err := jsonmergepatch.CreateThreeWayJSONMergePatch(baseData, overrideData, baseData)
-	if err != nil {
-		return base, err
-	}
-	merged, err := jsonpatch.MergePatch(baseData, patch)
-	if err != nil {
-		return base, err
-	}
-	err = json.Unmarshal(merged, &base)
-	if err != nil {
-		return base, err
-	}
-	return base, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap) error {
@@ -644,23 +618,6 @@ func shouldDeleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.
 	return listSize > limit
 }
 
-func mergeInstance(base v1alpha1.RpaasInstanceSpec, override v1alpha1.RpaasInstanceSpec) (merged v1alpha1.RpaasInstanceSpec, err error) {
-	configs := []func(*mergo.Config){
-		mergo.WithOverride,
-		mergo.WithAppendSlice,
-	}
-
-	if err = mergo.Merge(&merged, base, configs...); err != nil {
-		return
-	}
-
-	if err = mergo.Merge(&merged, override, configs...); err != nil {
-		return
-	}
-
-	return
-}
-
 func renderCustomValues(instance *v1alpha1.RpaasInstance) error {
 	if err := renderServiceCustomAnnotations(instance); err != nil {
 		return err
@@ -693,4 +650,55 @@ func renderServiceCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
 	}
 
 	return nil
+}
+
+func mergeInstance(base v1alpha1.RpaasInstanceSpec, override v1alpha1.RpaasInstanceSpec) (merged v1alpha1.RpaasInstanceSpec, err error) {
+	err = genericMerge(&merged, base, override)
+	return
+}
+
+func mergePlans(base v1alpha1.RpaasPlanSpec, override v1alpha1.RpaasPlanSpec) (merged v1alpha1.RpaasPlanSpec, err error) {
+	err = genericMerge(&merged, base, override)
+	return
+}
+
+func genericMerge(dst interface{}, overrides ...interface{}) error {
+	transformers := []func(*mergo.Config){
+		mergo.WithOverride,
+		mergo.WithAppendSlice,
+		mergo.WithTransformers(boolPtrTransformer{}),
+	}
+
+	for _, override := range overrides {
+		if err := mergo.Merge(dst, override, transformers...); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+type boolPtrTransformer struct{}
+
+func (_ boolPtrTransformer) Transformer(t reflect.Type) func(reflect.Value, reflect.Value) error {
+	if reflect.TypeOf(v1alpha1.Bool(true)) != t {
+		return nil
+	}
+
+	return func(dst, src reflect.Value) error {
+		if src.IsNil() {
+			return nil
+		}
+
+		if dst.Elem().Bool() == src.Elem().Bool() {
+			return nil
+		}
+
+		if !dst.CanSet() {
+			return fmt.Errorf("cannot set value to dst")
+		}
+
+		dst.Set(src)
+		return nil
+	}
 }
