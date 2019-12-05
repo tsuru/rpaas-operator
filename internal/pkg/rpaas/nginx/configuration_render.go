@@ -171,7 +171,7 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
-    {{- if or (not $config.SyslogEnabled) (not (boolValue $config.SyslogEnabled)) }}
+    {{- if not (boolValue $config.SyslogEnabled) }}
     access_log /dev/stdout combined;
     error_log  /dev/stderr;
     {{- else }}
@@ -187,7 +187,7 @@ http {
 
     proxy_http_version 1.1;
 
-    {{- if and ($config.CacheEnabled) (boolValue $config.CacheEnabled) }}
+    {{- if boolValue $config.CacheEnabled }}
     proxy_cache_path {{ $config.CachePath }}/nginx levels=1:2 keys_zone=rpaas:{{ $config.CacheZoneSize }}
         {{- with $config.CacheInactive }} inactive={{ . }}{{ end }}
         {{- with $config.CacheSize }} max_size={{ . }}{{ end }}
@@ -196,7 +196,7 @@ http {
     proxy_temp_path {{ $config.CachePath }}/nginx_tmp 1 2;
     {{- end }}
 
-    {{- if and ($config.VTSEnabled) (boolValue $config.VTSEnabled) }}
+    {{- if boolValue $config.VTSEnabled }}
     vhost_traffic_status_zone;
 
     {{- with $config.VTSStatusHistogramBuckets }}
@@ -234,18 +234,18 @@ http {
         {{- template "lua-worker" . }}
     }
 
-		{{- template "http" . }}
+    {{- template "http" . }}
 
     server {
         listen {{ managePort }};
 
-        {{- if and ($config.CacheEnabled) (boolValue $config.CacheEnabled) }}
+        {{- if boolValue $config.CacheEnabled }}
         location ~ {{ purgeLocationMatch }} {
             proxy_cache_purge rpaas $1$is_args$args;
         }
         {{- end }}
 
-        {{- if and ($config.VTSEnabled) (boolValue $config.VTSEnabled) }}
+        {{- if boolValue $config.VTSEnabled }}
         location {{ vtsLocationMatch }} {
             vhost_traffic_status_bypass_limit on;
             vhost_traffic_status_bypass_stats on;
@@ -272,7 +272,7 @@ http {
         {{- end }}
 
         location = /_nginx_healthcheck {
-            {{- if and ($config.VTSEnabled) (boolValue $config.VTSEnabled) }}
+            {{- if boolValue $config.VTSEnabled }}
             vhost_traffic_status_bypass_limit on;
             vhost_traffic_status_bypass_stats on;
             {{- end }}
