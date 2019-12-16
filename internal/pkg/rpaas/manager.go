@@ -155,3 +155,9 @@ type RpaasManager interface {
 	UnbindApp(ctx context.Context, instanceName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
 }
+
+type CertKey struct{
+	Name string
+	CertificateString string
+	KeyString         string
+}

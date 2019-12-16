@@ -329,6 +329,43 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) GetCertificate(ctx context.Context, instanceName string) ([]CertKey, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	if instance.Spec.Certificates == nil {
+		return nil, fmt.Errorf("no certificate bound to the current instance")
+	}
+
+	var secret corev1.Secret
+	err = m.cli.Get(ctx, types.NamespacedName{
+		Name:      instance.Spec.Certificates.SecretName,
+		Namespace: instance.Namespace,
+	}, &secret)
+	if err != nil {
+		return nil, err
+	}
+	if &secret == nil {
+		return nil, fmt.Errorf("instance not bound to any secret")
+	}
+
+	var listCerts []CertKey
+
+	for _, item := range instance.Spec.Certificates.Items {
+		listItem := CertKey{
+			Name: strings.TrimSuffix(item.CertificateField, ".crt"),
+			CertificateString: string(secret.Data[item.CertificateField]),
+			KeyString: string(secret.Data[item.KeyField]),
+		}
+
+		listCerts = append(listCerts, listItem)
+	}
+
+	return listCerts, nil
+}
+
 func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
