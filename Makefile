@@ -9,15 +9,12 @@ git_commit := $(shell git rev-parse HEAD 2>/dev/null | cut -c1-7)
 RPAAS_OPERATOR_VERSION ?= $(git_tag)/$(git_commit)
 GO_LDFLAGS ?= -X=github.com/tsuru/rpaas-operator/version.Version=$(RPAAS_OPERATOR_VERSION)
 
-.PHONY: test test/all test/plugin/rpaasv2 test/integration deploy deploy/crds local build push build-api api build/plugin/rpaasv2
+.PHONY: test test/all test/integration deploy deploy/crds local build push build-api api build/plugin/rpaasv2
 
 test/all: test test/integration
 
-test: test/plugin/rpaasv2
+test:
 	go test ./...
-
-test/plugin/rpaasv2:
-	$(MAKE) -C cmd/plugin/rpaasv2 test
 
 test/integration:
 	./scripts/localkube-integration.sh
@@ -44,7 +41,8 @@ build: build/plugin/rpaasv2
 	docker build -t $(IMAGE_API):$(TAG) .
 
 build/plugin/rpaasv2:
-	$(MAKE) -C cmd/plugin/rpaasv2 build
+	@mkdir -p build/_output/bin/
+	go build -ldflags $(GO_LDFLAGS) -o build/_output/bin/rpaasv2 ./cmd/plugin/rpaasv2
 
 push: build
 	docker push $(IMAGE_OPERATOR):$(TAG)

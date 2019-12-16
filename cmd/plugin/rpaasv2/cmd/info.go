@@ -10,7 +10,6 @@ import (
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli"
 )
@@ -33,23 +32,20 @@ func info() cli.Command {
 		},
 
 		Action: func(ctx *cli.Context) error {
-			tsuruClient, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
+			rpaasClient, err := getRpaasClient(ctx)
 			if err != nil {
 				return err
 			}
 
 			instName := ctx.String("instance")
-
-			infoInst := client.InfoInstance{Name: &instName}
-
-			plans, err := tsuruClient.GetPlans(context.TODO(), infoInst)
+			plans, _, err := rpaasClient.GetPlans(context.TODO(), instName)
 			if err != nil {
 				return err
 			}
 
 			writePlans("Plans", plans, ctx.App.Writer)
 
-			flavors, err := tsuruClient.GetFlavors(context.TODO(), infoInst)
+			flavors, _, err := rpaasClient.GetFlavors(context.TODO(), instName)
 			if err != nil {
 				return err
 			}

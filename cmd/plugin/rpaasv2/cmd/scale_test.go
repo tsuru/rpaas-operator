@@ -6,66 +6,63 @@ package cmd
 
 import (
 	"bytes"
-	"io"
-	"io/ioutil"
+	"fmt"
 	"net/http"
-	"net/http/httptest"
-	"os"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/urfave/cli"
-	"gotest.tools/assert"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
 )
 
-func setupScaleApp() (*cli.App, *bytes.Buffer) {
-	testApp := NewApp()
-
-	buffer := bytes.NewBuffer(nil)
-	writer := io.Writer(buffer)
-	testApp.Writer = writer
-	testApp.Commands = append(testApp.Commands, Scale())
-
-	return testApp, buffer
-}
-
 func TestScale(t *testing.T) {
-	testCase := struct {
-		name      string
-		handler   http.HandlerFunc
-		assertion func(t *testing.T, err error, buffer *bytes.Buffer)
-		args      []string
+	tests := []struct {
+		name          string
+		args          []string
+		expected      string
+		expectedError string
+		client        client.Client
 	}{
-		name: "when a valid command is passed",
-		handler: func(w http.ResponseWriter, r *http.Request) {
-			assert.Equal(t, r.Method, "POST")
-			assert.Equal(t, "/services/fake-service/proxy/fake-instance?callback=/resources/fake-instance/scale", r.URL.RequestURI())
-			w.Header().Set("Content-Type", "application/x-www-form-urlencoded")
-			reqBodyByte, err := ioutil.ReadAll(r.Body)
-			assert.NilError(t, err)
-			bodyString := string(reqBodyByte)
-			assert.Equal(t, "quantity=2", bodyString)
-			w.WriteHeader(http.StatusCreated)
+		{
+			name:          "when Scale method returns an error",
+			args:          []string{"./rpaasv2", "scale", "-s", "some-service", "-i", "my-instance", "-q", "2"},
+			expectedError: "some error",
+			client: &fake.FakeClient{
+				FakeScale: func(args client.ScaleArgs) (*http.Response, error) {
+					require.Equal(t, args.Instance, "my-instance")
+					require.Equal(t, args.Replicas, int32(2))
+					return nil, fmt.Errorf("some error")
+				},
+			},
 		},
-		assertion: func(t *testing.T, err error, buffer *bytes.Buffer) {
-			str := buffer.String()
-			assert.Equal(t, "Instance successfully scaled to 2 replica(s)\n", str)
-			assert.NilError(t, err)
+		{
+			name:     "scaling up some instance",
+			args:     []string{"./rpaasv2", "scale", "-s", "some-service", "-i", "my-instance", "-q", "777"},
+			expected: "Instance successfully scaled to 777 replica(s)\n",
+			client: &fake.FakeClient{
+				FakeScale: func(args client.ScaleArgs) (*http.Response, error) {
+					require.Equal(t, args.Instance, "my-instance")
+					require.Equal(t, args.Replicas, int32(777))
+					return nil, nil
+				},
+			},
 		},
-		args: []string{"./rpaasv2", "scale", "-s", "fake-service", "-i", "fake-instance", "-q", "2"},
 	}
-	t.Run(testCase.name, func(t *testing.T) {
-		// setup
-		ts := httptest.NewServer(testCase.handler)
-		defer ts.Close()
-		testApp, buffer := setupScaleApp()
-		os.Setenv("TSURU_TARGET", ts.URL)
-		os.Setenv("TSURU_TOKEN", "f4k3t0k3n")
-		//end of setup
-		err := testApp.Run(testCase.args)
-		// unsetting env variables
-		require.NoError(t, os.Unsetenv("TSURU_TARGET"))
-		require.NoError(t, os.Unsetenv("TSURU_TOKEN"))
-		testCase.assertion(t, err, buffer)
-	})
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := newTestApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
 }

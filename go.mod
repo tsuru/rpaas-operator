@@ -20,7 +20,6 @@ require (
 	github.com/tsuru/nginx-operator v0.3.2-0.20191227150359-414ac11345d6
 	github.com/urfave/cli v1.22.2
 	github.com/willf/bitset v1.1.10
-	gotest.tools v2.2.0+incompatible
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible

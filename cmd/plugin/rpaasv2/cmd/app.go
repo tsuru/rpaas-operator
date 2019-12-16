@@ -5,8 +5,18 @@
 package cmd
 
 import (
+	"sync"
+
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli"
 )
+
+type globalArgs struct {
+	sync.Mutex
+	rpaasClient rpaasclient.Client
+}
+
+var global = globalArgs{}
 
 func appendCmds(cliApp *cli.App) {
 	cliApp.Commands = []cli.Command{
@@ -32,4 +42,40 @@ func NewApp() *cli.App {
 	appendCmds(app)
 
 	return app
+}
+
+func setRpaasClient(client rpaasclient.Client) {
+	global.Lock()
+	defer global.Unlock()
+
+	global.rpaasClient = client
+}
+
+func getRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
+	global.Lock()
+	defer global.Unlock()
+
+	if global.rpaasClient != nil {
+		return global.rpaasClient, nil
+	}
+
+	client, err := newRpaasClient(c)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, err
+}
+
+func newRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
+	tsuruTarget := c.GlobalString("target")
+	tsuruToken := c.GlobalString("token")
+	tsuruService := c.String("service")
+
+	client, err := rpaasclient.NewClientThroughTsuru(tsuruTarget, tsuruToken, tsuruService)
+	if err != nil {
+		return nil, err
+	}
+
+	return client, nil
 }
