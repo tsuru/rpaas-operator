@@ -82,6 +82,27 @@ func TestNewClientThroughTsuruWithOptions(t *testing.T) {
 				require.NoError(t, os.Unsetenv("TSURU_TOKEN"))
 			},
 		},
+		{
+			name:    "when tsuru target and token both are set on args and env vars, should prefer the args ones",
+			target:  "https://tsuru.example.com",
+			token:   "tok3n",
+			service: "rpaasv2",
+			expected: &client{
+				tsuruTarget:  "https://tsuru.example.com",
+				tsuruToken:   "tok3n",
+				tsuruService: "rpaasv2",
+				throughTsuru: true,
+				client:       &http.Client{},
+			},
+			setUp: func(t *testing.T) {
+				require.NoError(t, os.Setenv("TSURU_TARGET", "https://other.tsuru.example.com"))
+				require.NoError(t, os.Setenv("TSURU_TOKEN", "tsuru-token"))
+			},
+			teardown: func(t *testing.T) {
+				require.NoError(t, os.Unsetenv("TSURU_TARGET"))
+				require.NoError(t, os.Unsetenv("TSURU_TOKEN"))
+			},
+		},
 	}
 
 	for _, tt := range tests {
