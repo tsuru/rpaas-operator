@@ -156,8 +156,8 @@ type RpaasManager interface {
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
 }
 
-type CertKey struct{
-	Name string
+type CertificateData struct {
+	Name              string
 	CertificateString string
 	KeyString         string
 }

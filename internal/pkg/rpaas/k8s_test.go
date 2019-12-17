@@ -368,25 +368,13 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				}
 				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
 
-				// secret := corev1.Secret{}
-				//	err = m.cli.Get(context.Background(), types.NamespacedName{
-				//		Name:      instance.Spec.Certificates.SecretName,
-				//		Namespace: namespaceName(),
-				//	}, &secret)
-				//	require.NoError(t, err)
-
-				//	expectedSecretData := map[string][]byte{
-				//		"default.crt": []byte(ecdsaCertPem),
-				//		"default.key": []byte(ecdsaKeyPem),
-				//	}
-				//	assert.Equal(t, expectedSecretData, secret.Data)
 			},
 		},
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
-			_, err := manager.GetCertificate(context.Background(), tt.instanceName)
+			_, err := manager.GetCertificates(context.Background(), tt.instanceName)
 			tt.assertion(t, err, manager)
 		})
 	}
