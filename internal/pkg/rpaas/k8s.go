@@ -336,7 +336,7 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 	}
 
 	if instance.Spec.Certificates == nil {
-		return nil, fmt.Errorf("no certificate bound to the current instance")
+		return nil, nil
 	}
 
 	var secret corev1.Secret
@@ -347,13 +347,15 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 	if err != nil {
 		return nil, err
 	}
-	if &secret == nil {
-		return nil, fmt.Errorf("instance not bound to any secret")
-	}
 
 	var certList []CertificateData
-
 	for _, item := range instance.Spec.Certificates.Items {
+		if _, ok := secret.Data[item.CertificateField]; !ok {
+			return nil, fmt.Errorf("certificate data not found")
+		}
+		if _, ok := secret.Data[item.KeyField]; !ok {
+			return nil, fmt.Errorf("key data not found")
+		}
 		certItem := CertificateData{
 			Name:              strings.TrimSuffix(item.CertificateField, ".crt"),
 			CertificateString: string(secret.Data[item.CertificateField]),
