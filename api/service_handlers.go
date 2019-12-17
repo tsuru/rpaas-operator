@@ -72,12 +72,6 @@ func serviceUpdate(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-type plan struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Default     bool   `json:"default"`
-}
-
 func servicePlans(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {
@@ -89,20 +83,11 @@ func servicePlans(c echo.Context) error {
 		return err
 	}
 
-	var result []plan
-	for _, p := range plans {
-		result = append(result, plan{
-			Name:        p.Name,
-			Description: p.Spec.Description,
-			Default:     p.Spec.Default,
-		})
+	if plans == nil {
+		plans = make([]rpaas.Plan, 0)
 	}
 
-	if result == nil {
-		result = []plan{}
-	}
-
-	return c.JSON(http.StatusOK, result)
+	return c.JSON(http.StatusOK, plans)
 }
 
 func serviceInfo(c echo.Context) error {

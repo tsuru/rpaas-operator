@@ -13,6 +13,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/operator-framework/operator-sdk v0.13.0
 	github.com/pkg/errors v0.8.1
+	github.com/pmorie/go-open-service-broker-client v0.0.0-20190909175253-906fa5f9c249
 	github.com/sirupsen/logrus v1.4.2
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0

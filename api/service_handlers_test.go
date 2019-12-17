@@ -222,7 +222,7 @@ func Test_servicePlans(t *testing.T) {
 		name          string
 		expectedCode  int
 		expectedError string
-		expectedPlans []plan
+		expectedPlans []rpaas.Plan
 		manager       rpaas.RpaasManager
 	}{
 		{
@@ -230,7 +230,7 @@ func Test_servicePlans(t *testing.T) {
 			expectedCode:  http.StatusConflict,
 			expectedError: "some error",
 			manager: &fake.RpaasManager{
-				FakeGetPlans: func() ([]v1alpha1.RpaasPlan, error) {
+				FakeGetPlans: func() ([]rpaas.Plan, error) {
 					return nil, rpaas.ConflictError{Msg: "some error"}
 				},
 			},
@@ -238,9 +238,9 @@ func Test_servicePlans(t *testing.T) {
 		{
 			name:          "when has no plans",
 			expectedCode:  http.StatusOK,
-			expectedPlans: []plan{},
+			expectedPlans: []rpaas.Plan{},
 			manager: &fake.RpaasManager{
-				FakeGetPlans: func() ([]v1alpha1.RpaasPlan, error) {
+				FakeGetPlans: func() ([]rpaas.Plan, error) {
 					return nil, nil
 				},
 			},
@@ -248,32 +248,24 @@ func Test_servicePlans(t *testing.T) {
 		{
 			name:         "when returns several plans",
 			expectedCode: http.StatusOK,
-			expectedPlans: []plan{
+			expectedPlans: []rpaas.Plan{
 				{
 					Name: "my-plan",
 				},
 				{
 					Name:        "my-default-plan",
 					Description: "Some description about my-default-plan.",
-					Default:     true,
 				},
 			},
 			manager: &fake.RpaasManager{
-				FakeGetPlans: func() ([]v1alpha1.RpaasPlan, error) {
-					return []v1alpha1.RpaasPlan{
+				FakeGetPlans: func() ([]rpaas.Plan, error) {
+					return []rpaas.Plan{
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "my-plan",
-							},
+							Name: "my-plan",
 						},
 						{
-							ObjectMeta: metav1.ObjectMeta{
-								Name: "my-default-plan",
-							},
-							Spec: v1alpha1.RpaasPlanSpec{
-								Description: "Some description about my-default-plan.",
-								Default:     true,
-							},
+							Name:        "my-default-plan",
+							Description: "Some description about my-default-plan.",
 						},
 					}, nil
 				},
@@ -295,9 +287,9 @@ func Test_servicePlans(t *testing.T) {
 				assert.Regexp(t, tt.expectedError, bodyContent(rsp))
 				return
 			}
-			var result []plan
+			var result []rpaas.Plan
 			require.NoError(t, json.Unmarshal([]byte(bodyContent(rsp)), &result))
-			assert.Equal(t, result, tt.expectedPlans)
+			assert.Equal(t, tt.expectedPlans, result)
 		})
 	}
 }

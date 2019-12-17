@@ -21,6 +21,7 @@ import (
 	"strings"
 
 	"github.com/pkg/errors"
+	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/config"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
@@ -559,13 +560,39 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 	return &instance, nil
 }
 
-func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error) {
+func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]Plan, error) {
 	var planList v1alpha1.RpaasPlanList
 	if err := m.cli.List(ctx, &planList, client.InNamespace(namespaceName())); err != nil {
 		return nil, err
 	}
 
-	return planList.Items, nil
+	flavors, err := m.GetFlavors(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var schemas *osb.Schemas
+	if p := buildServiceInstanceParametersForPlan(flavors); p != nil {
+		schemas = &osb.Schemas{
+			ServiceInstance: &osb.ServiceInstanceSchema{
+				Create: &osb.InputParametersSchema{Parameters: p},
+				Update: &osb.InputParametersSchema{Parameters: p},
+			},
+		}
+	}
+
+	var plans []Plan
+	for _, p := range planList.Items {
+		plans = append(plans, Plan{
+			Name:        p.Name,
+			Description: p.Spec.Description,
+			Schemas:     schemas,
+		})
+	}
+
+	sort.SliceStable(plans, func(i, j int) bool { return plans[i].Name < plans[j].Name })
+
+	return plans, nil
 }
 
 func (m *k8sRpaasManager) GetFlavors(ctx context.Context) ([]Flavor, error) {
@@ -1003,8 +1030,13 @@ func (m *k8sRpaasManager) getDefaultPlan(ctx context.Context) (*v1alpha1.RpaasPl
 
 	var defaultPlans []v1alpha1.RpaasPlan
 	for _, p := range plans {
-		if p.Spec.Default {
-			defaultPlans = append(defaultPlans, p)
+		pp, err := m.getPlan(ctx, p.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		if pp.Spec.Default {
+			defaultPlans = append(defaultPlans, *pp)
 		}
 	}
 
@@ -1460,4 +1492,58 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 	}
 
 	return newInstanceInfo(instance, routes, ingresses), nil
+}
+
+func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
+	if len(flavors) == 0 {
+		return nil
+	}
+
+	return map[string]interface{}{
+		"$id":     "https://example.com/schema.json",
+		"$schema": "https://json-schema.org/draft-07/schema#",
+		"type":    "object",
+		"properties": map[string]interface{}{
+			"flavors": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"$ref": "#/definitions/flavor",
+				},
+				"description": formatFlavorsDescription(flavors),
+				"enum":        flavorNames(flavors),
+			},
+		},
+		"definitions": map[string]interface{}{
+			"flavor": map[string]interface{}{
+				"type": "string",
+			},
+		},
+	}
+}
+
+func formatFlavorsDescription(flavors []Flavor) string {
+	var sb strings.Builder
+	sb.WriteString("Provides a self-contained set of features that can be enabled on this plan.\n")
+
+	if len(flavors) == 0 {
+		return sb.String()
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString("Supported flavors:")
+	for _, f := range flavors {
+		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("\t- name: %s\n", f.Name))
+		sb.WriteString(fmt.Sprintf("\t  description: %s", f.Description))
+	}
+
+	return sb.String()
+}
+
+func flavorNames(flavors []Flavor) (names []string) {
+	for _, f := range flavors {
+		names = append(names, f.Name)
+	}
+
+	return
 }

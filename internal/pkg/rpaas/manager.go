@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -117,6 +118,12 @@ type PurgeCacheArgs struct {
 	PreservePath bool   `json:"preserve_path" form:"preserve_path"`
 }
 
+type Plan struct {
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Schemas     *osb.Schemas `json:"schemas,omitempty"`
+}
+
 type Flavor struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`
@@ -145,7 +152,7 @@ type RpaasManager interface {
 	GetInstanceAddress(ctx context.Context, name string) (string, error)
 	GetInstanceStatus(ctx context.Context, name string) (*nginxv1alpha1.Nginx, PodStatusMap, error)
 	Scale(ctx context.Context, name string, replicas int32) error
-	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
+	GetPlans(ctx context.Context) ([]Plan, error)
 	GetFlavors(ctx context.Context) ([]Flavor, error)
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName, appName string) error
