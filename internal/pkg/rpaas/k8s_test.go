@@ -22,22 +22,17 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 )
 
 type fakeCacheManager struct {
-	purgeCacheFunc func(host, path string, preservePath bool) error
+	purgeCacheFunc func(host, path string, port int32, preservePath bool) error
 }
 
-func (f fakeCacheManager) PurgeCache(host, path string, preservePath bool) error {
+func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool) error {
 	if f.purgeCacheFunc != nil {
-		return f.purgeCacheFunc(host, path, preservePath)
+		return f.purgeCacheFunc(host, path, port, preservePath)
 	}
 	return nil
-}
-
-func init() {
-	logf.SetLogger(logf.ZapLogger(true))
 }
 
 func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
@@ -973,7 +968,7 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 				nonCachedCli: fakeCli,
 				cli:          fakeCli,
 			}
-			podMap, err := manager.GetInstanceStatus(context.Background(), testCase.instance)
+			_, podMap, err := manager.GetInstanceStatus(context.Background(), testCase.instance)
 			testCase.assertion(t, podMap, err)
 		})
 	}
@@ -1438,7 +1433,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 			instance: "my-instance",
 			args:     PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{
-				purgeCacheFunc: func(host, path string, preservePath bool) error {
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
 					if host == "10.0.0.9" {
 						return nginxManager.NginxError{Msg: "some nginx error"}
 					}
@@ -2424,8 +2419,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					APIVersion: "extensions.tsuru.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "r1",
-					Namespace: "rpaasv2",
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        "",
@@ -2473,8 +2469,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					APIVersion: "extensions.tsuru.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "r1",
-					Namespace: "rpaasv2",
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        `plan-override={"config": {"cacheEnabled": false}}`,
@@ -2527,8 +2524,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					APIVersion: "extensions.tsuru.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "r1",
-					Namespace: "rpaasv2",
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        "flavor=strawberry",
@@ -2577,8 +2575,9 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					APIVersion: "extensions.tsuru.io/v1alpha1",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      "r1",
-					Namespace: "rpaasv2",
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        "",

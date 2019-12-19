@@ -15,13 +15,16 @@ import (
 
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
-	nginxV1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/util"
+	"github.com/willf/bitset"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8sResources "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -31,14 +34,16 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-	logf "sigs.k8s.io/controller-runtime/pkg/runtime/log"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
 
 const (
 	defaultConfigHistoryLimit = 10
+
+	defaultPortAllocationResource = "default"
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -100,10 +105,12 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
 	reqLogger.Info("Reconciling RpaasInstance")
 
-	instance, err := r.getRpaasInstance(context.TODO(), request.NamespacedName)
+	ctx := context.TODO()
+
+	instance, err := r.getRpaasInstance(ctx, request.NamespacedName)
 	if err != nil && k8sErrors.IsNotFound(err) {
-		reqLogger.Info("Nothing to do due the RpaasInstance was removed")
-		return reconcile.Result{}, nil
+		_, err = r.reconcilePorts(ctx, nil, 0)
+		return reconcile.Result{}, err
 	}
 
 	if err != nil {
@@ -115,7 +122,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		Namespace: instance.Namespace,
 	}
 	plan := &v1alpha1.RpaasPlan{}
-	err = r.client.Get(context.TODO(), planName, plan)
+	err = r.client.Get(ctx, planName, plan)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -124,6 +131,31 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		plan.Spec, err = mergePlans(plan.Spec, *instance.Spec.PlanTemplate)
 		if err != nil {
 			return reconcile.Result{}, err
+		}
+	}
+
+	ports, err := r.reconcilePorts(ctx, instance, 3)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+	if len(ports) == 3 {
+		sort.Ints(ports)
+		instance.Spec.PodTemplate.Ports = []corev1.ContainerPort{
+			{
+				Name:          nginx.PortNameHTTP,
+				ContainerPort: int32(ports[0]),
+				Protocol:      corev1.ProtocolTCP,
+			},
+			{
+				Name:          nginx.PortNameHTTPS,
+				ContainerPort: int32(ports[1]),
+				Protocol:      corev1.ProtocolTCP,
+			},
+			{
+				Name:          nginx.PortNameManagement,
+				ContainerPort: int32(ports[2]),
+				Protocol:      corev1.ProtocolTCP,
+			},
 		}
 	}
 
@@ -145,13 +177,14 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, err
 		}
 	}
+
 	nginx := newNginx(instance, plan, configMap)
 
 	if err = r.reconcileNginx(nginx); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err = r.reconcileHPA(context.TODO(), *instance, *nginx); err != nil {
+	if err = r.reconcileHPA(ctx, *instance, *nginx); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -250,7 +283,7 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 
 func (r *ReconcileRpaasInstance) listDefaultFlavors(instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
-	if err := r.client.List(context.TODO(), client.InNamespace(instance.Namespace), flavorList); err != nil {
+	if err := r.client.List(context.TODO(), flavorList, client.InNamespace(instance.Namespace)); err != nil {
 		return nil, err
 	}
 	var result []v1alpha1.RpaasFlavor
@@ -263,7 +296,7 @@ func (r *ReconcileRpaasInstance) listDefaultFlavors(instance *v1alpha1.RpaasInst
 	return result, nil
 }
 
-func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1alpha1.RpaasInstance, nginx nginxV1alpha1.Nginx) error {
+func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) error {
 	logger := log.WithName("reconcileHPA").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}).
 		WithValues("Nginx", types.NamespacedName{Name: nginx.Name, Namespace: nginx.Namespace})
@@ -347,8 +380,8 @@ func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap)
 	return err
 }
 
-func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxV1alpha1.Nginx) error {
-	found := &nginxV1alpha1.Nginx{}
+func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) error {
+	found := &nginxv1alpha1.Nginx{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, found)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
@@ -446,14 +479,12 @@ func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasIn
 func (r *ReconcileRpaasInstance) listConfigs(instance *v1alpha1.RpaasInstance) (*corev1.ConfigMapList, error) {
 	configList := &corev1.ConfigMapList{}
 	listOptions := &client.ListOptions{Namespace: instance.ObjectMeta.Namespace}
-	labelSelector := fmt.Sprintf("instance=%s,type=config", instance.Name)
+	client.MatchingLabels(map[string]string{
+		"instance": instance.Name,
+		"type":     "config",
+	}).ApplyToList(listOptions)
 
-	if err := listOptions.SetLabelSelector(labelSelector); err != nil {
-		logrus.Errorf("Failed to query nginx configs: %v", err)
-		return nil, err
-	}
-
-	err := r.client.List(context.TODO(), listOptions, configList)
+	err := r.client.List(context.TODO(), configList, listOptions)
 	return configList, err
 }
 
@@ -496,8 +527,8 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 	}
 }
 
-func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxV1alpha1.Nginx {
-	var cacheConfig nginxV1alpha1.NginxCacheSpec
+func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxv1alpha1.Nginx {
+	var cacheConfig nginxv1alpha1.NginxCacheSpec
 	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
@@ -506,7 +537,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			cacheConfig.Size = &cacheMaxSize
 		}
 	}
-	return &nginxV1alpha1.Nginx{
+	return &nginxv1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
@@ -522,12 +553,12 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Kind:       "Nginx",
 			APIVersion: "nginx.tsuru.io/v1alpha1",
 		},
-		Spec: nginxV1alpha1.NginxSpec{
+		Spec: nginxv1alpha1.NginxSpec{
 			Image:    plan.Spec.Image,
 			Replicas: instance.Spec.Replicas,
-			Config: &nginxV1alpha1.ConfigRef{
+			Config: &nginxv1alpha1.ConfigRef{
 				Name: configMap.Name,
-				Kind: nginxV1alpha1.ConfigKindConfigMap,
+				Kind: nginxv1alpha1.ConfigKindConfigMap,
 			},
 			Resources:       plan.Spec.Resources,
 			Service:         instance.Spec.Service,
@@ -541,7 +572,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 	}
 }
 
-func newHPA(instance v1alpha1.RpaasInstance, nginx nginxV1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
+func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
 	var metrics []autoscalingv2beta2.MetricSpec
 
 	if instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
@@ -701,4 +732,101 @@ func (_ boolPtrTransformer) Transformer(t reflect.Type) func(reflect.Value, refl
 		dst.Set(src)
 		return nil
 	}
+}
+
+func portBelongsTo(port extensionsv1alpha1.AllocatedPort, instance *extensionsv1alpha1.RpaasInstance) bool {
+	if instance == nil {
+		return false
+	}
+	return instance.UID == port.Owner.UID && port.Owner.Namespace == instance.Namespace && port.Owner.RpaasName == instance.Name
+}
+
+func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance, portCount int) ([]int, error) {
+	allocation := extensionsv1alpha1.RpaasPortAllocation{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: defaultPortAllocationResource,
+		},
+	}
+	err := r.client.Get(ctx, types.NamespacedName{
+		Name: defaultPortAllocationResource,
+	}, &allocation)
+	if err != nil {
+		if !errors.IsNotFound(err) {
+			return nil, err
+		}
+		err = r.client.Create(ctx, &allocation)
+		if err != nil {
+			return nil, err
+		}
+	}
+	var newPorts []extensionsv1alpha1.AllocatedPort
+	var usedSet bitset.BitSet
+	var instancePorts []int
+
+	// Loop through all allocated ports and remove ports from removed Nginx
+	// resources or from resources that have AllocateContainerPorts==false.
+	for _, port := range allocation.Spec.Ports {
+		var rpaas extensionsv1alpha1.RpaasInstance
+		err = r.client.Get(ctx, types.NamespacedName{
+			Namespace: port.Owner.Namespace,
+			Name:      port.Owner.RpaasName,
+		}, &rpaas)
+		if err != nil {
+			if errors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+		if portBelongsTo(port, instance) {
+			if !instance.Spec.AllocateContainerPorts {
+				continue
+			}
+			instancePorts = append(instancePorts, int(port.Port))
+		}
+		if portBelongsTo(port, &rpaas) {
+			usedSet.Set(uint(port.Port))
+			newPorts = append(newPorts, port)
+		}
+	}
+
+	// If we should allocate ports and none are allocated yet we have to look
+	// for available ports and allocate them.
+	if instance != nil && instance.Spec.AllocateContainerPorts {
+		portMin := config.Get().PortRangeMin
+		portMax := config.Get().PortRangeMax
+		for port := portMin; port <= portMax; port++ {
+			if len(instancePorts) >= portCount {
+				break
+			}
+
+			if usedSet.Test(uint(port)) {
+				continue
+			}
+
+			usedSet.Set(uint(port))
+			newPorts = append(newPorts, extensionsv1alpha1.AllocatedPort{
+				Port: int32(port),
+				Owner: extensionsv1alpha1.NamespacedOwner{
+					Namespace: instance.Namespace,
+					RpaasName: instance.Name,
+					UID:       instance.UID,
+				},
+			})
+			instancePorts = append(instancePorts, int(port))
+		}
+
+		if len(instancePorts) < portCount {
+			return nil, fmt.Errorf("unable to allocate container ports, wanted %d, allocated %d", portCount, len(instancePorts))
+		}
+	}
+
+	if !reflect.DeepEqual(allocation.Spec.Ports, newPorts) {
+		allocation.Spec.Ports = newPorts
+		err = r.client.Update(ctx, &allocation)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return instancePorts, nil
 }

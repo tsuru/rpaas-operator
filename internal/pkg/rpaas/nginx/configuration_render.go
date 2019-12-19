@@ -11,6 +11,7 @@ import (
 	"text/template"
 
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
 type ConfigurationRenderer interface {
@@ -103,20 +104,45 @@ func hasRootPath(locations []v1alpha1.Location) bool {
 	return false
 }
 
-func httpPort(instance *v1alpha1.RpaasInstance) int {
-	if instance != nil && instance.Spec.PodTemplate.HostNetwork {
-		return 80
+func httpPort(instance *v1alpha1.RpaasInstance) int32 {
+	if instance != nil {
+		port := util.PortByName(instance.Spec.PodTemplate.Ports, PortNameHTTP)
+		if port != 0 {
+			return port
+		}
+
+		if instance.Spec.PodTemplate.HostNetwork {
+			return 80
+		}
 	}
 
 	return 8080
 }
 
-func httpsPort(instance *v1alpha1.RpaasInstance) int {
-	if instance != nil && instance.Spec.PodTemplate.HostNetwork {
-		return 443
+func httpsPort(instance *v1alpha1.RpaasInstance) int32 {
+	if instance != nil {
+		port := util.PortByName(instance.Spec.PodTemplate.Ports, PortNameHTTPS)
+		if port != 0 {
+			return port
+		}
+
+		if instance.Spec.PodTemplate.HostNetwork {
+			return 443
+		}
 	}
 
 	return 8443
+}
+
+func managePort(instance *v1alpha1.RpaasInstance) int32 {
+	if instance != nil {
+		port := util.PortByName(instance.Spec.PodTemplate.Ports, PortNameManagement)
+		if port != 0 {
+			return port
+		}
+	}
+
+	return defaultManagePort
 }
 
 var templateFuncs = template.FuncMap(map[string]interface{}{
@@ -237,7 +263,7 @@ http {
     {{- template "http" . }}
 
     server {
-        listen {{ managePort }};
+        listen {{ managePort $instance }};
 
         {{- if boolValue $config.CacheEnabled }}
         location ~ {{ purgeLocationMatch }} {

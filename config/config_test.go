@@ -9,6 +9,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
@@ -24,7 +25,22 @@ func Test_Init(t *testing.T) {
 	}{
 		{
 			expected: RpaasConfig{
-				ServiceName: "rpaasv2",
+				ServiceName:  "rpaasv2",
+				SyncInterval: 5 * time.Minute,
+				PortRangeMin: 20000,
+				PortRangeMax: 30000,
+			},
+		},
+		{
+			config: `
+port-range-max: 31000
+sync-interval: 2m
+`,
+			expected: RpaasConfig{
+				ServiceName:  "rpaasv2",
+				SyncInterval: 2 * time.Minute,
+				PortRangeMin: 20000,
+				PortRangeMax: 31000,
 			},
 		},
 		{
@@ -36,6 +52,9 @@ tls-key: /var/share/tls/key.pem
 				ServiceName:    "rpaasv2",
 				TLSCertificate: "/var/share/tls/mycert.pem",
 				TLSKey:         "/var/share/tls/key.pem",
+				SyncInterval:   5 * time.Minute,
+				PortRangeMin:   20000,
+				PortRangeMax:   30000,
 			},
 		},
 		{
@@ -43,8 +62,11 @@ tls-key: /var/share/tls/key.pem
 api-username: u1
 `,
 			expected: RpaasConfig{
-				APIUsername: "u1",
-				ServiceName: "rpaasv2",
+				APIUsername:  "u1",
+				ServiceName:  "rpaasv2",
+				SyncInterval: 5 * time.Minute,
+				PortRangeMin: 20000,
+				PortRangeMax: 30000,
 			},
 		},
 		{
@@ -57,9 +79,12 @@ service-name: rpaasv2be
 				"RPAASV2_API_PASSWORD": "p1",
 			},
 			expected: RpaasConfig{
-				APIUsername: "u1",
-				APIPassword: "p1",
-				ServiceName: "rpaasv2be",
+				APIUsername:  "u1",
+				APIPassword:  "p1",
+				ServiceName:  "rpaasv2be",
+				SyncInterval: 5 * time.Minute,
+				PortRangeMin: 20000,
+				PortRangeMax: 30000,
 			},
 		},
 		{
@@ -70,7 +95,10 @@ service-name: ignored-service-name
 				"RPAASV2_SERVICE_NAME": "my-custom-service-name",
 			},
 			expected: RpaasConfig{
-				ServiceName: "my-custom-service-name",
+				ServiceName:  "my-custom-service-name",
+				SyncInterval: 5 * time.Minute,
+				PortRangeMin: 20000,
+				PortRangeMax: 30000,
 			},
 		},
 		{
@@ -96,7 +124,10 @@ team-affinity:
             - dev
 `,
 			expected: RpaasConfig{
-				ServiceName: "rpaasv2",
+				ServiceName:  "rpaasv2",
+				SyncInterval: 5 * time.Minute,
+				PortRangeMin: 20000,
+				PortRangeMax: 30000,
 				DefaultAffinity: &corev1.Affinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{

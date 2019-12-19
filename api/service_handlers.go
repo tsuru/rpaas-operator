@@ -14,6 +14,10 @@ import (
 )
 
 func serviceCreate(c echo.Context) error {
+	if c.Request().ContentLength == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
+	}
+
 	var args rpaas.CreateArgs
 	err := c.Bind(&args)
 	if err != nil {
@@ -47,6 +51,10 @@ func serviceDelete(c echo.Context) error {
 }
 
 func serviceUpdate(c echo.Context) error {
+	if c.Request().ContentLength == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
+	}
+
 	var args rpaas.UpdateInstanceArgs
 	if err := c.Bind(&args); err != nil {
 		return err
@@ -140,6 +148,10 @@ func serviceInfo(c echo.Context) error {
 }
 
 func serviceBindApp(c echo.Context) error {
+	if c.Request().ContentLength == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
+	}
+
 	manager, err := getManager(c)
 	if err != nil {
 		return err

@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
@@ -24,7 +25,7 @@ type RpaasManager struct {
 	FakeListBlocks        func(instanceName string) ([]rpaas.ConfigurationBlock, error)
 	FakeUpdateBlock       func(instanceName string, block rpaas.ConfigurationBlock) error
 	FakeInstanceAddress   func(name string) (string, error)
-	FakeInstanceStatus    func(name string) (rpaas.PodStatusMap, error)
+	FakeInstanceStatus    func(name string) (*nginxv1alpha1.Nginx, rpaas.PodStatusMap, error)
 	FakeScale             func(instanceName string, replicas int32) error
 	FakeGetPlans          func() ([]v1alpha1.RpaasPlan, error)
 	FakeGetFlavors        func() ([]rpaas.Flavor, error)
@@ -107,11 +108,11 @@ func (m *RpaasManager) GetInstanceAddress(ctx context.Context, name string) (str
 	return "", nil
 }
 
-func (m *RpaasManager) GetInstanceStatus(ctx context.Context, name string) (rpaas.PodStatusMap, error) {
+func (m *RpaasManager) GetInstanceStatus(ctx context.Context, name string) (*nginxv1alpha1.Nginx, rpaas.PodStatusMap, error) {
 	if m.FakeInstanceStatus != nil {
 		return m.FakeInstanceStatus(name)
 	}
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (m *RpaasManager) Scale(ctx context.Context, instanceName string, replicas int32) error {
