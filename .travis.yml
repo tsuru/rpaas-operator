@@ -35,8 +35,8 @@ jobs:
   - stage: push to docker
     script:
     - echo $DOCKER_PASS | docker login -u $DOCKER_USER --password-stdin
-    - if [ -n "$TRAVIS_TAG" ]; then make TAG=$TRAVIS_TAG push; else make push; fi
-    if: "(NOT type IN (pull_request)) AND (branch = master) OR (tag IS present)"
+    - if [ -n "$TRAVIS_BRANCH" ]; then make TAG=$TRAVIS_BRANCH push; else make push; fi
+    if: "(NOT type IN (pull_request))"
 env:
   global:
   - GO111MODULE=on
