@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
 
@@ -107,7 +108,7 @@ type BindAppArgs struct {
 }
 
 type CacheManager interface {
-	PurgeCache(host, path string, preservePath bool) error
+	PurgeCache(host, path string, port int32, preservePath bool) error
 }
 
 type PurgeCacheArgs struct {
@@ -146,7 +147,7 @@ type RpaasManager interface {
 	UpdateInstance(ctx context.Context, name string, args UpdateInstanceArgs) error
 	GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error)
 	GetInstanceAddress(ctx context.Context, name string) (string, error)
-	GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error)
+	GetInstanceStatus(ctx context.Context, name string) (*nginxv1alpha1.Nginx, PodStatusMap, error)
 	Scale(ctx context.Context, name string, replicas int32) error
 	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
 	GetFlavors(ctx context.Context) ([]Flavor, error)

@@ -29,6 +29,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -457,7 +458,7 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 
 func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error) {
 	var planList v1alpha1.RpaasPlanList
-	if err := m.cli.List(ctx, client.InNamespace(namespaceName()), &planList); err != nil {
+	if err := m.cli.List(ctx, &planList, client.InNamespace(namespaceName())); err != nil {
 		return nil, err
 	}
 
@@ -488,7 +489,7 @@ func (m *k8sRpaasManager) GetFlavors(ctx context.Context) ([]Flavor, error) {
 
 func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
-	if err := m.cli.List(ctx, client.InNamespace(namespaceName()), flavorList); err != nil {
+	if err := m.cli.List(ctx, flavorList, client.InNamespace(namespaceName())); err != nil {
 		return nil, err
 	}
 
@@ -677,19 +678,20 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 }
 
 func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error) {
-	podMap, err := m.GetInstanceStatus(ctx, instanceName)
+	nginx, podMap, err := m.GetInstanceStatus(ctx, instanceName)
 	if err != nil {
 		return 0, err
 	}
 	if args.Path == "" {
 		return 0, ValidationError{Msg: "path is required"}
 	}
+	port := util.PortByName(nginx.Spec.PodTemplate.Ports, nginxManager.PortNameManagement)
 	purgeCount := 0
 	for _, podStatus := range podMap {
 		if !podStatus.Running {
 			continue
 		}
-		if err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, args.PreservePath); err != nil {
+		if err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, port, args.PreservePath); err != nil {
 			continue
 		}
 		purgeCount += 1
@@ -986,15 +988,15 @@ func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {
 	return ok
 }
 
-func (m *k8sRpaasManager) GetInstanceStatus(ctx context.Context, name string) (PodStatusMap, error) {
+func (m *k8sRpaasManager) GetInstanceStatus(ctx context.Context, name string) (*nginxv1alpha1.Nginx, PodStatusMap, error) {
 	rpaasInstance, err := m.GetInstance(ctx, name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	var nginx nginxv1alpha1.Nginx
 	err = m.cli.Get(ctx, types.NamespacedName{Name: rpaasInstance.Name, Namespace: rpaasInstance.Namespace}, &nginx)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 	podMap := PodStatusMap{}
 	for _, podInfo := range nginx.Status.Pods {
@@ -1007,7 +1009,7 @@ func (m *k8sRpaasManager) GetInstanceStatus(ctx context.Context, name string) (P
 		}
 		podMap[podInfo.Name] = st
 	}
-	return podMap, nil
+	return &nginx, podMap, nil
 }
 
 func (m *k8sRpaasManager) podStatus(ctx context.Context, podName, ns string) (PodStatus, error) {
@@ -1036,12 +1038,13 @@ func (m *k8sRpaasManager) podStatus(ctx context.Context, podName, ns string) (Po
 
 func (m *k8sRpaasManager) eventsForPod(ctx context.Context, podName, ns string) ([]corev1.Event, error) {
 	const podKind = "Pod"
-	listOpts := client.
-		MatchingField("involvedObject.kind", podKind).
-		MatchingField("involvedObject.name", podName)
-	listOpts.Namespace = ns
+	listOpts := &client.ListOptions{Namespace: ns}
+	client.MatchingFields(fields.Set{
+		"involvedObject.kind": podKind,
+		"involvedObject.name": podName,
+	}).ApplyToList(listOpts)
 	var eventList corev1.EventList
-	err := m.nonCachedCli.List(ctx, listOpts, &eventList)
+	err := m.nonCachedCli.List(ctx, &eventList, listOpts)
 	if err != nil {
 		return nil, err
 	}

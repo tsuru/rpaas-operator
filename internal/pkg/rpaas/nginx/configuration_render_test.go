@@ -11,6 +11,7 @@ import (
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 func TestRpaasConfigurationRenderer_Render(t *testing.T) {
@@ -399,6 +400,49 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `listen 80 default_server;`, result)
 				assert.Regexp(t, `listen 443 default_server ssl http2;`, result)
+				assert.Regexp(t, `listen 8800;`, result)
+			},
+		},
+		{
+			name: "with pod using explicit ports",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Certificates: &nginxv1alpha1.TLSSecret{
+							SecretName: "secret-name",
+							Items: []nginxv1alpha1.TLSSecretItem{
+								{
+									CertificateField: "default.crt",
+									CertificatePath:  "custom_certificate_name.crt",
+									KeyField:         "default.key",
+									KeyPath:          "custom_key_name.key",
+								},
+							},
+						},
+						PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+							Ports: []corev1.ContainerPort{
+								{
+									Name:          PortNameHTTP,
+									ContainerPort: 20001,
+								},
+								{
+									Name:          PortNameHTTPS,
+									ContainerPort: 20002,
+								},
+								{
+									Name:          PortNameManagement,
+									ContainerPort: 20003,
+								},
+							},
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `listen 20001 default_server;`, result)
+				assert.Regexp(t, `listen 20002 default_server ssl http2;`, result)
+				assert.Regexp(t, `listen 20003;`, result)
 			},
 		},
 	}

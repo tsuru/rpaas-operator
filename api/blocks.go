@@ -48,6 +48,10 @@ func listBlocks(c echo.Context) error {
 }
 
 func updateBlock(c echo.Context) error {
+	if c.Request().ContentLength == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
+	}
+
 	manager, err := getManager(c)
 	if err != nil {
 		return err

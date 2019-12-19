@@ -87,7 +87,7 @@ func serviceNodeStatus(c echo.Context) error {
 		return err
 	}
 	instance := c.Param("instance")
-	podStatus, err := manager.GetInstanceStatus(c.Request().Context(), instance)
+	_, podStatus, err := manager.GetInstanceStatus(c.Request().Context(), instance)
 	if err != nil {
 		return err
 	}

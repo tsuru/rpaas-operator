@@ -45,6 +45,7 @@ rules:
   - rpaasinstances
   - rpaasplans
   - rpaasflavors
+  - rpaasportallocations
   verbs:
   - '*'
 - apiGroups:

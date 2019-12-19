@@ -12,6 +12,7 @@ import (
 	"reflect"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/fsnotify/fsnotify"
 	"github.com/mitchellh/mapstructure"
@@ -22,6 +23,9 @@ import (
 
 const (
 	keyPrefix = "rpaasv2"
+
+	DefaultPortRangeMin = 20000
+	DefaultPortRangeMax = 30000
 )
 
 type RpaasConfig struct {
@@ -32,6 +36,9 @@ type RpaasConfig struct {
 	TLSKey          string                     `json:"tls-key"`
 	DefaultAffinity *corev1.Affinity           `json:"default-affinity"`
 	TeamAffinity    map[string]corev1.Affinity `json:"team-affinity"`
+	SyncInterval    time.Duration              `json:"sync-interval"`
+	PortRangeMin    int32                      `json:"port-range-min"`
+	PortRangeMax    int32                      `json:"port-range-max"`
 }
 
 var rpaasConfig struct {
@@ -67,6 +74,9 @@ func Init() error {
 	viper.SetDefault("service-name", keyPrefix)
 	viper.SetDefault("tls-certificate", "")
 	viper.SetDefault("tls-key", "")
+	viper.SetDefault("sync-interval", 5*time.Minute)
+	viper.SetDefault("port-range-min", DefaultPortRangeMin)
+	viper.SetDefault("port-range-max", DefaultPortRangeMax)
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {

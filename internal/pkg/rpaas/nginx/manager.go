@@ -13,6 +13,10 @@ import (
 )
 
 const (
+	PortNameHTTP       = "http"
+	PortNameHTTPS      = "https"
+	PortNameManagement = "management"
+
 	defaultManagePort         = 8800
 	defaultPurgeTimeout       = time.Duration(1 * time.Second)
 	defaultPurgeLocation      = "/purge"
@@ -21,7 +25,6 @@ const (
 )
 
 type NginxManager struct {
-	managePort    uint16
 	purgeLocation string
 	client        http.Client
 }
@@ -36,14 +39,9 @@ func (e NginxError) Error() string {
 
 func NewNginxManager() NginxManager {
 	return NginxManager{
-		managePort:    managePort(),
 		purgeLocation: purgeLocationMatch(),
 		client:        http.Client{Timeout: defaultPurgeTimeout},
 	}
-}
-
-func managePort() uint16 {
-	return defaultManagePort
 }
 
 func purgeLocationMatch() string {
@@ -54,19 +52,19 @@ func vtsLocationMatch() string {
 	return defaultVTSLocationMatch
 }
 
-func (m NginxManager) PurgeCache(host, purgePath string, preservePath bool) error {
+func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePath bool) error {
 	for _, encoding := range []string{"gzip", "identity"} {
 		headers := map[string]string{"Accept-Encoding": encoding}
 
 		if preservePath {
 			path := fmt.Sprintf("%s%s", defaultPurgeLocation, purgePath)
-			if err := m.purgeRequest(host, path, headers); err != nil {
+			if err := m.purgeRequest(host, path, port, headers); err != nil {
 				return err
 			}
 		} else {
 			for _, scheme := range []string{"http", "https"} {
 				path := fmt.Sprintf("%s/%s%s", defaultPurgeLocation, scheme, purgePath)
-				if err := m.purgeRequest(host, path, headers); err != nil {
+				if err := m.purgeRequest(host, path, port, headers); err != nil {
 					return err
 				}
 			}
@@ -75,8 +73,8 @@ func (m NginxManager) PurgeCache(host, purgePath string, preservePath bool) erro
 	return nil
 }
 
-func (m NginxManager) purgeRequest(host, path string, headers map[string]string) error {
-	resp, err := m.requestNginx(host, path, headers)
+func (m NginxManager) purgeRequest(host, path string, port int32, headers map[string]string) error {
+	resp, err := m.requestNginx(host, path, port, headers)
 	if err != nil {
 		errorMessage := fmt.Sprintf("cannot purge nginx cache - error requesting nginx server: %v", err)
 		logrus.Error(errorMessage)
@@ -90,8 +88,11 @@ func (m NginxManager) purgeRequest(host, path string, headers map[string]string)
 	return nil
 }
 
-func (m NginxManager) requestNginx(host, path string, headers map[string]string) (*http.Response, error) {
-	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:%d%s", host, m.managePort, path), nil)
+func (m NginxManager) requestNginx(host, path string, port int32, headers map[string]string) (*http.Response, error) {
+	if port == 0 {
+		port = defaultManagePort
+	}
+	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:%d%s", host, port, path), nil)
 	if err != nil {
 		return nil, err
 	}

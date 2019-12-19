@@ -13,6 +13,10 @@ import (
 )
 
 func cachePurge(c echo.Context) error {
+	if c.Request().ContentLength == 0 {
+		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
+	}
+
 	var args rpaas.PurgeCacheArgs
 	err := c.Bind(&args)
 	if err != nil {

@@ -11,6 +11,8 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	"github.com/tsuru/rpaas-operator/config"
+	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	corev1 "k8s.io/api/core/v1"
@@ -691,4 +693,335 @@ func newScheme() *runtime.Scheme {
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
 	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
 	return scheme
+}
+
+func TestReconcileNginx_reconcilePorts(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	apis.AddToScheme(scheme)
+
+	tests := []struct {
+		name      string
+		rpaas     *v1alpha1.RpaasInstance
+		objects   []runtime.Object
+		assertion func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec)
+	}{
+		{
+			name: "creates empty port allocation",
+			rpaas: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-rpaas",
+					Namespace: "default",
+				},
+				Spec:   v1alpha1.RpaasInstanceSpec{},
+				Status: v1alpha1.RpaasInstanceStatus{},
+			},
+			assertion: func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec) {
+				assert.NoError(t, err)
+				assert.Nil(t, ports)
+				assert.Equal(t, v1alpha1.RpaasPortAllocationSpec{}, portAlloc)
+			},
+		},
+		{
+			name: "allocate ports if requested",
+			rpaas: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-rpaas",
+					Namespace: "default",
+					UID:       "1337",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					AllocateContainerPorts: true,
+				},
+				Status: v1alpha1.RpaasInstanceStatus{},
+			},
+			assertion: func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec) {
+				assert.NoError(t, err)
+				assert.Equal(t, []int{20000, 20001}, ports)
+				assert.Equal(t, v1alpha1.RpaasPortAllocationSpec{
+					Ports: []v1alpha1.AllocatedPort{
+						{
+							Port: 20000,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "my-rpaas",
+								UID:       "1337",
+							},
+						},
+						{
+							Port: 20001,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "my-rpaas",
+								UID:       "1337",
+							},
+						},
+					},
+				}, portAlloc)
+			},
+		},
+		{
+			name: "skip already allocated when allocating new ports",
+			rpaas: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-rpaas",
+					Namespace: "default",
+					UID:       "1337",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					AllocateContainerPorts: true,
+				},
+				Status: v1alpha1.RpaasInstanceStatus{},
+			},
+			objects: []runtime.Object{
+				&v1alpha1.RpaasInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "other-nginx",
+						Namespace: "default",
+						UID:       "1337-af",
+					},
+				},
+				&v1alpha1.RpaasPortAllocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "default",
+					},
+					Spec: v1alpha1.RpaasPortAllocationSpec{
+						Ports: []v1alpha1.AllocatedPort{
+							{
+								Port: 20000,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "other-nginx",
+									UID:       "1337-af",
+								},
+							},
+							{
+								Port: 20002,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "other-nginx",
+									UID:       "1337-af",
+								},
+							},
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec) {
+				assert.NoError(t, err)
+				assert.Equal(t, []int{20001, 20003}, ports)
+				assert.Equal(t, v1alpha1.RpaasPortAllocationSpec{
+					Ports: []v1alpha1.AllocatedPort{
+						{
+							Port: 20000,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "other-nginx",
+								UID:       "1337-af",
+							},
+						},
+						{
+							Port: 20002,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "other-nginx",
+								UID:       "1337-af",
+							},
+						},
+						{
+							Port: 20001,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "my-rpaas",
+								UID:       "1337",
+							},
+						},
+						{
+							Port: 20003,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "my-rpaas",
+								UID:       "1337",
+							},
+						},
+					},
+				}, portAlloc)
+			},
+		},
+		{
+			name: "reuse previous allocations",
+			rpaas: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-rpaas",
+					Namespace: "default",
+					UID:       "1337",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					AllocateContainerPorts: true,
+				},
+				Status: v1alpha1.RpaasInstanceStatus{},
+			},
+			objects: []runtime.Object{
+				&v1alpha1.RpaasPortAllocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "default",
+					},
+					Spec: v1alpha1.RpaasPortAllocationSpec{
+						Ports: []v1alpha1.AllocatedPort{
+							{
+								Port: 20000,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "my-rpaas",
+									UID:       "1337",
+								},
+							},
+							{
+								Port: 20002,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "my-rpaas",
+									UID:       "1337",
+								},
+							},
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec) {
+				assert.NoError(t, err)
+				assert.Equal(t, []int{20000, 20002}, ports)
+				assert.Equal(t, v1alpha1.RpaasPortAllocationSpec{
+					Ports: []v1alpha1.AllocatedPort{
+						{
+							Port: 20000,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "my-rpaas",
+								UID:       "1337",
+							},
+						},
+						{
+							Port: 20002,
+							Owner: v1alpha1.NamespacedOwner{
+								Namespace: "default",
+								RpaasName: "my-rpaas",
+								UID:       "1337",
+							},
+						},
+					},
+				}, portAlloc)
+			},
+		},
+		{
+			name: "remove allocations for removed objects",
+			rpaas: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-rpaas",
+					Namespace: "default",
+					UID:       "1337",
+				},
+				Spec:   v1alpha1.RpaasInstanceSpec{},
+				Status: v1alpha1.RpaasInstanceStatus{},
+			},
+			objects: []runtime.Object{
+				&v1alpha1.RpaasPortAllocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "default",
+					},
+					Spec: v1alpha1.RpaasPortAllocationSpec{
+						Ports: []v1alpha1.AllocatedPort{
+							{
+								Port: 20000,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "other-nginx",
+									UID:       "1337-af",
+								},
+							},
+							{
+								Port: 20002,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "other-nginx",
+									UID:       "1337-af",
+								},
+							},
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec) {
+				assert.NoError(t, err)
+				assert.Nil(t, ports)
+				assert.Equal(t, v1alpha1.RpaasPortAllocationSpec{}, portAlloc)
+			},
+		},
+		{
+			name: "remove allocations for objects not matching UID",
+			rpaas: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-rpaas",
+					Namespace: "default",
+					UID:       "1337",
+				},
+				Spec:   v1alpha1.RpaasInstanceSpec{},
+				Status: v1alpha1.RpaasInstanceStatus{},
+			},
+			objects: []runtime.Object{
+				&v1alpha1.RpaasPortAllocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "default",
+					},
+					Spec: v1alpha1.RpaasPortAllocationSpec{
+						Ports: []v1alpha1.AllocatedPort{
+							{
+								Port: 20000,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "my-rpaas",
+									UID:       "1337-af",
+								},
+							},
+							{
+								Port: 20002,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "my-rpaas",
+									UID:       "1337-af",
+								},
+							},
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec) {
+				assert.NoError(t, err)
+				assert.Nil(t, ports)
+				assert.Equal(t, v1alpha1.RpaasPortAllocationSpec{}, portAlloc)
+			},
+		},
+	}
+
+	err := config.Init()
+	require.NoError(t, err)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resources := []runtime.Object{tt.rpaas}
+			if tt.objects != nil {
+				resources = append(resources, tt.objects...)
+			}
+			reconciler := &ReconcileRpaasInstance{
+				client: fake.NewFakeClientWithScheme(scheme, resources...),
+				scheme: scheme,
+			}
+			ports, err := reconciler.reconcilePorts(context.Background(), tt.rpaas, 2)
+			var allocation v1alpha1.RpaasPortAllocation
+			allocErr := reconciler.client.Get(context.Background(), types.NamespacedName{
+				Name: defaultPortAllocationResource,
+			}, &allocation)
+			require.NoError(t, allocErr)
+			tt.assertion(t, err, ports, allocation.Spec)
+		})
+	}
 }
