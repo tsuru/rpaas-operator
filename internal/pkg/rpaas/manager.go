@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"sort"
+	"strings"
 
 	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -90,7 +91,7 @@ type CreateArgs struct {
 }
 
 func (args CreateArgs) Flavors() []string {
-	return getFlavors(args.Parameters)
+	return getFlavors(args.Parameters, args.Tags)
 }
 
 type UpdateInstanceArgs struct {
@@ -102,7 +103,7 @@ type UpdateInstanceArgs struct {
 }
 
 func (args UpdateInstanceArgs) Flavors() []string {
-	return getFlavors(args.Parameters)
+	return getFlavors(args.Parameters, args.Tags)
 }
 
 type PodStatusMap map[string]PodStatus
@@ -177,10 +178,10 @@ type CertificateData struct {
 	Key         string `json:"key"`
 }
 
-func getFlavors(params map[string]interface{}) (flavors []string) {
+func getFlavors(params map[string]interface{}, tags []string) (flavors []string) {
 	p, found := params["flavors"]
 	if !found {
-		return
+		return legacyGetFlavors(tags)
 	}
 
 	flavorsParams, ok := p.(map[string]interface{})
@@ -197,6 +198,27 @@ func getFlavors(params map[string]interface{}) (flavors []string) {
 
 	for _, key := range sortedKeys {
 		flavors = append(flavors, flavorsParams[key].(string))
+	}
+
+	return
+}
+
+func legacyGetFlavors(tags []string) (flavors []string) {
+	prefixes := []string{"flavor:", "flavor=", "flavors:", "flavors="}
+	for _, t := range tags {
+		for _, p := range prefixes {
+			if strings.HasPrefix(t, p) {
+				sep := p[len(p)-1]
+
+				parts := strings.Split(t, string(sep))
+				if len(parts) < 2 {
+					continue
+				}
+
+				flavors = strings.Split(parts[1], ",")
+				return
+			}
+		}
 	}
 
 	return
