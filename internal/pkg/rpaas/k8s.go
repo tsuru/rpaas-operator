@@ -109,8 +109,10 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 
 	setDescription(instance, args.Description)
 	setTeamOwner(instance, args.Team)
+	setTags(instance, args.Tags)
+	setIP(instance, args.IP())
 
-	if err := m.setTags(ctx, instance, args.Tags); err != nil {
+	if err = setPlanTemplate(instance, args.PlanOverride()); err != nil {
 		return err
 	}
 
@@ -140,8 +142,10 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 
 	setDescription(instance, args.Description)
 	setTeamOwner(instance, args.Team)
+	setTags(instance, args.Tags)
+	setIP(instance, args.IP())
 
-	if err = m.setTags(ctx, instance, args.Tags); err != nil {
+	if err := setPlanTemplate(instance, args.PlanOverride()); err != nil {
 		return err
 	}
 
@@ -1161,16 +1165,6 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string)
 	return nil
 }
 
-func parseTagArg(tags []string, name string, destination *string) {
-	for _, tag := range tags {
-		parts := strings.SplitN(tag, "=", 2)
-		if parts[0] == name {
-			*destination = parts[1]
-			break
-		}
-	}
-}
-
 func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {
 	allowedBlockTypes := map[v1alpha1.BlockType]bool{
 		v1alpha1.BlockTypeRoot:      true,
@@ -1381,9 +1375,40 @@ func setDescription(instance *v1alpha1.RpaasInstance, description string) {
 	})
 }
 
-func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasInstance, tags []string) error {
+func setIP(instance *v1alpha1.RpaasInstance, ip string) {
+	if instance == nil {
+		return
+	}
+
+	if instance.Spec.Service == nil {
+		instance.Spec.Service = &nginxv1alpha1.NginxService{}
+	}
+
+	instance.Spec.Service.LoadBalancerIP = ip
+}
+
+func setPlanTemplate(instance *v1alpha1.RpaasInstance, override string) error {
 	if instance == nil {
 		return nil
+	}
+
+	instance.Spec.PlanTemplate = nil
+	if override == "" {
+		return nil
+	}
+
+	var planTemplate v1alpha1.RpaasPlanSpec
+	if err := json.Unmarshal([]byte(override), &planTemplate); err != nil {
+		return fmt.Errorf("unable to unmarshal plan-override on plan spec: %w", err)
+	}
+
+	instance.Spec.PlanTemplate = &planTemplate
+	return nil
+}
+
+func setTags(instance *v1alpha1.RpaasInstance, tags []string) {
+	if instance == nil {
+		return
 	}
 
 	sort.Strings(tags)
@@ -1391,28 +1416,6 @@ func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasI
 	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
 		labelKey("tags"): strings.Join(tags, ","),
 	})
-
-	var ip string
-	parseTagArg(tags, "ip", &ip)
-	if instance.Spec.Service == nil {
-		instance.Spec.Service = &nginxv1alpha1.NginxService{}
-	}
-	instance.Spec.Service.LoadBalancerIP = ip
-
-	var planOverride string
-	parseTagArg(tags, "plan-override", &planOverride)
-	instance.Spec.PlanTemplate = nil
-	if planOverride == "" {
-		return nil
-	}
-
-	var planTemplate v1alpha1.RpaasPlanSpec
-	if err := json.Unmarshal([]byte(planOverride), &planTemplate); err != nil {
-		return errors.Wrapf(err, "unable to parse plan-override from data %q", planOverride)
-	}
-	instance.Spec.PlanTemplate = &planTemplate
-
-	return nil
 }
 
 func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {

@@ -94,6 +94,14 @@ func (args CreateArgs) Flavors() []string {
 	return getFlavors(args.Parameters, args.Tags)
 }
 
+func (args CreateArgs) IP() string {
+	return getIP(args.Parameters, args.Tags)
+}
+
+func (args CreateArgs) PlanOverride() string {
+	return getPlanOverride(args.Parameters, args.Tags)
+}
+
 type UpdateInstanceArgs struct {
 	Team        string                 `form:"team"`
 	Description string                 `form:"description"`
@@ -104,6 +112,14 @@ type UpdateInstanceArgs struct {
 
 func (args UpdateInstanceArgs) Flavors() []string {
 	return getFlavors(args.Parameters, args.Tags)
+}
+
+func (args UpdateInstanceArgs) IP() string {
+	return getIP(args.Parameters, args.Tags)
+}
+
+func (args UpdateInstanceArgs) PlanOverride() string {
+	return getPlanOverride(args.Parameters, args.Tags)
 }
 
 type PodStatusMap map[string]PodStatus
@@ -190,7 +206,7 @@ func getFlavors(params map[string]interface{}, tags []string) (flavors []string)
 	}
 
 	var sortedKeys []string
-	for key, _ := range flavorsParams {
+	for key := range flavorsParams {
 		sortedKeys = append(sortedKeys, key)
 	}
 
@@ -204,22 +220,76 @@ func getFlavors(params map[string]interface{}, tags []string) (flavors []string)
 }
 
 func legacyGetFlavors(tags []string) (flavors []string) {
-	prefixes := []string{"flavor:", "flavor=", "flavors:", "flavors="}
+	values := extractTagValues([]string{"flavor:", "flavor=", "flavors:", "flavors="}, tags)
+	if len(values) == 0 {
+		return nil
+	}
+
+	return strings.Split(values[0], ",")
+}
+
+func getIP(params map[string]interface{}, tags []string) string {
+	p, found := params["ip"]
+	if !found {
+		return legacyGetIP(tags)
+	}
+
+	ip, ok := p.(string)
+	if !ok {
+		return ""
+	}
+
+	return ip
+}
+
+func legacyGetIP(tags []string) string {
+	values := extractTagValues([]string{"ip:", "ip="}, tags)
+	if len(values) == 0 {
+		return ""
+	}
+
+	return values[0]
+}
+
+func getPlanOverride(params map[string]interface{}, tags []string) string {
+	p, found := params["plan-override"]
+	if !found {
+		return legacyGetPlanOverride(tags)
+	}
+
+	override, ok := p.(string)
+	if !ok {
+		return ""
+	}
+
+	return override
+}
+
+func legacyGetPlanOverride(tags []string) string {
+	values := extractTagValues([]string{"plan-override:", "plan-override="}, tags)
+	if len(values) == 0 {
+		return ""
+	}
+
+	return values[0]
+}
+
+func extractTagValues(prefixes, tags []string) []string {
 	for _, t := range tags {
 		for _, p := range prefixes {
-			if strings.HasPrefix(t, p) {
-				sep := p[len(p)-1]
-
-				parts := strings.Split(t, string(sep))
-				if len(parts) < 2 {
-					continue
-				}
-
-				flavors = strings.Split(parts[1], ",")
-				return
+			if !strings.HasPrefix(t, p) {
+				continue
 			}
+
+			separator := string(p[len(p)-1])
+			parts := strings.SplitN(t, separator, 2)
+			if len(parts) == 1 {
+				return nil
+			}
+
+			return parts[1:]
 		}
 	}
 
-	return
+	return nil
 }

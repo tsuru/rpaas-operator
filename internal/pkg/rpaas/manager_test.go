@@ -85,6 +85,84 @@ func TestCreateArgs_Flavors(t *testing.T) {
 	}
 }
 
+func TestCreateArgs_IP(t *testing.T) {
+	tests := []struct {
+		args CreateArgs
+		want string
+	}{
+		{},
+		{
+			args: CreateArgs{
+				Parameters: map[string]interface{}{"ip": "7.7.7.7"},
+			},
+			want: "7.7.7.7",
+		},
+		{
+			args: CreateArgs{
+				Parameters: map[string]interface{}{"ip": []string{"not valid"}},
+			},
+		},
+		{
+			args: CreateArgs{Tags: []string{"ip:7.7.7.7"}},
+			want: "7.7.7.7",
+		},
+		{
+			args: CreateArgs{Tags: []string{"ip=7.7.7.7"}},
+			want: "7.7.7.7",
+		},
+		{
+			args: CreateArgs{Tags: []string{"ip:6.6.6.6", "ip=7.7.7.7"}},
+			want: "6.6.6.6",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			have := tt.args.IP()
+			assert.Equal(t, tt.want, have)
+		})
+	}
+}
+
+func TestCreateArgs_PlanOverride(t *testing.T) {
+	tests := []struct {
+		args CreateArgs
+		want string
+	}{
+		{},
+		{
+			args: CreateArgs{
+				Parameters: map[string]interface{}{"plan-override": `{"image": "nginx:alpine"}`},
+			},
+			want: `{"image": "nginx:alpine"}`,
+		},
+		{
+			args: CreateArgs{
+				Parameters: map[string]interface{}{"plan-override": []string{"not valid"}},
+			},
+		},
+		{
+			args: CreateArgs{Tags: []string{`plan-override:{"config": {"cacheEnabled": false}}`}},
+			want: `{"config": {"cacheEnabled": false}}`,
+		},
+		{
+			args: CreateArgs{Tags: []string{`plan-override={"config": {"cacheEnabled": false}}`}},
+			want: `{"config": {"cacheEnabled": false}}`,
+		},
+		{
+			args: CreateArgs{Tags: []string{`plan-override={"image": "nginx:alpine"}`, `plan-override:{"config": {"cacheEnabled": false}}`}},
+			want: `{"image": "nginx:alpine"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			have := tt.args.PlanOverride()
+			assert.Equal(t, tt.want, have)
+		})
+	}
+}
+
 func TestUpdateInstanceArgs_Flavors(t *testing.T) {
 	tests := []struct {
 		args UpdateInstanceArgs
@@ -155,6 +233,88 @@ func TestUpdateInstanceArgs_Flavors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			have := tt.args.Flavors()
+			assert.Equal(t, tt.want, have)
+		})
+	}
+}
+
+func TestUpdateInstanceArgs_IP(t *testing.T) {
+	tests := []struct {
+		args UpdateInstanceArgs
+		want string
+	}{
+		{},
+		{
+			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{
+					"ip": "7.7.7.7",
+				},
+			},
+			want: "7.7.7.7",
+		},
+		{
+			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{
+					"ip": []string{"not valid"},
+				},
+			},
+		},
+		{
+			args: UpdateInstanceArgs{Tags: []string{"ip:7.7.7.7"}},
+			want: "7.7.7.7",
+		},
+		{
+			args: UpdateInstanceArgs{Tags: []string{"ip=7.7.7.7"}},
+			want: "7.7.7.7",
+		},
+		{
+			args: UpdateInstanceArgs{Tags: []string{"ip:6.6.6.6", "ip=7.7.7.7"}},
+			want: "6.6.6.6",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			have := tt.args.IP()
+			assert.Equal(t, tt.want, have)
+		})
+	}
+}
+
+func TestUpdateInstanceArgs_PlanOverride(t *testing.T) {
+	tests := []struct {
+		args UpdateInstanceArgs
+		want string
+	}{
+		{},
+		{
+			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{"plan-override": `{"image": "nginx:alpine"}`},
+			},
+			want: `{"image": "nginx:alpine"}`,
+		},
+		{
+			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{"plan-override": []string{"not valid"}},
+			},
+		},
+		{
+			args: UpdateInstanceArgs{Tags: []string{`plan-override:{"config": {"cacheEnabled": false}}`}},
+			want: `{"config": {"cacheEnabled": false}}`,
+		},
+		{
+			args: UpdateInstanceArgs{Tags: []string{`plan-override={"config": {"cacheEnabled": false}}`}},
+			want: `{"config": {"cacheEnabled": false}}`,
+		},
+		{
+			args: UpdateInstanceArgs{Tags: []string{`plan-override={"image": "nginx:alpine"}`, `plan-override:{"config": {"cacheEnabled": false}}`}},
+			want: `{"image": "nginx:alpine"}`,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			have := tt.args.PlanOverride()
 			assert.Equal(t, tt.want, have)
 		})
 	}
