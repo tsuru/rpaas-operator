@@ -24,77 +24,53 @@ import (
 
 func Test_serviceCreate(t *testing.T) {
 	testCases := []struct {
+		name         string
 		requestBody  string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
 	}{
 		{
-			requestBody:  "",
+			name:         "when some error is returned",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: "Request body can't be empty",
-			manager:      &fake.RpaasManager{},
-		},
-		{
-			requestBody:  "name=",
-			expectedCode: http.StatusBadRequest,
-			expectedBody: "name is required",
+			expectedBody: "some error message",
 			manager: &fake.RpaasManager{
-				FakeCreateInstance: func(rpaas.CreateArgs) error {
-					return rpaas.ValidationError{Msg: "name is required"}
+				FakeCreateInstance: func(args rpaas.CreateArgs) error {
+					assert.Equal(t, rpaas.CreateArgs{}, args)
+					return rpaas.ValidationError{Msg: "some error message"}
 				},
 			},
 		},
 		{
-			requestBody:  "name=rpaas",
-			expectedCode: http.StatusBadRequest,
-			expectedBody: "plan is required",
-			manager: &fake.RpaasManager{
-				FakeCreateInstance: func(rpaas.CreateArgs) error {
-					return rpaas.ValidationError{Msg: "plan is required"}
-				},
-			},
-		},
-		{
-			requestBody:  "name=rpaas&plan=myplan",
-			expectedCode: http.StatusBadRequest,
-			expectedBody: "team name is required",
-			manager: &fake.RpaasManager{
-				FakeCreateInstance: func(rpaas.CreateArgs) error {
-					return rpaas.ValidationError{Msg: "team name is required"}
-				},
-			},
-		},
-		{
-			requestBody:  "name=rpaas&plan=plan2&team=myteam",
-			expectedCode: http.StatusBadRequest,
-			expectedBody: "invalid plan",
-			manager: &fake.RpaasManager{
-				FakeCreateInstance: func(rpaas.CreateArgs) error {
-					return rpaas.ValidationError{Msg: "invalid plan"}
-				},
-			},
-		},
-		{
-			requestBody:  "name=firstinstance&plan=myplan&team=myteam",
-			expectedCode: http.StatusConflict,
-			expectedBody: "firstinstance instance already exists",
-			manager: &fake.RpaasManager{
-				FakeCreateInstance: func(rpaas.CreateArgs) error {
-					return rpaas.ConflictError{Msg: "firstinstance instance already exists"}
-				},
-			},
-		},
-		{
-			requestBody:  "name=otherinstance&plan=myplan&team=myteam",
+			name:         "passing all create parameters on body",
+			requestBody:  "name=my-instance&description=some%20description&plan=my-plan&team=my-team&tags.0=tsuru&tags.1=rpaas&parameters.flavors.0=orange&parameters.flavors.1=strawberry&parameters.flavors.2=blueberry",
 			expectedCode: http.StatusCreated,
-			expectedBody: "",
-			manager:      &fake.RpaasManager{},
+			manager: &fake.RpaasManager{
+				FakeCreateInstance: func(args rpaas.CreateArgs) error {
+					expected := rpaas.CreateArgs{
+						Name:        "my-instance",
+						Description: "some description",
+						Plan:        "my-plan",
+						Team:        "my-team",
+						Tags:        []string{"tsuru", "rpaas"},
+						Parameters: map[string]interface{}{
+							"flavors": map[string]interface{}{
+								"0": "orange",
+								"1": "strawberry",
+								"2": "blueberry",
+							},
+						},
+					}
+					assert.Equal(t, expected, args)
+					assert.Equal(t, []string{"orange", "strawberry", "blueberry"}, args.Flavors())
+					return nil
+				},
+			},
 		},
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources", srv.URL)
@@ -159,43 +135,40 @@ func Test_serviceUpdate(t *testing.T) {
 		manager      rpaas.RpaasManager
 	}{
 		{
-			name:         "when no body content is sent",
+			name:         "when some error is returned",
 			instance:     "my-instance",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: "Request body can't be empty",
-			manager:      &fake.RpaasManager{},
-		},
-		{
-			name:         "when UpdateInstance returns no error",
-			instance:     "my-instance",
-			requestBody:  "description=some%20description&plan=huge&team=team-one&tags=tag1&tags=tag2",
-			expectedCode: http.StatusOK,
+			expectedBody: "some error",
 			manager: &fake.RpaasManager{
 				FakeUpdateInstance: func(instanceName string, args rpaas.UpdateInstanceArgs) error {
 					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, rpaas.UpdateInstanceArgs{}, args)
+					return rpaas.ValidationError{Msg: "some error"}
+				},
+			},
+		},
+		{
+			name:         "passing all update parameters on body",
+			instance:     "other-instance",
+			requestBody:  "description=some%20description&plan=huge&team=team-one&tags.0=tag1&tags.1=tag2&parameters.flavors.0=orange&parameters.flavors.1=mango",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeUpdateInstance: func(instanceName string, args rpaas.UpdateInstanceArgs) error {
+					assert.Equal(t, "other-instance", instanceName)
 					assert.Equal(t, rpaas.UpdateInstanceArgs{
 						Description: "some description",
 						Plan:        "huge",
 						Tags:        []string{"tag1", "tag2"},
 						Team:        "team-one",
+						Parameters: map[string]interface{}{
+							"flavors": map[string]interface{}{
+								"0": "orange",
+								"1": "mango",
+							},
+						},
 					}, args)
+					assert.Equal(t, []string{"orange", "mango"}, args.Flavors())
 					return nil
-				},
-			},
-		},
-		{
-			name:         "when UpdateInstance returns a NotFound error",
-			instance:     "my-instance2",
-			requestBody:  "plan=not-found",
-			expectedCode: http.StatusNotFound,
-			expectedBody: "some error",
-			manager: &fake.RpaasManager{
-				FakeUpdateInstance: func(instanceName string, args rpaas.UpdateInstanceArgs) error {
-					assert.Equal(t, "my-instance2", instanceName)
-					assert.Equal(t, rpaas.UpdateInstanceArgs{
-						Plan: "not-found",
-					}, args)
-					return rpaas.NotFoundError{Msg: "some error"}
 				},
 			},
 		},

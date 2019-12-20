@@ -3,6 +3,7 @@ module github.com/tsuru/rpaas-operator
 go 1.13
 
 require (
+	github.com/ajg/form v1.5.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-openapi/spec v0.19.2

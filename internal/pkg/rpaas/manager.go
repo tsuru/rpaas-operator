@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"sort"
 
 	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -80,18 +81,28 @@ type RouteHandler interface {
 }
 
 type CreateArgs struct {
-	Name        string   `json:"name" form:"name"`
-	Plan        string   `json:"plan" form:"plan"`
-	Team        string   `json:"team" form:"team"`
-	Tags        []string `json:"tags" form:"tags"`
-	Description string   `json:"description" form:"description"`
+	Name        string                 `form:"name"`
+	Team        string                 `form:"team"`
+	Plan        string                 `form:"plan"`
+	Description string                 `form:"description"`
+	Tags        []string               `form:"tags"`
+	Parameters  map[string]interface{} `form:"parameters"`
+}
+
+func (args CreateArgs) Flavors() []string {
+	return getFlavors(args.Parameters)
 }
 
 type UpdateInstanceArgs struct {
-	Description string   `json:"description" form:"description"`
-	Plan        string   `json:"plan" form:"plan"`
-	Tags        []string `json:"tags" form:"tags"`
-	Team        string   `json:"team" form:"team"`
+	Team        string                 `form:"team"`
+	Description string                 `form:"description"`
+	Plan        string                 `form:"plan"`
+	Tags        []string               `form:"tags"`
+	Parameters  map[string]interface{} `form:"parameters"`
+}
+
+func (args UpdateInstanceArgs) Flavors() []string {
+	return getFlavors(args.Parameters)
 }
 
 type PodStatusMap map[string]PodStatus
@@ -164,4 +175,29 @@ type CertificateData struct {
 	Name        string `json:"name"`
 	Certificate string `json:"certificate"`
 	Key         string `json:"key"`
+}
+
+func getFlavors(params map[string]interface{}) (flavors []string) {
+	p, found := params["flavors"]
+	if !found {
+		return
+	}
+
+	flavorsParams, ok := p.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	var sortedKeys []string
+	for key, _ := range flavorsParams {
+		sortedKeys = append(sortedKeys, key)
+	}
+
+	sort.Strings(sortedKeys)
+
+	for _, key := range sortedKeys {
+		flavors = append(flavors, flavorsParams[key].(string))
+	}
+
+	return
 }

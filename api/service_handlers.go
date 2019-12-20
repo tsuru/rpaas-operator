@@ -6,9 +6,11 @@ package api
 
 import (
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 
+	"github.com/ajg/form"
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
@@ -18,19 +20,24 @@ func serviceCreate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
 
-	var args rpaas.CreateArgs
-	err := c.Bind(&args)
-	if err != nil {
-		return err
-	}
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
-	err = manager.CreateInstance(c.Request().Context(), args)
-	if err != nil {
+
+	body := c.Request().Body
+
+	var args rpaas.CreateArgs
+	if err = newDecoder(body).Decode(&args); err != nil {
+		return fmt.Errorf("cannot decode the parameter: %v", err)
+	}
+
+	defer body.Close()
+
+	if err = manager.CreateInstance(c.Request().Context(), args); err != nil {
 		return err
 	}
+
 	return c.NoContent(http.StatusCreated)
 }
 
@@ -39,6 +46,7 @@ func serviceDelete(c echo.Context) error {
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "name is required")
 	}
+
 	manager, err := getManager(c)
 	if err != nil {
 		return err
@@ -55,15 +63,19 @@ func serviceUpdate(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
 
-	var args rpaas.UpdateInstanceArgs
-	if err := c.Bind(&args); err != nil {
-		return err
-	}
-
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
+
+	body := c.Request().Body
+
+	var args rpaas.UpdateInstanceArgs
+	if err = newDecoder(body).Decode(&args); err != nil {
+		return err
+	}
+
+	defer body.Close()
 
 	if err = manager.UpdateInstance(c.Request().Context(), c.Param("instance"), args); err != nil {
 		return err
@@ -196,4 +208,12 @@ func serviceStatus(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func newDecoder(r io.Reader) *form.Decoder {
+	decoder := form.NewDecoder(r)
+	decoder.IgnoreCase(true)
+	decoder.IgnoreUnknownKeys(true)
+
+	return decoder
 }
