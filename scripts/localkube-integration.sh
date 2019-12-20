@@ -8,7 +8,7 @@ download_operator_sdk() {
 
   local operator_sdk_bin="${destination}/operator-sdk"
 
-  [[ -f "${operator_sdk_bin}" ]] && echo -n "${operator_sdk_bin}" && return
+  [[ -f "${operator_sdk_bin}" ]] && [[ $("${operator_sdk_bin}" version) == *"${version}"* ]] && echo -n "${operator_sdk_bin}" && return
 
   local os="$(get_os)"
   case ${os} in
@@ -29,7 +29,7 @@ download_kubectl() {
 
   local kubectl_bin="${destination}/kubectl"
 
-  [[ -f "${kubectl_bin}" ]] && echo -n "${kubectl_bin}" && return
+  [[ -f "${kubectl_bin}" ]] && [[ $("${kubectl_bin}" version --client) == *"${version}"* ]] && echo -n "${kubectl_bin}" && return
 
   local os="$(get_os)"
   local arch="$(get_arch)"
@@ -45,7 +45,7 @@ download_kind() {
 
   local kind_bin="${destination}/kind"
 
-  [[ -f "${kind_bin}" ]] && echo -n "${kind_bin}" && return
+  [[ -f "${kind_bin}" ]] && [[ $(${kind_bin} version) == *"${version}"* ]] && echo -n "${kind_bin}" && return
 
   local os="$(get_os)"
   local arch="$(get_arch)"
@@ -192,8 +192,8 @@ trap onerror ERR
 
 # When KUBERNETES_VERSION isn't defined, use default
 export KUBERNETES_VERSION="${KUBERNETES_VERSION:-"v1.14.3"}"
-kind_version="v0.4.0"
-operator_sdk_version="v0.9.0"
+kind_version="v0.6.1"
+operator_sdk_version="v0.13.0"
 
 local_tmp_dir="$(pwd)/.tmp"
 mkdir -p "${local_tmp_dir}"
@@ -205,22 +205,21 @@ export PATH="${local_tmp_dir}:${PATH}"
 echo "Downloading the kind (Kubernetes-IN-Docker)..."
 kind_bin="$(download_kind ${kind_version} ${local_tmp_dir})"
 echo "kind path: ${kind_bin} "
-echo "kind version: ${kind_version}"
+echo "kind version: $(${kind_bin} version)"
 echo
 
 cluster_name="rpaasv2-integration"
-echo "Creating a Kubernetes cluster \"${cluster_name}\"..."
+echo "Creating a Kubernetes cluster \"${cluster_name}\" with kubernetes ${KUBERNETES_VERSION}..."
 create_k8s_cluster "${kind_bin}" "${cluster_name}"
-echo "Kubernetes version: ${KUBERNETES_VERSION}"
 echo
 
 echo "Downloading the kubectl..."
 kubectl_bin="$(download_kubectl ${KUBERNETES_VERSION}  ${local_tmp_dir})"
-kubeconfig="$(${kind_bin} get kubeconfig-path --name ${cluster_name})"
 echo "kubectl path: ${kubectl_bin}"
-echo "kubectl version: ${KUBERNETES_VERSION}"
-echo "kubeconfig path: ${kubeconfig}"
+echo "kubectl version: $(${kubectl_bin} version)"
 echo
+
+${kubectl_bin} config use-context "kind-${cluster_name}"
 
 echo "Downloading the operator-sdk..."
 operator_sdk_bin=$(download_operator_sdk ${operator_sdk_version} ${local_tmp_dir})
@@ -228,7 +227,6 @@ echo "operator-sdk path: ${operator_sdk_bin}"
 echo "operator-sdk version: $(${operator_sdk_bin} version)"
 echo
 
-export KUBECONFIG="${kubeconfig}"
 export GO111MODULE=on
 
 echo $(which operator-sdk)
