@@ -2812,8 +2812,13 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name:          "invalid flavor",
-			args:          CreateArgs{Name: "r1", Team: "t1", Tags: []string{"flavor=aaaaa"}},
+			args:          CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "aaaaa"}}},
 			expectedError: `flavor "aaaaa" not found`,
+		},
+		{
+			name:          "duplicated flavor",
+			args:          CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "strawberry", "1": "strawberry"}}},
+			expectedError: `flavor "strawberry" only can be set once`,
 		},
 		{
 			name:          "instance already exists",
@@ -2927,7 +2932,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name: "with flavor",
-			args: CreateArgs{Name: "r1", Team: "t1", Tags: []string{"flavor=strawberry"}},
+			args: CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "strawberry"}}},
 			expected: v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "RpaasInstance",
@@ -2938,8 +2943,8 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Namespace:       "rpaasv2",
 					ResourceVersion: "1",
 					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/tags":        "",
 						"rpaas.extensions.tsuru.io/description": "",
-						"rpaas.extensions.tsuru.io/tags":        "flavor=strawberry",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{

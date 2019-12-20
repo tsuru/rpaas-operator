@@ -91,17 +91,20 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 
 	instance := newRpaasInstance(args.Name)
 	instance.Namespace = nsName
-	instance.Spec.PlanName = plan.Name
-	instance.Spec.Replicas = func(n int32) *int32 { return &n }(int32(1)) // one replica
-	instance.Spec.Service = &nginxv1alpha1.NginxService{
-		Type:        corev1.ServiceTypeLoadBalancer,
-		Annotations: instance.Annotations,
-		Labels:      instance.Labels,
-	}
-	instance.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
-		Affinity:    getAffinity(args.Team),
-		Annotations: instance.Annotations,
-		Labels:      instance.Labels,
+	instance.Spec = v1alpha1.RpaasInstanceSpec{
+		Replicas: func(n int32) *int32 { return &n }(int32(1)),
+		PlanName: plan.Name,
+		Flavors:  args.Flavors(),
+		Service: &nginxv1alpha1.NginxService{
+			Type:        corev1.ServiceTypeLoadBalancer,
+			Annotations: instance.Annotations,
+			Labels:      instance.Labels,
+		},
+		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+			Affinity:    getAffinity(args.Team),
+			Annotations: instance.Annotations,
+			Labels:      instance.Labels,
+		},
 	}
 
 	setDescription(instance, args.Description)
@@ -115,17 +118,26 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
+	if err := m.validateUpdateInstanceArgs(ctx, args); err != nil {
+		return err
+	}
+
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
-	plan, err := m.getPlan(ctx, args.Plan)
-	if err != nil {
-		return err
+	if args.Plan != "" && args.Plan != instance.Spec.PlanName {
+		plan, err := m.getPlan(ctx, args.Plan)
+		if err != nil {
+			return err
+		}
+
+		instance.Spec.PlanName = plan.Name
 	}
 
-	instance.Spec.PlanName = plan.Name
+	instance.Spec.Flavors = args.Flavors()
+
 	setDescription(instance, args.Description)
 	setTeamOwner(instance, args.Team)
 
@@ -626,14 +638,14 @@ func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavo
 	return flavorList.Items, nil
 }
 
-func (m *k8sRpaasManager) isFlavorAvailable(ctx context.Context, flavorName string) bool {
+func (m *k8sRpaasManager) isFlavorAvailable(ctx context.Context, name string) bool {
 	flavors, err := m.getFlavors(ctx)
 	if err != nil {
 		return false
 	}
 
-	for _, flavor := range flavors {
-		if flavor.Name == flavorName {
+	for _, f := range flavors {
+		if f.Name == name {
 			return true
 		}
 	}
@@ -1117,6 +1129,35 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 		return ConflictError{Msg: fmt.Sprintf("rpaas instance named %q already exists", args.Name)}
 	}
 
+	if err = m.validateFlavors(ctx, args.Flavors()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *k8sRpaasManager) validateUpdateInstanceArgs(ctx context.Context, args UpdateInstanceArgs) error {
+	if err := m.validateFlavors(ctx, args.Flavors()); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string) error {
+	encountered := map[string]bool{}
+	for _, f := range flavors {
+		if !m.isFlavorAvailable(ctx, f) {
+			return ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
+		}
+
+		if _, duplicated := encountered[f]; duplicated {
+			return ValidationError{Msg: fmt.Sprintf("flavor %q only can be set once", f)}
+		}
+
+		encountered[f] = true
+	}
+
 	return nil
 }
 
@@ -1358,12 +1399,6 @@ func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasI
 	}
 	instance.Spec.Service.LoadBalancerIP = ip
 
-	var flavor string
-	parseTagArg(tags, "flavor", &flavor)
-	if err := m.setFlavors(ctx, instance, strings.Split(flavor, ",")); err != nil {
-		return err
-	}
-
 	var planOverride string
 	parseTagArg(tags, "plan-override", &planOverride)
 	instance.Spec.PlanTemplate = nil
@@ -1377,24 +1412,6 @@ func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasI
 	}
 	instance.Spec.PlanTemplate = &planTemplate
 
-	return nil
-}
-
-func (m *k8sRpaasManager) setFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, flavorNames []string) error {
-	var flavors []string
-	for _, flavor := range flavorNames {
-		if flavor == "" {
-			break
-		}
-
-		if !m.isFlavorAvailable(ctx, flavor) {
-			return NotFoundError{Msg: fmt.Sprintf("flavor %q not found", flavor)}
-		}
-
-		flavors = append(flavors, flavor)
-	}
-
-	instance.Spec.Flavors = flavors
 	return nil
 }
 
