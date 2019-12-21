@@ -1515,10 +1515,6 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 }
 
 func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
-	if len(flavors) == 0 {
-		return nil
-	}
-
 	return map[string]interface{}{
 		"$id":     "https://example.com/schema.json",
 		"$schema": "https://json-schema.org/draft-07/schema#",
@@ -1531,6 +1527,14 @@ func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
 				},
 				"description": formatFlavorsDescription(flavors),
 				"enum":        flavorNames(flavors),
+			},
+			"ip": map[string]interface{}{
+				"type":        "string",
+				"description": "IP address that will be assigned to load balancer.\nExamples:\n\tip=192.168.15.10",
+			},
+			"plan-override": map[string]interface{}{
+				"type":        "object",
+				"description": "Allows an instance to change its plan parameters to specific ones.\nExamples:\n\tplan-override={\"config\": {\"cacheEnabled\": false}}\n\tplan-override={\"image\": \"tsuru/nginx:latest\"}",
 			},
 		},
 		"definitions": map[string]interface{}{
