@@ -70,8 +70,5 @@ func TestScale(t *testing.T) {
 
 func newTestApp(stdout, stderr *bytes.Buffer, rpaasClient client.Client) *cli.App {
 	setRpaasClient(rpaasClient)
-	app := NewApp()
-	app.Writer = stdout
-	app.ErrWriter = stderr
-	return app
+	return NewApp(stdout, stderr)
 }

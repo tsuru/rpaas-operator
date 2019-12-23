@@ -5,6 +5,8 @@
 package cmd
 
 import (
+	"io"
+	"os"
 	"sync"
 	"time"
 
@@ -20,10 +22,16 @@ type globalArgs struct {
 
 var global = globalArgs{}
 
-func NewApp() *cli.App {
-	app := cli.NewApp()
+func NewDefaultApp() *cli.App {
+	return NewApp(os.Stdout, os.Stderr)
+}
+
+func NewApp(o, e io.Writer) (app *cli.App) {
+	app = cli.NewApp()
 	app.Usage = "Manipulates reverse proxy instances running on Reverse Proxy as a Service."
 	app.Version = version.Version
+	app.ErrWriter = e
+	app.Writer = o
 	app.Commands = []cli.Command{
 		NewCmdScale(),
 	}
@@ -44,8 +52,7 @@ func NewApp() *cli.App {
 			Value: 10 * time.Second,
 		},
 	}
-
-	return app
+	return
 }
 
 func setRpaasClient(client rpaasclient.Client) {

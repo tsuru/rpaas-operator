@@ -5,9 +5,17 @@
 package main
 
 import (
+	"fmt"
+	"os"
+
 	"github.com/tsuru/rpaas-operator/cmd/plugin/rpaasv2/cmd"
 )
 
 func main() {
-	cmd.NewApp().RunAndExitOnError()
+	app := cmd.NewDefaultApp()
+
+	if err := app.Run(os.Args); err != nil {
+		fmt.Fprintln(app.ErrWriter, err)
+		os.Exit(1)
+	}
 }
