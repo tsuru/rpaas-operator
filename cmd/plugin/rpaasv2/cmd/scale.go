@@ -12,51 +12,55 @@ import (
 	"github.com/urfave/cli"
 )
 
-func initScaleFlags() []cli.Flag {
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:     "service, s",
-			Usage:    "service name",
-			Required: true,
+func NewCmdScale() cli.Command {
+	return cli.Command{
+		Name:  "scale",
+		Usage: "Sets a new amount of desired replicas for an instance",
+		Flags: []cli.Flag{
+			cli.StringFlag{
+				Name:  "tsuru-service, service, s",
+				Usage: "the Tsuru service name",
+			},
+			cli.StringFlag{
+				Name:     "tsuru-service-instance, instance, i",
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			cli.IntFlag{
+				Name:     "replicas, quantity, q",
+				Usage:    "the new desired number of replicas",
+				Value:    -1,
+				Required: true,
+			},
 		},
-		cli.StringFlag{
-			Name:     "instance, i",
-			Usage:    "instance name",
-			Required: true,
-		},
-		cli.IntFlag{
-			Name:     "quantity, q",
-			Usage:    "amount of units to scale to",
-			Required: true,
-		},
+		Action: runScale,
 	}
 }
 
-func Scale() cli.Command {
-	return cli.Command{
-		Name:  "scale",
-		Usage: "Scales the specified rpaas instance to [-q] replica(s)",
-		Flags: initScaleFlags(),
-
-		Action: func(ctx *cli.Context) error {
-			rpaasClient, err := getRpaasClient(ctx)
-			if err != nil {
-				return err
-			}
-
-			replicas := int32(ctx.Int("quantity"))
-
-			_, err = rpaasClient.Scale(context.TODO(), rpaasclient.ScaleArgs{
-				Instance: ctx.String("instance"),
-				Replicas: replicas,
-			})
-
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d replica(s)\n", replicas)
-			return nil
-		},
+func runScale(c *cli.Context) error {
+	client, err := getRpaasClient(c)
+	if err != nil {
+		return err
 	}
+
+	scale := rpaasclient.ScaleArgs{
+		Instance: c.String("instance"),
+		Replicas: int32(c.Int("replicas")),
+	}
+	_, err = client.Scale(context.Background(), scale)
+	if err != nil {
+		return fmt.Errorf("could not scale the instance on server: %w", err)
+	}
+
+	fmt.Fprintf(c.App.Writer, "%s scaled to %d replica(s)\n", formatInstanceName(c), scale.Replicas)
+	return nil
+}
+
+func formatInstanceName(c *cli.Context) string {
+	var prefix string
+	if service := c.String("service"); service != "" {
+		prefix = fmt.Sprintf("%s/", service)
+	}
+
+	return fmt.Sprintf("%s%s", prefix, c.String("instance"))
 }

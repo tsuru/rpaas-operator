@@ -14,6 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
+	"github.com/urfave/cli"
 )
 
 func TestScale(t *testing.T) {
@@ -27,7 +28,7 @@ func TestScale(t *testing.T) {
 		{
 			name:          "when Scale method returns an error",
 			args:          []string{"./rpaasv2", "scale", "-s", "some-service", "-i", "my-instance", "-q", "2"},
-			expectedError: "some error",
+			expectedError: "could not scale the instance on server: some error",
 			client: &fake.FakeClient{
 				FakeScale: func(args client.ScaleArgs) (*http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
@@ -39,7 +40,7 @@ func TestScale(t *testing.T) {
 		{
 			name:     "scaling up some instance",
 			args:     []string{"./rpaasv2", "scale", "-s", "some-service", "-i", "my-instance", "-q", "777"},
-			expected: "Instance successfully scaled to 777 replica(s)\n",
+			expected: "some-service/my-instance scaled to 777 replica(s)\n",
 			client: &fake.FakeClient{
 				FakeScale: func(args client.ScaleArgs) (*http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
@@ -65,4 +66,12 @@ func TestScale(t *testing.T) {
 			assert.Empty(t, stderr.String())
 		})
 	}
+}
+
+func newTestApp(stdout, stderr *bytes.Buffer, rpaasClient client.Client) *cli.App {
+	setRpaasClient(rpaasClient)
+	app := NewApp()
+	app.Writer = stdout
+	app.ErrWriter = stderr
+	return app
 }

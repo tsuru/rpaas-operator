@@ -6,8 +6,10 @@ package cmd
 
 import (
 	"sync"
+	"time"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	"github.com/tsuru/rpaas-operator/version"
 	"github.com/urfave/cli"
 )
 
@@ -18,28 +20,30 @@ type globalArgs struct {
 
 var global = globalArgs{}
 
-func appendCmds(cliApp *cli.App) {
-	cliApp.Commands = []cli.Command{
-		Scale(),
-		info(),
-	}
-}
-
 func NewApp() *cli.App {
 	app := cli.NewApp()
-	app.Flags = append(app.Flags, cli.StringFlag{
-		Name:   "target",
-		Hidden: true,
-		EnvVar: "TSURU_TARGET",
-	})
-
-	app.Flags = append(app.Flags, cli.StringFlag{
-		Name:   "token",
-		Hidden: true,
-		EnvVar: "TSURU_TOKEN",
-	})
-
-	appendCmds(app)
+	app.Usage = "Manipulates reverse proxy instances running on Reverse Proxy as a Service."
+	app.Version = version.Version
+	app.Commands = []cli.Command{
+		NewCmdScale(),
+	}
+	app.Flags = []cli.Flag{
+		cli.StringFlag{
+			Name:   "tsuru-target",
+			Usage:  "address of Tsuru server",
+			EnvVar: "TSURU_TARGET",
+		},
+		cli.StringFlag{
+			Name:   "tsuru-token",
+			Usage:  "authentication credential to Tsuru server",
+			EnvVar: "TSURU_TOKEN",
+		},
+		cli.DurationFlag{
+			Name:  "timeout",
+			Usage: "time limit that a remote operation (HTTP request) can take",
+			Value: 10 * time.Second,
+		},
+	}
 
 	return app
 }
@@ -64,15 +68,16 @@ func getRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
 		return nil, err
 	}
 
-	return client, err
+	return client, nil
 }
 
 func newRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
-	tsuruTarget := c.GlobalString("target")
-	tsuruToken := c.GlobalString("token")
-	tsuruService := c.String("service")
+	tsuruTarget := c.GlobalString("tsuru-target")
+	tsuruToken := c.GlobalString("tsuru-token")
+	tsuruService := c.String("tsuru-service")
 
-	client, err := rpaasclient.NewClientThroughTsuru(tsuruTarget, tsuruToken, tsuruService)
+	opts := rpaasclient.ClientOptions{Timeout: c.GlobalDuration("timeout")}
+	client, err := rpaasclient.NewClientThroughTsuruWithOptions(tsuruTarget, tsuruToken, tsuruService, opts)
 	if err != nil {
 		return nil, err
 	}
