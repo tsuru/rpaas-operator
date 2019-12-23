@@ -14,7 +14,7 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
 func TestScale(t *testing.T) {

@@ -9,25 +9,28 @@ import (
 	"fmt"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
-	"github.com/urfave/cli"
+	"github.com/urfave/cli/v2"
 )
 
-func NewCmdScale() cli.Command {
-	return cli.Command{
+func NewCmdScale() *cli.Command {
+	return &cli.Command{
 		Name:  "scale",
 		Usage: "Sets a new amount of desired replicas for an instance",
 		Flags: []cli.Flag{
-			cli.StringFlag{
-				Name:  "tsuru-service, service, s",
-				Usage: "the Tsuru service name",
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
 			},
-			cli.StringFlag{
-				Name:     "tsuru-service-instance, instance, i",
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
 				Usage:    "the reverse proxy instance name",
 				Required: true,
 			},
-			cli.IntFlag{
-				Name:     "replicas, quantity, q",
+			&cli.IntFlag{
+				Name:     "replicas",
+				Aliases:  []string{"quantity", "q"},
 				Usage:    "the new desired number of replicas",
 				Value:    -1,
 				Required: true,
