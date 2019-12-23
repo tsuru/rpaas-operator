@@ -144,6 +144,7 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		values.Set("quantity", fmt.Sprint(args.Replicas))
 		body := strings.NewReader(values.Encode())
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	default:
 		err = fmt.Errorf("rpaasv2: unknown operation")
 	}

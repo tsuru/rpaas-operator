@@ -161,6 +161,7 @@ func TestClientThroughTsuru_Scale(t *testing.T) {
 				assert.Equal(t, r.Method, "POST")
 				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/scale"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 				assert.Equal(t, getBody(t, r), "quantity=777")
 				w.WriteHeader(http.StatusOK)
 			},
