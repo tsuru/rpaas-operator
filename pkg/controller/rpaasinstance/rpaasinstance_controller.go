@@ -759,13 +759,21 @@ func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *e
 			return nil, err
 		}
 	}
+
+	portMin := config.Get().PortRangeMin
+	portMax := config.Get().PortRangeMax
+
 	var newPorts []extensionsv1alpha1.AllocatedPort
 	var usedSet bitset.BitSet
 	var instancePorts []int
+	highestPortUsed := portMin - 1
 
 	// Loop through all allocated ports and remove ports from removed Nginx
 	// resources or from resources that have AllocateContainerPorts==false.
 	for _, port := range allocation.Spec.Ports {
+		if port.Port > highestPortUsed {
+			highestPortUsed = port.Port
+		}
 		var rpaas extensionsv1alpha1.RpaasInstance
 		err = r.client.Get(ctx, types.NamespacedName{
 			Namespace: port.Owner.Namespace,
@@ -792,11 +800,14 @@ func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *e
 	// If we should allocate ports and none are allocated yet we have to look
 	// for available ports and allocate them.
 	if instance != nil && instance.Spec.AllocateContainerPorts {
-		portMin := config.Get().PortRangeMin
-		portMax := config.Get().PortRangeMax
-		for port := portMin; port <= portMax; port++ {
+		for port := highestPortUsed + 1; port != highestPortUsed; port++ {
 			if len(instancePorts) >= portCount {
 				break
+			}
+
+			if port > portMax {
+				port = portMin - 1
+				continue
 			}
 
 			if usedSet.Test(uint(port)) {
