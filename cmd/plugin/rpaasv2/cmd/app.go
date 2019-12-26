@@ -34,6 +34,7 @@ func NewApp(o, e io.Writer) (app *cli.App) {
 	app.Writer = o
 	app.Commands = []*cli.Command{
 		NewCmdScale(),
+		NewCmdCertificates(),
 	}
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
@@ -90,4 +91,9 @@ func newRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
 	}
 
 	return client, nil
+}
+
+func newTestApp(stdout, stderr io.Writer, client rpaasclient.Client) *cli.App {
+	setRpaasClient(client)
+	return NewApp(stdout, stderr)
 }

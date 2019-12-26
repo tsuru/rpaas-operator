@@ -14,7 +14,6 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
-	"github.com/urfave/cli/v2"
 )
 
 func TestScale(t *testing.T) {
@@ -66,9 +65,4 @@ func TestScale(t *testing.T) {
 			assert.Empty(t, stderr.String())
 		})
 	}
-}
-
-func newTestApp(stdout, stderr *bytes.Buffer, rpaasClient client.Client) *cli.App {
-	setRpaasClient(rpaasClient)
-	return NewApp(stdout, stderr)
 }

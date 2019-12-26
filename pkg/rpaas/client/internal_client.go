@@ -5,9 +5,11 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -135,6 +137,44 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	return response, nil
 }
 
+func (args UpdateCertificateArgs) Validate() error {
+	if args.Instance == "" {
+		return fmt.Errorf("rpaasv2: instance cannot be empty")
+	}
+
+	if args.Certificate == "" {
+		return fmt.Errorf("rpaasv2: certificate cannot be empty")
+	}
+
+	if args.Key == "" {
+		return fmt.Errorf("rpaasv2: key cannot be empty")
+	}
+
+	return nil
+}
+
+func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("UpdateCertificate", args)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return response, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return response, ErrUnexpectedStatusCode
+	}
+
+	return response, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -145,6 +185,47 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		body := strings.NewReader(values.Encode())
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	case "UpdateCertificate":
+		args := data.(UpdateCertificateArgs)
+		buffer := &bytes.Buffer{}
+		w := multipart.NewWriter(buffer)
+
+		if args.boundary != "" {
+			if err := w.SetBoundary(args.boundary); err != nil {
+				return nil, err
+			}
+		}
+		{
+			part, err := w.CreateFormFile("cert", "cert.pem")
+			if err != nil {
+				return nil, err
+			}
+
+			part.Write([]byte(args.Certificate))
+		}
+		{
+			part, err := w.CreateFormFile("key", "key.pem")
+			if err != nil {
+				return nil, err
+			}
+
+			part.Write([]byte(args.Key))
+		}
+
+		if err := w.WriteField("name", args.Name); err != nil {
+			return nil, err
+		}
+
+		if err := w.Close(); err != nil {
+			return nil, err
+		}
+
+		body := strings.NewReader(buffer.String())
+		pathName := fmt.Sprintf("/resources/%s/certificate", args.Instance)
+		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
+
 	default:
 		err = fmt.Errorf("rpaasv2: unknown operation")
 	}

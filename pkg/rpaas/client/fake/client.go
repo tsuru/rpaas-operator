@@ -13,9 +13,10 @@ import (
 )
 
 type FakeClient struct {
-	FakeGetPlans   func(instance string) ([]types.Plan, *http.Response, error)
-	FakeGetFlavors func(instance string) ([]types.Flavor, *http.Response, error)
-	FakeScale      func(args client.ScaleArgs) (*http.Response, error)
+	FakeGetPlans          func(instance string) ([]types.Plan, *http.Response, error)
+	FakeGetFlavors        func(instance string) ([]types.Flavor, *http.Response, error)
+	FakeScale             func(args client.ScaleArgs) (*http.Response, error)
+	FakeUpdateCertificate func(args client.UpdateCertificateArgs) (*http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
@@ -39,6 +40,14 @@ func (f *FakeClient) GetFlavors(ctx context.Context, instance string) ([]types.F
 func (f *FakeClient) Scale(ctx context.Context, args client.ScaleArgs) (*http.Response, error) {
 	if f.FakeScale != nil {
 		return f.FakeScale(args)
+	}
+
+	return nil, nil
+}
+
+func (f *FakeClient) UpdateCertificate(ctx context.Context, args client.UpdateCertificateArgs) (*http.Response, error) {
+	if f.FakeUpdateCertificate != nil {
+		return f.FakeUpdateCertificate(args)
 	}
 
 	return nil, nil
