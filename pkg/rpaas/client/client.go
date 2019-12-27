@@ -25,9 +25,16 @@ type UpdateCertificateArgs struct {
 	boundary string
 }
 
+type UpdateBlockArgs struct {
+	Instance string
+	Name     string
+	Content  string
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
 	Scale(ctx context.Context, args ScaleArgs) (*http.Response, error)
 	UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) (*http.Response, error)
+	UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error)
 }

@@ -259,6 +259,78 @@ func TestClientThroughTsuru_UpdateCertificate(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_UpdateBlock(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          UpdateBlockArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when block name is empty",
+			args: UpdateBlockArgs{
+				Instance: "some-instance",
+				Content:  "some content",
+			},
+			expectedError: "rpaasv2: block name cannot be empty",
+		},
+		{
+			name: "when content is empty",
+			args: UpdateBlockArgs{
+				Instance: "my-instance",
+				Name:     "server",
+			},
+			expectedError: "rpaasv2: content cannot be empty",
+		},
+		{
+			name: "when the server returns the expected response",
+			args: UpdateBlockArgs{
+				Instance: "my-instance",
+				Name:     "http",
+				Content:  "# NGINX configuration block",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "POST")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/block"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+				assert.Equal(t, "block_name=http&content=%23+NGINX+configuration+block", getBody(t, r))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name: "when the server returns an error",
+			args: UpdateBlockArgs{
+				Instance: "my-instance",
+				Name:     "server",
+				Content:  "Some NGINX snippet",
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			_, err := client.UpdateBlock(context.TODO(), tt.args)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
 func newClientThroughTsuru(t *testing.T, h http.Handler) (Client, *httptest.Server) {
 	server := httptest.NewServer(h)
 	client, err := NewClientThroughTsuru(server.URL, FakeTsuruToken, FakeTsuruService)

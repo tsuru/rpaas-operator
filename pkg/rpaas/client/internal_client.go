@@ -20,6 +20,7 @@ import (
 )
 
 var (
+	ErrMissingInstance      = fmt.Errorf("rpaasv2: instance cannot be empty")
 	ErrUnexpectedStatusCode = fmt.Errorf("rpaasv2: unexpected status code")
 )
 
@@ -105,7 +106,7 @@ func (c *client) GetFlavors(ctx context.Context, instance string) ([]types.Flavo
 
 func (args ScaleArgs) Validate() error {
 	if args.Instance == "" {
-		return fmt.Errorf("rpaasv2: instance cannot be empty")
+		return ErrMissingInstance
 	}
 
 	if args.Replicas < int32(0) {
@@ -139,7 +140,7 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 
 func (args UpdateCertificateArgs) Validate() error {
 	if args.Instance == "" {
-		return fmt.Errorf("rpaasv2: instance cannot be empty")
+		return ErrMissingInstance
 	}
 
 	if args.Certificate == "" {
@@ -159,6 +160,44 @@ func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateAr
 	}
 
 	request, err := c.buildRequest("UpdateCertificate", args)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return response, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return response, ErrUnexpectedStatusCode
+	}
+
+	return response, nil
+}
+
+func (args UpdateBlockArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.Name == "" {
+		return fmt.Errorf("rpaasv2: block name cannot be empty")
+	}
+
+	if args.Content == "" {
+		return fmt.Errorf("rpaasv2: content cannot be empty")
+	}
+
+	return nil
+}
+
+func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("UpdateBlock", args)
 	if err != nil {
 		return nil, err
 	}
@@ -225,6 +264,16 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		pathName := fmt.Sprintf("/resources/%s/certificate", args.Instance)
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
+
+	case "UpdateBlock":
+		args := data.(UpdateBlockArgs)
+		values := url.Values{}
+		values.Set("block_name", args.Name)
+		values.Set("content", args.Content)
+		body := strings.NewReader(values.Encode())
+		pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
+		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	default:
 		err = fmt.Errorf("rpaasv2: unknown operation")

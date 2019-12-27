@@ -17,6 +17,7 @@ type FakeClient struct {
 	FakeGetFlavors        func(instance string) ([]types.Flavor, *http.Response, error)
 	FakeScale             func(args client.ScaleArgs) (*http.Response, error)
 	FakeUpdateCertificate func(args client.UpdateCertificateArgs) (*http.Response, error)
+	FakeUpdateBlock       func(args client.UpdateBlockArgs) (*http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
@@ -48,6 +49,14 @@ func (f *FakeClient) Scale(ctx context.Context, args client.ScaleArgs) (*http.Re
 func (f *FakeClient) UpdateCertificate(ctx context.Context, args client.UpdateCertificateArgs) (*http.Response, error) {
 	if f.FakeUpdateCertificate != nil {
 		return f.FakeUpdateCertificate(args)
+	}
+
+	return nil, nil
+}
+
+func (f *FakeClient) UpdateBlock(ctx context.Context, args client.UpdateBlockArgs) (*http.Response, error) {
+	if f.FakeUpdateBlock != nil {
+		return f.FakeUpdateBlock(args)
 	}
 
 	return nil, nil
