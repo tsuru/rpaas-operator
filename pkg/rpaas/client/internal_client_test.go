@@ -390,6 +390,69 @@ func TestClientThroughTsuru_DeleteBlock(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_ListBlocks(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          ListBlocksArgs
+		expected      []Block
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when the server returns an error",
+			args: ListBlocksArgs{
+				Instance: "my-instance",
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+		{
+			name: "when the server returns the expected response",
+			args: ListBlocksArgs{
+				Instance: "my-instance",
+			},
+			expected: []Block{
+				{
+					Name:    "http",
+					Content: "Some HTTP conf",
+				},
+				{
+					Name:    "server",
+					Content: "Some server conf",
+				},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/block"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				fmt.Fprintf(w, `{"blocks": [{"block_name": "http", "content": "Some HTTP conf"}, {"block_name": "server", "content": "Some server conf"}]}`)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			blocks, _, err := client.ListBlocks(context.TODO(), tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, blocks)
+		})
+	}
+}
+
 func newClientThroughTsuru(t *testing.T, h http.Handler) (Client, *httptest.Server) {
 	server := httptest.NewServer(h)
 	client, err := NewClientThroughTsuru(server.URL, FakeTsuruToken, FakeTsuruService)

@@ -6,9 +6,12 @@ package cmd
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
 
+	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
 )
@@ -20,6 +23,7 @@ func NewCmdBlocks() *cli.Command {
 		Subcommands: []*cli.Command{
 			NewCmdUpdateBlock(),
 			NewCmdDeleteBlock(),
+			NewCmdListBlocks(),
 		},
 	}
 }
@@ -127,5 +131,76 @@ func runDeleteBlock(c *cli.Context) error {
 	}
 
 	fmt.Fprintf(c.App.Writer, "NGINX configuration at %q context removed\n", args.Name)
+	return nil
+}
+
+func NewCmdListBlocks() *cli.Command {
+	return &cli.Command{
+		Name:    "list",
+		Aliases: []string{"remove"},
+		Usage:   "Shows the NGINX configurations in the instance",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.BoolFlag{
+				Name:    "raw-output",
+				Aliases: []string{"r"},
+				Usage:   "writes blocks on JSON format",
+				Value:   false,
+			},
+		},
+		Action: runListBlocks,
+	}
+}
+
+func runListBlocks(c *cli.Context) error {
+	client, err := getRpaasClient(c)
+	if err != nil {
+		return err
+	}
+
+	args := rpaasclient.ListBlocksArgs{Instance: c.String("instance")}
+	blocks, _, err := client.ListBlocks(context.Background(), args)
+	if err != nil {
+		return err
+	}
+
+	if c.Bool("raw-output") {
+		return writeBlocksOnJSONFormat(c.App.Writer, blocks)
+	}
+
+	writeBlocksOnTableFormat(c.App.Writer, blocks)
+	return nil
+}
+
+func writeBlocksOnTableFormat(w io.Writer, blocks []rpaasclient.Block) {
+	data := [][]string{}
+	for _, block := range blocks {
+		data = append(data, []string{block.Name, block.Content})
+	}
+
+	table := tablewriter.NewWriter(w)
+	table.SetHeader([]string{"Context", "Configuration"})
+	table.SetAutoWrapText(false)
+	table.AppendBulk(data)
+	table.Render()
+}
+
+func writeBlocksOnJSONFormat(w io.Writer, blocks []rpaasclient.Block) error {
+	message, err := json.MarshalIndent(blocks, "", "\t")
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(w, string(message))
 	return nil
 }

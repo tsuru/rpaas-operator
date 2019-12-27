@@ -10,6 +10,7 @@ require (
 	github.com/imdario/mergo v0.3.8
 	github.com/labstack/echo/v4 v4.1.11
 	github.com/mitchellh/mapstructure v1.1.2
+	github.com/olekukonko/tablewriter v0.0.4
 	github.com/operator-framework/operator-sdk v0.13.0
 	github.com/pkg/errors v0.8.1
 	github.com/sirupsen/logrus v1.4.2

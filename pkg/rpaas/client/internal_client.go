@@ -7,8 +7,10 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -249,6 +251,43 @@ func (c *client) DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.R
 	return response, nil
 }
 
+func (args ListBlocksArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
+func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, *http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, err
+	}
+
+	request, err := c.buildRequest("ListBlocks", args)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return nil, response, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, response, ErrUnexpectedStatusCode
+	}
+
+	var blockList struct {
+		Blocks []Block `json:"blocks"`
+	}
+	if err = unmarshalBody(response, &blockList); err != nil {
+		return nil, response, err
+	}
+
+	return blockList.Blocks, response, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -315,6 +354,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		pathName := fmt.Sprintf("/resources/%s/block/%s", args.Instance, args.Name)
 		req, err = c.newRequest("DELETE", pathName, nil, args.Instance)
 
+	case "ListBlocks":
+		args := data.(ListBlocksArgs)
+		pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
+		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
 	default:
 		err = fmt.Errorf("rpaasv2: unknown operation")
 	}
@@ -351,4 +395,14 @@ func (c *client) formatURL(pathName, instance string) string {
 	}
 
 	return fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s", c.tsuruTarget, c.tsuruService, instance, pathName)
+}
+
+func unmarshalBody(resp *http.Response, dst interface{}) error {
+	body, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+
+	defer resp.Body.Close()
+	return json.Unmarshal(body, dst)
 }

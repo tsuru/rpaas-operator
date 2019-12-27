@@ -36,6 +36,15 @@ type DeleteBlockArgs struct {
 	Name     string
 }
 
+type ListBlocksArgs struct {
+	Instance string
+}
+
+type Block struct {
+	Name    string `json:"block_name"`
+	Content string `json:"content"`
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
@@ -43,4 +52,5 @@ type Client interface {
 	UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) (*http.Response, error)
 	UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error)
 	DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error)
+	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, *http.Response, error)
 }
