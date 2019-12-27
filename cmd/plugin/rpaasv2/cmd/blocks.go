@@ -19,6 +19,7 @@ func NewCmdBlocks() *cli.Command {
 		Usage: "Manages fragments of NGINX configuration",
 		Subcommands: []*cli.Command{
 			NewCmdUpdateBlock(),
+			NewCmdDeleteBlock(),
 		},
 	}
 }
@@ -79,5 +80,52 @@ func runUpdateBlock(c *cli.Context) error {
 	}
 
 	fmt.Fprintf(c.App.Writer, "NGINX configuration fragment inserted at %q context\n", args.Name)
+	return nil
+}
+
+func NewCmdDeleteBlock() *cli.Command {
+	return &cli.Command{
+		Name:    "delete",
+		Aliases: []string{"remove"},
+		Usage:   "Removes a NGINX configuration from instance's configuration",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "name",
+				Aliases:  []string{"context", "n"},
+				Usage:    "the NGINX context name where this fragment is located (supported values: root, http, server, lua-server, lua-worker)",
+				Required: true,
+			},
+		},
+		Action: runDeleteBlock,
+	}
+}
+
+func runDeleteBlock(c *cli.Context) error {
+	client, err := getRpaasClient(c)
+	if err != nil {
+		return err
+	}
+
+	args := rpaasclient.DeleteBlockArgs{
+		Instance: c.String("instance"),
+		Name:     c.String("name"),
+	}
+	_, err = client.DeleteBlock(context.Background(), args)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "NGINX configuration at %q context removed\n", args.Name)
 	return nil
 }

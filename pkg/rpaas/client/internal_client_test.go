@@ -331,6 +331,65 @@ func TestClientThroughTsuru_UpdateBlock(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_DeleteBlock(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          DeleteBlockArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when block name is empty",
+			args: DeleteBlockArgs{
+				Instance: "some-instance",
+			},
+			expectedError: "rpaasv2: block name cannot be empty",
+		},
+		{
+			name: "when the server returns the expected response",
+			args: DeleteBlockArgs{
+				Instance: "my-instance",
+				Name:     "http",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "DELETE")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/block/http"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name: "when the server returns an error",
+			args: DeleteBlockArgs{
+				Instance: "my-instance",
+				Name:     "server",
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			_, err := client.DeleteBlock(context.TODO(), tt.args)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
 func newClientThroughTsuru(t *testing.T, h http.Handler) (Client, *httptest.Server) {
 	server := httptest.NewServer(h)
 	client, err := NewClientThroughTsuru(server.URL, FakeTsuruToken, FakeTsuruService)

@@ -86,3 +86,61 @@ func TestUpdateBlock(t *testing.T) {
 		})
 	}
 }
+
+func TestDeleteBlock(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expected      string
+		expectedError string
+		client        rpaasclient.Client
+	}{
+		{
+			name:          "when DeleteBlock returns an error",
+			args:          []string{"./rpaasv2", "blocks", "delete", "-i", "my-instance", "--name", "http"},
+			expectedError: "some error",
+			client: &fake.FakeClient{
+				FakeDeleteBlock: func(args rpaasclient.DeleteBlockArgs) (*http.Response, error) {
+					expected := rpaasclient.DeleteBlockArgs{
+						Instance: "my-instance",
+						Name:     "http",
+					}
+					assert.Equal(t, expected, args)
+					return nil, fmt.Errorf("some error")
+				},
+			},
+		},
+		{
+			name:     "when DeleteBlock returns no error",
+			args:     []string{"./rpaasv2", "blocks", "delete", "-i", "my-instance", "--name", "http"},
+			expected: "NGINX configuration at \"http\" context removed\n",
+			client: &fake.FakeClient{
+				FakeDeleteBlock: func(args rpaasclient.DeleteBlockArgs) (*http.Response, error) {
+					expected := rpaasclient.DeleteBlockArgs{
+						Instance: "my-instance",
+						Name:     "http",
+					}
+					assert.Equal(t, expected, args)
+					return nil, nil
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := newTestApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
+}

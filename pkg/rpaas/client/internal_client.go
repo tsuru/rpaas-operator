@@ -21,6 +21,7 @@ import (
 
 var (
 	ErrMissingInstance      = fmt.Errorf("rpaasv2: instance cannot be empty")
+	ErrMissingBlockName     = fmt.Errorf("rpaasv2: block name cannot be empty")
 	ErrUnexpectedStatusCode = fmt.Errorf("rpaasv2: unexpected status code")
 )
 
@@ -182,7 +183,7 @@ func (args UpdateBlockArgs) Validate() error {
 	}
 
 	if args.Name == "" {
-		return fmt.Errorf("rpaasv2: block name cannot be empty")
+		return ErrMissingBlockName
 	}
 
 	if args.Content == "" {
@@ -198,6 +199,40 @@ func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.R
 	}
 
 	request, err := c.buildRequest("UpdateBlock", args)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return response, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return response, ErrUnexpectedStatusCode
+	}
+
+	return response, nil
+}
+
+func (args DeleteBlockArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.Name == "" {
+		return ErrMissingBlockName
+	}
+
+	return nil
+}
+
+func (c *client) DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("DeleteBlock", args)
 	if err != nil {
 		return nil, err
 	}
@@ -274,6 +309,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	case "DeleteBlock":
+		args := data.(DeleteBlockArgs)
+		pathName := fmt.Sprintf("/resources/%s/block/%s", args.Instance, args.Name)
+		req, err = c.newRequest("DELETE", pathName, nil, args.Instance)
 
 	default:
 		err = fmt.Errorf("rpaasv2: unknown operation")

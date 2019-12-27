@@ -18,6 +18,7 @@ type FakeClient struct {
 	FakeScale             func(args client.ScaleArgs) (*http.Response, error)
 	FakeUpdateCertificate func(args client.UpdateCertificateArgs) (*http.Response, error)
 	FakeUpdateBlock       func(args client.UpdateBlockArgs) (*http.Response, error)
+	FakeDeleteBlock       func(args client.DeleteBlockArgs) (*http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
@@ -57,6 +58,14 @@ func (f *FakeClient) UpdateCertificate(ctx context.Context, args client.UpdateCe
 func (f *FakeClient) UpdateBlock(ctx context.Context, args client.UpdateBlockArgs) (*http.Response, error) {
 	if f.FakeUpdateBlock != nil {
 		return f.FakeUpdateBlock(args)
+	}
+
+	return nil, nil
+}
+
+func (f *FakeClient) DeleteBlock(ctx context.Context, args client.DeleteBlockArgs) (*http.Response, error) {
+	if f.FakeDeleteBlock != nil {
+		return f.FakeDeleteBlock(args)
 	}
 
 	return nil, nil
