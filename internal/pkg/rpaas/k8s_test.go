@@ -323,6 +323,24 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 	instance3 := newEmptyRpaasInstance()
 	instance3.Name = "no-certificate"
 
+	instance4 := newEmptyRpaasInstance()
+	instance4.Name = "no-cert-data"
+	instance4.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "no-cert-secret",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{KeyField: "default.key"},
+		},
+	}
+
+	instance5 := newEmptyRpaasInstance()
+	instance5.Name = "no-key-data"
+	instance5.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "no-key-secret",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{CertificateField: "default.crt"},
+		},
+	}
+
 	secret := newEmptySecret()
 	secret.Name = "another-instance-certificates"
 	secret.Data = map[string][]byte{
@@ -330,7 +348,19 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 		"default.key": []byte(rsaKeyPem),
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, secret}
+	secret2 := newEmptySecret()
+	secret2.Name = "no-cert-secret"
+	secret2.Data = map[string][]byte{
+		"default.key": []byte(rsaKeyPem),
+	}
+
+	secret3 := newEmptySecret()
+	secret3.Name = "no-key-secret"
+	secret3.Data = map[string][]byte{
+		"default.crt": []byte(rsaCertPem),
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, secret, secret2, secret3}
 
 	testCases := []struct {
 		name         string
@@ -354,7 +384,22 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				assert.Nil(t, certData)
 			},
 		},
-
+		{
+			name:         "certificate-data-not-found-test",
+			instanceName: "no-cert-data",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+				assert.Error(t, err)
+				assert.Equal(t, "certificate data not found", err.Error())
+			},
+		},
+		{
+			name:         "key-data-not-found-test",
+			instanceName: "no-key-data",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+				assert.Error(t, err)
+				assert.Equal(t, "key data not found", err.Error())
+			},
+		},
 		{
 			name:         "getting an existing certificate",
 			instanceName: "another-instance",
