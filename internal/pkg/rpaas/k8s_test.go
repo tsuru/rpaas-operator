@@ -268,7 +268,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_GetCertificate(t *testing.T) {
+func Test_k8sRpaasManager_GetCertificates(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
@@ -320,6 +320,9 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 		},
 	}
 
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "no-certificate"
+
 	secret := newEmptySecret()
 	secret.Name = "another-instance-certificates"
 	secret.Data = map[string][]byte{
@@ -327,7 +330,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 		"default.key": []byte(rsaKeyPem),
 	}
 
-	resources := []runtime.Object{instance1, instance2, secret}
+	resources := []runtime.Object{instance1, instance2, instance3, secret}
 
 	testCases := []struct {
 		name         string
@@ -343,6 +346,15 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				assert.True(t, IsNotFoundError(err))
 			},
 		},
+		{
+			name:         "no certificates bound to the instance",
+			instanceName: "no-certificate",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+				assert.NoError(t, err)
+				assert.Nil(t, certData)
+			},
+		},
+
 		{
 			name:         "getting an existing certificate",
 			instanceName: "another-instance",
