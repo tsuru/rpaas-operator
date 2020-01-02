@@ -142,6 +142,7 @@ type RpaasManager interface {
 	AutoscaleHandler
 
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
+	GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error)
 	CreateInstance(ctx context.Context, args CreateArgs) error
 	DeleteInstance(ctx context.Context, name string) error
 	UpdateInstance(ctx context.Context, name string, args UpdateInstanceArgs) error
