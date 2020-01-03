@@ -158,7 +158,7 @@ type RpaasManager interface {
 }
 
 type CertificateData struct {
-	Name              string
-	CertificateString string
-	KeyString         string
+	Name        string `json:"name"`
+	Certificate string `json:"certificate"`
+	Key         string `json:"key"`
 }

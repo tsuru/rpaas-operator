@@ -357,9 +357,9 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 			return nil, fmt.Errorf("key data not found")
 		}
 		certItem := CertificateData{
-			Name:              strings.TrimSuffix(item.CertificateField, ".crt"),
-			CertificateString: string(secret.Data[item.CertificateField]),
-			KeyString:         string(secret.Data[item.KeyField]),
+			Name:        strings.TrimSuffix(item.CertificateField, ".crt"),
+			Certificate: string(secret.Data[item.CertificateField]),
+			Key:         string(secret.Data[item.KeyField]),
 		}
 
 		certList = append(certList, certItem)

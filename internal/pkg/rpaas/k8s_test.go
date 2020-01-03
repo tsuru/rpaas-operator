@@ -410,7 +410,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				expectedCertList := []CertificateData{
 					{
 						Name: "default",
-						CertificateString: `-----BEGIN CERTIFICATE-----
+						Certificate: `-----BEGIN CERTIFICATE-----
 MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
 EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
 MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
@@ -424,7 +424,7 @@ yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
 7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
 -----END CERTIFICATE-----
 `,
-						KeyString: `-----BEGIN RSA PRIVATE KEY-----
+						Key: `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
 yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
 b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
