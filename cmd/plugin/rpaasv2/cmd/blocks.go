@@ -136,9 +136,8 @@ func runDeleteBlock(c *cli.Context) error {
 
 func NewCmdListBlocks() *cli.Command {
 	return &cli.Command{
-		Name:    "list",
-		Aliases: []string{"remove"},
-		Usage:   "Shows the NGINX configurations in the instance",
+		Name:  "list",
+		Usage: "Shows the NGINX configurations in the instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
