@@ -268,6 +268,195 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_GetCertificates(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	rsaCertPem := `-----BEGIN CERTIFICATE-----
+MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
+EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
+MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
+AoGBAOIsM9LhHqI3oBhHDCGZkGKgiI72ghnLr5UpaA3I9U7np/LPzt/JpWRG4wjF
+5Var2IRPGoNwLcdybFW0YTqvw1wNY88q9BcpwS5PeV7uWyZqWafdSxxveaG6VeCH
+YFMqopOKri4kJ4sZB9WS3xMlGZXK6zHPwA4xPtuVEND+LI17AgMBAAGjSzBJMA4G
+A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
+MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
+4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
+yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
+7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
+-----END CERTIFICATE-----
+`
+
+	rsaKeyPem := `-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
+yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
+b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
+AoGBAI05gJqayyALj8HZCzAnzUpoZxytvAsTbm27TyfcZaCBchNhwxFlvgphYP5n
+Y468+xOSuUF9WHiDcDYLzfJxMZAqmuS+D/IREYDkcrGVT1MXfSCkNaFVqG52+hLZ
+GmGsy8+KsJnDJ1HYmwfSnaTj3L8+Bf2Hg291Yb1caRH9+5vBAkEA7P5N3cSN73Fa
+HwaWzqkaY75mCR4TpRi27YWGA3wdQek2G71HiSbCOxrWOymvgoNRi6M/sdrP5PTt
+JAFxC+pd8QJBAPRPvS0Tm/0lMIZ0q7jxyoW/gKDzokmSszopdlvSU53lN06vaYdK
+XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
+3vjXh8O9vOqFyWy/i9Ri0XDXJVbzxH/0WPObld+BB9sJTRHTKyPFhS7GIlECQDZ8
+chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
+WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
+sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
+-----END RSA PRIVATE KEY-----
+`
+
+	// rsaCertificate
+	rsaCertificate, err := tls.X509KeyPair([]byte(rsaCertPem), []byte(rsaKeyPem))
+	require.NoError(t, err)
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "another-instance-certificates",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{CertificateField: "default.crt", KeyField: "default.key"},
+		},
+	}
+
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "no-certificate"
+
+	instance4 := newEmptyRpaasInstance()
+	instance4.Name = "no-cert-data"
+	instance4.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "no-cert-secret",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{KeyField: "default.key"},
+		},
+	}
+
+	instance5 := newEmptyRpaasInstance()
+	instance5.Name = "no-key-data"
+	instance5.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "no-key-secret",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{CertificateField: "default.crt"},
+		},
+	}
+
+	secret := newEmptySecret()
+	secret.Name = "another-instance-certificates"
+	secret.Data = map[string][]byte{
+		"default.crt": []byte(rsaCertPem),
+		"default.key": []byte(rsaKeyPem),
+	}
+
+	secret2 := newEmptySecret()
+	secret2.Name = "no-cert-secret"
+	secret2.Data = map[string][]byte{
+		"default.key": []byte(rsaKeyPem),
+	}
+
+	secret3 := newEmptySecret()
+	secret3.Name = "no-key-secret"
+	secret3.Data = map[string][]byte{
+		"default.crt": []byte(rsaCertPem),
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, secret, secret2, secret3}
+
+	testCases := []struct {
+		name         string
+		certificate  tls.Certificate
+		instanceName string
+		assertion    func(*testing.T, error, *k8sRpaasManager, []CertificateData)
+	}{
+		{
+			name:         "instance not found",
+			instanceName: "instance-not-found",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:         "no certificates bound to the instance",
+			instanceName: "no-certificate",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+				assert.NoError(t, err)
+				assert.Nil(t, certData)
+			},
+		},
+		{
+			name:         "certificate-data-not-found-test",
+			instanceName: "no-cert-data",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+				assert.Error(t, err)
+				assert.Equal(t, "certificate data not found", err.Error())
+			},
+		},
+		{
+			name:         "key-data-not-found-test",
+			instanceName: "no-key-data",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+				assert.Error(t, err)
+				assert.Equal(t, "key data not found", err.Error())
+			},
+		},
+		{
+			name:         "getting an existing certificate",
+			instanceName: "another-instance",
+			certificate:  rsaCertificate,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
+
+				require.NoError(t, err)
+				expectedCertList := []CertificateData{
+					{
+						Name: "default",
+						Certificate: `-----BEGIN CERTIFICATE-----
+MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
+EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
+MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
+AoGBAOIsM9LhHqI3oBhHDCGZkGKgiI72ghnLr5UpaA3I9U7np/LPzt/JpWRG4wjF
+5Var2IRPGoNwLcdybFW0YTqvw1wNY88q9BcpwS5PeV7uWyZqWafdSxxveaG6VeCH
+YFMqopOKri4kJ4sZB9WS3xMlGZXK6zHPwA4xPtuVEND+LI17AgMBAAGjSzBJMA4G
+A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
+MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
+4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
+yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
+7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
+-----END CERTIFICATE-----
+`,
+						Key: `-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
+yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
+b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
+AoGBAI05gJqayyALj8HZCzAnzUpoZxytvAsTbm27TyfcZaCBchNhwxFlvgphYP5n
+Y468+xOSuUF9WHiDcDYLzfJxMZAqmuS+D/IREYDkcrGVT1MXfSCkNaFVqG52+hLZ
+GmGsy8+KsJnDJ1HYmwfSnaTj3L8+Bf2Hg291Yb1caRH9+5vBAkEA7P5N3cSN73Fa
+HwaWzqkaY75mCR4TpRi27YWGA3wdQek2G71HiSbCOxrWOymvgoNRi6M/sdrP5PTt
+JAFxC+pd8QJBAPRPvS0Tm/0lMIZ0q7jxyoW/gKDzokmSszopdlvSU53lN06vaYdK
+XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
+3vjXh8O9vOqFyWy/i9Ri0XDXJVbzxH/0WPObld+BB9sJTRHTKyPFhS7GIlECQDZ8
+chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
+WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
+sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
+-----END RSA PRIVATE KEY-----
+`,
+					},
+				}
+
+				assert.Equal(t, expectedCertList, certData)
+			},
+		},
+	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			certData, err := manager.GetCertificates(context.Background(), tt.instanceName)
+			tt.assertion(t, err, manager, certData)
+		})
+	}
+
+}
+
 func Test_k8sRpaasManager_UpdateCertificate(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)

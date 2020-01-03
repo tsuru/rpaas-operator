@@ -142,6 +142,7 @@ type RpaasManager interface {
 	AutoscaleHandler
 
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
+	GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error)
 	CreateInstance(ctx context.Context, args CreateArgs) error
 	DeleteInstance(ctx context.Context, name string) error
 	UpdateInstance(ctx context.Context, name string, args UpdateInstanceArgs) error
@@ -154,4 +155,10 @@ type RpaasManager interface {
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
+}
+
+type CertificateData struct {
+	Name        string `json:"name"`
+	Certificate string `json:"certificate"`
+	Key         string `json:"key"`
 }

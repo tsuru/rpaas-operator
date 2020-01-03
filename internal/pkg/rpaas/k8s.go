@@ -329,6 +329,45 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 	return m.cli.Update(ctx, instance)
 }
 
+func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	if instance.Spec.Certificates == nil {
+		return nil, nil
+	}
+
+	var secret corev1.Secret
+	err = m.cli.Get(ctx, types.NamespacedName{
+		Name:      instance.Spec.Certificates.SecretName,
+		Namespace: instance.Namespace,
+	}, &secret)
+	if err != nil {
+		return nil, err
+	}
+
+	var certList []CertificateData
+	for _, item := range instance.Spec.Certificates.Items {
+		if _, ok := secret.Data[item.CertificateField]; !ok {
+			return nil, fmt.Errorf("certificate data not found")
+		}
+		if _, ok := secret.Data[item.KeyField]; !ok {
+			return nil, fmt.Errorf("key data not found")
+		}
+		certItem := CertificateData{
+			Name:        strings.TrimSuffix(item.CertificateField, ".crt"),
+			Certificate: string(secret.Data[item.CertificateField]),
+			Key:         string(secret.Data[item.KeyField]),
+		}
+
+		certList = append(certList, certItem)
+	}
+
+	return certList, nil
+}
+
 func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
