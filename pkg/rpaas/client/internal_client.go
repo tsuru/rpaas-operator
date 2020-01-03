@@ -288,6 +288,47 @@ func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, 
 	return blockList.Blocks, response, nil
 }
 
+type ListRouteArgs struct {
+	Instance string
+}
+
+func (args ListRoutesArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
+func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]Route, *http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, err
+	}
+
+	request, err := c.buildRequest("ListRoutes", args)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return nil, response, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, response, ErrUnexpectedStatusCode
+	}
+
+	var routes struct {
+		Routes []Route `json:"paths"`
+	}
+	if err = unmarshalBody(response, &routes); err != nil {
+		return nil, response, err
+	}
+
+	return routes.Routes, response, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -357,6 +398,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 	case "ListBlocks":
 		args := data.(ListBlocksArgs)
 		pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
+		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
+	case "ListRoutes":
+		args := data.(ListRoutesArgs)
+		pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
 		req, err = c.newRequest("GET", pathName, nil, args.Instance)
 
 	default:

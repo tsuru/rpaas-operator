@@ -45,6 +45,17 @@ type Block struct {
 	Content string `json:"content"`
 }
 
+type ListRoutesArgs struct {
+	Instance string
+}
+
+type Route struct {
+	Path        string `json:"path"`
+	Destination string `json:"destination,omitempty"`
+	HTTPSOnly   bool   `json:"https_only,omitempty"`
+	Content     string `json:"content,omitempty"`
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
@@ -53,4 +64,5 @@ type Client interface {
 	UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error)
 	DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error)
 	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, *http.Response, error)
+	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]Route, *http.Response, error)
 }

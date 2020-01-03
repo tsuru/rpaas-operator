@@ -36,6 +36,7 @@ func NewApp(o, e io.Writer) (app *cli.App) {
 		NewCmdScale(),
 		NewCmdCertificates(),
 		NewCmdBlocks(),
+		NewCmdRoutes(),
 	}
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{

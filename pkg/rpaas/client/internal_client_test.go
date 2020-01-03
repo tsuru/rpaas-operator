@@ -453,6 +453,74 @@ func TestClientThroughTsuru_ListBlocks(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_ListRoutes(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          ListRoutesArgs
+		expected      []Route
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when the server returns an error",
+			args: ListRoutesArgs{
+				Instance: "my-instance",
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+		{
+			name: "when the server returns the expected response",
+			args: ListRoutesArgs{
+				Instance: "my-instance",
+			},
+			expected: []Route{
+				{
+					Path:        "/static",
+					Destination: "static.apps.tsuru.example.com",
+				},
+				{
+					Path:        "/login",
+					Destination: "login.apps.tsuru.example.com",
+					HTTPSOnly:   true,
+				},
+				{
+					Path:    "/custom/path",
+					Content: "# some NGINX configuration",
+				},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/route"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				fmt.Fprintf(w, `{"paths": [{"path": "/static", "destination": "static.apps.tsuru.example.com"}, {"path": "/login", "destination": "login.apps.tsuru.example.com", "https_only": true}, {"path": "/custom/path", "content": "# some NGINX configuration"}]}`)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			blocks, _, err := client.ListRoutes(context.TODO(), tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			assert.NoError(t, err)
+			assert.Equal(t, tt.expected, blocks)
+		})
+	}
+}
+
 func newClientThroughTsuru(t *testing.T, h http.Handler) (Client, *httptest.Server) {
 	server := httptest.NewServer(h)
 	client, err := NewClientThroughTsuru(server.URL, FakeTsuruToken, FakeTsuruService)
