@@ -16,6 +16,64 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
 )
 
+func TestDeleteRoute(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expected      string
+		expectedError string
+		client        rpaasclient.Client
+	}{
+		{
+			name:          "when DeleteRoute returns an error",
+			args:          []string{"./rpaasv2", "routes", "delete", "-i", "my-instance", "-p", "/my/custom/path"},
+			expectedError: "some error",
+			client: &fake.FakeClient{
+				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) (*http.Response, error) {
+					expected := rpaasclient.DeleteRouteArgs{
+						Instance: "my-instance",
+						Path:     "/my/custom/path",
+					}
+					assert.Equal(t, expected, args)
+					return nil, fmt.Errorf("some error")
+				},
+			},
+		},
+		{
+			name:     "when DeleteRoute returns no error",
+			args:     []string{"./rpaasv2", "routes", "delete", "-i", "my-instance", "-p", "/my/custom/path"},
+			expected: "Route \"/my/custom/path\" deleted.\n",
+			client: &fake.FakeClient{
+				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) (*http.Response, error) {
+					expected := rpaasclient.DeleteRouteArgs{
+						Instance: "my-instance",
+						Path:     "/my/custom/path",
+					}
+					assert.Equal(t, expected, args)
+					return nil, nil
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := newTestApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
 func TestListRoutes(t *testing.T) {
 	tests := []struct {
 		name          string

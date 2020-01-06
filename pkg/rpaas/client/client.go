@@ -45,6 +45,11 @@ type Block struct {
 	Content string `json:"content"`
 }
 
+type DeleteRouteArgs struct {
+	Instance string
+	Path     string
+}
+
 type ListRoutesArgs struct {
 	Instance string
 }
@@ -64,5 +69,6 @@ type Client interface {
 	UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error)
 	DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error)
 	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, *http.Response, error)
+	DeleteRoute(ctx context.Context, args DeleteRouteArgs) (*http.Response, error)
 	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]Route, *http.Response, error)
 }

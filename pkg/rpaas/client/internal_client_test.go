@@ -453,6 +453,67 @@ func TestClientThroughTsuru_ListBlocks(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_DeleteRoute(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          DeleteRouteArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when path is empty",
+			args: DeleteRouteArgs{
+				Instance: "my-instance",
+			},
+			expectedError: "rpaasv2: path cannot be empty",
+		},
+		{
+			name: "when the server returns an error",
+			args: DeleteRouteArgs{
+				Instance: "my-instance",
+				Path:     "/custom/path",
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+		{
+			name: "when the server returns the expected response",
+			args: DeleteRouteArgs{
+				Instance: "my-instance",
+				Path:     "/custom/path",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "DELETE")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/route"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+				assert.Equal(t, "path=%2Fcustom%2Fpath", getBody(t, r))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			_, err := client.DeleteRoute(context.TODO(), tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
 func TestClientThroughTsuru_ListRoutes(t *testing.T) {
 	tests := []struct {
 		name          string

@@ -24,6 +24,7 @@ import (
 var (
 	ErrMissingInstance      = fmt.Errorf("rpaasv2: instance cannot be empty")
 	ErrMissingBlockName     = fmt.Errorf("rpaasv2: block name cannot be empty")
+	ErrMissingPath          = fmt.Errorf("rpaasv2: path cannot be empty")
 	ErrUnexpectedStatusCode = fmt.Errorf("rpaasv2: unexpected status code")
 )
 
@@ -288,8 +289,38 @@ func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, 
 	return blockList.Blocks, response, nil
 }
 
-type ListRouteArgs struct {
-	Instance string
+func (args DeleteRouteArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.Path == "" {
+		return ErrMissingPath
+	}
+
+	return nil
+}
+
+func (c *client) DeleteRoute(ctx context.Context, args DeleteRouteArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("DeleteRoute", args)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return response, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return response, ErrUnexpectedStatusCode
+	}
+
+	return response, nil
 }
 
 func (args ListRoutesArgs) Validate() error {
@@ -399,6 +430,15 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		args := data.(ListBlocksArgs)
 		pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
 		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
+	case "DeleteRoute":
+		args := data.(DeleteRouteArgs)
+		pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
+		values := url.Values{}
+		values.Set("path", args.Path)
+		body := strings.NewReader(values.Encode())
+		req, err = c.newRequest("DELETE", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	case "ListRoutes":
 		args := data.(ListRoutesArgs)

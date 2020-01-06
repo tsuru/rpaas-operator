@@ -21,8 +21,56 @@ func NewCmdRoutes() *cli.Command {
 		Usage: "Manages specific locations",
 		Subcommands: []*cli.Command{
 			NewCmdListRoutes(),
+			NewCmdDeleteRoute(),
 		},
 	}
+}
+
+func NewCmdDeleteRoute() *cli.Command {
+	return &cli.Command{
+		Name:    "delete",
+		Aliases: []string{"remove"},
+		Usage:   "Removes a route from an instance",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "path",
+				Aliases:  []string{"p"},
+				Usage:    "path name",
+				Required: true,
+			},
+		},
+		Action: runDeleteRoute,
+	}
+}
+
+func runDeleteRoute(c *cli.Context) error {
+	client, err := getRpaasClient(c)
+	if err != nil {
+		return err
+	}
+
+	args := rpaasclient.DeleteRouteArgs{
+		Instance: c.String("instance"),
+		Path:     c.String("path"),
+	}
+	_, err = client.DeleteRoute(context.Background(), args)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "Route %q deleted.\n", args.Path)
+	return nil
 }
 
 func NewCmdListRoutes() *cli.Command {
