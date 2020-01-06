@@ -7,7 +7,9 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
+	"os"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -167,6 +169,91 @@ func TestListRoutes(t *testing.T) {
 							Content: "# My NGINX config",
 						},
 					}, nil, nil
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := newTestApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
+func TestUpdateRoute(t *testing.T) {
+	nginxConfig := `# My custom NGINX configuration`
+	configFile, err := ioutil.TempFile("", "nginx.*.cfg")
+	require.NoError(t, err)
+	_, err = configFile.Write([]byte(nginxConfig))
+	require.NoError(t, err)
+	require.NoError(t, configFile.Close())
+	defer os.Remove(configFile.Name())
+
+	tests := []struct {
+		name          string
+		args          []string
+		expected      string
+		expectedError string
+		client        rpaasclient.Client
+	}{
+		{
+			name:          "when UpdateRoute returns an error",
+			args:          []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/app", "-d", "app.tsuru.example.com"},
+			expectedError: "some error",
+			client: &fake.FakeClient{
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+					expected := rpaasclient.UpdateRouteArgs{
+						Instance:    "my-instance",
+						Path:        "/app",
+						Destination: "app.tsuru.example.com",
+					}
+					assert.Equal(t, expected, args)
+					return nil, fmt.Errorf("some error")
+				},
+			},
+		},
+		{
+			name:     "when proxying to a destination",
+			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/app", "-d", "app.tsuru.example.com", "--https-only"},
+			expected: "Route \"/app\" updated.\n",
+			client: &fake.FakeClient{
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+					expected := rpaasclient.UpdateRouteArgs{
+						Instance:    "my-instance",
+						Path:        "/app",
+						Destination: "app.tsuru.example.com",
+						HTTPSOnly:   true,
+					}
+					assert.Equal(t, expected, args)
+					return nil, nil
+				},
+			},
+		},
+		{
+			name:     "when using a custom NGINX config",
+			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/custom/path", "-c", configFile.Name()},
+			expected: "Route \"/custom/path\" updated.\n",
+			client: &fake.FakeClient{
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+					expected := rpaasclient.UpdateRouteArgs{
+						Instance: "my-instance",
+						Path:     "/custom/path",
+						Content:  nginxConfig,
+					}
+					assert.Equal(t, expected, args)
+					return nil, nil
 				},
 			},
 		},

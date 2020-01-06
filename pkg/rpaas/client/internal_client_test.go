@@ -10,6 +10,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -578,6 +579,76 @@ func TestClientThroughTsuru_ListRoutes(t *testing.T) {
 			}
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, blocks)
+		})
+	}
+}
+
+func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          UpdateRouteArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when path is empty",
+			args: UpdateRouteArgs{
+				Instance: "my-instance",
+			},
+			expectedError: "rpaasv2: path cannot be empty",
+		},
+		{
+			name: "when the server returns an error",
+			args: UpdateRouteArgs{
+				Instance:    "my-instance",
+				Path:        "/app",
+				Destination: "app.tsuru.example.com",
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+		{
+			name: "when the server returns the expected response",
+			args: UpdateRouteArgs{
+				Instance:    "my-instance",
+				Path:        "/app",
+				Destination: "app.tsuru.example.com",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "POST")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/route"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				expected := url.Values{
+					"path":        []string{"/app"},
+					"destination": []string{"app.tsuru.example.com"},
+					"https_only":  []string{"false"},
+					"content":     []string{""},
+				}
+				values, err := url.ParseQuery(getBody(t, r))
+				assert.NoError(t, err)
+				assert.Equal(t, expected, values)
+				w.WriteHeader(http.StatusCreated)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			_, err := client.UpdateRoute(context.TODO(), tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			assert.NoError(t, err)
 		})
 	}
 }

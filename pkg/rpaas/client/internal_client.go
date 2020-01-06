@@ -15,6 +15,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -360,6 +361,40 @@ func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]Route, 
 	return routes.Routes, response, nil
 }
 
+func (args UpdateRouteArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.Path == "" {
+		return ErrMissingPath
+	}
+
+	return nil
+}
+
+func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("UpdateRoute", args)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return response, err
+	}
+
+	if response.StatusCode != http.StatusCreated {
+		return response, ErrUnexpectedStatusCode
+	}
+
+	return response, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -444,6 +479,19 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		args := data.(ListRoutesArgs)
 		pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
 		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
+	case "UpdateRoute":
+		args := data.(UpdateRouteArgs)
+		pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
+		values := url.Values{
+			"path":        []string{args.Path},
+			"destination": []string{args.Destination},
+			"https_only":  []string{strconv.FormatBool(args.HTTPSOnly)},
+			"content":     []string{args.Content},
+		}
+		body := strings.NewReader(values.Encode())
+		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	default:
 		err = fmt.Errorf("rpaasv2: unknown operation")

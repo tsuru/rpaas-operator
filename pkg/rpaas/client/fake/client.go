@@ -22,6 +22,7 @@ type FakeClient struct {
 	FakeListBlocks        func(args client.ListBlocksArgs) ([]client.Block, *http.Response, error)
 	FakeDeleteRoute       func(args client.DeleteRouteArgs) (*http.Response, error)
 	FakeListRoutes        func(args client.ListRoutesArgs) ([]client.Route, *http.Response, error)
+	FakeUpdateRoute       func(args client.UpdateRouteArgs) (*http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
@@ -96,4 +97,12 @@ func (f *FakeClient) ListRoutes(ctx context.Context, args client.ListRoutesArgs)
 	}
 
 	return nil, nil, nil
+}
+
+func (f *FakeClient) UpdateRoute(ctx context.Context, args client.UpdateRouteArgs) (*http.Response, error) {
+	if f.FakeUpdateRoute != nil {
+		return f.FakeUpdateRoute(args)
+	}
+
+	return nil, nil
 }

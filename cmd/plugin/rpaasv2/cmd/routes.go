@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -20,8 +21,9 @@ func NewCmdRoutes() *cli.Command {
 		Name:  "routes",
 		Usage: "Manages specific locations",
 		Subcommands: []*cli.Command{
-			NewCmdListRoutes(),
 			NewCmdDeleteRoute(),
+			NewCmdListRoutes(),
+			NewCmdUpdateRoute(),
 		},
 	}
 }
@@ -151,4 +153,76 @@ func checkedChar(b bool) string {
 	}
 
 	return ""
+}
+
+func NewCmdUpdateRoute() *cli.Command {
+	return &cli.Command{
+		Name:    "update",
+		Aliases: []string{"add"},
+		Usage:   "Inserts a new location into instance",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "path",
+				Aliases:  []string{"p"},
+				Usage:    "path name",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:    "destination",
+				Aliases: []string{"d"},
+				Usage:   "",
+			},
+			&cli.BoolFlag{
+				Name:  "https-only",
+				Usage: "indicates whether path should only be accessed over HTTPS",
+			},
+			&cli.PathFlag{
+				Name:    "content",
+				Aliases: []string{"content-file", "c"},
+				Usage:   "path in the system where the NGINX configuration fragment is located",
+			},
+		},
+		Action: runUpdateRoute,
+	}
+}
+
+func runUpdateRoute(c *cli.Context) error {
+	client, err := getRpaasClient(c)
+	if err != nil {
+		return err
+	}
+
+	var content []byte
+	if contentFile := c.Path("content"); contentFile != "" {
+		content, err = ioutil.ReadFile(contentFile)
+		if err != nil {
+			return err
+		}
+	}
+
+	args := rpaasclient.UpdateRouteArgs{
+		Instance:    c.String("instance"),
+		Path:        c.String("path"),
+		Destination: c.String("destination"),
+		HTTPSOnly:   c.Bool("https-only"),
+		Content:     string(content),
+	}
+	_, err = client.UpdateRoute(context.Background(), args)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "Route %q updated.\n", args.Path)
+	return nil
 }

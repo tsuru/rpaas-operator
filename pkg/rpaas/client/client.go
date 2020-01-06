@@ -54,6 +54,14 @@ type ListRoutesArgs struct {
 	Instance string
 }
 
+type UpdateRouteArgs struct {
+	Instance    string
+	Path        string
+	Destination string
+	HTTPSOnly   bool
+	Content     string
+}
+
 type Route struct {
 	Path        string `json:"path"`
 	Destination string `json:"destination,omitempty"`
@@ -71,4 +79,5 @@ type Client interface {
 	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, *http.Response, error)
 	DeleteRoute(ctx context.Context, args DeleteRouteArgs) (*http.Response, error)
 	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]Route, *http.Response, error)
+	UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.Response, error)
 }
