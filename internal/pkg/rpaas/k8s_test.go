@@ -516,6 +516,19 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 		},
 	}
 
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "no-spec-cert"
+	instance3.Spec.Certificates = nil
+
+	instance4 := newEmptyRpaasInstance()
+	instance4.Name = "one-cert"
+	instance4.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "one-cert-secret",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{CertificateField: "default.crt", KeyField: "default.key"},
+		},
+	}
+
 	secret := newEmptySecret()
 	secret.Name = "another-instance-certificates"
 	secret.Data = map[string][]byte{
@@ -525,7 +538,14 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 		"junda.key":   []byte(ecdsaKeyPem),
 	}
 
-	resources := []runtime.Object{instance1, instance2, secret}
+	secret2 := newEmptySecret()
+	secret2.Name = "one-cert-secret"
+	secret2.Data = map[string][]byte{
+		"default.crt": []byte(rsaCertPem),
+		"default.key": []byte(rsaKeyPem),
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, secret, secret2}
 
 	testCases := []struct {
 		name         string
@@ -539,6 +559,37 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:         "instance without certificate",
+			instanceName: "no-spec-cert",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+				assert.Equal(t, "no certificate bound to instance \"no-spec-cert\"", err.Error())
+			},
+		},
+		{
+			name:         "instance with only one, default certificate",
+			instanceName: "one-cert",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				require.NoError(t, err)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{
+					Name:      "one-cert",
+					Namespace: namespaceName(),
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.Nil(t, instance.Spec.Certificates)
+
+				secret := corev1.Secret{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{
+					Name:      secret2.Name,
+					Namespace: namespaceName(),
+				}, &secret)
+				require.Error(t, err)
 			},
 		},
 		{
