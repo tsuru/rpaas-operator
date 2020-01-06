@@ -412,12 +412,14 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		w := multipart.NewWriter(buffer)
 
 		if args.boundary != "" {
-			if err := w.SetBoundary(args.boundary); err != nil {
+			if err = w.SetBoundary(args.boundary); err != nil {
 				return nil, err
 			}
 		}
+
+		var part io.Writer
 		{
-			part, err := w.CreateFormFile("cert", "cert.pem")
+			part, err = w.CreateFormFile("cert", "cert.pem")
 			if err != nil {
 				return nil, err
 			}
@@ -425,7 +427,7 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 			part.Write([]byte(args.Certificate))
 		}
 		{
-			part, err := w.CreateFormFile("key", "key.pem")
+			part, err = w.CreateFormFile("key", "key.pem")
 			if err != nil {
 				return nil, err
 			}
@@ -433,11 +435,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 			part.Write([]byte(args.Key))
 		}
 
-		if err := w.WriteField("name", args.Name); err != nil {
+		if err = w.WriteField("name", args.Name); err != nil {
 			return nil, err
 		}
 
-		if err := w.Close(); err != nil {
+		if err = w.Close(); err != nil {
 			return nil, err
 		}
 
