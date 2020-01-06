@@ -145,6 +145,40 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	}
 }
 
+func Test_DeleteCertificate(t *testing.T) {
+	tests := []struct {
+		name         string
+		manager      rpaas.RpaasManager
+		instance     string
+		expectedCode int
+		expectedBody string
+	}{
+		{
+			name:         "when the instance does not exist",
+			manager:      &fake.RpaasManager{},
+			instance:     "my-instance",
+			expectedCode: http.StatusOK,
+			expectedBody: "",
+		},
+		{},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/certificate", srv.URL, tt.instance)
+			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+		})
+
+	}
+}
+
 func Test_GetCertificates(t *testing.T) {
 	tests := []struct {
 		name         string
