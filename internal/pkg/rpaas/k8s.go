@@ -368,6 +368,71 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 	return certList, nil
 }
 
+func searchCertificate(certificates []nginxv1alpha1.TLSSecretItem, target string) (int, bool) {
+	for i, c := range certificates {
+		if strings.TrimSuffix(c.CertificateField, ".crt") == target {
+			return i, true
+		}
+	}
+
+	return -1, false
+}
+
+func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, name string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	if name == "" {
+		name = v1alpha1.CertificateNameDefault
+	}
+
+	if instance.Spec.Certificates == nil {
+		return &NotFoundError{Msg: fmt.Sprintf("no certificate bound to instance %q", instanceName)}
+	}
+
+	var oldSecret corev1.Secret
+	err = m.cli.Get(ctx, types.NamespacedName{
+		Name:      instance.Spec.Certificates.SecretName,
+		Namespace: instance.Namespace,
+	}, &oldSecret)
+	if err != nil {
+		return err
+	}
+
+	if index, found := searchCertificate(instance.Spec.Certificates.Items, name); found {
+		items := instance.Spec.Certificates.Items
+		item := items[index]
+		instance.Spec.Certificates.Items = append(items[:index], items[index+1:]...)
+
+		// deleting secret data
+		if _, ok := oldSecret.Data[item.CertificateField]; ok {
+			delete(oldSecret.Data, item.CertificateField)
+		}
+		if _, ok := oldSecret.Data[item.KeyField]; ok {
+			delete(oldSecret.Data, item.KeyField)
+		}
+		err = m.cli.Update(ctx, &oldSecret)
+		if err != nil {
+			return err
+		}
+
+	}
+
+	if len(oldSecret.Data) == 0 {
+		err = m.cli.Delete(ctx, &oldSecret)
+		if err != nil {
+			return err
+		}
+	}
+
+	if len(instance.Spec.Certificates.Items) == 0 {
+		instance.Spec.Certificates = nil
+	}
+
+	return m.cli.Update(ctx, instance)
+}
+
 func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {

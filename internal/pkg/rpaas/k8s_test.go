@@ -457,6 +457,137 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 
 }
 
+func Test_k8sRpaasManager_DeleteCertificate(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	rsaCertPem := `-----BEGIN CERTIFICATE-----
+MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
+EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
+MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
+AoGBAOIsM9LhHqI3oBhHDCGZkGKgiI72ghnLr5UpaA3I9U7np/LPzt/JpWRG4wjF
+5Var2IRPGoNwLcdybFW0YTqvw1wNY88q9BcpwS5PeV7uWyZqWafdSxxveaG6VeCH
+YFMqopOKri4kJ4sZB9WS3xMlGZXK6zHPwA4xPtuVEND+LI17AgMBAAGjSzBJMA4G
+A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
+MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
+4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
+yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
+7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
+-----END CERTIFICATE-----
+`
+
+	rsaKeyPem := `-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
+yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
+b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
+AoGBAI05gJqayyALj8HZCzAnzUpoZxytvAsTbm27TyfcZaCBchNhwxFlvgphYP5n
+Y468+xOSuUF9WHiDcDYLzfJxMZAqmuS+D/IREYDkcrGVT1MXfSCkNaFVqG52+hLZ
+GmGsy8+KsJnDJ1HYmwfSnaTj3L8+Bf2Hg291Yb1caRH9+5vBAkEA7P5N3cSN73Fa
+HwaWzqkaY75mCR4TpRi27YWGA3wdQek2G71HiSbCOxrWOymvgoNRi6M/sdrP5PTt
+JAFxC+pd8QJBAPRPvS0Tm/0lMIZ0q7jxyoW/gKDzokmSszopdlvSU53lN06vaYdK
+XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
+3vjXh8O9vOqFyWy/i9Ri0XDXJVbzxH/0WPObld+BB9sJTRHTKyPFhS7GIlECQDZ8
+chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
+WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
+sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
+-----END RSA PRIVATE KEY-----
+`
+
+	ecdsaCertPem := `-----BEGIN CERTIFICATE-----
+JUNDACERTJUNDACERT
+-----END CERTIFICATE-----
+`
+
+	ecdsaKeyPem := `-----BEGIN EC PRIVATE KEY-----
+JUNDAKEYJUNDAKEYJUNDAKEY
+-----END EC PRIVATE KEY-----
+`
+
+	instance1 := newEmptyRpaasInstance()
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		SecretName: "another-instance-certificates",
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{CertificateField: "default.crt", KeyField: "default.key"},
+			{CertificateField: "junda.crt", KeyField: "junda.key"},
+		},
+	}
+
+	secret := newEmptySecret()
+	secret.Name = "another-instance-certificates"
+	secret.Data = map[string][]byte{
+		"default.crt": []byte(rsaCertPem),
+		"default.key": []byte(rsaKeyPem),
+		"junda.crt":   []byte(ecdsaCertPem),
+		"junda.key":   []byte(ecdsaKeyPem),
+	}
+
+	resources := []runtime.Object{instance1, instance2, secret}
+
+	testCases := []struct {
+		name         string
+		certName     string
+		instanceName string
+		assertion    func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			name:         "instance not found",
+			instanceName: "instance-not-found",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+			},
+		},
+		{
+			name:         "deleting one certificate but keeping another",
+			instanceName: "another-instance",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				require.NoError(t, err)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{
+					Name:      "another-instance",
+					Namespace: namespaceName(),
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.NotNil(t, instance.Spec.Certificates)
+				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
+
+				expectedCertificates := &nginxv1alpha1.TLSSecret{
+					SecretName: instance.Spec.Certificates.SecretName,
+					Items: []nginxv1alpha1.TLSSecretItem{
+						{CertificateField: "junda.crt", KeyField: "junda.key"},
+					},
+				}
+				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
+
+				secret := corev1.Secret{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{
+					Name:      instance.Spec.Certificates.SecretName,
+					Namespace: namespaceName(),
+				}, &secret)
+				require.NoError(t, err)
+
+				expectedSecretData := map[string][]byte{
+					"junda.crt": []byte(ecdsaCertPem),
+					"junda.key": []byte(ecdsaKeyPem),
+				}
+				assert.Equal(t, expectedSecretData, secret.Data)
+			},
+		},
+	}
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.DeleteCertificate(context.Background(), tt.instanceName, tt.certName)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateCertificate(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)

@@ -13,6 +13,10 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
+func deleteCertificate(c echo.Context) error {
+
+}
+
 func updateCertificate(c echo.Context) error {
 	rawCertificate, err := getFormFileContent(c, "cert")
 	if err != nil {
