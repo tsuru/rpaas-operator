@@ -57,7 +57,7 @@ func NewCmdDeleteRoute() *cli.Command {
 }
 
 func runDeleteRoute(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}
@@ -103,7 +103,7 @@ func NewCmdListRoutes() *cli.Command {
 }
 
 func runListRoutes(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}
@@ -198,7 +198,7 @@ func NewCmdUpdateRoute() *cli.Command {
 }
 
 func runUpdateRoute(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}

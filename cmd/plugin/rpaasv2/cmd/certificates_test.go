@@ -98,7 +98,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		t.Run(tt.name, func(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
-			app := newTestApp(stdout, stderr, tt.client)
+			app := NewApp(stdout, stderr, tt.client)
 			err := app.Run(tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)

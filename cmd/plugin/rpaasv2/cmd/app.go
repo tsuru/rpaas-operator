@@ -5,9 +5,10 @@
 package cmd
 
 import (
+	"context"
+	"fmt"
 	"io"
 	"os"
-	"sync"
 	"time"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -15,18 +16,11 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
-type globalArgs struct {
-	sync.Mutex
-	rpaasClient rpaasclient.Client
-}
-
-var global = globalArgs{}
-
 func NewDefaultApp() *cli.App {
-	return NewApp(os.Stdout, os.Stderr)
+	return NewApp(os.Stdout, os.Stderr, nil)
 }
 
-func NewApp(o, e io.Writer) (app *cli.App) {
+func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 	app = cli.NewApp()
 	app.Usage = "Manipulates reverse proxy instances running on Reverse Proxy as a Service."
 	app.Version = version.Version
@@ -56,33 +50,39 @@ func NewApp(o, e io.Writer) (app *cli.App) {
 			Value: 60 * time.Second,
 		},
 	}
+	app.Before = func(c *cli.Context) error {
+		if client != nil {
+			setClient(c, client)
+			return nil
+		}
+
+		cli, err := newClient(c)
+		if err != nil {
+			return err
+		}
+
+		setClient(c, cli)
+		return nil
+	}
 	return
 }
 
-func setRpaasClient(client rpaasclient.Client) {
-	global.Lock()
-	defer global.Unlock()
+const rpaasClientKey = "rpaas.client"
 
-	global.rpaasClient = client
+func setClient(c *cli.Context, client rpaasclient.Client) {
+	c.Context = context.WithValue(c.Context, rpaasClientKey, client)
 }
 
-func getRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
-	global.Lock()
-	defer global.Unlock()
-
-	if global.rpaasClient != nil {
-		return global.rpaasClient, nil
-	}
-
-	client, err := newRpaasClient(c)
-	if err != nil {
-		return nil, err
+func getClient(c *cli.Context) (rpaasclient.Client, error) {
+	client, ok := c.Value(rpaasClientKey).(rpaasclient.Client)
+	if !ok {
+		return nil, fmt.Errorf("rpaas client not found")
 	}
 
 	return client, nil
 }
 
-func newRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
+func newClient(c *cli.Context) (rpaasclient.Client, error) {
 	tsuruTarget := c.String("tsuru-target")
 	tsuruToken := c.String("tsuru-token")
 	tsuruService := c.String("tsuru-service")
@@ -94,9 +94,4 @@ func newRpaasClient(c *cli.Context) (rpaasclient.Client, error) {
 	}
 
 	return client, nil
-}
-
-func newTestApp(stdout, stderr io.Writer, client rpaasclient.Client) *cli.App {
-	setRpaasClient(client)
-	return NewApp(stdout, stderr)
 }

@@ -63,7 +63,7 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 }
 
 func runUpdateCertificate(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}

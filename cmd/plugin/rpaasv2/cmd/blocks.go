@@ -63,7 +63,7 @@ func NewCmdUpdateBlock() *cli.Command {
 }
 
 func runUpdateBlock(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}
@@ -116,7 +116,7 @@ func NewCmdDeleteBlock() *cli.Command {
 }
 
 func runDeleteBlock(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}
@@ -162,7 +162,7 @@ func NewCmdListBlocks() *cli.Command {
 }
 
 func runListBlocks(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}

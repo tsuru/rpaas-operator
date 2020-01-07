@@ -41,7 +41,7 @@ func NewCmdScale() *cli.Command {
 }
 
 func runScale(c *cli.Context) error {
-	client, err := getRpaasClient(c)
+	client, err := getClient(c)
 	if err != nil {
 		return err
 	}
