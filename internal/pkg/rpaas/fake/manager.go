@@ -18,6 +18,7 @@ var _ rpaas.RpaasManager = &RpaasManager{}
 type RpaasManager struct {
 	FakeUpdateCertificate func(instance, name string, cert tls.Certificate) error
 	FakeGetCertificates   func(instanceName string) ([]rpaas.CertificateData, error)
+	FakeDeleteCertificate func(instance, name string) error
 	FakeCreateInstance    func(args rpaas.CreateArgs) error
 	FakeDeleteInstance    func(instanceName string) error
 	FakeUpdateInstance    func(instanceName string, args rpaas.UpdateInstanceArgs) error
@@ -52,6 +53,13 @@ func (m *RpaasManager) GetCertificates(ctx context.Context, instanceName string)
 	}
 
 	return nil, nil
+}
+
+func (m *RpaasManager) DeleteCertificate(ctx context.Context, instance, name string) error {
+	if m.FakeDeleteCertificate != nil {
+		return m.FakeDeleteCertificate(instance, name)
+	}
+	return nil
 }
 
 func (m *RpaasManager) UpdateCertificate(ctx context.Context, instance, name string, c tls.Certificate) error {

@@ -13,6 +13,22 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
+func deleteCertificate(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
+
+	instance := c.Param("instance")
+	certName := c.Param("name")
+	err = manager.DeleteCertificate(c.Request().Context(), instance, certName)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
+}
+
 func updateCertificate(c echo.Context) error {
 	rawCertificate, err := getFormFileContent(c, "cert")
 	if err != nil {
