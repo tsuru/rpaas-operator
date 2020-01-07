@@ -27,7 +27,7 @@ func TestScale(t *testing.T) {
 		{
 			name:          "when Scale method returns an error",
 			args:          []string{"./rpaasv2", "scale", "-s", "some-service", "-i", "my-instance", "-q", "2"},
-			expectedError: "could not scale the instance on server: some error",
+			expectedError: "some error",
 			client: &fake.FakeClient{
 				FakeScale: func(args client.ScaleArgs) (*http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
