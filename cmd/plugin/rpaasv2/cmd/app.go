@@ -53,7 +53,7 @@ func NewApp(o, e io.Writer) (app *cli.App) {
 		&cli.DurationFlag{
 			Name:  "timeout",
 			Usage: "time limit that a remote operation (HTTP request) can take",
-			Value: 10 * time.Second,
+			Value: 60 * time.Second,
 		},
 	}
 	return
