@@ -45,9 +45,10 @@ func NewApp(o, e io.Writer) (app *cli.App) {
 			EnvVars: []string{"TSURU_TARGET"},
 		},
 		&cli.StringFlag{
-			Name:    "tsuru-token",
-			Usage:   "authentication credential to Tsuru server",
-			EnvVars: []string{"TSURU_TOKEN"},
+			Name:        "tsuru-token",
+			Usage:       "authentication credential to Tsuru server",
+			EnvVars:     []string{"TSURU_TOKEN"},
+			DefaultText: "-",
 		},
 		&cli.DurationFlag{
 			Name:  "timeout",
