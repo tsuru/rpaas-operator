@@ -52,6 +52,7 @@ func NewCmdDeleteRoute() *cli.Command {
 				Required: true,
 			},
 		},
+		Before: setupClient,
 		Action: runDeleteRoute,
 	}
 }
@@ -98,6 +99,7 @@ func NewCmdListRoutes() *cli.Command {
 				Value:   false,
 			},
 		},
+		Before: setupClient,
 		Action: runListRoutes,
 	}
 }
@@ -193,6 +195,7 @@ func NewCmdUpdateRoute() *cli.Command {
 				Usage:   "path in the system to the NGINX configuration (should not be combined with destination)",
 			},
 		},
+		Before: setupClient,
 		Action: runUpdateRoute,
 	}
 }

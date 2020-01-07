@@ -36,6 +36,7 @@ func NewCmdScale() *cli.Command {
 				Required: true,
 			},
 		},
+		Before: setupClient,
 		Action: runScale,
 	}
 }

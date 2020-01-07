@@ -51,23 +51,15 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 		},
 	}
 	app.Before = func(c *cli.Context) error {
-		if client != nil {
-			setClient(c, client)
-			return nil
-		}
-
-		cli, err := newClient(c)
-		if err != nil {
-			return err
-		}
-
-		setClient(c, cli)
+		setClient(c, client)
 		return nil
 	}
 	return
 }
 
 const rpaasClientKey = "rpaas.client"
+
+var errClientNotFoundAtContext = fmt.Errorf("rpaas client not found at context")
 
 func setClient(c *cli.Context, client rpaasclient.Client) {
 	c.Context = context.WithValue(c.Context, rpaasClientKey, client)
@@ -76,10 +68,29 @@ func setClient(c *cli.Context, client rpaasclient.Client) {
 func getClient(c *cli.Context) (rpaasclient.Client, error) {
 	client, ok := c.Value(rpaasClientKey).(rpaasclient.Client)
 	if !ok {
-		return nil, fmt.Errorf("rpaas client not found")
+		return nil, errClientNotFoundAtContext
 	}
 
 	return client, nil
+}
+
+func setupClient(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil && err != errClientNotFoundAtContext {
+		return err
+	}
+
+	if client != nil {
+		return nil
+	}
+
+	client, err = newClient(c)
+	if err != nil {
+		return err
+	}
+
+	setClient(c, client)
+	return nil
 }
 
 func newClient(c *cli.Context) (rpaasclient.Client, error) {

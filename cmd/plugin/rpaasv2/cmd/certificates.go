@@ -58,6 +58,7 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 				Required: true,
 			},
 		},
+		Before: setupClient,
 		Action: runUpdateCertificate,
 	}
 }

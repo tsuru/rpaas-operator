@@ -58,6 +58,7 @@ func NewCmdUpdateBlock() *cli.Command {
 				Required: true,
 			},
 		},
+		Before: setupClient,
 		Action: runUpdateBlock,
 	}
 }
@@ -111,6 +112,7 @@ func NewCmdDeleteBlock() *cli.Command {
 				Required: true,
 			},
 		},
+		Before: setupClient,
 		Action: runDeleteBlock,
 	}
 }
@@ -157,6 +159,7 @@ func NewCmdListBlocks() *cli.Command {
 				Value:   false,
 			},
 		},
+		Before: setupClient,
 		Action: runListBlocks,
 	}
 }
