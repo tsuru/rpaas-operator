@@ -19,7 +19,7 @@ import (
 func NewCmdRoutes() *cli.Command {
 	return &cli.Command{
 		Name:  "routes",
-		Usage: "Manages specific locations",
+		Usage: "Manages application-layer routing (NGINX locations)",
 		Subcommands: []*cli.Command{
 			NewCmdDeleteRoute(),
 			NewCmdListRoutes(),
@@ -32,7 +32,7 @@ func NewCmdDeleteRoute() *cli.Command {
 	return &cli.Command{
 		Name:    "delete",
 		Aliases: []string{"remove"},
-		Usage:   "Removes a route from an instance",
+		Usage:   "Removes a route from a path",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -78,7 +78,7 @@ func runDeleteRoute(c *cli.Context) error {
 func NewCmdListRoutes() *cli.Command {
 	return &cli.Command{
 		Name:  "list",
-		Usage: "Shows the routes in the instance",
+		Usage: "Shows the routes on the instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -94,7 +94,7 @@ func NewCmdListRoutes() *cli.Command {
 			&cli.BoolFlag{
 				Name:    "raw-output",
 				Aliases: []string{"r"},
-				Usage:   "writes routes on JSON format",
+				Usage:   "show as JSON instead of table format",
 				Value:   false,
 			},
 		},
@@ -159,7 +159,7 @@ func NewCmdUpdateRoute() *cli.Command {
 	return &cli.Command{
 		Name:    "update",
 		Aliases: []string{"add"},
-		Usage:   "Inserts a new location into instance",
+		Usage:   "Inserts a NGINX location on a path",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -181,16 +181,16 @@ func NewCmdUpdateRoute() *cli.Command {
 			&cli.StringFlag{
 				Name:    "destination",
 				Aliases: []string{"d"},
-				Usage:   "",
+				Usage:   "host address that all request will be forwarded for",
 			},
 			&cli.BoolFlag{
 				Name:  "https-only",
-				Usage: "indicates whether path should only be accessed over HTTPS",
+				Usage: "indicates whether should only be accessed over TLS (requires that destination be set)",
 			},
 			&cli.PathFlag{
 				Name:    "content",
 				Aliases: []string{"content-file", "c"},
-				Usage:   "path in the system where the NGINX configuration fragment is located",
+				Usage:   "path in the system to the NGINX configuration (should not be combined with destination)",
 			},
 		},
 		Action: runUpdateRoute,

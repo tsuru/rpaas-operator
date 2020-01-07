@@ -19,11 +19,11 @@ import (
 func NewCmdBlocks() *cli.Command {
 	return &cli.Command{
 		Name:  "blocks",
-		Usage: "Manages fragments of NGINX configuration",
+		Usage: "Manages raw NGINX configuration fragments",
 		Subcommands: []*cli.Command{
-			NewCmdUpdateBlock(),
 			NewCmdDeleteBlock(),
 			NewCmdListBlocks(),
+			NewCmdUpdateBlock(),
 		},
 	}
 }
@@ -32,7 +32,7 @@ func NewCmdUpdateBlock() *cli.Command {
 	return &cli.Command{
 		Name:    "update",
 		Aliases: []string{"add"},
-		Usage:   "Inserts a NGINX configuration into instance's configuration",
+		Usage:   "Inserts raw NGINX configuration on a context",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -48,13 +48,13 @@ func NewCmdUpdateBlock() *cli.Command {
 			&cli.StringFlag{
 				Name:     "name",
 				Aliases:  []string{"context", "n"},
-				Usage:    "the NGINX context name where this fragment will be inserted (supported values: root, http, server, lua-server, lua-worker)",
+				Usage:    "the NGINX context name wherein the fragment will be injected (supported values: root, http, server, lua-server, lua-worker)",
 				Required: true,
 			},
 			&cli.PathFlag{
 				Name:     "content",
 				Aliases:  []string{"content-file", "c"},
-				Usage:    "path in the system where the NGINX configuration fragment is located",
+				Usage:    "path in the system to the NGINX configuration",
 				Required: true,
 			},
 		},
@@ -91,7 +91,7 @@ func NewCmdDeleteBlock() *cli.Command {
 	return &cli.Command{
 		Name:    "delete",
 		Aliases: []string{"remove"},
-		Usage:   "Removes a NGINX configuration from instance's configuration",
+		Usage:   "Removes raw NGINX configuration from a context",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -107,7 +107,7 @@ func NewCmdDeleteBlock() *cli.Command {
 			&cli.StringFlag{
 				Name:     "name",
 				Aliases:  []string{"context", "n"},
-				Usage:    "the NGINX context name where this fragment is located (supported values: root, http, server, lua-server, lua-worker)",
+				Usage:    "the NGINX context name wherein the fragment is (supported values: root, http, server, lua-server, lua-worker)",
 				Required: true,
 			},
 		},
@@ -137,7 +137,7 @@ func runDeleteBlock(c *cli.Context) error {
 func NewCmdListBlocks() *cli.Command {
 	return &cli.Command{
 		Name:  "list",
-		Usage: "Shows the NGINX configurations in the instance",
+		Usage: "Shows the NGINX configuration fragments on the instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -153,7 +153,7 @@ func NewCmdListBlocks() *cli.Command {
 			&cli.BoolFlag{
 				Name:    "raw-output",
 				Aliases: []string{"r"},
-				Usage:   "writes blocks on JSON format",
+				Usage:   "show as JSON instead of table format",
 				Value:   false,
 			},
 		},

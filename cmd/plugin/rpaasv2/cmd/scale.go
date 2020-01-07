@@ -15,7 +15,7 @@ import (
 func NewCmdScale() *cli.Command {
 	return &cli.Command{
 		Name:  "scale",
-		Usage: "Sets a new amount of desired replicas for an instance",
+		Usage: "Sets the number of replicas for an instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -31,7 +31,7 @@ func NewCmdScale() *cli.Command {
 			&cli.IntFlag{
 				Name:     "replicas",
 				Aliases:  []string{"quantity", "q"},
-				Usage:    "the new desired number of replicas",
+				Usage:    "the new desired replicas number",
 				Value:    -1,
 				Required: true,
 			},
@@ -52,7 +52,7 @@ func runScale(c *cli.Context) error {
 	}
 	_, err = client.Scale(context.Background(), scale)
 	if err != nil {
-		return fmt.Errorf("could not scale the instance on server: %w", err)
+		return err
 	}
 
 	fmt.Fprintf(c.App.Writer, "%s scaled to %d replica(s)\n", formatInstanceName(c), scale.Replicas)
