@@ -5,7 +5,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 	"io/ioutil"
 
@@ -85,7 +84,7 @@ func runUpdateCertificate(c *cli.Context) error {
 		Certificate: string(certificate),
 		Key:         string(key),
 	}
-	_, err = client.UpdateCertificate(context.Background(), args)
+	_, err = client.UpdateCertificate(c.Context, args)
 	if err != nil {
 		return err
 	}

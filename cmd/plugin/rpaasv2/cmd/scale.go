@@ -5,7 +5,6 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -51,7 +50,7 @@ func runScale(c *cli.Context) error {
 		Instance: c.String("instance"),
 		Replicas: int32(c.Int("replicas")),
 	}
-	_, err = client.Scale(context.Background(), scale)
+	_, err = client.Scale(c.Context, scale)
 	if err != nil {
 		return err
 	}
