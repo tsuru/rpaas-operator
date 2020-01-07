@@ -154,13 +154,38 @@ func Test_DeleteCertificate(t *testing.T) {
 		expectedBody string
 	}{
 		{
-			name:         "when the instance does not exist",
-			manager:      &fake.RpaasManager{},
+			name: "when the instance does not exist",
+			manager: &fake.RpaasManager{
+				FakeDeleteCertificate: func(instance, name string) error {
+					return &rpaas.NotFoundError{}
+				},
+			},
 			instance:     "my-instance",
+			expectedCode: http.StatusNotFound,
+			expectedBody: "{\"Msg\":\"\"}\n",
+		},
+		{
+			name: "when the certificate exists",
+			manager: &fake.RpaasManager{
+				FakeDeleteCertificate: func(instance, name string) error {
+					return nil
+				},
+			},
+			instance:     "real-instance",
 			expectedCode: http.StatusOK,
 			expectedBody: "",
 		},
-		{},
+		{
+			name:     "when the certificate does not exist",
+			instance: "real-instance",
+			manager: &fake.RpaasManager{
+				FakeDeleteCertificate: func(instance, name string) error {
+					return &rpaas.NotFoundError{Msg: fmt.Sprintf("no certificate bound to instance %q", instance)}
+				},
+			},
+			expectedCode: http.StatusNotFound,
+			expectedBody: "{\"Msg\":\"no certificate bound to instance \\\"real-instance\\\"\"}\n",
+		},
 	}
 
 	for _, tt := range tests {

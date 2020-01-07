@@ -56,7 +56,7 @@ func (m *RpaasManager) GetCertificates(ctx context.Context, instanceName string)
 }
 
 func (m *RpaasManager) DeleteCertificate(ctx context.Context, instance, name string) error {
-	if m.FakeDeleteInstance != nil {
+	if m.FakeDeleteCertificate != nil {
 		return m.FakeDeleteCertificate(instance, name)
 	}
 	return nil
