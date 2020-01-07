@@ -406,12 +406,8 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		instance.Spec.Certificates.Items = append(items[:index], items[index+1:]...)
 
 		// deleting secret data
-		if _, ok := oldSecret.Data[item.CertificateField]; ok {
-			delete(oldSecret.Data, item.CertificateField)
-		}
-		if _, ok := oldSecret.Data[item.KeyField]; ok {
-			delete(oldSecret.Data, item.KeyField)
-		}
+		delete(oldSecret.Data, item.CertificateField)
+		delete(oldSecret.Data, item.KeyField)
 		err = m.cli.Update(ctx, &oldSecret)
 		if err != nil {
 			return err
