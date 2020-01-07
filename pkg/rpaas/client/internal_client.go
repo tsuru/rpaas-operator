@@ -23,6 +23,9 @@ import (
 )
 
 var (
+	ErrMissingTsuruTarget   = fmt.Errorf("rpaasv2: tsuru target cannot be empty")
+	ErrMissingTsuruToken    = fmt.Errorf("rpaasv2: tsuru token cannot be empty")
+	ErrMissingTsuruService  = fmt.Errorf("rpaasv2: tsuru service cannot be empty")
 	ErrMissingInstance      = fmt.Errorf("rpaasv2: instance cannot be empty")
 	ErrMissingBlockName     = fmt.Errorf("rpaasv2: block name cannot be empty")
 	ErrMissingPath          = fmt.Errorf("rpaasv2: path cannot be empty")
@@ -67,8 +70,16 @@ func NewClientThroughTsuruWithOptions(target, token, service string, opts Client
 		token = t
 	}
 
-	if target == "" || token == "" || service == "" {
-		return nil, fmt.Errorf("cannot create a client over tsuru without either target, token or service")
+	if target == "" {
+		return nil, ErrMissingTsuruTarget
+	}
+
+	if token == "" {
+		return nil, ErrMissingTsuruToken
+	}
+
+	if service == "" {
+		return nil, ErrMissingTsuruService
 	}
 
 	return &client{

@@ -38,13 +38,13 @@ func TestNewClientThroughTsuruWithOptions(t *testing.T) {
 	}{
 		{
 			name:          "missing all mandatory arguments",
-			expectedError: "cannot create a client over tsuru without either target, token or service",
+			expectedError: ErrMissingTsuruTarget.Error(),
 		},
 		{
 			name:          "missing Tsuru service",
 			target:        "https://tsuru.example.com",
 			token:         "some-token",
-			expectedError: "cannot create a client over tsuru without either target, token or service",
+			expectedError: ErrMissingTsuruService.Error(),
 		},
 		{
 			name:    "creating a client successfully",
