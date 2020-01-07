@@ -269,10 +269,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 }
 
 func Test_k8sRpaasManager_GetCertificates(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-
+	scheme := newScheme()
 	rsaCertPem := `-----BEGIN CERTIFICATE-----
 MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
 EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
@@ -458,10 +455,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 }
 
 func Test_k8sRpaasManager_DeleteCertificate(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-
+	scheme := newScheme()
 	rsaCertPem := `-----BEGIN CERTIFICATE-----
 MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
 EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
@@ -640,10 +634,7 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 }
 
 func Test_k8sRpaasManager_UpdateCertificate(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-
+	scheme := newScheme()
 	ecdsaCertPem := `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
 DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow

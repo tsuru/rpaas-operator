@@ -413,6 +413,8 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 			return err
 		}
 
+	} else {
+		return &NotFoundError{Msg: fmt.Sprintf("certificate not found")}
 	}
 
 	if len(oldSecret.Data) == 0 {

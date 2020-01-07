@@ -145,11 +145,12 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	}
 }
 
-func Test_DeleteCertificate(t *testing.T) {
+func Test_deleteCertificate(t *testing.T) {
 	tests := []struct {
 		name         string
 		manager      rpaas.RpaasManager
 		instance     string
+		certName     string
 		expectedCode int
 		expectedBody string
 	}{
@@ -186,13 +187,31 @@ func Test_DeleteCertificate(t *testing.T) {
 			expectedCode: http.StatusNotFound,
 			expectedBody: "{\"Msg\":\"no certificate bound to instance \\\"real-instance\\\"\"}\n",
 		},
+		{
+			name:     "passing a certificate name and asserting it",
+			instance: "my-instance",
+			certName: "junda",
+			manager: &fake.RpaasManager{
+				FakeDeleteCertificate: func(instance, name string) error {
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "junda", name)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/certificate", srv.URL, tt.instance)
+			var path string
+			if tt.certName != "" {
+				path = fmt.Sprintf("%s/resources/%s/certificate/%s", srv.URL, tt.instance, tt.certName)
+			} else {
+				path = fmt.Sprintf("%s/resources/%s/certificate", srv.URL, tt.instance)
+			}
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
 			require.NoError(t, err)
 			rsp, err := srv.Client().Do(request)
