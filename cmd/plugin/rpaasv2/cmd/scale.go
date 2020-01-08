@@ -30,7 +30,7 @@ func NewCmdScale() *cli.Command {
 			&cli.IntFlag{
 				Name:     "replicas",
 				Aliases:  []string{"quantity", "q"},
-				Usage:    "the new desired replicas number",
+				Usage:    "the desired replicas number",
 				Value:    -1,
 				Required: true,
 			},
