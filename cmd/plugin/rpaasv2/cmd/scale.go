@@ -5,55 +5,65 @@
 package cmd
 
 import (
-	"context"
 	"fmt"
 
-	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
-	"github.com/urfave/cli"
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	"github.com/urfave/cli/v2"
 )
 
-func initScaleFlags() []cli.Flag {
-	return []cli.Flag{
-		cli.StringFlag{
-			Name:     "service, s",
-			Usage:    "service name",
-			Required: true,
+func NewCmdScale() *cli.Command {
+	return &cli.Command{
+		Name:  "scale",
+		Usage: "Sets the number of replicas for an instance",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.IntFlag{
+				Name:     "replicas",
+				Aliases:  []string{"quantity", "q"},
+				Usage:    "the desired replicas number",
+				Value:    -1,
+				Required: true,
+			},
 		},
-		cli.StringFlag{
-			Name:     "instance, i",
-			Usage:    "instance name",
-			Required: true,
-		},
-		cli.IntFlag{
-			Name:     "quantity, q",
-			Usage:    "amount of units to scale to",
-			Required: true,
-		},
+		Before: setupClient,
+		Action: runScale,
 	}
 }
 
-func Scale() cli.Command {
-	return cli.Command{
-		Name:  "scale",
-		Usage: "Scales the specified rpaas instance to [-q] replica(s)",
-		Flags: initScaleFlags(),
-
-		Action: func(ctx *cli.Context) error {
-			tsuruClient, err := client.NewTsuruClient(ctx.GlobalString("target"), ctx.String("service"), ctx.GlobalString("token"))
-			if err != nil {
-				return err
-			}
-
-			inst := client.ScaleInstance{Instance: client.Instance{Name: ctx.String("instance")}, Replicas: int32(ctx.Int("quantity"))}
-
-			err = tsuruClient.Scale(context.TODO(), inst)
-
-			if err != nil {
-				return err
-			}
-
-			fmt.Fprintf(ctx.App.Writer, "Instance successfully scaled to %d replica(s)\n", inst.Replicas)
-			return nil
-		},
+func runScale(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
 	}
+
+	scale := rpaasclient.ScaleArgs{
+		Instance: c.String("instance"),
+		Replicas: int32(c.Int("replicas")),
+	}
+	_, err = client.Scale(c.Context, scale)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "%s scaled to %d replica(s)\n", formatInstanceName(c), scale.Replicas)
+	return nil
+}
+
+func formatInstanceName(c *cli.Context) string {
+	var prefix string
+	if service := c.String("service"); service != "" {
+		prefix = fmt.Sprintf("%s/", service)
+	}
+
+	return fmt.Sprintf("%s%s", prefix, c.String("instance"))
 }
