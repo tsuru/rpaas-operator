@@ -256,7 +256,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						Host: "app1.tsuru.example.com",
+						Binds: []v1alpha1.Bind{v1alpha1.Bind{Host: "app1.tsuru.example.com"}},
 					},
 				},
 			},
@@ -281,7 +281,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						Host: "app1.tsuru.example.com",
+						Binds: []v1alpha1.Bind{v1alpha1.Bind{Host: "app1.tsuru.example.com"}},
 					},
 				},
 			},

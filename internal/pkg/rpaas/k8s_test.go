@@ -1828,7 +1828,7 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "another-instance"
-	instance2.Spec.Host = "app2.tsuru.example.com"
+	instance2.Spec.Binds = []v1alpha1.Bind{v1alpha1.Bind{Host: "app2.tsuru.example.com"}}
 
 	scheme := newScheme()
 	resources := []runtime.Object{instance1, instance2}
@@ -1866,7 +1866,7 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			},
 			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
-				assert.Equal(t, "app1.tsuru.example.com", ri.Spec.Host)
+				assert.Equal(t, "app1.tsuru.example.com", ri.Spec.Binds[0].Host)
 			},
 		},
 		{
@@ -1907,7 +1907,9 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "another-instance"
-	instance2.Spec.Host = "app2.tsuru.example.com"
+	instance2.Spec.Binds = make([]v1alpha1.Bind, 1)
+	instance2.Spec.Binds[0].Host = "app2.tsuru.example.com"
+	// instance2.Spec.Binds = []v1alpha1.Bind{v1alpha1.Bind{Host: "app2.tsuru.example.com"}}
 
 	scheme := newScheme()
 	resources := []runtime.Object{instance1, instance2}
@@ -1940,7 +1942,7 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 			instance: "another-instance",
 			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
-				assert.Equal(t, "", ri.Spec.Host)
+				assert.Equal(t, "", ri.Spec.Binds[0].Host)
 			},
 		},
 	}

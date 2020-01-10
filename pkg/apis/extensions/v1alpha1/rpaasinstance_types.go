@@ -32,7 +32,10 @@ type RpaasInstanceSpec struct {
 	// Host is the application address where all incoming HTTP will be
 	// forwarded for.
 	// +optional
-	Host string `json:"host,omitempty"`
+	// Host string `json:"host,omitempty"`
+
+	// WIP support multiple app bindings
+	Binds []Bind `json:"binds,omitempty"`
 
 	// Blocks are configuration file fragments added to the generated nginx
 	// config.
@@ -81,6 +84,11 @@ type RpaasInstanceSpec struct {
 	// some event happens to nginx container.
 	// +optional
 	Lifecycle *nginxv1alpha1.NginxLifecycle `json:"lifecycle,omitempty"`
+}
+
+type Bind struct {
+	Name string `json:"name"`
+	Host string `json:"host"`
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance

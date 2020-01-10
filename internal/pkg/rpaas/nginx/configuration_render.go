@@ -230,15 +230,26 @@ http {
     {{- end }}
     {{- end}}
 
-    {{- if $instance.Spec.Host }}
-    upstream rpaas_default_upstream {
-        server {{ $instance.Spec.Host }};
+		{{- range $index, $bind := $instance.Spec.Binds }}
 
-        {{- with $config.UpstreamKeepalive }}
-        keepalive {{ . }};
-        {{- end }}
-    }
-    {{- end }}
+			{{- if eq $index 0 }}
+				upstream rpaas_default_upstream {
+					server {{ $bind.Host }};
+
+					{{- with $config.UpstreamKeepalive }}
+					keepalive {{ . }};
+					{{- end }}
+			}
+			{{- end }}
+
+			upstream rpaas_backend_{{ $bind.Name }} {
+				server {{ $bind.Host }};
+			{{- with $config.UpstreamKeepalive }}
+			keepalive {{ . }};
+			{{- end }}
+			}
+
+		{{- end }}
 
     {{- range $_, $location := $instance.Spec.Locations }}
     {{- if $location.Destination }}
@@ -334,10 +345,10 @@ http {
         {{- end }}
 
         {{- if not (hasRootPath $instance.Spec.Locations) }}
-        {{- if $instance.Spec.Host }}
+        {{- if $instance.Spec.Binds }}
         location / {
             proxy_set_header Connection "";
-            proxy_set_header Host {{ $instance.Spec.Host }};
+            proxy_set_header Host {{ (index $instance.Spec.Binds 0).Host }};
 
             proxy_pass http://rpaas_default_upstream/;
             proxy_redirect ~^http://rpaas_default_upstream(:\d+)?/(.*)$ /$2;
