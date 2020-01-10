@@ -1875,9 +1875,23 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			args: BindAppArgs{
 				AppHost: "app1.tsuru.example.com",
 			},
-			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				app1 := ri.Spec.Binds[0]
+				assert.Equal(t, "app2.tsuru.example.com", app1.Host)
+				app2 := ri.Spec.Binds[1]
+				assert.Equal(t, "app1.tsuru.example.com", app2.Host)
+			},
+		},
+		{
+			name:     "when instance already bound with the application",
+			instance: "another-instance",
+			args: BindAppArgs{
+				AppHost: "app2.tsuru.example.com",
+			},
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
-				expected := &ConflictError{Msg: "instance already bound with another application"}
+				expected := &ConflictError{Msg: "instance already bound with this application"}
 				assert.Equal(t, expected, err)
 			},
 		},

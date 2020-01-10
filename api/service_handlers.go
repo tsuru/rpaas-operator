@@ -175,7 +175,12 @@ func serviceUnbindApp(c echo.Context) error {
 		return err
 	}
 
-	if err = manager.UnbindApp(c.Request().Context(), c.Param("instance")); err != nil {
+	appName, err := formValue(c.Request(), "app-name")
+	if err != nil {
+		return err
+	}
+
+	if err = manager.UnbindApp(c.Request().Context(), appName, c.Param("instance")); err != nil {
 		return err
 	}
 
