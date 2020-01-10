@@ -755,11 +755,16 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 		return &ValidationError{Msg: "application host cannot be empty"}
 	}
 
-	if instance.Spec.Host != "" && instance.Spec.Host != args.AppHost {
-		return &ConflictError{Msg: "instance already bound with another application"}
+	if len(instance.Spec.Binds) > 0 {
+		if instance.Spec.Binds[0].Host != "" && instance.Spec.Binds[0].Host != args.AppHost {
+			return &ConflictError{Msg: "instance already bound with another application"}
+		}
 	}
 
-	instance.Spec.Host = args.AppHost
+	if instance.Spec.Binds == nil {
+		instance.Spec.Binds = make([]v1alpha1.Bind, 1)
+	}
+	instance.Spec.Binds[0].Host = args.AppHost
 
 	return m.cli.Update(ctx, instance)
 }
@@ -770,11 +775,13 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 		return err
 	}
 
-	if instance.Spec.Host == "" {
+	if len(instance.Spec.Binds) == 0 {
+		return &ValidationError{Msg: "instance not bound"}
+	} else if instance.Spec.Binds[0].Host == "" {
 		return &ValidationError{Msg: "instance not bound"}
 	}
 
-	instance.Spec.Host = ""
+	instance.Spec.Binds[0].Host = ""
 
 	return m.cli.Update(ctx, instance)
 }
