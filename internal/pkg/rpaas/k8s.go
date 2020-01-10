@@ -756,20 +756,22 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 	}
 
 	if len(instance.Spec.Binds) > 0 {
-		if instance.Spec.Binds[0].Host != "" && instance.Spec.Binds[0].Host != args.AppHost {
-			return &ConflictError{Msg: "instance already bound with another application"}
+		for _, value := range instance.Spec.Binds {
+			if value.Host == args.AppHost {
+				return &ConflictError{Msg: "instance already bound with this application"}
+			}
 		}
 	}
-
 	if instance.Spec.Binds == nil {
-		instance.Spec.Binds = make([]v1alpha1.Bind, 1)
+		instance.Spec.Binds = make([]v1alpha1.Bind, 0)
 	}
-	instance.Spec.Binds[0].Host = args.AppHost
+
+	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: args.AppHost, Name: args.AppName})
 
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) error {
+func (m *k8sRpaasManager) UnbindApp(ctx context.Context, appName, instanceName string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -782,6 +784,20 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName string) er
 	}
 
 	instance.Spec.Binds[0].Host = ""
+
+	var found bool
+	for i, bind := range instance.Spec.Binds {
+		if bind.Name == appName {
+			binds := instance.Spec.Certificates.Items
+			instance.Spec.Certificates.Items = append(binds[:i], binds[i+1:]...)
+			found = true
+			break
+		}
+	}
+
+	if !found {
+		return &NotFoundError{Msg: "app not found in instance bind list"}
+	}
 
 	return m.cli.Update(ctx, instance)
 }

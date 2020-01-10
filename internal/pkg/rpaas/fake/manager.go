@@ -36,7 +36,7 @@ type RpaasManager struct {
 	FakeGetExtraFiles     func(instanceName string) ([]rpaas.File, error)
 	FakeUpdateExtraFiles  func(instanceName string, files ...rpaas.File) error
 	FakeBindApp           func(instanceName string, args rpaas.BindAppArgs) error
-	FakeUnbindApp         func(instanceName string) error
+	FakeUnbindApp         func(appName, instanceName string) error
 	FakePurgeCache        func(instanceName string, args rpaas.PurgeCacheArgs) (int, error)
 	FakeDeleteRoute       func(instanceName, path string) error
 	FakeGetRoutes         func(instanceName string) ([]rpaas.Route, error)
@@ -188,9 +188,9 @@ func (m *RpaasManager) BindApp(ctx context.Context, instanceName string, args rp
 	return nil
 }
 
-func (m *RpaasManager) UnbindApp(ctx context.Context, instanceName string) error {
+func (m *RpaasManager) UnbindApp(ctx context.Context, appName, instanceName string) error {
 	if m.FakeUnbindApp != nil {
-		return m.FakeUnbindApp(instanceName)
+		return m.FakeUnbindApp(appName, instanceName)
 	}
 	return nil
 }
