@@ -1922,20 +1922,27 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "another-instance"
 	instance2.Spec.Binds = make([]v1alpha1.Bind, 1)
-	instance2.Spec.Binds[0].Host = "app2.tsuru.example.com"
-	// instance2.Spec.Binds = []v1alpha1.Bind{v1alpha1.Bind{Host: "app2.tsuru.example.com"}}
+	instance2.Spec.Binds[0] = v1alpha1.Bind{Host: "app2.tsuru.example.com", Name: "app2"}
+
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "instance-with-two-apps"
+	instance3.Spec.Binds = make([]v1alpha1.Bind, 2)
+	instance3.Spec.Binds[0] = v1alpha1.Bind{Host: "app2.tsuru.example.com", Name: "app2"}
+	instance3.Spec.Binds[1] = v1alpha1.Bind{Host: "app3.tsuru.example.com", Name: "app3"}
 
 	scheme := newScheme()
-	resources := []runtime.Object{instance1, instance2}
+	resources := []runtime.Object{instance1, instance2, instance3}
 
 	tests := []struct {
 		name      string
+		appName   string
 		instance  string
 		assertion func(t *testing.T, err error, got v1alpha1.RpaasInstance)
 	}{
 		{
 			name:     "when instance not found",
 			instance: "not-found-instance",
+			appName:  "",
 			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				expected := NotFoundError{Msg: "rpaas instance \"not-found-instance\" not found"}
@@ -1945,6 +1952,7 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 		{
 			name:     "when instance bound with no application",
 			instance: "my-instance",
+			appName:  "",
 			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				expected := &ValidationError{Msg: "instance not bound"}
@@ -1952,11 +1960,23 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 			},
 		},
 		{
-			name:     "when instance successfully unbound",
+			name:     "when instance is successfully unbound",
 			instance: "another-instance",
+			appName:  "app2",
 			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
-				assert.Equal(t, "", ri.Spec.Binds[0].Host)
+				assert.Equal(t, 0, len(ri.Spec.Binds))
+			},
+		},
+		{
+			name:     "instance bound with two apps, remaining app should become default",
+			instance: "instance-with-two-apps",
+			appName:  "app2",
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Equal(t, 1, len(ri.Spec.Binds))
+				assert.Equal(t, "app3.tsuru.example.com", ri.Spec.Binds[0].Host)
+				assert.Equal(t, "app3", ri.Spec.Binds[0].Name)
 			},
 		},
 	}
@@ -1964,7 +1984,7 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
-			unbindAppErr := manager.UnbindApp(context.Background(), tt.instance)
+			unbindAppErr := manager.UnbindApp(context.Background(), tt.appName, tt.instance)
 
 			var instance v1alpha1.RpaasInstance
 

@@ -472,16 +472,21 @@ func Test_serviceUnbindApp(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     string
+		requestBody  string
+		appName      string
 		expectedCode int
 		manager      rpaas.RpaasManager
 	}{
 		{
 			name:         "when unbind method returns no error",
 			instance:     "my-instance",
+			appName:      "some-app",
+			requestBody:  "app-name=some-app",
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
-				FakeUnbindApp: func(instanceName string) error {
+				FakeUnbindApp: func(appName, instanceName string) error {
 					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "some-app", appName)
 					return nil
 				},
 			},
@@ -489,9 +494,10 @@ func Test_serviceUnbindApp(t *testing.T) {
 		{
 			name:         "when UnbindApp returns an error",
 			instance:     "my-instance",
+			requestBody:  "app-name=some-app",
 			expectedCode: http.StatusBadRequest,
 			manager: &fake.RpaasManager{
-				FakeUnbindApp: func(instanceName string) error {
+				FakeUnbindApp: func(appName, instanceName string) error {
 					return &rpaas.ValidationError{Msg: "some error"}
 				},
 			},
@@ -506,7 +512,7 @@ func Test_serviceUnbindApp(t *testing.T) {
 			srv := httptest.NewServer(webApi.Handler())
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/bind-app", srv.URL, tt.instance)
-			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			request, err := http.NewRequest(http.MethodDelete, path, strings.NewReader(tt.requestBody))
 			require.NoError(t, err)
 			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 			rsp, err := srv.Client().Do(request)
