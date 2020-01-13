@@ -3,8 +3,7 @@ kind: RpaasPlan
 metadata:
   name: basic
 spec:
-  default: true
-  image: tsuru/nginx-tsuru:1.16.1
+  image: tsuru/nginx-tsuru:1.15.0
   config: {}
   resources:
     requests:
