@@ -779,20 +779,13 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, appName, instanceName s
 
 	if len(instance.Spec.Binds) == 0 {
 		return &ValidationError{Msg: "instance not bound"}
-	} else if instance.Spec.Binds[0].Host == "" {
+	}
+	if instance.Spec.Binds[0].Host == "" {
 		return &ValidationError{Msg: "instance not bound"}
 	}
 
 	if appName == "" {
 		return &ValidationError{Msg: "must specify an app name"}
-	}
-
-	if len(instance.Spec.Binds) == 1 {
-		if appName == instance.Spec.Binds[0].Name {
-			instance.Spec.Binds = []v1alpha1.Bind{}
-			return m.cli.Update(ctx, instance)
-		}
-		return &NotFoundError{Msg: "app not bound to instance"}
 	}
 
 	var found bool
