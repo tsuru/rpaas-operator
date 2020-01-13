@@ -1828,7 +1828,7 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "another-instance"
-	instance2.Spec.Binds = []v1alpha1.Bind{v1alpha1.Bind{Host: "app2.tsuru.example.com"}}
+	instance2.Spec.Binds = []v1alpha1.Bind{{Host: "app2.tsuru.example.com"}}
 
 	scheme := newScheme()
 	resources := []runtime.Object{instance1, instance2}
