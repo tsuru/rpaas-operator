@@ -239,7 +239,7 @@ func (api *rpaasApi) health() (bool, error) {
 }
 
 func (api *rpaasApi) bind(appName, instanceName, host string) error {
-	data := url.Values{"app-host": []string{host}}
+	data := url.Values{"app-host": []string{host}, "app-name": []string{appName}}
 	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/bind-app", api.address, instanceName), data)
 	if err != nil {
 		return err
@@ -258,6 +258,7 @@ func (api *rpaasApi) bind(appName, instanceName, host string) error {
 func (api *rpaasApi) unbind(appName, instanceName, host string) error {
 	requestBody := "app-name=" + appName
 	request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/resources/%s/bind-app", api.address, instanceName), strings.NewReader(requestBody))
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 	if err != nil {
 		return err
 	}
