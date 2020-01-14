@@ -233,7 +233,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 
 		helloServiceHost := fmt.Sprintf("hello.%s.svc", namespaceName)
-		err = api.bind(instanceName, helloServiceHost)
+		err = api.bind("", instanceName, helloServiceHost)
 		require.NoError(t, err)
 
 		time.Sleep(10 * time.Second)
