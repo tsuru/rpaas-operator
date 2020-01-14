@@ -777,13 +777,6 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, appName, instanceName s
 		return err
 	}
 
-	if len(instance.Spec.Binds) == 0 {
-		return &ValidationError{Msg: "instance not bound"}
-	}
-	if instance.Spec.Binds[0].Host == "" {
-		return &ValidationError{Msg: "instance not bound"}
-	}
-
 	if appName == "" {
 		return &ValidationError{Msg: "must specify an app name"}
 	}
