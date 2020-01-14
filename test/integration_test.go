@@ -264,6 +264,112 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 	})
 
+	t.Run("multiple binds with a local application", func(t *testing.T) {
+		instanceName := "my-instance" + strconv.Itoa(rand.Int())
+		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		planName := "basic"
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		err = apply("testdata/hello-app.yaml", namespaceName)
+		require.NoError(t, err)
+		defer func() {
+			err = delete("testdata/hello-app.yaml", namespaceName)
+			require.NoError(t, err)
+		}()
+		err = apply("testdata/echo-server.yaml", namespaceName)
+		require.NoError(t, err)
+		defer func() {
+			err = delete("testdata/echo-server.yaml", namespaceName)
+			require.NoError(t, err)
+		}()
+
+		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "2m", "-n", namespaceName)
+		require.NoError(t, err)
+		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=echo-server", "pod", "--timeout", "2m", "-n", namespaceName)
+		require.NoError(t, err)
+
+		assertInstanceReturns := func(localPort int, expectedBody string) {
+			rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
+			require.NoError(t, iErr)
+			defer rsp.Body.Close()
+			rawBody, iErr := ioutil.ReadAll(rsp.Body)
+			require.NoError(t, iErr)
+			assert.Equal(t, expectedBody, string(rawBody))
+		}
+
+		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
+		servicePort := "80"
+
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
+			assertInstanceReturns(localPort, "instance not bound\n")
+		})
+		require.NoError(t, err)
+
+		helloServiceHost := fmt.Sprintf("hello.%s.svc", namespaceName)
+		err = api.bind("hello-app", instanceName, helloServiceHost)
+		require.NoError(t, err)
+		echoServerServiceHost := fmt.Sprintf("echo-server.%s.svc", namespaceName)
+		err = api.bind("echo-server", instanceName, echoServerServiceHost)
+		require.NoError(t, err)
+
+		time.Sleep(10 * time.Second)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
+			assertInstanceReturns(localPort, "Hello World!")
+		})
+		require.NoError(t, err)
+
+		err = api.unbind("hello-app", instanceName, helloServiceHost)
+		require.NoError(t, err)
+
+		time.Sleep(10 * time.Second)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		assertInstanceReturns2 := func(localPort int, expectedCode int) {
+			rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
+			require.NoError(t, iErr)
+			assert.Equal(t, expectedCode, rsp.StatusCode)
+		}
+
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
+			assertInstanceReturns2(localPort, http.StatusOK)
+		})
+		require.NoError(t, err)
+
+		err = api.unbind("echo-server", instanceName, echoServerServiceHost)
+		require.NoError(t, err)
+
+		time.Sleep(10 * time.Second)
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
+		defer cancel()
+		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
+			assertInstanceReturns(localPort, "instance not bound\n")
+		})
+		require.NoError(t, err)
+
+	})
+
 	t.Run("adding and deleting routes", func(t *testing.T) {
 		instanceName := "my-instance-with-custom-routes"
 		teamName := "team-one-" + strconv.Itoa(rand.Int())
