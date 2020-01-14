@@ -248,7 +248,7 @@ func Test_RpaasApi(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		err = api.unbind(instanceName, helloServiceHost)
+		err = api.unbind("default", instanceName, helloServiceHost)
 		require.NoError(t, err)
 
 		time.Sleep(10 * time.Second)

@@ -238,9 +238,9 @@ func (api *rpaasApi) health() (bool, error) {
 	return rsp.StatusCode == http.StatusOK, nil
 }
 
-func (api *rpaasApi) bind(name, host string) error {
+func (api *rpaasApi) bind(appName, instanceName, host string) error {
 	data := url.Values{"app-host": []string{host}}
-	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/bind-app", api.address, name), data)
+	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/bind-app", api.address, instanceName), data)
 	if err != nil {
 		return err
 	}
@@ -250,13 +250,14 @@ func (api *rpaasApi) bind(name, host string) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("could not bind the instance %q: %v - Body %v", name, rsp, string(body))
+		return fmt.Errorf("could not bind the instance %q: %v - Body %v", instanceName, rsp, string(body))
 	}
 	return nil
 }
 
-func (api *rpaasApi) unbind(name, host string) error {
-	request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/resources/%s/bind-app", api.address, name), nil)
+func (api *rpaasApi) unbind(appName, instanceName, host string) error {
+	requestBody := "app-name=" + appName
+	request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/resources/%s/bind-app", api.address, instanceName), strings.NewReader(requestBody))
 	if err != nil {
 		return err
 	}
@@ -270,7 +271,7 @@ func (api *rpaasApi) unbind(name, host string) error {
 		if err != nil {
 			return err
 		}
-		return fmt.Errorf("could not unbind the instance %q: %v - Body %v", name, rsp, string(body))
+		return fmt.Errorf("could not unbind the instance %q: %v - Body %v", instanceName, rsp, string(body))
 	}
 	return nil
 }
