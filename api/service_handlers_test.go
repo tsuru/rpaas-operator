@@ -484,7 +484,7 @@ func Test_serviceUnbindApp(t *testing.T) {
 			requestBody:  "app-name=some-app",
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
-				FakeUnbindApp: func(appName, instanceName string) error {
+				FakeUnbindApp: func(instanceName, appName string) error {
 					assert.Equal(t, "my-instance", instanceName)
 					assert.Equal(t, "some-app", appName)
 					return nil
@@ -497,7 +497,7 @@ func Test_serviceUnbindApp(t *testing.T) {
 			requestBody:  "app-name=some-app",
 			expectedCode: http.StatusBadRequest,
 			manager: &fake.RpaasManager{
-				FakeUnbindApp: func(appName, instanceName string) error {
+				FakeUnbindApp: func(instanceName, appName string) error {
 					return &rpaas.ValidationError{Msg: "some error"}
 				},
 			},

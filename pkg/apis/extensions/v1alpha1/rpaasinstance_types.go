@@ -34,7 +34,7 @@ type RpaasInstanceSpec struct {
 	// +optional
 	// Host string `json:"host,omitempty"`
 
-	// WIP support multiple app bindings
+	// Binds is the list of apps bounded
 	Binds []Bind `json:"binds,omitempty"`
 
 	// Blocks are configuration file fragments added to the generated nginx
