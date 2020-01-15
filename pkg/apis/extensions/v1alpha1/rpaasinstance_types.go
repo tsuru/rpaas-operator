@@ -29,12 +29,7 @@ type RpaasInstanceSpec struct {
 	// PlanTemplate allow overriding fields in the specified plan.
 	PlanTemplate *RpaasPlanSpec `json:"planTemplate,omitempty"`
 
-	// Host is the application address where all incoming HTTP will be
-	// forwarded for.
-	// +optional
-	// Host string `json:"host,omitempty"`
-
-	// Binds is the list of apps bounded
+	// Binds is the list of apps bounded to the instance
 	Binds []Bind `json:"binds,omitempty"`
 
 	// Blocks are configuration file fragments added to the generated nginx
