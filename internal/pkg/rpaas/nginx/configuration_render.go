@@ -230,26 +230,26 @@ http {
     {{- end }}
     {{- end}}
 
-		{{- range $index, $bind := $instance.Spec.Binds }}
+    {{- range $index, $bind := $instance.Spec.Binds }}
 
-			{{- if eq $index 0 }}
-				upstream rpaas_default_upstream {
-					server {{ $bind.Host }};
+      {{- if eq $index 0 }}
+        upstream rpaas_default_upstream {
+          server {{ $bind.Host }};
 
-					{{- with $config.UpstreamKeepalive }}
-					keepalive {{ . }};
-					{{- end }}
-			}
-			{{- end }}
+          {{- with $config.UpstreamKeepalive }}
+          keepalive {{ . }};
+          {{- end }}
+      }
+      {{- end }}
 
-			upstream rpaas_backend_{{ $bind.Name }} {
-				server {{ $bind.Host }};
-			{{- with $config.UpstreamKeepalive }}
-			keepalive {{ . }};
-			{{- end }}
-			}
+      upstream rpaas_backend_{{ $bind.Name }} {
+        server {{ $bind.Host }};
+      {{- with $config.UpstreamKeepalive }}
+      keepalive {{ . }};
+      {{- end }}
+      }
 
-		{{- end }}
+    {{- end }}
 
     {{- range $_, $location := $instance.Spec.Locations }}
     {{- if $location.Destination }}
