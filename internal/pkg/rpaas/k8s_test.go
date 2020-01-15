@@ -1950,15 +1950,26 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 			},
 		},
 		{
-			name:     "when instance bound with no application",
+			name:     "when instance is not bound to an application",
+			instance: "my-instance",
+			appName:  "fake-app",
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &NotFoundError{Msg: "app not found in instance bind list"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
+			name:     "when no app name is specified",
 			instance: "my-instance",
 			appName:  "",
 			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
-				expected := &ValidationError{Msg: "instance not bound"}
+				expected := &ValidationError{Msg: "must specify an app name"}
 				assert.Equal(t, expected, err)
 			},
 		},
+
 		{
 			name:     "when instance is successfully unbound",
 			instance: "another-instance",
