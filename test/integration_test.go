@@ -340,7 +340,7 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
-		assertInstanceReturns2 := func(localPort int, expectedCode int) {
+		assertInstanceReturnsStatusCode := func(localPort int, expectedCode int) {
 			rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
 			require.NoError(t, iErr)
 			assert.Equal(t, expectedCode, rsp.StatusCode)
