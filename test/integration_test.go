@@ -349,7 +349,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns2(localPort, http.StatusOK)
+			assertInstanceReturnsStatusCode(localPort, http.StatusOK)
 		})
 		require.NoError(t, err)
 
