@@ -771,7 +771,7 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) UnbindApp(ctx context.Context, appName, instanceName string) error {
+func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err

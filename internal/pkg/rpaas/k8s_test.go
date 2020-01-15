@@ -1995,7 +1995,7 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
-			unbindAppErr := manager.UnbindApp(context.Background(), tt.appName, tt.instance)
+			unbindAppErr := manager.UnbindApp(context.Background(), tt.instance, tt.appName)
 
 			var instance v1alpha1.RpaasInstance
 
