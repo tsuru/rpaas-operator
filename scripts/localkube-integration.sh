@@ -254,12 +254,13 @@ local_rpaas_api_port=39999
 ${kubectl_bin} -n "${rpaas_system_namespace}" port-forward svc/rpaas-api ${local_rpaas_api_port}:9999 --address=127.0.0.1 &
 kubectl_port_forward_pid=${!}
 
-sleep 10s
+# sleep 10s
 
-RPAAS_API_ADDRESS="http://127.0.0.1:${local_rpaas_api_port}" \
-RPAAS_OPERATOR_INTEGRATION=1                                 \
-go test -test.v ./...
+# RPAAS_API_ADDRESS="http://127.0.0.1:${local_rpaas_api_port}" \
+# RPAAS_OPERATOR_INTEGRATION=1                                 \
+# go test -test.v ./... -run Test_RpaasApi/bind_and_unbind_with_a_local_application
 
-kill ${kubectl_port_forward_pid}
+
+# kill ${kubectl_port_forward_pid}
 
 # delete_k8s_cluster "${kind_bin}" "${cluster_name}"

@@ -163,3 +163,7 @@ type CertificateData struct {
 	Certificate string `json:"certificate"`
 	Key         string `json:"key"`
 }
+
+type InstanceInfo struct {
+	v1alpha1.RpaasInstanceSpec
+}

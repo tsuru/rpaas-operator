@@ -20,6 +20,7 @@ require (
 	github.com/tsuru/nginx-operator v0.5.0
 	github.com/urfave/cli/v2 v2.0.0
 	github.com/willf/bitset v1.1.10
+	google.golang.org/appengine v1.6.1
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible

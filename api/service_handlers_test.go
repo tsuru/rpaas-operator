@@ -7,7 +7,6 @@ package api
 import (
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -608,9 +607,4 @@ func Test_serviceStatus(t *testing.T) {
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
 		})
 	}
-}
-
-func bodyContent(rsp *http.Response) string {
-	data, _ := ioutil.ReadAll(rsp.Body)
-	return string(data)
 }

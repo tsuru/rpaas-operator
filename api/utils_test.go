@@ -6,8 +6,11 @@ package api
 
 import (
 	"bytes"
+	"io/ioutil"
 	"mime/multipart"
+	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -43,4 +46,9 @@ func newTestingServer(t *testing.T, m rpaas.RpaasManager) *httptest.Server {
 	require.NoError(t, err)
 	webApi.rpaasManager = m
 	return httptest.NewServer(webApi.Handler())
+}
+
+func bodyContent(rsp *http.Response) string {
+	data, _ := ioutil.ReadAll(rsp.Body)
+	return strings.TrimSuffix(string(data), "\n")
 }
