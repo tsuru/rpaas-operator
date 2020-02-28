@@ -51,7 +51,7 @@ func Test_instanceInfo(t *testing.T) {
 			},
 
 			expectedCode: http.StatusOK,
-			expectedBody: `{"planName":"","podTemplate":{}}`,
+			expectedBody: `{}`,
 		},
 		{
 			name:         "when instance has Spec",
@@ -80,11 +80,11 @@ func Test_instanceInfo(t *testing.T) {
 					}, nil
 				},
 				FakeInstanceAddress: func(string) (string, error) {
-					return "", nil
+					return "fakeAddress", nil
 				},
 			},
 			expectedCode: http.StatusOK,
-			expectedBody: `{"replicas":5,"planName":"my-plan","locations":[{"path":"/status"},{"path":"/admin"}],"service":{"loadBalancerIP":"127.0.0.1"},"podTemplate":{}}`,
+			expectedBody: `{"replicas":5,"plan":"my-plan","locations":[{"path":"/status"},{"path":"/admin"}],"service":{"loadBalancerIP":"127.0.0.1"}}`,
 		},
 	}
 	for _, tt := range tests {

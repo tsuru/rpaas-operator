@@ -23,7 +23,15 @@ func instanceInfo(c echo.Context) error {
 	}
 
 	var infoHelper rpaas.InstanceInfo
-	infoHelper.RpaasInstanceSpec = instance.Spec
+	infoHelper.Replicas = instance.Spec.Replicas
+	infoHelper.Plan = instance.Spec.PlanName
+	infoHelper.Locations = instance.Spec.Locations
+	infoHelper.Service = instance.Spec.Service
+	_, err = manager.GetInstanceAddress(c.Request().Context(), instanceName)
+	if err != nil {
+		return err
+	}
+	// infoHelper.Address.Ip = ipAddress
 
 	return c.JSON(http.StatusOK, infoHelper)
 }

@@ -164,6 +164,17 @@ type CertificateData struct {
 	Key         string `json:"key"`
 }
 
+type InstanceAddress struct {
+	Hostname string `json:"hostname,omitempty"`
+	Ip       string `json:"ip,omitempty"`
+}
+
 type InstanceInfo struct {
-	v1alpha1.RpaasInstanceSpec
+	// RawSpec   v1alpha1.RpaasInstanceSpec `json:"omitempty"`
+	Address   *InstanceAddress                     `json:"address,omitempty"`
+	Replicas  *int32                               `json:"replicas,omitempty"`
+	Plan      string                               `json:"plan,omitempty"`
+	Locations []v1alpha1.Location                  `json:"locations,omitempty"`
+	Service   *nginxv1alpha1.NginxService          `json:"service,omitempty"`
+	Autoscale *v1alpha1.RpaasInstanceAutoscaleSpec `json:"autoscale,omitempty"`
 }
