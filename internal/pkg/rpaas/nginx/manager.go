@@ -15,7 +15,8 @@ import (
 const (
 	PortNameHTTP       = "http"
 	PortNameHTTPS      = "https"
-	PortNameManagement = "management"
+	PortNameMetrics    = "nginx-metrics"
+	PortNameManagement = PortNameMetrics
 
 	defaultManagePort         = 8800
 	defaultPurgeTimeout       = time.Duration(1 * time.Second)
