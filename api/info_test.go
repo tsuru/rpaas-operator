@@ -41,20 +41,20 @@ func Test_instanceInfo(t *testing.T) {
 						},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "my-instance",
+							Annotations: map[string]string{
+								"team-owner": "some-team",
+							},
 						},
 						Spec: v1alpha1.RpaasInstanceSpec{},
 					}, nil
 				},
-				FakeInstanceAddress: func(string) (string, error) {
-					return "", nil
-				},
 			},
 
 			expectedCode: http.StatusOK,
-			expectedBody: `{}`,
+			expectedBody: `{"address":{},"team":"some-team","name":"my-instance"}`,
 		},
 		{
-			name:         "when instance has Spec",
+			name:         "when instance has full InstanceInfo attributes",
 			instanceName: "my-instance",
 			manager: &fake.RpaasManager{
 				FakeGetInstance: func(string) (*v1alpha1.RpaasInstance, error) {
@@ -65,9 +65,21 @@ func Test_instanceInfo(t *testing.T) {
 						},
 						ObjectMeta: metav1.ObjectMeta{
 							Name: "my-instance",
+							Annotations: map[string]string{
+								"rpaas.extensions.tsuru.io/team-owner": "t1",
+								"description":                          "some-description",
+								"tags":                                 "tag1,tag2,tag3,tag4",
+							},
 						},
 						Spec: v1alpha1.RpaasInstanceSpec{
 							Replicas: getAddressOfInt32(5),
+							Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+								MaxReplicas:                       3,
+								MinReplicas:                       pointerToInt(1),
+								TargetCPUUtilizationPercentage:    pointerToInt(70),
+								TargetMemoryUtilizationPercentage: pointerToInt(1024),
+							},
+
 							PlanName: "my-plan",
 							Service: &nginxv1alpha1.NginxService{
 								LoadBalancerIP: "127.0.0.1",
@@ -80,11 +92,11 @@ func Test_instanceInfo(t *testing.T) {
 					}, nil
 				},
 				FakeInstanceAddress: func(string) (string, error) {
-					return "fakeAddress", nil
+					return "fakeIP", nil
 				},
 			},
 			expectedCode: http.StatusOK,
-			expectedBody: `{"replicas":5,"plan":"my-plan","locations":[{"path":"/status"},{"path":"/admin"}],"service":{"loadBalancerIP":"127.0.0.1"}}`,
+			expectedBody: `{"address":{"ip":"fakeIP"},"replicas":5,"plan":"my-plan","locations":[{"path":"/status"},{"path":"/admin"}],"service":{"loadBalancerIP":"127.0.0.1"},"autoscale":{"maxReplicas":3,"minReplicas":1,"targetCPUUtilizationPercentage":70,"targetMemoryUtilizationPercentage":1024},"team":"t1","name":"my-instance","description":"some-description","tags":["tag1","tag2","tag3",",tag4"]}`,
 		},
 	}
 	for _, tt := range tests {

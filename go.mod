@@ -8,6 +8,7 @@ require (
 	github.com/go-openapi/spec v0.19.2
 	github.com/google/gops v0.3.6
 	github.com/imdario/mergo v0.3.8
+	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/echo/v4 v4.1.11
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4

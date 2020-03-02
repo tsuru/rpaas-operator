@@ -9,7 +9,31 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
+
+type infoPayload struct {
+	instance     *v1alpha1.RpaasInstance
+	instanceName string
+	ctx          echo.Context
+	manager      rpaas.RpaasManager
+}
+
+func execInfoPayload(payload infoPayload) (rpaas.InfoBuilder, error) {
+	infoHelper := rpaas.NewInfoInstance(payload.instance)
+
+	err := infoHelper.SetAddress(payload.ctx.Request().Context(), payload.manager, payload.instanceName)
+	if err != nil {
+		return infoHelper, err
+	}
+
+	err = infoHelper.SetTeam(payload.instance)
+	if err != nil {
+		return infoHelper, err
+	}
+
+	return infoHelper, nil
+}
 
 func instanceInfo(c echo.Context) error {
 	manager, err := getManager(c)
@@ -22,16 +46,17 @@ func instanceInfo(c echo.Context) error {
 		return err
 	}
 
-	var infoHelper rpaas.InstanceInfo
-	infoHelper.Replicas = instance.Spec.Replicas
-	infoHelper.Plan = instance.Spec.PlanName
-	infoHelper.Locations = instance.Spec.Locations
-	infoHelper.Service = instance.Spec.Service
-	_, err = manager.GetInstanceAddress(c.Request().Context(), instanceName)
-	if err != nil {
-		return err
+	payload := infoPayload{
+		instance:     instance,
+		instanceName: instanceName,
+		ctx:          c,
+		manager:      manager,
 	}
-	// infoHelper.Address.Ip = ipAddress
 
-	return c.JSON(http.StatusOK, infoHelper)
+	info, err := execInfoPayload(payload)
+	if err != nil {
+		return c.JSON(http.StatusInternalServerError, info)
+	}
+
+	return c.JSON(http.StatusOK, info)
 }
