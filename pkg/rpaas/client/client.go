@@ -69,10 +69,16 @@ type Route struct {
 	Content     string `json:"content,omitempty"`
 }
 
+type InfoArgs struct {
+	Instance string
+	Service  string
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
 	Scale(ctx context.Context, args ScaleArgs) (*http.Response, error)
+	Info(ctx context.Context, args InfoArgs) (*http.Response, error)
 	UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) (*http.Response, error)
 	UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error)
 	DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error)

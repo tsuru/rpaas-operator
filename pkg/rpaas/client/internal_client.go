@@ -132,6 +132,17 @@ func (args ScaleArgs) Validate() error {
 	return nil
 }
 
+func (args InfoArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.Service == "" {
+		return ErrMissingTsuruService
+	}
+	return nil
+}
+
 func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, err
@@ -145,6 +156,28 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	response, err := c.do(ctx, request)
 	if err != nil {
 		return response, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return response, ErrUnexpectedStatusCode
+	}
+
+	return response, nil
+}
+
+func (c *client) Info(ctx context.Context, args InfoArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("Info", args)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return nil, err
 	}
 
 	if response.StatusCode != http.StatusOK {
@@ -416,6 +449,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		body := strings.NewReader(values.Encode())
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	case "Info":
+		args := data.(InfoArgs)
+		pathName := fmt.Sprintf("/resources/%s/info", args.Instance)
+		req, err = c.newRequest("GET", pathName, nil, args.Instance)
 
 	case "UpdateCertificate":
 		args := data.(UpdateCertificateArgs)

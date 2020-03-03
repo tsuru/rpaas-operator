@@ -1,3 +1,9 @@
+// Copyright 2020 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
+package cmd
+
 import (
 	"fmt"
 
@@ -8,7 +14,7 @@ import (
 func NewCmdInfo() *cli.Command {
 	return &cli.Command{
 		Name:  "info",
-		Usage: "Sets the number of replicas for an instance",
+		Usage: "Retrieves information of the rpaas-operator instance given",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -21,16 +27,9 @@ func NewCmdInfo() *cli.Command {
 				Usage:    "the reverse proxy instance name",
 				Required: true,
 			},
-			&cli.IntFlag{
-				Name:     "replicas",
-				Aliases:  []string{"quantity", "q"},
-				Usage:    "the desired replicas number",
-				Value:    -1,
-				Required: true,
-			},
 		},
 		Before: setupClient,
-		Action: runScale,
+		Action: runInfo,
 	}
 }
 
@@ -40,15 +39,16 @@ func runInfo(c *cli.Context) error {
 		return err
 	}
 
-	scale := rpaasclient.ScaleArgs{
+	info := rpaasclient.InfoArgs{
 		Instance: c.String("instance"),
-		Replicas: int32(c.Int("replicas")),
+		Service:  c.String("service"),
 	}
-	_, err = client.Scale(c.Context, scale)
+	resp, err = client.Info(c.Context, info)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "%s scaled to %d replica(s)\n", formatInstanceName(c), scale.Replicas)
+	fmt.Sprintf("%v", resp.Body)
+
 	return nil
 }
