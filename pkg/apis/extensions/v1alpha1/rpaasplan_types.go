@@ -57,7 +57,7 @@ type RpaasPlanList struct {
 type NginxConfig struct {
 	User string `json:"user,omitempty"`
 
-	UpstreamKeepalive int `json:"upstreamKeepAlive,omitempty"`
+	UpstreamKeepalive int `json:"upstreamKeepalive,omitempty"`
 
 	CacheEnabled     *bool  `json:"cacheEnabled,omitempty"`
 	CacheInactive    string `json:"cacheInactive,omitempty"`
