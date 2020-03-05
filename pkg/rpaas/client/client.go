@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -78,7 +79,7 @@ type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
 	Scale(ctx context.Context, args ScaleArgs) (*http.Response, error)
-	Info(ctx context.Context, args InfoArgs) (*http.Response, error)
+	Info(ctx context.Context, args InfoArgs) (*rpaas.InfoBuilder, *http.Response, error)
 	UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) (*http.Response, error)
 	UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error)
 	DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error)

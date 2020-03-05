@@ -19,6 +19,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -165,26 +166,30 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	return response, nil
 }
 
-func (c *client) Info(ctx context.Context, args InfoArgs) (*http.Response, error) {
+func (c *client) Info(ctx context.Context, args InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	request, err := c.buildRequest("Info", args)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
+	// unmarshalBody
+	defer response.Body.Close()
+	var infoPayload rpaas.InfoBuilder
+	json.NewDecoder(response.Body).Decode(&infoPayload)
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode
+		return &infoPayload, response, ErrUnexpectedStatusCode
 	}
 
-	return response, nil
+	return &infoPayload, response, nil
 }
 
 func (args UpdateCertificateArgs) Validate() error {

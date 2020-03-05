@@ -5,7 +5,7 @@
 package cmd
 
 import (
-	"fmt"
+	"text/template"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
@@ -33,6 +33,43 @@ func NewCmdInfo() *cli.Command {
 	}
 }
 
+func prepareTemplate() (*template.Template, error) {
+	tmp := `
+{{- with .Address }}{{ "\n" }}
+Address:
+    Hostname: {{ .Hostname }}
+    Ip: {{ .Ip }}
+{{ end }}
+{{- with .Replicas }}{{ "\n" }}
+Replicas: {{ . }}
+{{- end }}
+{{- with .Plan }}{{ "\n" }}
+Plan: {{ . }}
+{{- end }}
+{{- with .Locations }}{{ "\n" }}
+{{- range $index, $location := . }}{{ with not $index }}{{ "\n" }}{{ end }}
+{{- end }}
+{{- end }}
+Locations: {{ .Locations }}
+Service; {{ .Service }}
+Autoscale: {{ .Autoscale }}
+Binds: {{ .Binds }}
+{{- with .Team }}{{ "\n" }}
+Team: {{ . }}
+{{ end }}
+{{- with .Name }}{{ "\n" }}
+Name: {{ . }}
+{{ end }}
+{{- with .Description }}{{ "\n" }}
+Description: {{ . }}
+{{ end }}
+{{- range $index, $tag := . }}{{ with not $index }}{{ "\n" }}{{ end }}
+  $index: {{ $tag}}
+{{- end }}
+`
+	return template.New("root").Parse(tmp)
+}
+
 func runInfo(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
@@ -43,12 +80,19 @@ func runInfo(c *cli.Context) error {
 		Instance: c.String("instance"),
 		Service:  c.String("service"),
 	}
-	resp, err = client.Info(c.Context, info)
+
+	infoPayload, _, err := client.Info(c.Context, info)
 	if err != nil {
 		return err
 	}
 
-	fmt.Sprintf("%v", resp.Body)
+	tmpl, err := prepareTemplate()
+	if err != nil {
+		return err
+	}
+	if infoPayload != nil {
+		tmpl.Execute(c.App.Writer, infoPayload)
+	}
 
 	return nil
 }

@@ -19,7 +19,7 @@ type infoPayload struct {
 	manager      rpaas.RpaasManager
 }
 
-func execInfoPayload(payload infoPayload) (rpaas.InfoBuilder, error) {
+func generateInfoPayload(payload infoPayload) (*rpaas.InfoBuilder, error) {
 	infoHelper := rpaas.NewInfoInstance(payload.instance)
 
 	err := infoHelper.SetAddress(payload.ctx.Request().Context(), payload.manager, payload.instanceName)
@@ -53,7 +53,7 @@ func instanceInfo(c echo.Context) error {
 		manager:      manager,
 	}
 
-	info, err := execInfoPayload(payload)
+	info, err := generateInfoPayload(payload)
 	if err != nil {
 		return c.JSON(http.StatusInternalServerError, info)
 	}

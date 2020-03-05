@@ -31,6 +31,7 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 		NewCmdCertificates(),
 		NewCmdBlocks(),
 		NewCmdRoutes(),
+		NewCmdInfo(),
 	}
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{

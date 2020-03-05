@@ -186,8 +186,8 @@ type InfoBuilder struct {
 	Tags        []string                             `json:"tags,omitempty"`
 }
 
-func NewInfoInstance(instance *v1alpha1.RpaasInstance) InfoBuilder {
-	info := InfoBuilder{
+func NewInfoInstance(instance *v1alpha1.RpaasInstance) *InfoBuilder {
+	info := &InfoBuilder{
 		Replicas:  instance.Spec.Replicas,
 		Plan:      instance.Spec.PlanName,
 		Locations: instance.Spec.Locations,
