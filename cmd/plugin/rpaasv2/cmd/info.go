@@ -5,8 +5,12 @@
 package cmd
 
 import (
+	"encoding/json"
+	"fmt"
+	"io"
 	"text/template"
 
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
 )
@@ -27,6 +31,12 @@ func NewCmdInfo() *cli.Command {
 				Usage:    "the reverse proxy instance name",
 				Required: true,
 			},
+			&cli.BoolFlag{
+				Name:    "raw-output",
+				Aliases: []string{"r"},
+				Usage:   "show as JSON instead of go template format",
+				Value:   false,
+			},
 		},
 		Before: setupClient,
 		Action: runInfo,
@@ -35,39 +45,62 @@ func NewCmdInfo() *cli.Command {
 
 func prepareTemplate() (*template.Template, error) {
 	tmp := `
+{{- with .Name }}
+Name: {{ . }}
+{{- end }}
+{{- with .Team }}{{ "\n" }}
+Team: {{ . }}
+{{- end }}
+{{- with .Description }}{{ "\n" }}
+Description: {{ . }}
+{{ end }}
+Binds:
+{{- range $index, $bind:= .Binds }}{{- with not $index }}{{ end }}
+{{- with $bind }}
+    App: {{ .Name }}
+    Host: {{ .Host }} 
+{{ end }}
+{{- end }}
+Tags:
+{{- with .Tags }}
+{{- range $index, $tag := . }}{{- with not $index }}{{ end }}
+    {{ $tag}}
+{{- end }}
+{{- end }}
 {{- with .Address }}{{ "\n" }}
 Address:
     Hostname: {{ .Hostname }}
     Ip: {{ .Ip }}
-{{ end }}
+{{- end }}
 {{- with .Replicas }}{{ "\n" }}
 Replicas: {{ . }}
 {{- end }}
 {{- with .Plan }}{{ "\n" }}
 Plan: {{ . }}
+{{ end }}
+Locations:
+{{- with .Locations }}
+{{- range $index, $location := . }}
+{{- with $location }}
+    Path: {{ .Path }}
+    Destination: {{ .Destination }}
 {{- end }}
-{{- with .Locations }}{{ "\n" }}
-{{- range $index, $location := . }}{{ with not $index }}{{ "\n" }}{{ end }}
 {{- end }}
 {{- end }}
-Locations: {{ .Locations }}
-Service; {{ .Service }}
+Service: {{ .Service }}
 Autoscale: {{ .Autoscale }}
-Binds: {{ .Binds }}
-{{- with .Team }}{{ "\n" }}
-Team: {{ . }}
-{{ end }}
-{{- with .Name }}{{ "\n" }}
-Name: {{ . }}
-{{ end }}
-{{- with .Description }}{{ "\n" }}
-Description: {{ . }}
-{{ end }}
-{{- range $index, $tag := . }}{{ with not $index }}{{ "\n" }}{{ end }}
-  $index: {{ $tag}}
-{{- end }}
 `
 	return template.New("root").Parse(tmp)
+}
+
+func writeInfoOnJSONFormat(w io.Writer, payload *rpaas.InfoBuilder) error {
+	message, err := json.MarshalIndent(payload, "", "\t")
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintln(w, string(message))
+	return nil
 }
 
 func runInfo(c *cli.Context) error {
@@ -79,6 +112,7 @@ func runInfo(c *cli.Context) error {
 	info := rpaasclient.InfoArgs{
 		Instance: c.String("instance"),
 		Service:  c.String("service"),
+		Raw:      c.Bool("raw-output"),
 	}
 
 	infoPayload, _, err := client.Info(c.Context, info)
@@ -86,12 +120,19 @@ func runInfo(c *cli.Context) error {
 		return err
 	}
 
+	if info.Raw {
+		return writeInfoOnJSONFormat(c.App.Writer, infoPayload)
+	}
+
 	tmpl, err := prepareTemplate()
 	if err != nil {
 		return err
 	}
 	if infoPayload != nil {
-		tmpl.Execute(c.App.Writer, infoPayload)
+		err = tmpl.Execute(c.App.Writer, infoPayload)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

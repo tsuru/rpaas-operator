@@ -56,6 +56,57 @@ func TestInfo(t *testing.T) {
 							Hostname: "some-host",
 							Ip:       "0.0.0.0",
 						},
+						Plan: "basic",
+						Binds: []v1alpha1.Bind{
+							v1alpha1.Bind{
+								Name: "some-name",
+								Host: "some-host",
+							},
+							v1alpha1.Bind{
+								Name: "some-name2",
+								Host: "some-host2",
+							},
+						},
+						Replicas: int32Ptr(5),
+						Locations: []v1alpha1.Location{
+							v1alpha1.Location{
+								Path:        "some-path",
+								Destination: "some-destination",
+							},
+						},
+						Team:        "some team",
+						Description: "some description",
+						Tags:        []string{"tag1", "tag2", "tag3"},
+					}, nil, nil
+				},
+			},
+			expected: `{"name":"my-instance"}`,
+		},
+		{
+			name: "when info route is successful and on json format",
+			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance", "--raw-output"},
+			client: &fake.FakeClient{
+				FakeInfo: func(args client.InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
+					require.Equal(t, args.Instance, "my-instance")
+					require.Equal(t, args.Service, "my-service")
+
+					return &rpaas.InfoBuilder{
+						Name: "my-instance",
+						Address: &rpaas.InstanceAddress{
+							Hostname: "some-host",
+							Ip:       "0.0.0.0",
+						},
+						Plan: "basic",
+						Binds: []v1alpha1.Bind{
+							v1alpha1.Bind{
+								Name: "some-name",
+								Host: "some-host",
+							},
+							v1alpha1.Bind{
+								Name: "some-name2",
+								Host: "some-host2",
+							},
+						},
 						Replicas: int32Ptr(5),
 						Locations: []v1alpha1.Location{
 							v1alpha1.Location{
