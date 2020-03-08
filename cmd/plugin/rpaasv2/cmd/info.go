@@ -48,53 +48,61 @@ func prepareTemplate() (*template.Template, error) {
 {{- with .Name }}
 Name: {{ . }}
 {{- end }}
-{{- with .Team }}{{ "\n" }}
+{{- with .Team }}
 Team: {{ . }}
 {{- end }}
-{{- with .Description }}{{ "\n" }}
+{{- with .Description }}
 Description: {{ . }}
-{{ end }}
+{{- end }}
+{{- with .Binds }}
 Binds:
-{{- range $index, $bind:= .Binds }}{{- with not $index }}{{ end }}
+{{- range $index, $bind:= . }}{{- with not $index }}{{ end }}
 {{- with $bind }}
+    #Bind {{ $index }}
     App: {{ .Name }}
     Host: {{ .Host }} 
-{{ end }}
 {{- end }}
-Tags:
+{{- end }}
+{{- end }}
 {{- with .Tags }}
+Tags:
 {{- range $index, $tag := . }}{{- with not $index }}{{ end }}
-    {{ $tag}}
+    {{ $tag }}
 {{- end }}
 {{- end }}
-{{- with .Address }}{{ "\n" }}
+{{- with .Address }}
 Address:
     Hostname: {{ .Hostname }}
     Ip: {{ .Ip }}
 {{- end }}
-{{- with .Replicas }}{{ "\n" }}
+{{- with .Replicas }}
 Replicas: {{ . }}
 {{- end }}
-{{- with .Plan }}{{ "\n" }}
+{{- with .Plan }}
 Plan: {{ . }}
-{{ end }}
-Locations:
+{{- end }}
 {{- with .Locations }}
+Locations:
 {{- range $index, $location := . }}
+    #Location {{ $index }}
 {{- with $location }}
     Path: {{ .Path }}
     Destination: {{ .Destination }}
 {{- end }}
 {{- end }}
 {{- end }}
+{{- with .Service }}{{ "\n" }}
 Service: {{ .Service }}
+{{- end }}
+{{- with .Autoscale }}{{ "\n" }}
 Autoscale: {{ .Autoscale }}
+{{- end }}
 `
 	return template.New("root").Parse(tmp)
 }
 
 func writeInfoOnJSONFormat(w io.Writer, payload *rpaas.InfoBuilder) error {
-	message, err := json.MarshalIndent(payload, "", "\t")
+	message, err := json.Marshal(payload)
 	if err != nil {
 		return err
 	}

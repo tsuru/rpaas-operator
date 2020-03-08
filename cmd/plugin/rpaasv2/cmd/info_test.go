@@ -74,13 +74,37 @@ func TestInfo(t *testing.T) {
 								Destination: "some-destination",
 							},
 						},
-						Team:        "some team",
+						Team:        "some-team",
 						Description: "some description",
 						Tags:        []string{"tag1", "tag2", "tag3"},
 					}, nil, nil
 				},
 			},
-			expected: `{"name":"my-instance"}`,
+			expected: `
+Name: my-instance
+Team: some-team
+Description: some description
+Binds:
+    #Bind 0
+    App: some-name
+    Host: some-host
+    #Bind 1
+    App: some-name2
+    Host: some-host2
+Tags:
+    tag1
+    tag2
+    tag3
+Address:
+    Hostname: some-host
+    Ip: 0.0.0.0
+Replicas: 5
+Plan: basic
+Locations:
+    #Location 0
+    Path: some-path
+    Destination: some-destination
+`,
 		},
 		{
 			name: "when info route is successful and on json format",
@@ -120,7 +144,8 @@ func TestInfo(t *testing.T) {
 					}, nil, nil
 				},
 			},
-			expected: `{"name":"my-instance"}`,
+			expected: `{"address":{"hostname":"some-host","ip":"0.0.0.0"},"replicas":5,"plan":"basic","locations":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host"},{"name":"some-name2","host":"some-host2"}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}
+`,
 		},
 	}
 
