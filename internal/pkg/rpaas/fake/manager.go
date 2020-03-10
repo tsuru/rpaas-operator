@@ -45,10 +45,10 @@ type RpaasManager struct {
 	FakeCreateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
 	FakeUpdateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
 	FakeDeleteAutoscale   func(name string) error
-	FakeGetInstanceInfo   func(instanceName string) (*rpaas.InfoBuilder, error)
+	FakeGetInstanceInfo   func(instanceName string) (*rpaas.InstanceInfo, error)
 }
 
-func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*rpaas.InfoBuilder, error) {
+func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*rpaas.InstanceInfo, error) {
 	if m.FakeGetInstanceInfo != nil {
 		return m.FakeGetInstanceInfo(instanceName)
 	}

@@ -103,7 +103,7 @@ Autoscale: {{ .Autoscale }}
 	return template.New("root").Parse(tmp)
 }
 
-func writeInfoOnJSONFormat(w io.Writer, payload *rpaas.InfoBuilder) error {
+func writeInfoOnJSONFormat(w io.Writer, payload *rpaas.InstanceInfo) error {
 	message, err := json.Marshal(payload)
 	if err != nil {
 		return err

@@ -166,7 +166,7 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	return response, nil
 }
 
-func (c *client) Info(ctx context.Context, args InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
+func (c *client) Info(ctx context.Context, args InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, err
 	}
@@ -182,7 +182,7 @@ func (c *client) Info(ctx context.Context, args InfoArgs) (*rpaas.InfoBuilder, *
 	}
 	// unmarshalBody
 	defer response.Body.Close()
-	var infoPayload rpaas.InfoBuilder
+	var infoPayload rpaas.InstanceInfo
 	json.NewDecoder(response.Body).Decode(&infoPayload)
 
 	if response.StatusCode != http.StatusOK {

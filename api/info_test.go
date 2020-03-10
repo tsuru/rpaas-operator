@@ -29,9 +29,9 @@ func Test_instanceInfo(t *testing.T) {
 			name:         "when instance is found",
 			instanceName: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InfoBuilder, error) {
+				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InstanceInfo, error) {
 					assert.Equal(t, "my-instance", instanceName)
-					return &rpaas.InfoBuilder{
+					return &rpaas.InstanceInfo{
 						Address: []rpaas.InstanceAddress{
 							{
 								Hostname: "some host name",
@@ -89,7 +89,7 @@ func Test_instanceInfo(t *testing.T) {
 			name:         "when some error occurs while creating the info Payload",
 			instanceName: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InfoBuilder, error) {
+				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InstanceInfo, error) {
 					assert.Equal(t, "my-instance", instanceName)
 					return nil, errors.New("error while setting address")
 				},

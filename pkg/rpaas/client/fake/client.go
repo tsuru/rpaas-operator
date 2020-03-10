@@ -24,12 +24,12 @@ type FakeClient struct {
 	FakeDeleteRoute       func(args client.DeleteRouteArgs) (*http.Response, error)
 	FakeListRoutes        func(args client.ListRoutesArgs) ([]client.Route, *http.Response, error)
 	FakeUpdateRoute       func(args client.UpdateRouteArgs) (*http.Response, error)
-	FakeInfo              func(args client.InfoArgs) (*rpaas.InfoBuilder, *http.Response, error)
+	FakeInfo              func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
 
-func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
+func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
 	if f.FakeInfo != nil {
 		return f.FakeInfo(args)
 	}

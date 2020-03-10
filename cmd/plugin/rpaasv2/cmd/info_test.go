@@ -35,7 +35,7 @@ func TestInfo(t *testing.T) {
 			args:          []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
 			expectedError: "not found error",
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					require.Equal(t, args.Service, "my-service")
 					return nil, nil, fmt.Errorf("not found error")
@@ -46,10 +46,10 @@ func TestInfo(t *testing.T) {
 			name: "when info route is successful",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					require.Equal(t, args.Service, "my-service")
-					return &rpaas.InfoBuilder{
+					return &rpaas.InstanceInfo{
 						Name: "my-instance",
 						Address: []rpaas.InstanceAddress{
 							{
@@ -119,11 +119,11 @@ Locations:
 			name: "when info route is successful and on json format",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance", "--raw-output"},
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					require.Equal(t, args.Service, "my-service")
 
-					return &rpaas.InfoBuilder{
+					return &rpaas.InstanceInfo{
 						Name: "my-instance",
 						Address: []rpaas.InstanceAddress{
 							{

@@ -156,7 +156,7 @@ type RpaasManager interface {
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName, appName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
-	GetInstanceInfo(ctx context.Context, instanceName string) (*InfoBuilder, error)
+	GetInstanceInfo(ctx context.Context, instanceName string) (*InstanceInfo, error)
 }
 
 type CertificateData struct {
@@ -170,7 +170,7 @@ type InstanceAddress struct {
 	Ip       string `json:"ip,omitempty"`
 }
 
-type InfoBuilder struct {
+type InstanceInfo struct {
 	Address     []InstanceAddress                    `json:"address,omitempty"`
 	Replicas    *int32                               `json:"replicas,omitempty"`
 	Plan        string                               `json:"plan,omitempty"`

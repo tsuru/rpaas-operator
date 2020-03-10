@@ -1377,8 +1377,8 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }
 
-func NewInfoInstance(instance *v1alpha1.RpaasInstance) *InfoBuilder {
-	info := &InfoBuilder{
+func NewInfoInstance(instance *v1alpha1.RpaasInstance) *InstanceInfo {
+	info := &InstanceInfo{
 		Replicas:  instance.Spec.Replicas,
 		Plan:      instance.Spec.PlanName,
 		Locations: instance.Spec.Locations,
@@ -1418,7 +1418,7 @@ func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *
 	return svc.Status.LoadBalancer.Ingress, nil
 }
 
-func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *InfoBuilder) error {
+func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *InstanceInfo) error {
 	for key, _ := range instance.ObjectMeta.Annotations {
 		matched, err := regexp.Match(`team-owner`, []byte(key))
 		if err != nil {
@@ -1455,7 +1455,7 @@ func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayl
 	return errors.New("instance has no team owner")
 }
 
-func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*InfoBuilder, error) {
+func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*InstanceInfo, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return nil, err
