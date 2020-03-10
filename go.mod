@@ -17,7 +17,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0
 	github.com/stretchr/testify v1.4.0
-	github.com/tsuru/nginx-operator v0.3.2-0.20191227150359-414ac11345d6
+	github.com/tsuru/nginx-operator v0.5.0
 	github.com/urfave/cli/v2 v2.0.0
 	github.com/willf/bitset v1.1.10
 	k8s.io/api v0.0.0
