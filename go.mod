@@ -8,7 +8,6 @@ require (
 	github.com/go-openapi/spec v0.19.2
 	github.com/google/gops v0.3.6
 	github.com/imdario/mergo v0.3.8
-	github.com/labstack/echo v3.3.10+incompatible
 	github.com/labstack/echo/v4 v4.1.11
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4
@@ -21,7 +20,6 @@ require (
 	github.com/tsuru/nginx-operator v0.5.0
 	github.com/urfave/cli/v2 v2.0.0
 	github.com/willf/bitset v1.1.10
-	google.golang.org/appengine v1.6.1
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible
