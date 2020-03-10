@@ -96,8 +96,12 @@ Locations:
 {{- end }}
 {{- end }}
 {{- end }}
-{{- with .Autoscale }}{{ "\n" }}
-Autoscale: {{ .Autoscale }}
+{{- with .Autoscale }}
+Autoscale:
+    MaxReplicas: {{ .MaxReplicas }}
+    MinReplicas: {{ .MinReplicas }}
+    TargetCPUUtilizationPercentage: {{ .TargetCPUUtilizationPercentage }}
+    TargetMemoryUtilizationPercentage: {{ .TargetMemoryUtilizationPercentage }}
 {{- end }}
 `
 	return template.New("root").Parse(tmp)

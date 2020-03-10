@@ -82,6 +82,12 @@ func TestInfo(t *testing.T) {
 						Team:        "some-team",
 						Description: "some description",
 						Tags:        []string{"tag1", "tag2", "tag3"},
+						Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+							MaxReplicas:                       5,
+							MinReplicas:                       int32Ptr(2),
+							TargetCPUUtilizationPercentage:    int32Ptr(55),
+							TargetMemoryUtilizationPercentage: int32Ptr(77),
+						},
 					}, nil, nil
 				},
 			},
@@ -113,6 +119,11 @@ Locations:
     #Location 0
     Path: some-path
     Destination: some-destination
+Autoscale:
+    MaxReplicas: 5
+    MinReplicas: 2
+    TargetCPUUtilizationPercentage: 55
+    TargetMemoryUtilizationPercentage: 77
 `,
 		},
 		{
