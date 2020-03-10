@@ -49,12 +49,17 @@ func TestInfo(t *testing.T) {
 				FakeInfo: func(args client.InfoArgs) (*rpaas.InfoBuilder, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					require.Equal(t, args.Service, "my-service")
-
 					return &rpaas.InfoBuilder{
 						Name: "my-instance",
-						Address: &rpaas.InstanceAddress{
-							Hostname: "some-host",
-							Ip:       "0.0.0.0",
+						Address: []rpaas.InstanceAddress{
+							{
+								Hostname: "some-host",
+								Ip:       "0.0.0.0",
+							},
+							{
+								Hostname: "some-host2",
+								Ip:       "0.0.0.1",
+							},
 						},
 						Plan: "basic",
 						Binds: []v1alpha1.Bind{
@@ -95,9 +100,13 @@ Tags:
     tag1
     tag2
     tag3
-Address:
-    Hostname: some-host
-    Ip: 0.0.0.0
+Adresses:
+    #Address 0:
+        Hostname: some-host
+        Ip: 0.0.0.0
+    #Address 1:
+        Hostname: some-host2
+        Ip: 0.0.0.1
 Replicas: 5
 Plan: basic
 Locations:
@@ -116,9 +125,15 @@ Locations:
 
 					return &rpaas.InfoBuilder{
 						Name: "my-instance",
-						Address: &rpaas.InstanceAddress{
-							Hostname: "some-host",
-							Ip:       "0.0.0.0",
+						Address: []rpaas.InstanceAddress{
+							{
+								Hostname: "some-host",
+								Ip:       "0.0.0.0",
+							},
+							{
+								Hostname: "some-host2",
+								Ip:       "0.0.0.1",
+							},
 						},
 						Plan: "basic",
 						Binds: []v1alpha1.Bind{
@@ -144,7 +159,7 @@ Locations:
 					}, nil, nil
 				},
 			},
-			expected: `{"address":{"hostname":"some-host","ip":"0.0.0.0"},"replicas":5,"plan":"basic","locations":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host"},{"name":"some-name2","host":"some-host2"}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}
+			expected: `{"address":[{"hostname":"some-host","ip":"0.0.0.0"},{"hostname":"some-host2","ip":"0.0.0.1"}],"replicas":5,"plan":"basic","locations":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host"},{"name":"some-name2","host":"some-host2"}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}
 `,
 		},
 	}

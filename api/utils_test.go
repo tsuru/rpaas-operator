@@ -24,6 +24,10 @@ type multipartFile struct {
 	content  string
 }
 
+func int32Ptr(n int32) *int32 {
+	return &n
+}
+
 func newMultipartFormBody(name string, files ...multipartFile) (string, error) {
 	b := &bytes.Buffer{}
 	w := multipart.NewWriter(b)

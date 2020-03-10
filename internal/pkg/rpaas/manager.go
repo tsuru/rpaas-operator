@@ -10,10 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
-	"regexp"
-	"strings"
 
-	"github.com/pkg/errors"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
@@ -159,6 +156,7 @@ type RpaasManager interface {
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName, appName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
+	GetInstanceInfo(ctx context.Context, instanceName string) (*InfoBuilder, error)
 }
 
 type CertificateData struct {
@@ -173,101 +171,14 @@ type InstanceAddress struct {
 }
 
 type InfoBuilder struct {
-	Address     *InstanceAddress                     `json:"address,omitempty"`
+	Address     []InstanceAddress                    `json:"address,omitempty"`
 	Replicas    *int32                               `json:"replicas,omitempty"`
 	Plan        string                               `json:"plan,omitempty"`
 	Locations   []v1alpha1.Location                  `json:"locations,omitempty"`
-	Service     *nginxv1alpha1.NginxService          `json:"service,omitempty"`
 	Autoscale   *v1alpha1.RpaasInstanceAutoscaleSpec `json:"autoscale,omitempty"`
 	Binds       []v1alpha1.Bind                      `json:"binds,omitempty"`
 	Team        string                               `json:"team,omitempty"`
 	Name        string                               `json:"name,omitempty"`
 	Description string                               `json:"description,omitempty"`
 	Tags        []string                             `json:"tags,omitempty"`
-}
-
-func NewInfoInstance(instance *v1alpha1.RpaasInstance) *InfoBuilder {
-	info := &InfoBuilder{
-		Replicas:  instance.Spec.Replicas,
-		Plan:      instance.Spec.PlanName,
-		Locations: instance.Spec.Locations,
-		Service:   instance.Spec.Service,
-		Autoscale: instance.Spec.Autoscale,
-		Binds:     instance.Spec.Binds,
-		Name:      instance.ObjectMeta.Name,
-	}
-
-	if desc, ok := instance.ObjectMeta.Annotations["description"]; ok {
-		info.Description = desc
-	}
-	info.parseTags(instance)
-
-	return info
-}
-
-func (i *InfoBuilder) SetAddress(ctx context.Context, manager RpaasManager, instanceName string) error {
-	address, err := manager.GetInstanceAddress(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	i.Address = &InstanceAddress{
-		Ip: address,
-	}
-	return nil
-}
-
-func (i *InfoBuilder) parseTags(instance *v1alpha1.RpaasInstance) {
-	re1 := regexp.MustCompile(`.*?,`)
-	re2 := regexp.MustCompile(`,\w*$`)
-	tags := re1.FindAll([]byte(instance.ObjectMeta.Annotations["tags"]), -1)
-	last_tag := re2.Find([]byte(instance.ObjectMeta.Annotations["tags"]))
-
-	var new_tags []string
-	for _, tag := range tags {
-		new_tags = append(new_tags, strings.TrimSuffix(string(tag), ","))
-	}
-	if last_tag != nil {
-		new_tags = append(new_tags, strings.TrimSuffix(string(last_tag), ","))
-	}
-
-	if len(new_tags) > 0 {
-		i.Tags = new_tags
-	}
-}
-
-func (i *InfoBuilder) SetTeam(instance *v1alpha1.RpaasInstance) error {
-	for key, _ := range instance.ObjectMeta.Annotations {
-		matched, err := regexp.Match(`team-owner`, []byte(key))
-		if err != nil {
-			return err
-		}
-		if matched {
-			i.Team = instance.ObjectMeta.Annotations[key]
-			return nil
-		}
-	}
-
-	for key, _ := range instance.Labels {
-		matched, err := regexp.Match(`team-owner`, []byte(key))
-		if err != nil {
-			return err
-		}
-		if matched {
-			i.Team = instance.Labels[key]
-			return nil
-		}
-	}
-
-	for key, _ := range instance.Spec.PodTemplate.Labels {
-		matched, err := regexp.Match(`team-owner`, []byte(key))
-		if err != nil {
-			return err
-		}
-		if matched {
-			i.Team = instance.Spec.PodTemplate.Labels[key]
-			return nil
-		}
-	}
-
-	return errors.New("instance has no team owner")
 }

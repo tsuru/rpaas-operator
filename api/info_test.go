@@ -5,23 +5,19 @@
 package api
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_instanceInfo(t *testing.T) {
-	getAddressOfInt32 := func(n int32) *int32 {
-		return &n
-	}
 	tests := []struct {
 		name         string
 		manager      rpaas.RpaasManager
@@ -30,73 +26,76 @@ func Test_instanceInfo(t *testing.T) {
 		instanceName string
 	}{
 		{
-			name:         "when instance is found but with nil Spec",
+			name:         "when instance is found",
 			instanceName: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeGetInstance: func(string) (*v1alpha1.RpaasInstance, error) {
-					return &v1alpha1.RpaasInstance{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: "extensions.tsuru.io/v1alpha1",
-							Kind:       "RpaasInstance",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-instance",
-							Annotations: map[string]string{
-								"team-owner": "some-team",
+				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InfoBuilder, error) {
+					assert.Equal(t, "my-instance", instanceName)
+					return &rpaas.InfoBuilder{
+						Address: []rpaas.InstanceAddress{
+							{
+								Hostname: "some host name",
+								Ip:       "0.0.0.0",
+							},
+							{
+								Hostname: "some host name 2",
+								Ip:       "0.0.0.1",
 							},
 						},
-						Spec: v1alpha1.RpaasInstanceSpec{},
+						Replicas:    int32Ptr(5),
+						Plan:        "basic",
+						Team:        "some team",
+						Name:        "some rpaas instance name",
+						Description: "some description",
+						Tags: []string{
+							"tag1",
+							"tag2",
+						},
+						Binds: []v1alpha1.Bind{
+							v1alpha1.Bind{
+								Name: "app-default",
+								Host: "some host ip address",
+							},
+							v1alpha1.Bind{
+								Name: "app-backup",
+								Host: "some host backup ip address",
+							},
+						},
+						Locations: []v1alpha1.Location{
+							v1alpha1.Location{
+								Path:        "some location path",
+								Destination: "some destination",
+								ForceHTTPS:  false,
+							},
+							v1alpha1.Location{
+								Path:        "some location path 2",
+								Destination: "some destination 2",
+								ForceHTTPS:  true,
+							},
+						},
+						Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+							MaxReplicas:                       3,
+							MinReplicas:                       pointerToInt(1),
+							TargetCPUUtilizationPercentage:    pointerToInt(70),
+							TargetMemoryUtilizationPercentage: pointerToInt(1024),
+						},
 					}, nil
 				},
 			},
-
 			expectedCode: http.StatusOK,
-			expectedBody: `{"address":{},"team":"some-team","name":"my-instance"}`,
+			expectedBody: "{\"address\":[{\"hostname\":\"some host name\",\"ip\":\"0.0.0.0\"},{\"hostname\":\"some host name 2\",\"ip\":\"0.0.0.1\"}],\"replicas\":5,\"plan\":\"basic\",\"locations\":[{\"path\":\"some location path\",\"destination\":\"some destination\"},{\"path\":\"some location path 2\",\"destination\":\"some destination 2\",\"forceHTTPS\":true}],\"autoscale\":{\"maxReplicas\":3,\"minReplicas\":1,\"targetCPUUtilizationPercentage\":70,\"targetMemoryUtilizationPercentage\":1024},\"binds\":[{\"name\":\"app-default\",\"host\":\"some host ip address\"},{\"name\":\"app-backup\",\"host\":\"some host backup ip address\"}],\"team\":\"some team\",\"name\":\"some rpaas instance name\",\"description\":\"some description\",\"tags\":[\"tag1\",\"tag2\"]}",
 		},
 		{
-			name:         "when instance has full InstanceInfo attributes",
+			name:         "when some error occurs while creating the info Payload",
 			instanceName: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeGetInstance: func(string) (*v1alpha1.RpaasInstance, error) {
-					return &v1alpha1.RpaasInstance{
-						TypeMeta: metav1.TypeMeta{
-							APIVersion: "extensions.tsuru.io/v1alpha1",
-							Kind:       "RpaasInstance",
-						},
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "my-instance",
-							Annotations: map[string]string{
-								"rpaas.extensions.tsuru.io/team-owner": "t1",
-								"description":                          "some-description",
-								"tags":                                 "tag1,tag2,tag3,tag4",
-							},
-						},
-						Spec: v1alpha1.RpaasInstanceSpec{
-							Replicas: getAddressOfInt32(5),
-							Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
-								MaxReplicas:                       3,
-								MinReplicas:                       pointerToInt(1),
-								TargetCPUUtilizationPercentage:    pointerToInt(70),
-								TargetMemoryUtilizationPercentage: pointerToInt(1024),
-							},
-
-							PlanName: "my-plan",
-							Service: &nginxv1alpha1.NginxService{
-								LoadBalancerIP: "127.0.0.1",
-							},
-							Locations: []v1alpha1.Location{
-								{Path: "/status"},
-								{Path: "/admin"},
-							},
-						},
-					}, nil
-				},
-				FakeInstanceAddress: func(string) (string, error) {
-					return "fakeIP", nil
+				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InfoBuilder, error) {
+					assert.Equal(t, "my-instance", instanceName)
+					return nil, errors.New("error while setting address")
 				},
 			},
-			expectedCode: http.StatusOK,
-			expectedBody: `{"address":{"ip":"fakeIP"},"replicas":5,"plan":"my-plan","locations":[{"path":"/status"},{"path":"/admin"}],"service":{"loadBalancerIP":"127.0.0.1"},"autoscale":{"maxReplicas":3,"minReplicas":1,"targetCPUUtilizationPercentage":70,"targetMemoryUtilizationPercentage":1024},"team":"t1","name":"my-instance","description":"some-description","tags":["tag1","tag2","tag3",",tag4"]}`,
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: "{\"message\":\"Internal Server Error\"}",
 		},
 	}
 	for _, tt := range tests {

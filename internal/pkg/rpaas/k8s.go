@@ -1376,3 +1376,105 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Labels = mergeMap(instance.Labels, newLabels)
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }
+
+func NewInfoInstance(instance *v1alpha1.RpaasInstance) *InfoBuilder {
+	info := &InfoBuilder{
+		Replicas:  instance.Spec.Replicas,
+		Plan:      instance.Spec.PlanName,
+		Locations: instance.Spec.Locations,
+		Autoscale: instance.Spec.Autoscale,
+		Binds:     instance.Spec.Binds,
+		Name:      instance.ObjectMeta.Name,
+	}
+
+	if desc, ok := instance.ObjectMeta.Annotations["description"]; ok {
+		info.Description = desc
+	}
+
+	info.Tags = strings.Split(instance.ObjectMeta.Annotations["tags"], ",")
+
+	return info
+}
+
+func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]corev1.LoadBalancerIngress, error) {
+
+	var nginx nginxv1alpha1.Nginx
+	err := m.cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &nginx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(nginx.Status.Services) == 0 {
+		return nil, nil
+	}
+
+	svcName := nginx.Status.Services[0].Name
+	var svc corev1.Service
+	err = m.cli.Get(ctx, types.NamespacedName{Name: svcName, Namespace: instance.Namespace}, &svc)
+	if err != nil {
+		return nil, err
+	}
+
+	return svc.Status.LoadBalancer.Ingress, nil
+}
+
+func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *InfoBuilder) error {
+	for key, _ := range instance.ObjectMeta.Annotations {
+		matched, err := regexp.Match(`team-owner`, []byte(key))
+		if err != nil {
+			return err
+		}
+		if matched {
+			infoPayload.Team = instance.ObjectMeta.Annotations[key]
+			return nil
+		}
+	}
+
+	for key, _ := range instance.Labels {
+		matched, err := regexp.Match(`team-owner`, []byte(key))
+		if err != nil {
+			return err
+		}
+		if matched {
+			infoPayload.Team = instance.Labels[key]
+			return nil
+		}
+	}
+
+	for key, _ := range instance.Spec.PodTemplate.Labels {
+		matched, err := regexp.Match(`team-owner`, []byte(key))
+		if err != nil {
+			return err
+		}
+		if matched {
+			infoPayload.Team = instance.Spec.PodTemplate.Labels[key]
+			return nil
+		}
+	}
+
+	return errors.New("instance has no team owner")
+}
+
+func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*InfoBuilder, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	infoPayload := NewInfoInstance(instance)
+
+	ingresses, err := m.getLoadBalancerIngress(ctx, instance)
+	for _, ingress := range ingresses {
+		infoPayload.Address = append(infoPayload.Address, InstanceAddress{
+			Hostname: ingress.Hostname,
+			Ip:       ingress.IP,
+		})
+	}
+
+	err = m.setInfoTeam(instance, infoPayload)
+	if err != nil {
+		return infoPayload, err
+	}
+
+	return infoPayload, nil
+}

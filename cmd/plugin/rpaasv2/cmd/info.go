@@ -71,9 +71,14 @@ Tags:
 {{- end }}
 {{- end }}
 {{- with .Address }}
-Address:
-    Hostname: {{ .Hostname }}
-    Ip: {{ .Ip }}
+Adresses:
+{{- range $index, $address := . }}
+    #Address {{ $index }}:
+{{- with $address }}
+        Hostname: {{ .Hostname }}
+        Ip: {{ .Ip }}
+{{- end }}
+{{- end }}
 {{- end }}
 {{- with .Replicas }}
 Replicas: {{ . }}
@@ -90,9 +95,6 @@ Locations:
     Destination: {{ .Destination }}
 {{- end }}
 {{- end }}
-{{- end }}
-{{- with .Service }}{{ "\n" }}
-Service: {{ .Service }}
 {{- end }}
 {{- with .Autoscale }}{{ "\n" }}
 Autoscale: {{ .Autoscale }}

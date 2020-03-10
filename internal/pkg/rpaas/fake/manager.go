@@ -45,6 +45,14 @@ type RpaasManager struct {
 	FakeCreateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
 	FakeUpdateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
 	FakeDeleteAutoscale   func(name string) error
+	FakeGetInstanceInfo   func(instanceName string) (*rpaas.InfoBuilder, error)
+}
+
+func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*rpaas.InfoBuilder, error) {
+	if m.FakeGetInstanceInfo != nil {
+		return m.FakeGetInstanceInfo(instanceName)
+	}
+	return nil, nil
 }
 
 func (m *RpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]rpaas.CertificateData, error) {
