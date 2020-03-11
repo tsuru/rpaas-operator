@@ -1419,34 +1419,25 @@ func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *
 }
 
 func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *InstanceInfo) error {
-	for key, _ := range instance.ObjectMeta.Annotations {
-		matched, err := regexp.Match(`team-owner`, []byte(key))
-		if err != nil {
-			return err
-		}
-		if matched {
+	for key := range instance.ObjectMeta.Annotations {
+		matched := strings.Compare("rpaas.extensions.tsuru.io/team-owner", key)
+		if matched == 0 {
 			infoPayload.Team = instance.ObjectMeta.Annotations[key]
 			return nil
 		}
 	}
 
-	for key, _ := range instance.Labels {
-		matched, err := regexp.Match(`team-owner`, []byte(key))
-		if err != nil {
-			return err
-		}
-		if matched {
+	for key := range instance.Labels {
+		matched := strings.Compare("rpaas.extensions.tsuru.io/team-owner", key)
+		if matched == 0 {
 			infoPayload.Team = instance.Labels[key]
 			return nil
 		}
 	}
 
-	for key, _ := range instance.Spec.PodTemplate.Labels {
-		matched, err := regexp.Match(`team-owner`, []byte(key))
-		if err != nil {
-			return err
-		}
-		if matched {
+	for key := range instance.Spec.PodTemplate.Labels {
+		matched := strings.Compare("rpaas.extensions.tsuru.io/team-owner", key)
+		if matched == 0 {
 			infoPayload.Team = instance.Spec.PodTemplate.Labels[key]
 			return nil
 		}
@@ -1464,6 +1455,9 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 	infoPayload := NewInfoInstance(instance)
 
 	ingresses, err := m.getLoadBalancerIngress(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
 	for _, ingress := range ingresses {
 		infoPayload.Address = append(infoPayload.Address, InstanceAddress{
 			Hostname: ingress.Hostname,

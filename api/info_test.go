@@ -52,22 +52,22 @@ func Test_instanceInfo(t *testing.T) {
 							"tag2",
 						},
 						Binds: []v1alpha1.Bind{
-							v1alpha1.Bind{
+							{
 								Name: "app-default",
 								Host: "some host ip address",
 							},
-							v1alpha1.Bind{
+							{
 								Name: "app-backup",
 								Host: "some host backup ip address",
 							},
 						},
 						Locations: []v1alpha1.Location{
-							v1alpha1.Location{
+							{
 								Path:        "some location path",
 								Destination: "some destination",
 								ForceHTTPS:  false,
 							},
-							v1alpha1.Location{
+							{
 								Path:        "some location path 2",
 								Destination: "some destination 2",
 								ForceHTTPS:  true,

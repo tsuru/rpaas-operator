@@ -120,7 +120,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			name:         "when UpdateCertificate method returns ",
 			requestBody:  makeBodyRequest(certPem, keyPem, ""),
 			expectedCode: 400,
-			expectedBody: "{\"Msg\":\"some error\"}\n",
+			expectedBody: "{\"Msg\":\"some error\"}",
 			manager: &fake.RpaasManager{
 				FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
 					return &rpaas.ValidationError{Msg: "some error"}
@@ -163,7 +163,7 @@ func Test_deleteCertificate(t *testing.T) {
 			},
 			instance:     "my-instance",
 			expectedCode: http.StatusNotFound,
-			expectedBody: "{\"Msg\":\"\"}\n",
+			expectedBody: "{\"Msg\":\"\"}",
 		},
 		{
 			name: "when the certificate exists",
@@ -185,7 +185,7 @@ func Test_deleteCertificate(t *testing.T) {
 				},
 			},
 			expectedCode: http.StatusNotFound,
-			expectedBody: "{\"Msg\":\"no certificate bound to instance \\\"real-instance\\\"\"}\n",
+			expectedBody: "{\"Msg\":\"no certificate bound to instance \\\"real-instance\\\"\"}",
 		},
 		{
 			name:     "passing a certificate name and asserting it",
@@ -236,7 +236,7 @@ func Test_GetCertificates(t *testing.T) {
 			manager:      &fake.RpaasManager{},
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expectedBody: "[]\n",
+			expectedBody: "[]",
 		},
 		{
 			name: "when the instance and certificate exists",
@@ -253,7 +253,7 @@ func Test_GetCertificates(t *testing.T) {
 			},
 			instance:     "real-instance",
 			expectedCode: http.StatusOK,
-			expectedBody: "[{\"name\":\"cert-name\",\"certificate\":\"my-certificate\",\"key\":\"my-key\"}]\n",
+			expectedBody: "[{\"name\":\"cert-name\",\"certificate\":\"my-certificate\",\"key\":\"my-key\"}]",
 		},
 		{
 			name: "when the instance exists but the certificate has a missing key",
@@ -264,7 +264,7 @@ func Test_GetCertificates(t *testing.T) {
 			},
 			instance:     "real-instance",
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "{\"message\":\"Internal Server Error\"}\n",
+			expectedBody: "{\"message\":\"Internal Server Error\"}",
 		},
 	}
 

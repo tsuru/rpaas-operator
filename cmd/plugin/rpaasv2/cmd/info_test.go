@@ -63,18 +63,18 @@ func TestInfo(t *testing.T) {
 						},
 						Plan: "basic",
 						Binds: []v1alpha1.Bind{
-							v1alpha1.Bind{
+							{
 								Name: "some-name",
 								Host: "some-host",
 							},
-							v1alpha1.Bind{
+							{
 								Name: "some-name2",
 								Host: "some-host2",
 							},
 						},
 						Replicas: int32Ptr(5),
 						Locations: []v1alpha1.Location{
-							v1alpha1.Location{
+							{
 								Path:        "some-path",
 								Destination: "some-destination",
 							},
@@ -148,18 +148,18 @@ Autoscale:
 						},
 						Plan: "basic",
 						Binds: []v1alpha1.Bind{
-							v1alpha1.Bind{
+							{
 								Name: "some-name",
 								Host: "some-host",
 							},
-							v1alpha1.Bind{
+							{
 								Name: "some-name2",
 								Host: "some-host2",
 							},
 						},
 						Replicas: int32Ptr(5),
 						Locations: []v1alpha1.Location{
-							v1alpha1.Location{
+							{
 								Path:        "some-path",
 								Destination: "some-destination",
 							},
