@@ -72,7 +72,6 @@ type Route struct {
 
 type InfoArgs struct {
 	Instance string
-	Service  string
 	Raw      bool
 }
 

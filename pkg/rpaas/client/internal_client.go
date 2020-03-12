@@ -138,9 +138,6 @@ func (args InfoArgs) Validate() error {
 		return ErrMissingInstance
 	}
 
-	if args.Service == "" {
-		return ErrMissingTsuruService
-	}
 	return nil
 }
 
@@ -180,13 +177,16 @@ func (c *client) Info(ctx context.Context, args InfoArgs) (*rpaas.InstanceInfo, 
 	if err != nil {
 		return nil, nil, err
 	}
-	// unmarshalBody
+
 	defer response.Body.Close()
 	var infoPayload rpaas.InstanceInfo
-	json.NewDecoder(response.Body).Decode(&infoPayload)
+	err = json.NewDecoder(response.Body).Decode(&infoPayload)
+	if err != nil {
+		return nil, nil, err
+	}
 
 	if response.StatusCode != http.StatusOK {
-		return &infoPayload, response, ErrUnexpectedStatusCode
+		return nil, response, ErrUnexpectedStatusCode
 	}
 
 	return &infoPayload, response, nil
