@@ -8,7 +8,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
@@ -24,12 +23,12 @@ type FakeClient struct {
 	FakeDeleteRoute       func(args client.DeleteRouteArgs) (*http.Response, error)
 	FakeListRoutes        func(args client.ListRoutesArgs) ([]client.Route, *http.Response, error)
 	FakeUpdateRoute       func(args client.UpdateRouteArgs) (*http.Response, error)
-	FakeInfo              func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error)
+	FakeInfo              func(args client.InfoArgs) (*types.InstanceInfo, *http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
 
-func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
+func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*types.InstanceInfo, *http.Response, error) {
 	if f.FakeInfo != nil {
 		return f.FakeInfo(args)
 	}

@@ -19,7 +19,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -163,7 +162,7 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	return response, nil
 }
 
-func (c *client) Info(ctx context.Context, args InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
+func (c *client) Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, *http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, err
 	}
@@ -179,7 +178,7 @@ func (c *client) Info(ctx context.Context, args InfoArgs) (*rpaas.InstanceInfo, 
 	}
 
 	defer response.Body.Close()
-	var infoPayload rpaas.InstanceInfo
+	var infoPayload types.InstanceInfo
 	err = json.NewDecoder(response.Body).Decode(&infoPayload)
 	if err != nil {
 		return nil, nil, err

@@ -11,6 +11,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 var _ rpaas.RpaasManager = &RpaasManager{}
@@ -45,10 +46,10 @@ type RpaasManager struct {
 	FakeCreateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
 	FakeUpdateAutoscale   func(instanceName string, autoscale *rpaas.Autoscale) error
 	FakeDeleteAutoscale   func(name string) error
-	FakeGetInstanceInfo   func(instanceName string) (*rpaas.InstanceInfo, error)
+	FakeGetInstanceInfo   func(instanceName string) (*clientTypes.InstanceInfo, error)
 }
 
-func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*rpaas.InstanceInfo, error) {
+func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
 	if m.FakeGetInstanceInfo != nil {
 		return m.FakeGetInstanceInfo(instanceName)
 	}

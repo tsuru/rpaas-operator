@@ -12,10 +12,10 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func int32Ptr(n int32) *int32 {
@@ -35,9 +35,8 @@ func TestInfo(t *testing.T) {
 			args:          []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
 			expectedError: "not found error",
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
-					require.Equal(t, args.Service, "my-service")
 					return nil, nil, fmt.Errorf("not found error")
 				},
 			},
@@ -46,12 +45,11 @@ func TestInfo(t *testing.T) {
 			name: "when info route is successful",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
-					require.Equal(t, args.Service, "my-service")
-					return &rpaas.InstanceInfo{
+					return &clientTypes.InstanceInfo{
 						Name: "my-instance",
-						Address: []rpaas.InstanceAddress{
+						Address: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some-host",
 								Ip:       "0.0.0.0",
@@ -130,13 +128,12 @@ Autoscale:
 			name: "when info route is successful and on json format",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance", "--raw-output"},
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*rpaas.InstanceInfo, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
-					require.Equal(t, args.Service, "my-service")
 
-					return &rpaas.InstanceInfo{
+					return &clientTypes.InstanceInfo{
 						Name: "my-instance",
-						Address: []rpaas.InstanceAddress{
+						Address: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some-host",
 								Ip:       "0.0.0.0",

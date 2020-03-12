@@ -15,6 +15,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func Test_instanceInfo(t *testing.T) {
@@ -29,10 +30,10 @@ func Test_instanceInfo(t *testing.T) {
 			name:         "when instance is found",
 			instanceName: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InstanceInfo, error) {
+				FakeGetInstanceInfo: func(instanceName string) (*clientTypes.InstanceInfo, error) {
 					assert.Equal(t, "my-instance", instanceName)
-					return &rpaas.InstanceInfo{
-						Address: []rpaas.InstanceAddress{
+					return &clientTypes.InstanceInfo{
+						Address: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some host name",
 								Ip:       "0.0.0.0",
@@ -89,7 +90,7 @@ func Test_instanceInfo(t *testing.T) {
 			name:         "when some error occurs while creating the info Payload",
 			instanceName: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeGetInstanceInfo: func(instanceName string) (*rpaas.InstanceInfo, error) {
+				FakeGetInstanceInfo: func(instanceName string) (*clientTypes.InstanceInfo, error) {
 					assert.Equal(t, "my-instance", instanceName)
 					return nil, errors.New("error while setting address")
 				},

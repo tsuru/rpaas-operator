@@ -13,6 +13,7 @@ import (
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 type ConfigurationBlock struct {
@@ -156,29 +157,11 @@ type RpaasManager interface {
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName, appName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
-	GetInstanceInfo(ctx context.Context, instanceName string) (*InstanceInfo, error)
+	GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error)
 }
 
 type CertificateData struct {
 	Name        string `json:"name"`
 	Certificate string `json:"certificate"`
 	Key         string `json:"key"`
-}
-
-type InstanceAddress struct {
-	Hostname string `json:"hostname,omitempty"`
-	Ip       string `json:"ip,omitempty"`
-}
-
-type InstanceInfo struct {
-	Address     []InstanceAddress                    `json:"address,omitempty"`
-	Replicas    *int32                               `json:"replicas,omitempty"`
-	Plan        string                               `json:"plan,omitempty"`
-	Locations   []v1alpha1.Location                  `json:"locations,omitempty"`
-	Autoscale   *v1alpha1.RpaasInstanceAutoscaleSpec `json:"autoscale,omitempty"`
-	Binds       []v1alpha1.Bind                      `json:"binds,omitempty"`
-	Team        string                               `json:"team,omitempty"`
-	Name        string                               `json:"name,omitempty"`
-	Description string                               `json:"description,omitempty"`
-	Tags        []string                             `json:"tags,omitempty"`
 }

@@ -25,6 +25,7 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1377,8 +1378,8 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }
 
-func NewInfoInstance(instance *v1alpha1.RpaasInstance) *InstanceInfo {
-	info := &InstanceInfo{
+func NewInfoInstance(instance *v1alpha1.RpaasInstance) *clientTypes.InstanceInfo {
+	info := &clientTypes.InstanceInfo{
 		Replicas:  instance.Spec.Replicas,
 		Plan:      instance.Spec.PlanName,
 		Locations: instance.Spec.Locations,
@@ -1418,7 +1419,7 @@ func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *
 	return svc.Status.LoadBalancer.Ingress, nil
 }
 
-func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *InstanceInfo) error {
+func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *clientTypes.InstanceInfo) error {
 	for key := range instance.ObjectMeta.Annotations {
 		matched := strings.Compare("rpaas.extensions.tsuru.io/team-owner", key)
 		if matched == 0 {
@@ -1446,7 +1447,7 @@ func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayl
 	return errors.New("instance has no team owner")
 }
 
-func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*InstanceInfo, error) {
+func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return nil, err
@@ -1459,7 +1460,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		return nil, err
 	}
 	for _, ingress := range ingresses {
-		infoPayload.Address = append(infoPayload.Address, InstanceAddress{
+		infoPayload.Address = append(infoPayload.Address, clientTypes.InstanceAddress{
 			Hostname: ingress.Hostname,
 			Ip:       ingress.IP,
 		})

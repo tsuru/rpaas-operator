@@ -10,8 +10,8 @@ import (
 	"io"
 	"text/template"
 
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
 )
 
@@ -107,7 +107,7 @@ Autoscale:
 	return template.New("root").Parse(tmp)
 }
 
-func writeInfoOnJSONFormat(w io.Writer, payload *rpaas.InstanceInfo) error {
+func writeInfoOnJSONFormat(w io.Writer, payload *clientTypes.InstanceInfo) error {
 	message, err := json.Marshal(payload)
 	if err != nil {
 		return err
@@ -125,7 +125,6 @@ func runInfo(c *cli.Context) error {
 
 	info := rpaasclient.InfoArgs{
 		Instance: c.String("instance"),
-		Service:  c.String("service"),
 		Raw:      c.Bool("raw-output"),
 	}
 
