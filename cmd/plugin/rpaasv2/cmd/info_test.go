@@ -52,11 +52,11 @@ func TestInfo(t *testing.T) {
 						Address: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some-host",
-								Ip:       "0.0.0.0",
+								IP:       "0.0.0.0",
 							},
 							{
 								Hostname: "some-host2",
-								Ip:       "0.0.0.1",
+								IP:       "0.0.0.1",
 							},
 						},
 						Plan: "basic",
@@ -107,10 +107,10 @@ Tags:
 Adresses:
     #Address 0:
         Hostname: some-host
-        Ip: 0.0.0.0
+        IP: 0.0.0.0
     #Address 1:
         Hostname: some-host2
-        Ip: 0.0.0.1
+        IP: 0.0.0.1
 Replicas: 5
 Plan: basic
 Locations:
@@ -136,11 +136,11 @@ Autoscale:
 						Address: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some-host",
-								Ip:       "0.0.0.0",
+								IP:       "0.0.0.0",
 							},
 							{
 								Hostname: "some-host2",
-								Ip:       "0.0.0.1",
+								IP:       "0.0.0.1",
 							},
 						},
 						Plan: "basic",

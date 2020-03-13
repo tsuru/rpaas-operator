@@ -19,7 +19,7 @@ type Plan struct {
 
 type InstanceAddress struct {
 	Hostname string `json:"hostname,omitempty"`
-	Ip       string `json:"ip,omitempty"`
+	IP       string `json:"ip,omitempty"`
 }
 
 type InstanceInfo struct {

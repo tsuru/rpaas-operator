@@ -1378,7 +1378,7 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }
 
-func NewInfoInstance(instance *v1alpha1.RpaasInstance) *clientTypes.InstanceInfo {
+func newInstanceInfo(instance *v1alpha1.RpaasInstance, ingresses []corev1.LoadBalancerIngress) *clientTypes.InstanceInfo {
 	info := &clientTypes.InstanceInfo{
 		Replicas:  instance.Spec.Replicas,
 		Plan:      instance.Spec.PlanName,
@@ -1394,11 +1394,19 @@ func NewInfoInstance(instance *v1alpha1.RpaasInstance) *clientTypes.InstanceInfo
 
 	info.Tags = strings.Split(instance.ObjectMeta.Annotations["tags"], ",")
 
+	setInfoTeam(instance, info)
+
+	for _, ingress := range ingresses {
+		info.Address = append(info.Address, clientTypes.InstanceAddress{
+			Hostname: ingress.Hostname,
+			IP:       ingress.IP,
+		})
+	}
+
 	return info
 }
 
 func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]corev1.LoadBalancerIngress, error) {
-
 	var nginx nginxv1alpha1.Nginx
 	err := m.cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &nginx)
 	if err != nil {
@@ -1419,32 +1427,25 @@ func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *
 	return svc.Status.LoadBalancer.Ingress, nil
 }
 
-func (m *k8sRpaasManager) setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *clientTypes.InstanceInfo) error {
-	for key := range instance.ObjectMeta.Annotations {
-		matched := strings.Compare("rpaas.extensions.tsuru.io/team-owner", key)
-		if matched == 0 {
-			infoPayload.Team = instance.ObjectMeta.Annotations[key]
-			return nil
-		}
+func setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *clientTypes.InstanceInfo) {
+	teamLabelKey := labelKey("team-owner")
+	team, ok := instance.ObjectMeta.Annotations[teamLabelKey]
+	if ok {
+		infoPayload.Team = team
+		return
 	}
 
-	for key := range instance.Labels {
-		matched := strings.Compare("rpaas.extensions.tsuru.io/team-owner", key)
-		if matched == 0 {
-			infoPayload.Team = instance.Labels[key]
-			return nil
-		}
+	team, ok = instance.Labels[teamLabelKey]
+	if ok {
+		infoPayload.Team = team
+		return
 	}
 
-	for key := range instance.Spec.PodTemplate.Labels {
-		matched := strings.Compare("rpaas.extensions.tsuru.io/team-owner", key)
-		if matched == 0 {
-			infoPayload.Team = instance.Spec.PodTemplate.Labels[key]
-			return nil
-		}
+	team, ok = instance.Spec.PodTemplate.Labels[teamLabelKey]
+	if ok {
+		infoPayload.Team = team
+		return
 	}
-
-	return errors.New("instance has no team owner")
 }
 
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
@@ -1453,23 +1454,10 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
-	infoPayload := NewInfoInstance(instance)
-
 	ingresses, err := m.getLoadBalancerIngress(ctx, instance)
 	if err != nil {
 		return nil, err
 	}
-	for _, ingress := range ingresses {
-		infoPayload.Address = append(infoPayload.Address, clientTypes.InstanceAddress{
-			Hostname: ingress.Hostname,
-			Ip:       ingress.IP,
-		})
-	}
 
-	err = m.setInfoTeam(instance, infoPayload)
-	if err != nil {
-		return infoPayload, err
-	}
-
-	return infoPayload, nil
+	return newInstanceInfo(instance, ingresses), nil
 }

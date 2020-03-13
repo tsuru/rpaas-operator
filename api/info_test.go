@@ -36,11 +36,11 @@ func Test_instanceInfo(t *testing.T) {
 						Address: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some host name",
-								Ip:       "0.0.0.0",
+								IP:       "0.0.0.0",
 							},
 							{
 								Hostname: "some host name 2",
-								Ip:       "0.0.0.1",
+								IP:       "0.0.0.1",
 							},
 						},
 						Replicas:    int32Ptr(5),

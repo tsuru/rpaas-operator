@@ -76,7 +76,7 @@ Adresses:
     #Address {{ $index }}:
 {{- with $address }}
         Hostname: {{ .Hostname }}
-        Ip: {{ .Ip }}
+        IP: {{ .IP}}
 {{- end }}
 {{- end }}
 {{- end }}
