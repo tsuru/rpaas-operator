@@ -5,11 +5,15 @@
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
+	"strconv"
 	"text/template"
 
+	"github.com/olekukonko/tablewriter"
+	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
@@ -56,13 +60,7 @@ Description: {{ . }}
 {{- end }}
 {{- with .Binds }}
 Binds:
-{{- range $index, $bind:= . }}{{- with not $index }}{{ end }}
-{{- with $bind }}
-    #Bind {{ $index }}
-    App: {{ .Name }}
-    Host: {{ .Host }} 
-{{- end }}
-{{- end }}
+{{ formatBinds . }}
 {{- end }}
 {{- with .Tags }}
 Tags:
@@ -98,13 +96,51 @@ Locations:
 {{- end }}
 {{- with .Autoscale }}
 Autoscale:
-    MaxReplicas: {{ .MaxReplicas }}
-    MinReplicas: {{ .MinReplicas }}
-    TargetCPUUtilizationPercentage: {{ .TargetCPUUtilizationPercentage }}
-    TargetMemoryUtilizationPercentage: {{ .TargetMemoryUtilizationPercentage }}
+{{ formatAutoscale . }}
 {{- end }}
 `
-	return template.New("root").Parse(tmp)
+
+	return template.New("root").Funcs(template.FuncMap{
+		"formatBinds":     writeBindsOnTableFormat,
+		"formatAutoscale": writeAutoscaleOnTableFormat,
+	}).Parse(tmp)
+}
+
+func writeAutoscaleOnTableFormat(autoscale *v1alpha1.RpaasInstanceAutoscaleSpec) string {
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Replicas", "Target Utilization"})
+	table.SetAutoWrapText(true)
+	table.SetRowLine(false)
+	max := fmt.Sprintf("Max: %s", strconv.Itoa(int(autoscale.MaxReplicas)))
+	min := fmt.Sprintf("Min: %s", strconv.Itoa(int(*autoscale.MinReplicas)))
+	cpuPercentage := fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.TargetCPUUtilizationPercentage)))
+	memPercentage := fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.TargetMemoryUtilizationPercentage)))
+	data := [][]string{
+		[]string{max, cpuPercentage},
+		[]string{min, memPercentage},
+	}
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
+}
+
+func writeBindsOnTableFormat(binds []v1alpha1.Bind) string {
+	data := [][]string{}
+	for _, bind := range binds {
+		data = append(data, []string{bind.Name, bind.Host})
+	}
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"App", "Address"})
+	table.SetRowLine(true)
+	table.SetAutoWrapText(true)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
 }
 
 func writeInfoOnJSONFormat(w io.Writer, payload *clientTypes.InstanceInfo) error {
