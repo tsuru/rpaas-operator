@@ -153,7 +153,7 @@ func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string)
 
 	autoscale := instance.Spec.Autoscale
 	if autoscale == nil {
-		return nil, NotFoundError{Msg: fmt.Sprintf("autoscale not found")}
+		return nil, NotFoundError{Msg: "autoscale not found"}
 	}
 
 	s := Autoscale{
@@ -179,7 +179,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 
 	s := instance.Spec.Autoscale
 	if s != nil {
-		return ValidationError{Msg: fmt.Sprintf("Autoscale already created")}
+		return ValidationError{Msg: "Autoscale already created"}
 	}
 
 	instance.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
@@ -415,7 +415,7 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		}
 
 	} else {
-		return &NotFoundError{Msg: fmt.Sprintf("certificate not found")}
+		return &NotFoundError{Msg: "certificate not found"}
 	}
 
 	if len(oldSecret.Data) == 0 {

@@ -147,7 +147,7 @@ func Test_updateBlock(t *testing.T) {
 			name:         "when a request has no body message",
 			instance:     "my-instance",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: fmt.Sprintf("{\"message\":\"Request body can't be empty\"}"),
+			expectedBody: "{\"message\":\"Request body can't be empty\"}",
 			manager:      &fake.RpaasManager{},
 		},
 		{

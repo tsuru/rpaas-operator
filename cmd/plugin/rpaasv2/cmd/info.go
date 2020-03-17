@@ -109,8 +109,8 @@ func writeAutoscaleOnTableFormat(autoscale *v1alpha1.RpaasInstanceAutoscaleSpec)
 	cpuPercentage := fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.TargetCPUUtilizationPercentage)))
 	memPercentage := fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.TargetMemoryUtilizationPercentage)))
 	data := [][]string{
-		[]string{max, cpuPercentage},
-		[]string{min, memPercentage},
+		{max, cpuPercentage},
+		{min, memPercentage},
 	}
 	table.AppendBulk(data)
 	table.Render()
