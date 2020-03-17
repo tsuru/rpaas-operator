@@ -58,41 +58,30 @@ Team: {{ . }}
 {{- with .Description }}
 Description: {{ . }}
 {{- end }}
-{{- with .Binds }}
-Binds:
-{{ formatBinds . }}
-{{- end }}
-{{- with .Tags }}
-Tags:
-{{- range $index, $tag := . }}{{- with not $index }}{{ end }}
-    {{ $tag }}
-{{- end }}
-{{- end }}
-{{- with .Address }}
-Adresses:
-{{- range $index, $address := . }}
-    #Address {{ $index }}:
-{{- with $address }}
-        Hostname: {{ .Hostname }}
-        IP: {{ .IP}}
-{{- end }}
-{{- end }}
-{{- end }}
 {{- with .Replicas }}
 Replicas: {{ . }}
 {{- end }}
 {{- with .Plan }}
 Plan: {{ . }}
 {{- end }}
+{{- with .Binds }}
+
+Binds:
+{{ formatBinds . }}
+{{- end }}
+{{- with .Tags }}
+Tags:
+{{ formatTags . }}
+{{- end }}
+{{- with .Address }}
+
+Adresses:
+{{ formatAdresses . }}
+{{- end }}
+
 {{- with .Locations }}
 Locations:
-{{- range $index, $location := . }}
-    #Location {{ $index }}
-{{- with $location }}
-    Path: {{ .Path }}
-    Destination: {{ .Destination }}
-{{- end }}
-{{- end }}
+{{ formatLocations . }}
 {{- end }}
 {{- with .Autoscale }}
 Autoscale:
@@ -101,6 +90,9 @@ Autoscale:
 `
 
 	return template.New("root").Funcs(template.FuncMap{
+		"formatTags":      writeTagsOnTableFormat,
+		"formatLocations": writeLocationsOnTableFormat,
+		"formatAdresses":  writeAdressesOnTableFormat,
 		"formatBinds":     writeBindsOnTableFormat,
 		"formatAutoscale": writeAutoscaleOnTableFormat,
 	}).Parse(tmp)
@@ -120,6 +112,56 @@ func writeAutoscaleOnTableFormat(autoscale *v1alpha1.RpaasInstanceAutoscaleSpec)
 		[]string{max, cpuPercentage},
 		[]string{min, memPercentage},
 	}
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
+}
+
+func writeAdressesOnTableFormat(adresses []clientTypes.InstanceAddress) string {
+	data := [][]string{}
+	for _, address := range adresses {
+		data = append(data, []string{address.Hostname, address.IP})
+	}
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Hostname", "IP"})
+	table.SetRowLine(true)
+	table.SetAutoWrapText(true)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
+}
+
+func writeLocationsOnTableFormat(locations []v1alpha1.Location) string {
+	data := [][]string{}
+	for _, location := range locations {
+		data = append(data, []string{location.Path, location.Destination})
+	}
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Path", "Destination"})
+	table.SetRowLine(true)
+	table.SetAutoWrapText(true)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
+}
+
+func writeTagsOnTableFormat(tags []string) string {
+	data := [][]string{}
+	for _, tag := range tags {
+		data = append(data, []string{tag})
+	}
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetRowLine(true)
+	table.SetAutoWrapText(true)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(data)
 	table.Render()
 

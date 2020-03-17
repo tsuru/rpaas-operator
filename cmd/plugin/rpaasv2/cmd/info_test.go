@@ -89,7 +89,57 @@ func TestInfo(t *testing.T) {
 					}, nil, nil
 				},
 			},
-			expected: "\nName: my-instance\nTeam: some-team\nDescription: some description\nBinds:\n+------------+------------+\n|    APP     |  ADDRESS   |\n+------------+------------+\n| some-name  | some-host  |\n+------------+------------+\n| some-name2 | some-host2 |\n+------------+------------+\n\nTags:\n    tag1\n    tag2\n    tag3\nAdresses:\n    #Address 0:\n        Hostname: some-host\n        IP: 0.0.0.0\n    #Address 1:\n        Hostname: some-host2\n        IP: 0.0.0.1\nReplicas: 5\nPlan: basic\nLocations:\n    #Location 0\n    Path: some-path\n    Destination: some-destination\nAutoscale:\n+----------+--------------------+\n| REPLICAS | TARGET UTILIZATION |\n+----------+--------------------+\n| Max: 5   | CPU: 55%           |\n| Min: 2   | Memory: 77%        |\n+----------+--------------------+\n\n",
+			expected: `
+Name: my-instance
+Team: some-team
+Description: some description
+Replicas: 5
+Plan: basic
+
+Binds:
++------------+------------+
+|    APP     |  ADDRESS   |
++------------+------------+
+| some-name  | some-host  |
++------------+------------+
+| some-name2 | some-host2 |
++------------+------------+
+
+Tags:
++------+
+| tag1 |
++------+
+| tag2 |
++------+
+| tag3 |
++------+
+
+
+Adresses:
++------------+---------+
+|  HOSTNAME  |   IP    |
++------------+---------+
+| some-host  | 0.0.0.0 |
++------------+---------+
+| some-host2 | 0.0.0.1 |
++------------+---------+
+
+Locations:
++-----------+------------------+
+|   PATH    |   DESTINATION    |
++-----------+------------------+
+| some-path | some-destination |
++-----------+------------------+
+
+Autoscale:
++----------+--------------------+
+| REPLICAS | TARGET UTILIZATION |
++----------+--------------------+
+| Max: 5   | CPU: 55%           |
+| Min: 2   | Memory: 77%        |
++----------+--------------------+
+
+`,
 		},
 		{
 			name: "when info route is successful and on json format",
