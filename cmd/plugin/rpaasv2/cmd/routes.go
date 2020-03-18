@@ -12,6 +12,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
 )
 
@@ -123,7 +124,7 @@ func runListRoutes(c *cli.Context) error {
 	return nil
 }
 
-func writeRoutesOnTableFormat(w io.Writer, routes []rpaasclient.Route) {
+func writeRoutesOnTableFormat(w io.Writer, routes []clientTypes.Route) {
 	data := [][]string{}
 	for _, r := range routes {
 		data = append(data, []string{r.Path, r.Destination, checkedChar(r.HTTPSOnly), r.Content})
@@ -138,7 +139,7 @@ func writeRoutesOnTableFormat(w io.Writer, routes []rpaasclient.Route) {
 	table.Render()
 }
 
-func writeRoutesOnJSONFormat(w io.Writer, routes []rpaasclient.Route) error {
+func writeRoutesOnJSONFormat(w io.Writer, routes []clientTypes.Route) error {
 	message, err := json.MarshalIndent(routes, "", "\t")
 	if err != nil {
 		return err

@@ -47,41 +47,33 @@ func NewCmdInfo() *cli.Command {
 	}
 }
 
+var (
+	tmpl, _ = prepareTemplate()
+)
+
 func prepareTemplate() (*template.Template, error) {
 	tmp := `
-{{- with .Name }}
-Name: {{ . }}
-{{- end }}
-{{- with .Team }}
-Team: {{ . }}
-{{- end }}
-{{- with .Description }}
-Description: {{ . }}
-{{- end }}
-{{- with .Replicas }}
-Replicas: {{ . }}
-{{- end }}
-{{- with .Plan }}
-Plan: {{ . }}
+Name: {{ .Name }}
+Team: {{ .Team }}
+Description: {{ .Description }}
+Replicas: {{ .Replicas }}
+Plan: {{ .Plan }}
+{{- with .Tags }}
+Tags: {{ formatTags . }}
 {{- end }}
 {{- with .Binds }}
 
 Binds:
 {{ formatBinds . }}
 {{- end }}
-{{- with .Tags }}
-Tags:
-{{ formatTags . }}
-{{- end }}
+
 {{- with .Address }}
-
-Adresses:
-{{ formatAdresses . }}
+Addresses:
+{{ formatAddresses . }}
 {{- end }}
-
-{{- with .Locations }}
-Locations:
-{{ formatLocations . }}
+{{- with .Routes }}
+Routes:
+{{ formatRoutes . }}
 {{- end }}
 {{- with .Autoscale }}
 Autoscale:
@@ -90,35 +82,54 @@ Autoscale:
 `
 
 	return template.New("root").Funcs(template.FuncMap{
-		"formatTags":      writeTagsOnTableFormat,
-		"formatLocations": writeLocationsOnTableFormat,
-		"formatAdresses":  writeAdressesOnTableFormat,
+		"formatTags":      formatTags,
+		"formatRoutes":    writeInfoRoutesOnTableFormat,
+		"formatAddresses": writeAddressesOnTableFormat,
 		"formatBinds":     writeBindsOnTableFormat,
 		"formatAutoscale": writeAutoscaleOnTableFormat,
 	}).Parse(tmp)
 }
 
-func writeAutoscaleOnTableFormat(autoscale *v1alpha1.RpaasInstanceAutoscaleSpec) string {
+func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
 	var buffer bytes.Buffer
 	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Replicas", "Target Utilization"})
 	table.SetAutoWrapText(true)
 	table.SetRowLine(false)
-	max := fmt.Sprintf("Max: %s", strconv.Itoa(int(autoscale.MaxReplicas)))
-	min := fmt.Sprintf("Min: %s", strconv.Itoa(int(*autoscale.MinReplicas)))
-	cpuPercentage := fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.TargetCPUUtilizationPercentage)))
-	memPercentage := fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.TargetMemoryUtilizationPercentage)))
-	data := [][]string{
-		{max, cpuPercentage},
-		{min, memPercentage},
+	if autoscale != nil {
+		var max, min, cpuPercentage, memPercentage string
+		if autoscale.MaxReplicas != nil {
+			max = fmt.Sprintf("Max: %s", strconv.Itoa(int(*autoscale.MaxReplicas)))
+		} else {
+			max = "Max: N/A"
+		}
+		if autoscale.MinReplicas != nil {
+			min = fmt.Sprintf("Min: %s", strconv.Itoa(int(*autoscale.MinReplicas)))
+		} else {
+			min = "Min: N/A"
+		}
+		if autoscale.CPU != nil {
+			cpuPercentage = fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.CPU)))
+		} else {
+			cpuPercentage = "CPU: N/A"
+		}
+		if autoscale.Memory != nil {
+			memPercentage = fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.Memory)))
+		} else {
+			memPercentage = "Memory: N/A"
+		}
+		data := [][]string{
+			{max, cpuPercentage},
+			{min, memPercentage},
+		}
+		table.AppendBulk(data)
 	}
-	table.AppendBulk(data)
 	table.Render()
 
 	return buffer.String()
 }
 
-func writeAdressesOnTableFormat(adresses []clientTypes.InstanceAddress) string {
+func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string {
 	data := [][]string{}
 	for _, address := range adresses {
 		data = append(data, []string{address.Hostname, address.IP})
@@ -135,10 +146,10 @@ func writeAdressesOnTableFormat(adresses []clientTypes.InstanceAddress) string {
 	return buffer.String()
 }
 
-func writeLocationsOnTableFormat(locations []v1alpha1.Location) string {
+func writeInfoRoutesOnTableFormat(routes []clientTypes.Route) string {
 	data := [][]string{}
-	for _, location := range locations {
-		data = append(data, []string{location.Path, location.Destination})
+	for _, route := range routes {
+		data = append(data, []string{route.Path, route.Destination})
 	}
 	var buffer bytes.Buffer
 	table := tablewriter.NewWriter(&buffer)
@@ -152,20 +163,15 @@ func writeLocationsOnTableFormat(locations []v1alpha1.Location) string {
 	return buffer.String()
 }
 
-func writeTagsOnTableFormat(tags []string) string {
-	data := [][]string{}
-	for _, tag := range tags {
-		data = append(data, []string{tag})
+func formatTags(tags []string) string {
+	var output string
+	if len(tags) > 0 {
+		output = tags[0]
 	}
-	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetRowLine(true)
-	table.SetAutoWrapText(true)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
-	table.AppendBulk(data)
-	table.Render()
-
-	return buffer.String()
+	for _, tag := range tags[1:] {
+		output += ", " + tag
+	}
+	return output
 }
 
 func writeBindsOnTableFormat(binds []v1alpha1.Bind) string {
@@ -215,10 +221,6 @@ func runInfo(c *cli.Context) error {
 		return writeInfoOnJSONFormat(c.App.Writer, infoPayload)
 	}
 
-	tmpl, err := prepareTemplate()
-	if err != nil {
-		return err
-	}
 	if infoPayload != nil {
 		err = tmpl.Execute(c.App.Writer, infoPayload)
 		if err != nil {

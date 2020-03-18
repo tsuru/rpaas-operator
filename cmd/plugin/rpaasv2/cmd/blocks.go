@@ -12,6 +12,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
 )
 
@@ -183,7 +184,7 @@ func runListBlocks(c *cli.Context) error {
 	return nil
 }
 
-func writeBlocksOnTableFormat(w io.Writer, blocks []rpaasclient.Block) {
+func writeBlocksOnTableFormat(w io.Writer, blocks []clientTypes.Block) {
 	data := [][]string{}
 	for _, block := range blocks {
 		data = append(data, []string{block.Name, block.Content})
@@ -196,7 +197,7 @@ func writeBlocksOnTableFormat(w io.Writer, blocks []rpaasclient.Block) {
 	table.Render()
 }
 
-func writeBlocksOnJSONFormat(w io.Writer, blocks []rpaasclient.Block) error {
+func writeBlocksOnJSONFormat(w io.Writer, blocks []clientTypes.Block) error {
 	message, err := json.MarshalIndent(blocks, "", "\t")
 	if err != nil {
 		return err

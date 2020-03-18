@@ -5,6 +5,8 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func getAutoscale(c echo.Context) error {
@@ -19,11 +21,11 @@ func getAutoscale(c echo.Context) error {
 	}
 
 	if autoscale == nil {
-		autoscale = &rpaas.Autoscale{}
+		autoscale = &types.Autoscale{}
 	}
 
 	return c.JSON(http.StatusOK, struct {
-		Autoscale *rpaas.Autoscale `json:"autoscale"`
+		Autoscale *clientTypes.Autoscale `json:"autoscale"`
 	}{autoscale})
 }
 
@@ -33,7 +35,7 @@ func createAutoscale(c echo.Context) error {
 		return err
 	}
 
-	var autoscale rpaas.Autoscale
+	var autoscale clientTypes.Autoscale
 	if err = c.Bind(&autoscale); err != nil {
 		return err
 	}
@@ -60,7 +62,7 @@ func updateAutoscale(c echo.Context) error {
 		}
 	}
 
-	var autoscale rpaas.Autoscale
+	var autoscale clientTypes.Autoscale
 	if err = c.Bind(&autoscale); err != nil {
 		return err
 	}

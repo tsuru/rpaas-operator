@@ -19,9 +19,9 @@ type FakeClient struct {
 	FakeUpdateCertificate func(args client.UpdateCertificateArgs) (*http.Response, error)
 	FakeUpdateBlock       func(args client.UpdateBlockArgs) (*http.Response, error)
 	FakeDeleteBlock       func(args client.DeleteBlockArgs) (*http.Response, error)
-	FakeListBlocks        func(args client.ListBlocksArgs) ([]client.Block, *http.Response, error)
+	FakeListBlocks        func(args client.ListBlocksArgs) ([]types.Block, *http.Response, error)
 	FakeDeleteRoute       func(args client.DeleteRouteArgs) (*http.Response, error)
-	FakeListRoutes        func(args client.ListRoutesArgs) ([]client.Route, *http.Response, error)
+	FakeListRoutes        func(args client.ListRoutesArgs) ([]types.Route, *http.Response, error)
 	FakeUpdateRoute       func(args client.UpdateRouteArgs) (*http.Response, error)
 	FakeInfo              func(args client.InfoArgs) (*types.InstanceInfo, *http.Response, error)
 }
@@ -84,7 +84,7 @@ func (f *FakeClient) DeleteBlock(ctx context.Context, args client.DeleteBlockArg
 	return nil, nil
 }
 
-func (f *FakeClient) ListBlocks(ctx context.Context, args client.ListBlocksArgs) ([]client.Block, *http.Response, error) {
+func (f *FakeClient) ListBlocks(ctx context.Context, args client.ListBlocksArgs) ([]types.Block, *http.Response, error) {
 	if f.FakeListBlocks != nil {
 		return f.FakeListBlocks(args)
 	}
@@ -100,7 +100,7 @@ func (f *FakeClient) DeleteRoute(ctx context.Context, args client.DeleteRouteArg
 	return nil, nil
 }
 
-func (f *FakeClient) ListRoutes(ctx context.Context, args client.ListRoutesArgs) ([]client.Route, *http.Response, error) {
+func (f *FakeClient) ListRoutes(ctx context.Context, args client.ListRoutesArgs) ([]types.Route, *http.Response, error) {
 	if f.FakeListRoutes != nil {
 		return f.FakeListRoutes(args)
 	}

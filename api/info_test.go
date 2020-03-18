@@ -62,29 +62,27 @@ func Test_instanceInfo(t *testing.T) {
 								Host: "some host backup ip address",
 							},
 						},
-						Locations: []v1alpha1.Location{
+						Routes: []clientTypes.Route{
 							{
 								Path:        "some location path",
 								Destination: "some destination",
-								ForceHTTPS:  false,
 							},
 							{
 								Path:        "some location path 2",
 								Destination: "some destination 2",
-								ForceHTTPS:  true,
 							},
 						},
-						Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
-							MaxReplicas:                       3,
-							MinReplicas:                       pointerToInt(1),
-							TargetCPUUtilizationPercentage:    pointerToInt(70),
-							TargetMemoryUtilizationPercentage: pointerToInt(1024),
+						Autoscale: &clientTypes.Autoscale{
+							MaxReplicas: pointerToInt(3),
+							MinReplicas: pointerToInt(1),
+							CPU:         pointerToInt(70),
+							Memory:      pointerToInt(1024),
 						},
 					}, nil
 				},
 			},
 			expectedCode: http.StatusOK,
-			expectedBody: "{\"address\":[{\"hostname\":\"some host name\",\"ip\":\"0.0.0.0\"},{\"hostname\":\"some host name 2\",\"ip\":\"0.0.0.1\"}],\"replicas\":5,\"plan\":\"basic\",\"locations\":[{\"path\":\"some location path\",\"destination\":\"some destination\"},{\"path\":\"some location path 2\",\"destination\":\"some destination 2\",\"forceHTTPS\":true}],\"autoscale\":{\"maxReplicas\":3,\"minReplicas\":1,\"targetCPUUtilizationPercentage\":70,\"targetMemoryUtilizationPercentage\":1024},\"binds\":[{\"name\":\"app-default\",\"host\":\"some host ip address\"},{\"name\":\"app-backup\",\"host\":\"some host backup ip address\"}],\"team\":\"some team\",\"name\":\"some rpaas instance name\",\"description\":\"some description\",\"tags\":[\"tag1\",\"tag2\"]}",
+			expectedBody: "{\"address\":[{\"hostname\":\"some host name\",\"ip\":\"0.0.0.0\"},{\"hostname\":\"some host name 2\",\"ip\":\"0.0.0.1\"}],\"replicas\":5,\"plan\":\"basic\",\"routes\":[{\"path\":\"some location path\",\"destination\":\"some destination\"},{\"path\":\"some location path 2\",\"destination\":\"some destination 2\"}],\"autoscale\":{\"minReplicas\":1,\"maxReplicas\":3,\"cpu\":70,\"memory\":1024},\"binds\":[{\"name\":\"app-default\",\"host\":\"some host ip address\"},{\"name\":\"app-backup\",\"host\":\"some host backup ip address\"}],\"team\":\"some team\",\"name\":\"some rpaas instance name\",\"description\":\"some description\",\"tags\":[\"tag1\",\"tag2\"]}",
 		},
 		{
 			name:         "when some error occurs while creating the info Payload",

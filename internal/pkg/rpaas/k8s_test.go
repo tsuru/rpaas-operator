@@ -16,6 +16,7 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -3286,11 +3287,11 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 
 	testCases := []struct {
 		instance  string
-		assertion func(*testing.T, *Autoscale, error, *k8sRpaasManager)
+		assertion func(*testing.T, *clientTypes.Autoscale, error, *k8sRpaasManager)
 	}{
 		{
 			instance: "my-invalid-instance",
-			assertion: func(t *testing.T, s *Autoscale, err error, m *k8sRpaasManager) {
+			assertion: func(t *testing.T, s *clientTypes.Autoscale, err error, m *k8sRpaasManager) {
 				assert.Error(t, NotFoundError{
 					Msg: `instance not found`,
 				}, err)
@@ -3299,10 +3300,10 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 		},
 		{
 			instance: "my-instance",
-			assertion: func(t *testing.T, s *Autoscale, err error, m *k8sRpaasManager) {
+			assertion: func(t *testing.T, s *clientTypes.Autoscale, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				expectedAutoscale := &Autoscale{
+				expectedAutoscale := &clientTypes.Autoscale{
 					MaxReplicas: pointerToInt(3),
 					MinReplicas: pointerToInt(1),
 					CPU:         pointerToInt(70),
@@ -3340,12 +3341,12 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 
 	testCases := []struct {
 		instance  string
-		autoscale Autoscale
+		autoscale clientTypes.Autoscale
 		assertion func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
 			instance: "my-invalid-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
@@ -3356,7 +3357,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		},
 		{
 			instance: "my-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
@@ -3367,7 +3368,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		},
 		{
 			instance: "another-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
@@ -3378,7 +3379,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		},
 		{
 			instance: "my-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(10),
 				MinReplicas: pointerToInt(5),
 				CPU:         pointerToInt(2),
@@ -3440,12 +3441,12 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 
 	testCases := []struct {
 		instance  string
-		autoscale Autoscale
+		autoscale clientTypes.Autoscale
 		assertion func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
 			instance: "my-invalid-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
@@ -3456,7 +3457,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		},
 		{
 			instance: "my-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
@@ -3467,7 +3468,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		},
 		{
 			instance: "noscale-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
@@ -3486,7 +3487,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		},
 		{
 			instance: "my-instance",
-			autoscale: Autoscale{
+			autoscale: clientTypes.Autoscale{
 				MaxReplicas: pointerToInt(10),
 				MinReplicas: pointerToInt(5),
 				CPU:         pointerToInt(80),

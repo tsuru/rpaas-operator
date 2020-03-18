@@ -15,6 +15,7 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -71,7 +72,7 @@ func TestInfo(t *testing.T) {
 							},
 						},
 						Replicas: int32Ptr(5),
-						Locations: []v1alpha1.Location{
+						Routes: []types.Route{
 							{
 								Path:        "some-path",
 								Destination: "some-destination",
@@ -80,11 +81,11 @@ func TestInfo(t *testing.T) {
 						Team:        "some-team",
 						Description: "some description",
 						Tags:        []string{"tag1", "tag2", "tag3"},
-						Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
-							MaxReplicas:                       5,
-							MinReplicas:                       int32Ptr(2),
-							TargetCPUUtilizationPercentage:    int32Ptr(55),
-							TargetMemoryUtilizationPercentage: int32Ptr(77),
+						Autoscale: &clientTypes.Autoscale{
+							MaxReplicas: int32Ptr(5),
+							MinReplicas: int32Ptr(2),
+							CPU:         int32Ptr(55),
+							Memory:      int32Ptr(77),
 						},
 					}, nil, nil
 				},
@@ -95,6 +96,7 @@ Team: some-team
 Description: some description
 Replicas: 5
 Plan: basic
+Tags: tag1, tag2, tag3
 
 Binds:
 +------------+------------+
@@ -105,17 +107,7 @@ Binds:
 | some-name2 | some-host2 |
 +------------+------------+
 
-Tags:
-+------+
-| tag1 |
-+------+
-| tag2 |
-+------+
-| tag3 |
-+------+
-
-
-Adresses:
+Addresses:
 +------------+---------+
 |  HOSTNAME  |   IP    |
 +------------+---------+
@@ -124,7 +116,7 @@ Adresses:
 | some-host2 | 0.0.0.1 |
 +------------+---------+
 
-Locations:
+Routes:
 +-----------+------------------+
 |   PATH    |   DESTINATION    |
 +-----------+------------------+
@@ -172,7 +164,7 @@ Autoscale:
 							},
 						},
 						Replicas: int32Ptr(5),
-						Locations: []v1alpha1.Location{
+						Routes: []types.Route{
 							{
 								Path:        "some-path",
 								Destination: "some-destination",
@@ -184,7 +176,7 @@ Autoscale:
 					}, nil, nil
 				},
 			},
-			expected: `{"address":[{"hostname":"some-host","ip":"0.0.0.0"},{"hostname":"some-host2","ip":"0.0.0.1"}],"replicas":5,"plan":"basic","locations":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host"},{"name":"some-name2","host":"some-host2"}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}
+			expected: `{"address":[{"hostname":"some-host","ip":"0.0.0.0"},{"hostname":"some-host2","ip":"0.0.0.1"}],"replicas":5,"plan":"basic","routes":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host"},{"name":"some-name2","host":"some-host2"}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}
 `,
 		},
 	}

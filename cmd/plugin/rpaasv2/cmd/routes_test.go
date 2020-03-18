@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func TestDeleteRoute(t *testing.T) {
@@ -89,7 +90,7 @@ func TestListRoutes(t *testing.T) {
 			args:          []string{"./rpaasv2", "routes", "list", "-i", "my-instance"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]rpaasclient.Route, *http.Response, error) {
+				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, *http.Response, error) {
 					expected := rpaasclient.ListRoutesArgs{Instance: "my-instance"}
 					assert.Equal(t, expected, args)
 					return nil, nil, fmt.Errorf("some error")
@@ -110,10 +111,10 @@ func TestListRoutes(t *testing.T) {
 +--------------+-------------------------------+--------------+-------------------+
 `,
 			client: &fake.FakeClient{
-				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]rpaasclient.Route, *http.Response, error) {
+				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, *http.Response, error) {
 					expected := rpaasclient.ListRoutesArgs{Instance: "my-instance"}
 					assert.Equal(t, expected, args)
-					return []rpaasclient.Route{
+					return []clientTypes.Route{
 						{
 							Path:        "/static",
 							Destination: "static.apps.tsuru.example.com",
@@ -151,10 +152,10 @@ func TestListRoutes(t *testing.T) {
 ]
 `,
 			client: &fake.FakeClient{
-				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]rpaasclient.Route, *http.Response, error) {
+				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, *http.Response, error) {
 					expected := rpaasclient.ListRoutesArgs{Instance: "my-instance"}
 					assert.Equal(t, expected, args)
-					return []rpaasclient.Route{
+					return []clientTypes.Route{
 						{
 							Path:        "/static",
 							Destination: "static.apps.tsuru.example.com",

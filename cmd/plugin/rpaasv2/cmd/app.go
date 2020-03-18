@@ -58,7 +58,9 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 	return
 }
 
-const rpaasClientKey = "rpaas.client"
+type contextKey string
+
+const rpaasClientKey = contextKey("rpaas.client")
 
 var errClientNotFoundAtContext = fmt.Errorf("rpaas client not found at context")
 

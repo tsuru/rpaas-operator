@@ -17,6 +17,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 var (
@@ -395,7 +396,7 @@ func TestClientThroughTsuru_ListBlocks(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          ListBlocksArgs
-		expected      []Block
+		expected      []types.Block
 		expectedError string
 		handler       http.HandlerFunc
 	}{
@@ -419,7 +420,7 @@ func TestClientThroughTsuru_ListBlocks(t *testing.T) {
 			args: ListBlocksArgs{
 				Instance: "my-instance",
 			},
-			expected: []Block{
+			expected: []types.Block{
 				{
 					Name:    "http",
 					Content: "Some HTTP conf",
@@ -519,7 +520,7 @@ func TestClientThroughTsuru_ListRoutes(t *testing.T) {
 	tests := []struct {
 		name          string
 		args          ListRoutesArgs
-		expected      []Route
+		expected      []types.Route
 		expectedError string
 		handler       http.HandlerFunc
 	}{
@@ -543,7 +544,7 @@ func TestClientThroughTsuru_ListRoutes(t *testing.T) {
 			args: ListRoutesArgs{
 				Instance: "my-instance",
 			},
-			expected: []Route{
+			expected: []types.Route{
 				{
 					Path:        "/static",
 					Destination: "static.apps.tsuru.example.com",

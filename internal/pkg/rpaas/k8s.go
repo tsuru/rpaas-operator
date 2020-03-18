@@ -145,7 +145,7 @@ func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, er
 	return nsName, nil
 }
 
-func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string) (*Autoscale, error) {
+func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string) (*clientTypes.Autoscale, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return nil, err
@@ -156,7 +156,7 @@ func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string)
 		return nil, NotFoundError{Msg: "autoscale not found"}
 	}
 
-	s := Autoscale{
+	s := clientTypes.Autoscale{
 		MinReplicas: autoscale.MinReplicas,
 		MaxReplicas: &autoscale.MaxReplicas,
 		CPU:         autoscale.TargetCPUUtilizationPercentage,
@@ -166,7 +166,7 @@ func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string)
 	return &s, nil
 }
 
-func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error {
+func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -192,7 +192,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error {
+func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -240,7 +240,7 @@ func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName stri
 	return m.cli.Update(ctx, instance)
 }
 
-func validateAutoscale(ctx context.Context, s *Autoscale) error {
+func validateAutoscale(ctx context.Context, s *clientTypes.Autoscale) error {
 	if *s.MaxReplicas == 0 {
 		return ValidationError{Msg: "max replicas is required"}
 	}
@@ -1380,12 +1380,23 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 
 func newInstanceInfo(instance *v1alpha1.RpaasInstance, ingresses []corev1.LoadBalancerIngress) *clientTypes.InstanceInfo {
 	info := &clientTypes.InstanceInfo{
-		Replicas:  instance.Spec.Replicas,
-		Plan:      instance.Spec.PlanName,
-		Locations: instance.Spec.Locations,
-		Autoscale: instance.Spec.Autoscale,
-		Binds:     instance.Spec.Binds,
-		Name:      instance.ObjectMeta.Name,
+		Replicas: instance.Spec.Replicas,
+		Plan:     instance.Spec.PlanName,
+		Autoscale: &clientTypes.Autoscale{
+			MinReplicas: instance.Spec.Autoscale.MinReplicas,
+			MaxReplicas: &instance.Spec.Autoscale.MaxReplicas,
+			CPU:         instance.Spec.Autoscale.TargetCPUUtilizationPercentage,
+			Memory:      instance.Spec.Autoscale.TargetMemoryUtilizationPercentage,
+		},
+		Binds: instance.Spec.Binds,
+		Name:  instance.ObjectMeta.Name,
+	}
+
+	for _, route := range instance.Spec.Locations {
+		info.Routes = append(info.Routes, clientTypes.Route{
+			Path:        route.Path,
+			Destination: route.Destination,
+		})
 	}
 
 	if desc, ok := instance.ObjectMeta.Annotations["description"]; ok {

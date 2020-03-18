@@ -309,7 +309,7 @@ func (args ListBlocksArgs) Validate() error {
 	return nil
 }
 
-func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, *http.Response, error) {
+func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.Block, *http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, err
 	}
@@ -329,7 +329,7 @@ func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]Block, 
 	}
 
 	var blockList struct {
-		Blocks []Block `json:"blocks"`
+		Blocks []types.Block `json:"blocks"`
 	}
 	if err = unmarshalBody(response, &blockList); err != nil {
 		return nil, response, err
@@ -380,7 +380,7 @@ func (args ListRoutesArgs) Validate() error {
 	return nil
 }
 
-func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]Route, *http.Response, error) {
+func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, *http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, err
 	}
@@ -400,7 +400,7 @@ func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]Route, 
 	}
 
 	var routes struct {
-		Routes []Route `json:"paths"`
+		Routes []types.Route `json:"paths"`
 	}
 	if err = unmarshalBody(response, &routes); err != nil {
 		return nil, response, err
