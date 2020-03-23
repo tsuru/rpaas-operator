@@ -50,7 +50,7 @@ func TestInfo(t *testing.T) {
 					require.Equal(t, args.Instance, "my-instance")
 					return &clientTypes.InstanceInfo{
 						Name: "my-instance",
-						Address: []clientTypes.InstanceAddress{
+						Addresses: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some-host",
 								IP:       "0.0.0.0",
@@ -142,7 +142,7 @@ Autoscale:
 
 					return &clientTypes.InstanceInfo{
 						Name: "my-instance",
-						Address: []clientTypes.InstanceAddress{
+						Addresses: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some-host",
 								IP:       "0.0.0.0",

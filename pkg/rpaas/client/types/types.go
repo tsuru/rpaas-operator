@@ -44,7 +44,7 @@ type InstanceAddress struct {
 }
 
 type InstanceInfo struct {
-	Address     []InstanceAddress `json:"address,omitempty"`
+	Addresses   []InstanceAddress `json:"address,omitempty"`
 	Replicas    *int32            `json:"replicas,omitempty"`
 	Plan        string            `json:"plan,omitempty"`
 	Routes      []Route           `json:"routes,omitempty"`

@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"strconv"
+	"strings"
 	"text/template"
 
 	"github.com/olekukonko/tablewriter"
@@ -58,16 +59,14 @@ Team: {{ .Team }}
 Description: {{ .Description }}
 Replicas: {{ .Replicas }}
 Plan: {{ .Plan }}
-{{- with .Tags }}
-Tags: {{ formatTags . }}
-{{- end }}
+Tags: {{ formatTags .Tags }}
 {{- with .Binds }}
 
 Binds:
 {{ formatBinds . }}
 {{- end }}
 
-{{- with .Address }}
+{{- with .Addresses }}
 Addresses:
 {{ formatAddresses . }}
 {{- end }}
@@ -96,34 +95,35 @@ func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
 	table.SetHeader([]string{"Replicas", "Target Utilization"})
 	table.SetAutoWrapText(true)
 	table.SetRowLine(false)
-	if autoscale != nil {
-		var max, min, cpuPercentage, memPercentage string
-		if autoscale.MaxReplicas != nil {
-			max = fmt.Sprintf("Max: %s", strconv.Itoa(int(*autoscale.MaxReplicas)))
-		} else {
-			max = "Max: N/A"
-		}
-		if autoscale.MinReplicas != nil {
-			min = fmt.Sprintf("Min: %s", strconv.Itoa(int(*autoscale.MinReplicas)))
-		} else {
-			min = "Min: N/A"
-		}
-		if autoscale.CPU != nil {
-			cpuPercentage = fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.CPU)))
-		} else {
-			cpuPercentage = "CPU: N/A"
-		}
-		if autoscale.Memory != nil {
-			memPercentage = fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.Memory)))
-		} else {
-			memPercentage = "Memory: N/A"
-		}
-		data := [][]string{
-			{max, cpuPercentage},
-			{min, memPercentage},
-		}
-		table.AppendBulk(data)
+	var max, min, cpuPercentage, memPercentage string
+	if autoscale == nil {
+		return ""
 	}
+	if autoscale.MaxReplicas != nil {
+		max = fmt.Sprintf("Max: %s", strconv.Itoa(int(*autoscale.MaxReplicas)))
+	} else {
+		max = "Max: N/A"
+	}
+	if autoscale.MinReplicas != nil {
+		min = fmt.Sprintf("Min: %s", strconv.Itoa(int(*autoscale.MinReplicas)))
+	} else {
+		min = "Min: N/A"
+	}
+	if autoscale.CPU != nil {
+		cpuPercentage = fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.CPU)))
+	} else {
+		cpuPercentage = "CPU: N/A"
+	}
+	if autoscale.Memory != nil {
+		memPercentage = fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.Memory)))
+	} else {
+		memPercentage = "Memory: N/A"
+	}
+	data := [][]string{
+		{max, cpuPercentage},
+		{min, memPercentage},
+	}
+	table.AppendBulk(data)
 	table.Render()
 
 	return buffer.String()
@@ -164,14 +164,7 @@ func writeInfoRoutesOnTableFormat(routes []clientTypes.Route) string {
 }
 
 func formatTags(tags []string) string {
-	var output string
-	if len(tags) > 0 {
-		output = tags[0]
-	}
-	for _, tag := range tags[1:] {
-		output += ", " + tag
-	}
-	return output
+	return strings.Join(tags, ", ")
 }
 
 func writeBindsOnTableFormat(binds []v1alpha1.Bind) string {

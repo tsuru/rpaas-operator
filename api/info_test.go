@@ -33,7 +33,7 @@ func Test_instanceInfo(t *testing.T) {
 				FakeGetInstanceInfo: func(instanceName string) (*clientTypes.InstanceInfo, error) {
 					assert.Equal(t, "my-instance", instanceName)
 					return &clientTypes.InstanceInfo{
-						Address: []clientTypes.InstanceAddress{
+						Addresses: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some host name",
 								IP:       "0.0.0.0",

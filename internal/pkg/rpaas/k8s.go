@@ -1408,7 +1408,7 @@ func newInstanceInfo(instance *v1alpha1.RpaasInstance, ingresses []corev1.LoadBa
 	setInfoTeam(instance, info)
 
 	for _, ingress := range ingresses {
-		info.Address = append(info.Address, clientTypes.InstanceAddress{
+		info.Addresses = append(info.Addresses, clientTypes.InstanceAddress{
 			Hostname: ingress.Hostname,
 			IP:       ingress.IP,
 		})
