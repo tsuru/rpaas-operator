@@ -90,15 +90,16 @@ Autoscale:
 }
 
 func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
+	if autoscale == nil {
+		return ""
+	}
 	var buffer bytes.Buffer
 	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Replicas", "Target Utilization"})
 	table.SetAutoWrapText(true)
 	table.SetRowLine(false)
 	var max, min, cpuPercentage, memPercentage string
-	if autoscale == nil {
-		return ""
-	}
+
 	if autoscale.MaxReplicas != nil {
 		max = fmt.Sprintf("Max: %s", strconv.Itoa(int(*autoscale.MaxReplicas)))
 	} else {
