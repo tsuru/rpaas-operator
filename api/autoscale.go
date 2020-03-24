@@ -20,7 +20,7 @@ func getAutoscale(c echo.Context) error {
 	}
 
 	if autoscale == nil {
-		autoscale = &types.Autoscale{}
+		autoscale = &clientTypes.Autoscale{}
 	}
 
 	return c.JSON(http.StatusOK, struct {

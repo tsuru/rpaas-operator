@@ -107,6 +107,7 @@ Binds:
 | some-name2 | some-host2 |
 +------------+------------+
 
+
 Addresses:
 +------------+---------+
 |  HOSTNAME  |   IP    |
@@ -116,12 +117,14 @@ Addresses:
 | some-host2 | 0.0.0.1 |
 +------------+---------+
 
+
 Routes:
 +-----------+------------------+
 |   PATH    |   DESTINATION    |
 +-----------+------------------+
 | some-path | some-destination |
 +-----------+------------------+
+
 
 Autoscale:
 +----------+--------------------+
@@ -176,8 +179,7 @@ Autoscale:
 					}, nil, nil
 				},
 			},
-			expected: `{"address":[{"hostname":"some-host","ip":"0.0.0.0"},{"hostname":"some-host2","ip":"0.0.0.1"}],"replicas":5,"plan":"basic","routes":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host"},{"name":"some-name2","host":"some-host2"}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}
-`,
+			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\"\n\t\t},\n\t\t{\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t]\n}\n",
 		},
 	}
 
