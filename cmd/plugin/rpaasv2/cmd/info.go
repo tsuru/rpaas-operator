@@ -65,8 +65,8 @@ Tags: {{ formatTags .Tags }}
 Binds:
 {{ formatBinds . }}
 {{- end }}
-
 {{- with .Addresses }}
+
 Addresses:
 {{ formatAddresses . }}
 {{- end }}
