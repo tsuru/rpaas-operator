@@ -75,6 +75,7 @@ Routes:
 {{ formatRoutes . }}
 {{- end }}
 {{- with .Autoscale }}
+
 Autoscale:
 {{ formatAutoscale . }}
 {{- end }}
