@@ -187,7 +187,7 @@ func writeBindsOnTableFormat(binds []v1alpha1.Bind) string {
 }
 
 func writeInfoOnJSONFormat(w io.Writer, payload *clientTypes.InstanceInfo) error {
-	message, err := json.Marshal(payload)
+	message, err := json.MarshalIndent(payload, "", "\t")
 	if err != nil {
 		return err
 	}
