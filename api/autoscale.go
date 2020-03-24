@@ -5,7 +5,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
