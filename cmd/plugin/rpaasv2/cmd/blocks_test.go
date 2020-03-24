@@ -16,6 +16,7 @@ import (
 	"github.com/stretchr/testify/require"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func TestUpdateBlock(t *testing.T) {
@@ -158,7 +159,7 @@ func TestListBlocks(t *testing.T) {
 			args:          []string{"./rpaasv2", "blocks", "list", "-i", "my-instance"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]rpaasclient.Block, *http.Response, error) {
+				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, *http.Response, error) {
 					expected := rpaasclient.ListBlocksArgs{
 						Instance: "my-instance",
 					}
@@ -178,12 +179,12 @@ func TestListBlocks(t *testing.T) {
 +---------+-----------------------------+
 `,
 			client: &fake.FakeClient{
-				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]rpaasclient.Block, *http.Response, error) {
+				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, *http.Response, error) {
 					expected := rpaasclient.ListBlocksArgs{
 						Instance: "my-instance",
 					}
 					assert.Equal(t, expected, args)
-					return []rpaasclient.Block{
+					return []clientTypes.Block{
 						{Name: "http", Content: "# some HTTP configuration"},
 						{Name: "server", Content: "# some server configuration"},
 					}, nil, nil
@@ -205,12 +206,12 @@ func TestListBlocks(t *testing.T) {
 ]
 `,
 			client: &fake.FakeClient{
-				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]rpaasclient.Block, *http.Response, error) {
+				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, *http.Response, error) {
 					expected := rpaasclient.ListBlocksArgs{
 						Instance: "my-instance",
 					}
 					assert.Equal(t, expected, args)
-					return []rpaasclient.Block{
+					return []clientTypes.Block{
 						{Name: "http", Content: "# some HTTP configuration"},
 						{Name: "server", Content: "# some server configuration"},
 					}, nil, nil

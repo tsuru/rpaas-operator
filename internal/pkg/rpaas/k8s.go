@@ -25,6 +25,7 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -144,7 +145,7 @@ func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, er
 	return nsName, nil
 }
 
-func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string) (*Autoscale, error) {
+func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string) (*clientTypes.Autoscale, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return nil, err
@@ -152,10 +153,10 @@ func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string)
 
 	autoscale := instance.Spec.Autoscale
 	if autoscale == nil {
-		return nil, NotFoundError{Msg: fmt.Sprintf("autoscale not found")}
+		return nil, NotFoundError{Msg: "autoscale not found"}
 	}
 
-	s := Autoscale{
+	s := clientTypes.Autoscale{
 		MinReplicas: autoscale.MinReplicas,
 		MaxReplicas: &autoscale.MaxReplicas,
 		CPU:         autoscale.TargetCPUUtilizationPercentage,
@@ -165,7 +166,7 @@ func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string)
 	return &s, nil
 }
 
-func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error {
+func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -178,7 +179,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 
 	s := instance.Spec.Autoscale
 	if s != nil {
-		return ValidationError{Msg: fmt.Sprintf("Autoscale already created")}
+		return ValidationError{Msg: "Autoscale already created"}
 	}
 
 	instance.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
@@ -191,7 +192,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error {
+func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -239,7 +240,7 @@ func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName stri
 	return m.cli.Update(ctx, instance)
 }
 
-func validateAutoscale(ctx context.Context, s *Autoscale) error {
+func validateAutoscale(ctx context.Context, s *clientTypes.Autoscale) error {
 	if *s.MaxReplicas == 0 {
 		return ValidationError{Msg: "max replicas is required"}
 	}
@@ -414,7 +415,7 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		}
 
 	} else {
-		return &NotFoundError{Msg: fmt.Sprintf("certificate not found")}
+		return &NotFoundError{Msg: "certificate not found"}
 	}
 
 	if len(oldSecret.Data) == 0 {
@@ -1375,4 +1376,99 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Annotations = mergeMap(instance.Annotations, newLabels)
 	instance.Labels = mergeMap(instance.Labels, newLabels)
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
+}
+
+func newInstanceInfo(instance *v1alpha1.RpaasInstance, ingresses []corev1.LoadBalancerIngress) *clientTypes.InstanceInfo {
+	info := &clientTypes.InstanceInfo{
+		Replicas: instance.Spec.Replicas,
+		Plan:     instance.Spec.PlanName,
+		Autoscale: &clientTypes.Autoscale{
+			MinReplicas: instance.Spec.Autoscale.MinReplicas,
+			MaxReplicas: &instance.Spec.Autoscale.MaxReplicas,
+			CPU:         instance.Spec.Autoscale.TargetCPUUtilizationPercentage,
+			Memory:      instance.Spec.Autoscale.TargetMemoryUtilizationPercentage,
+		},
+		Binds: instance.Spec.Binds,
+		Name:  instance.ObjectMeta.Name,
+	}
+
+	for _, route := range instance.Spec.Locations {
+		info.Routes = append(info.Routes, clientTypes.Route{
+			Path:        route.Path,
+			Destination: route.Destination,
+		})
+	}
+
+	if desc, ok := instance.ObjectMeta.Annotations["description"]; ok {
+		info.Description = desc
+	}
+
+	info.Tags = strings.Split(instance.ObjectMeta.Annotations["tags"], ",")
+
+	setInfoTeam(instance, info)
+
+	for _, ingress := range ingresses {
+		info.Addresses = append(info.Addresses, clientTypes.InstanceAddress{
+			Hostname: ingress.Hostname,
+			IP:       ingress.IP,
+		})
+	}
+
+	return info
+}
+
+func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]corev1.LoadBalancerIngress, error) {
+	var nginx nginxv1alpha1.Nginx
+	err := m.cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &nginx)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(nginx.Status.Services) == 0 {
+		return nil, nil
+	}
+
+	svcName := nginx.Status.Services[0].Name
+	var svc corev1.Service
+	err = m.cli.Get(ctx, types.NamespacedName{Name: svcName, Namespace: instance.Namespace}, &svc)
+	if err != nil {
+		return nil, err
+	}
+
+	return svc.Status.LoadBalancer.Ingress, nil
+}
+
+func setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *clientTypes.InstanceInfo) {
+	teamLabelKey := labelKey("team-owner")
+	team, ok := instance.ObjectMeta.Annotations[teamLabelKey]
+	if ok {
+		infoPayload.Team = team
+		return
+	}
+
+	team, ok = instance.Labels[teamLabelKey]
+	if ok {
+		infoPayload.Team = team
+		return
+	}
+
+	team, ok = instance.Spec.PodTemplate.Labels[teamLabelKey]
+	if ok {
+		infoPayload.Team = team
+		return
+	}
+}
+
+func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	ingresses, err := m.getLoadBalancerIngress(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+
+	return newInstanceInfo(instance, ingresses), nil
 }

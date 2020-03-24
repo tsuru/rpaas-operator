@@ -13,6 +13,7 @@ import (
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 type ConfigurationBlock struct {
@@ -121,17 +122,10 @@ type Flavor struct {
 	Description string `json:"description"`
 }
 
-type Autoscale struct {
-	MinReplicas *int32 `json:"minReplicas,omitempty" form:"min"`
-	MaxReplicas *int32 `json:"maxReplicas,omitempty" form:"max"`
-	CPU         *int32 `json:"cpu,omitempty" form:"cpu"`
-	Memory      *int32 `json:"memory,omitempty" form:"memory"`
-}
-
 type AutoscaleHandler interface {
-	GetAutoscale(ctx context.Context, name string) (*Autoscale, error)
-	CreateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error
-	UpdateAutoscale(ctx context.Context, instanceName string, autoscale *Autoscale) error
+	GetAutoscale(ctx context.Context, name string) (*clientTypes.Autoscale, error)
+	CreateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error
+	UpdateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error
 	DeleteAutoscale(ctx context.Context, name string) error
 }
 
@@ -156,6 +150,7 @@ type RpaasManager interface {
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName, appName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
+	GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error)
 }
 
 type CertificateData struct {

@@ -31,6 +31,7 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 		NewCmdCertificates(),
 		NewCmdBlocks(),
 		NewCmdRoutes(),
+		NewCmdInfo(),
 	}
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{
@@ -57,7 +58,9 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 	return
 }
 
-const rpaasClientKey = "rpaas.client"
+type contextKey string
+
+const rpaasClientKey = contextKey("rpaas.client")
 
 var errClientNotFoundAtContext = fmt.Errorf("rpaas client not found at context")
 
