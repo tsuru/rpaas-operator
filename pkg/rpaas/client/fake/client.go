@@ -25,9 +25,18 @@ type FakeClient struct {
 	FakeUpdateRoute       func(args client.UpdateRouteArgs) (*http.Response, error)
 	FakeInfo              func(args client.InfoArgs) (*types.InstanceInfo, *http.Response, error)
 	FakeGetAutoscale      func(args client.GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
+	FakeCreateAutoscale   func(args client.CreateAutoscaleArgs) (*http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
+
+func (f *FakeClient) CreateAutoscale(ctx context.Context, args client.CreateAutoscaleArgs) (*http.Response, error) {
+	if f.FakeCreateAutoscale != nil {
+		return f.FakeCreateAutoscale(args)
+	}
+
+	return nil, nil
+}
 
 func (f *FakeClient) GetAutoscale(ctx context.Context, args client.GetAutoscaleArgs) (*types.Autoscale, *http.Response, error) {
 	if f.FakeGetAutoscale != nil {

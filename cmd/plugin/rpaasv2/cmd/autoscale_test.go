@@ -87,3 +87,44 @@ func TestGetAutoscale(t *testing.T) {
 		})
 	}
 }
+
+func TestCreateAutoscale(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expected      string
+		expectedError string
+		client        client.Client
+	}{
+		{
+			name:          "when Create Autoscale does not find the instance",
+			args:          []string{"./rpaasv2", "autoscale", "add", "-s", "my-service", "-i", "my-instance", "--max", "5", "--min", "2", "--cpu", "50", "--memory", "45"},
+			expectedError: "not found error",
+			client: &fake.FakeClient{
+				FakeCreateAutoscale: func(args client.CreateAutoscaleArgs) (*http.Response, error) {
+					require.Equal(t, args.Instance, "my-instance")
+					require.Equal(t, args.MaxReplicas, int32(5))
+					require.Equal(t, args.MinReplicas, int32(2))
+					require.Equal(t, args.CPU, int32(50))
+					require.Equal(t, args.Memory, int32(45))
+					return nil, fmt.Errorf("not found error")
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := NewApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
+}

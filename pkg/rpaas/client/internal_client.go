@@ -23,13 +23,17 @@ import (
 )
 
 var (
-	ErrMissingTsuruTarget   = fmt.Errorf("rpaasv2: tsuru target cannot be empty")
-	ErrMissingTsuruToken    = fmt.Errorf("rpaasv2: tsuru token cannot be empty")
-	ErrMissingTsuruService  = fmt.Errorf("rpaasv2: tsuru service cannot be empty")
-	ErrMissingInstance      = fmt.Errorf("rpaasv2: instance cannot be empty")
-	ErrMissingBlockName     = fmt.Errorf("rpaasv2: block name cannot be empty")
-	ErrMissingPath          = fmt.Errorf("rpaasv2: path cannot be empty")
-	ErrUnexpectedStatusCode = fmt.Errorf("rpaasv2: unexpected status code")
+	ErrMissingTsuruTarget       = fmt.Errorf("rpaasv2: tsuru target cannot be empty")
+	ErrMissingTsuruToken        = fmt.Errorf("rpaasv2: tsuru token cannot be empty")
+	ErrMissingTsuruService      = fmt.Errorf("rpaasv2: tsuru service cannot be empty")
+	ErrMissingInstance          = fmt.Errorf("rpaasv2: instance cannot be empty")
+	ErrMissingBlockName         = fmt.Errorf("rpaasv2: block name cannot be empty")
+	ErrMissingPath              = fmt.Errorf("rpaasv2: path cannot be empty")
+	ErrUnexpectedStatusCode     = fmt.Errorf("rpaasv2: unexpected status code")
+	ErrInvalidMaxReplicasNumber = fmt.Errorf("rpaasv2: max replicas can't be lower than 1")
+	ErrInvalidMinReplicasNumber = fmt.Errorf("rpaasv2: min replicas can't be lower than 1 and can't be higher than the maximum number of replicas")
+	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%")
+	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: Memory usage can't be lower than 1%")
 )
 
 type ClientOptions struct {
@@ -135,6 +139,29 @@ func (args ScaleArgs) Validate() error {
 func (args GetAutoscaleArgs) Validate() error {
 	if args.Instance == "" {
 		return ErrMissingInstance
+	}
+
+	return nil
+}
+
+func (args CreateAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.MaxReplicas < 1 {
+		return ErrInvalidMaxReplicasNumber
+	}
+
+	if args.MinReplicas < 1 || args.MinReplicas > args.MaxReplicas {
+		return ErrInvalidMinReplicasNumber
+	}
+
+	if args.CPU < 1 {
+		return ErrInvalidCPUUsage
+	}
+	if args.Memory < 1 {
+		return ErrInvalidMemoryUsage
 	}
 
 	return nil
@@ -480,6 +507,28 @@ func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*type
 	return spec, resp, nil
 }
 
+func (c *client) CreateAutoscale(ctx context.Context, args CreateAutoscaleArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("GetAutoscale", args)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return resp, ErrUnexpectedStatusCode
+	}
+
+	return resp, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -562,6 +611,18 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		args := data.(GetAutoscaleArgs)
 		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
+	case "CreateAutoscale":
+		args := data.(CreateAutoscaleArgs)
+		pathName := fmt.Sprintf("resources/%s/autoscale", args.Instance)
+		values := url.Values{}
+		values.Set("maxReplicas", fmt.Sprint(args.MaxReplicas))
+		values.Set("minReplicas", fmt.Sprint(args.MinReplicas))
+		values.Set("cpu", fmt.Sprint(args.CPU))
+		values.Set("memory", fmt.Sprint(args.Memory))
+		body := strings.NewReader(values.Encode())
+		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	case "DeleteRoute":
 		args := data.(DeleteRouteArgs)
