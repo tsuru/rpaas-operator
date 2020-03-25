@@ -1,0 +1,38 @@
+builds:
+- id: rpaasv2
+  main: ./cmd/plugin/rpaasv2/main.go
+  binary: rpaasv2
+  ldflags:
+  - -s -w -X "github.com/tsuru/rpaas-operator/version.Version={{ .Tag }}/{{ .ShortCommit }}"
+  env:
+  - CGO_ENABLED=0
+  goos:
+  - darwin
+  - linux
+  - windows
+  goarch:
+  - amd64
+  - 386
+  ignore:
+  - goos: darwin
+    goarch: 386
+
+archives:
+- id: rpaasv2
+  builds:
+  - rpaasv2
+  name_template: "rpaasv2_{{ .Version }}_{{ .Os }}_{{ .Arch }}"
+  format_overrides:
+  - goos: windows
+    format: zip
+  replacements:
+    darwin: Darwin
+    linux: Linux
+    windows: Windows
+    386: i386
+    amd64: x86_64
+  files:
+  - LICENSE
+
+checksum:
+  name_template: "checksums.txt"
