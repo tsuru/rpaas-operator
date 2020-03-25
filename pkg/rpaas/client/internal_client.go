@@ -132,6 +132,14 @@ func (args ScaleArgs) Validate() error {
 	return nil
 }
 
+func (args GetAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
 func (args InfoArgs) Validate() error {
 	if args.Instance == "" {
 		return ErrMissingInstance
@@ -443,6 +451,35 @@ func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.R
 	return response, nil
 }
 
+func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, err
+	}
+
+	request, err := c.buildRequest("GetAutoscale", args)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, resp, ErrUnexpectedStatusCode
+	}
+
+	defer resp.Body.Close()
+	var spec *types.Autoscale
+	err = json.NewDecoder(resp.Body).Decode(&spec)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return spec, resp, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -519,6 +556,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 	case "ListBlocks":
 		args := data.(ListBlocksArgs)
 		pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
+		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
+	case "GetAutoscale":
+		args := data.(GetAutoscaleArgs)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 		req, err = c.newRequest("GET", pathName, nil, args.Instance)
 
 	case "DeleteRoute":

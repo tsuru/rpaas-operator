@@ -38,7 +38,7 @@ func NewCmdInfo() *cli.Command {
 			},
 			&cli.BoolFlag{
 				Name:    "raw-output",
-				Aliases: []string{"r"},
+				Aliases: []string{"r", "raw"},
 				Usage:   "show as JSON instead of go template format",
 				Value:   false,
 			},
