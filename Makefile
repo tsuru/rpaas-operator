@@ -20,7 +20,7 @@ test/integration:
 	./scripts/localkube-integration.sh
 
 lint:
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
 	go install ./...
 	golangci-lint run --config ./.golangci.yml ./...
 
