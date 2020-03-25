@@ -3571,3 +3571,160 @@ func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
 		})
 	}
 }
+
+func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance1"
+	instance1.Annotations = map[string]string{
+		"rpaas.extensions.tsuru.io/description": "Some description about this instance",
+		"rpaas.extensions.tsuru.io/tags":        "tag1,tag2,tag3",
+		"rpaas.extensions.tsuru.io/team-owner":  "tsuru",
+	}
+	instance1.Spec.PlanName = "huge"
+
+	instance2 := instance1.DeepCopy()
+	instance2.Name = "instance2"
+	instance2.Spec.Replicas = pointerToInt(3)
+	instance2.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MaxReplicas:                    100,
+		MinReplicas:                    pointerToInt(1),
+		TargetCPUUtilizationPercentage: pointerToInt(90),
+	}
+
+	instance3 := instance1.DeepCopy()
+	instance3.Name = "instance3"
+	instance3.Spec.Locations = []v1alpha1.Location{
+		{
+			Path:        "/custom/path/1",
+			Destination: "app1.tsuru.example.com",
+		},
+		{
+			Path: "/custom/path/2",
+			Content: &v1alpha1.Value{
+				Value: "# some nginx configuration",
+			},
+		},
+		{
+			Path:        "/custom/path/3",
+			Destination: "app3.tsuru.example.com",
+			ForceHTTPS:  true,
+		},
+	}
+
+	instance4 := instance1.DeepCopy()
+	instance4.Name = "instance4"
+
+	service4 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance4.Name + "-service",
+			Namespace: instance4.Namespace,
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{
+						IP:       "192.168.10.10",
+						Hostname: "instance4-service.rpaasv2.tsuru.example.com",
+					},
+				},
+			},
+		},
+	}
+
+	nginx4 := &nginxv1alpha1.Nginx{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance4.Name,
+			Namespace: instance4.Namespace,
+		},
+		Status: nginxv1alpha1.NginxStatus{
+			Services: []nginxv1alpha1.ServiceStatus{
+				{Name: service4.Name},
+			},
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4}
+
+	testCases := []struct {
+		instance string
+		expected clientTypes.InstanceInfo
+	}{
+		{
+			instance: "instance1",
+			expected: clientTypes.InstanceInfo{
+				Name:        "instance1",
+				Description: "Some description about this instance",
+				Team:        "tsuru",
+				Tags:        []string{"tag1", "tag2", "tag3"},
+				Plan:        "huge",
+			},
+		},
+		{
+			instance: "instance2",
+			expected: clientTypes.InstanceInfo{
+				Name:        "instance2",
+				Description: "Some description about this instance",
+				Team:        "tsuru",
+				Tags:        []string{"tag1", "tag2", "tag3"},
+				Plan:        "huge",
+				Replicas:    pointerToInt(3),
+				Autoscale: &clientTypes.Autoscale{
+					MaxReplicas: pointerToInt(100),
+					MinReplicas: pointerToInt(1),
+					CPU:         pointerToInt(90),
+				},
+			},
+		},
+		{
+			instance: "instance3",
+			expected: clientTypes.InstanceInfo{
+				Name:        "instance3",
+				Description: "Some description about this instance",
+				Team:        "tsuru",
+				Tags:        []string{"tag1", "tag2", "tag3"},
+				Plan:        "huge",
+				Routes: []clientTypes.Route{
+					{
+						Path:        "/custom/path/1",
+						Destination: "app1.tsuru.example.com",
+					},
+					{
+						Path:    "/custom/path/2",
+						Content: "# some nginx configuration",
+					},
+					{
+						Path:        "/custom/path/3",
+						Destination: "app3.tsuru.example.com",
+						HTTPSOnly:   true,
+					},
+				},
+			},
+		},
+		{
+			instance: "instance4",
+			expected: clientTypes.InstanceInfo{
+				Name:        "instance4",
+				Description: "Some description about this instance",
+				Team:        "tsuru",
+				Tags:        []string{"tag1", "tag2", "tag3"},
+				Plan:        "huge",
+				Addresses: []clientTypes.InstanceAddress{
+					{
+						IP:       "192.168.10.10",
+						Hostname: "instance4-service.rpaasv2.tsuru.example.com",
+					},
+				},
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run("", func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), resources...)}
+			got, err := manager.GetInstanceInfo(context.Background(), tt.instance)
+			require.NoError(t, err)
+			require.NotNil(t, got)
+			assert.Equal(t, tt.expected, *got)
+		})
+	}
+}

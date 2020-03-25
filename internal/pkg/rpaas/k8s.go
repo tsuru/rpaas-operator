@@ -1378,34 +1378,35 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }
 
-func newInstanceInfo(instance *v1alpha1.RpaasInstance, ingresses []corev1.LoadBalancerIngress) *clientTypes.InstanceInfo {
+func newInstanceInfo(instance *v1alpha1.RpaasInstance, routes []Route, ingresses []corev1.LoadBalancerIngress) *clientTypes.InstanceInfo {
 	info := &clientTypes.InstanceInfo{
-		Replicas: instance.Spec.Replicas,
-		Plan:     instance.Spec.PlanName,
-		Autoscale: &clientTypes.Autoscale{
-			MinReplicas: instance.Spec.Autoscale.MinReplicas,
-			MaxReplicas: &instance.Spec.Autoscale.MaxReplicas,
-			CPU:         instance.Spec.Autoscale.TargetCPUUtilizationPercentage,
-			Memory:      instance.Spec.Autoscale.TargetMemoryUtilizationPercentage,
-		},
-		Binds: instance.Spec.Binds,
-		Name:  instance.ObjectMeta.Name,
+		Name:        instance.ObjectMeta.Name,
+		Description: instance.Annotations[labelKey("description")],
+		Team:        instance.Annotations[labelKey("team-owner")],
+		Tags:        strings.Split(instance.Annotations[labelKey("tags")], ","),
+		Replicas:    instance.Spec.Replicas,
+		Plan:        instance.Spec.PlanName,
+		Binds:       instance.Spec.Binds,
 	}
 
-	for _, route := range instance.Spec.Locations {
+	autoscale := instance.Spec.Autoscale
+	if autoscale != nil {
+		info.Autoscale = &clientTypes.Autoscale{
+			MinReplicas: autoscale.MinReplicas,
+			MaxReplicas: &autoscale.MaxReplicas,
+			CPU:         autoscale.TargetCPUUtilizationPercentage,
+			Memory:      autoscale.TargetMemoryUtilizationPercentage,
+		}
+	}
+
+	for _, r := range routes {
 		info.Routes = append(info.Routes, clientTypes.Route{
-			Path:        route.Path,
-			Destination: route.Destination,
+			Path:        r.Path,
+			Destination: r.Destination,
+			Content:     r.Content,
+			HTTPSOnly:   r.HTTPSOnly,
 		})
 	}
-
-	if desc, ok := instance.ObjectMeta.Annotations["description"]; ok {
-		info.Description = desc
-	}
-
-	info.Tags = strings.Split(instance.ObjectMeta.Annotations["tags"], ",")
-
-	setInfoTeam(instance, info)
 
 	for _, ingress := range ingresses {
 		info.Addresses = append(info.Addresses, clientTypes.InstanceAddress{
@@ -1420,6 +1421,10 @@ func newInstanceInfo(instance *v1alpha1.RpaasInstance, ingresses []corev1.LoadBa
 func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]corev1.LoadBalancerIngress, error) {
 	var nginx nginxv1alpha1.Nginx
 	err := m.cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &nginx)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return nil, nil
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -1438,29 +1443,13 @@ func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *
 	return svc.Status.LoadBalancer.Ingress, nil
 }
 
-func setInfoTeam(instance *v1alpha1.RpaasInstance, infoPayload *clientTypes.InstanceInfo) {
-	teamLabelKey := labelKey("team-owner")
-	team, ok := instance.ObjectMeta.Annotations[teamLabelKey]
-	if ok {
-		infoPayload.Team = team
-		return
-	}
-
-	team, ok = instance.Labels[teamLabelKey]
-	if ok {
-		infoPayload.Team = team
-		return
-	}
-
-	team, ok = instance.Spec.PodTemplate.Labels[teamLabelKey]
-	if ok {
-		infoPayload.Team = team
-		return
-	}
-}
-
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	routes, err := m.GetRoutes(ctx, instanceName)
 	if err != nil {
 		return nil, err
 	}
@@ -1470,5 +1459,5 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
-	return newInstanceInfo(instance, ingresses), nil
+	return newInstanceInfo(instance, routes, ingresses), nil
 }
