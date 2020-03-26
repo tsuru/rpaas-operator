@@ -111,6 +111,25 @@ func TestCreateAutoscale(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "when Create Autoscale is successful",
+			args: []string{"./rpaasv2", "autoscale", "add", "-s", "my-service", "-i", "my-instance", "--max", "5", "--min", "2", "--cpu", "50", "--memory", "45"},
+			client: &fake.FakeClient{
+				FakeCreateAutoscale: func(args client.CreateAutoscaleArgs) (*http.Response, error) {
+					require.Equal(t, args.Instance, "my-instance")
+					require.Equal(t, args.MaxReplicas, int32(5))
+					require.Equal(t, args.MinReplicas, int32(2))
+					require.Equal(t, args.CPU, int32(50))
+					require.Equal(t, args.Memory, int32(45))
+					return &http.Response{
+						Status:     "200 OK!",
+						StatusCode: http.StatusOK,
+						Proto:      "HTTP/1.0",
+					}, nil
+				},
+			},
+			expected: "Autoscale of my-service/my-instance successfuly created\n",
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

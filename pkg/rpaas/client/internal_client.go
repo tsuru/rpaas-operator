@@ -32,8 +32,8 @@ var (
 	ErrUnexpectedStatusCode     = fmt.Errorf("rpaasv2: unexpected status code")
 	ErrInvalidMaxReplicasNumber = fmt.Errorf("rpaasv2: max replicas can't be lower than 1")
 	ErrInvalidMinReplicasNumber = fmt.Errorf("rpaasv2: min replicas can't be lower than 1 and can't be higher than the maximum number of replicas")
-	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%")
-	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: Memory usage can't be lower than 1%")
+	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%%")
+	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: Memory usage can't be lower than 1%%")
 )
 
 type ClientOptions struct {
@@ -512,7 +512,7 @@ func (c *client) CreateAutoscale(ctx context.Context, args CreateAutoscaleArgs) 
 		return nil, err
 	}
 
-	request, err := c.buildRequest("GetAutoscale", args)
+	request, err := c.buildRequest("CreateAutoscale", args)
 	if err != nil {
 		return nil, err
 	}
@@ -614,7 +614,7 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 
 	case "CreateAutoscale":
 		args := data.(CreateAutoscaleArgs)
-		pathName := fmt.Sprintf("resources/%s/autoscale", args.Instance)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 		values := url.Values{}
 		values.Set("maxReplicas", fmt.Sprint(args.MaxReplicas))
 		values.Set("minReplicas", fmt.Sprint(args.MinReplicas))
