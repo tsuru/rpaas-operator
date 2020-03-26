@@ -156,6 +156,9 @@ var templateFuncs = template.FuncMap(map[string]interface{}{
 	"httpsPort":          httpsPort,
 	"purgeLocationMatch": purgeLocationMatch,
 	"vtsLocationMatch":   vtsLocationMatch,
+	"contains":           strings.Contains,
+	"hasPrefix":          strings.HasPrefix,
+	"hasSuffix":          strings.HasSuffix,
 })
 
 var defaultMainTemplate = template.Must(template.New("main").
