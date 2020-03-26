@@ -34,6 +34,7 @@ var (
 	ErrInvalidMinReplicasNumber = fmt.Errorf("rpaasv2: min replicas can't be lower than 1 and can't be higher than the maximum number of replicas")
 	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%%")
 	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: Memory usage can't be lower than 1%%")
+	ErrMissingValues            = fmt.Errorf("rpaasv2: values can't be all empty")
 )
 
 type ClientOptions struct {
@@ -136,45 +137,6 @@ func (args ScaleArgs) Validate() error {
 	return nil
 }
 
-func (args GetAutoscaleArgs) Validate() error {
-	if args.Instance == "" {
-		return ErrMissingInstance
-	}
-
-	return nil
-}
-
-func (args CreateAutoscaleArgs) Validate() error {
-	if args.Instance == "" {
-		return ErrMissingInstance
-	}
-
-	if args.MaxReplicas < 1 {
-		return ErrInvalidMaxReplicasNumber
-	}
-
-	if args.MinReplicas < 1 || args.MinReplicas > args.MaxReplicas {
-		return ErrInvalidMinReplicasNumber
-	}
-
-	if args.CPU < 1 {
-		return ErrInvalidCPUUsage
-	}
-	if args.Memory < 1 {
-		return ErrInvalidMemoryUsage
-	}
-
-	return nil
-}
-
-func (args InfoArgs) Validate() error {
-	if args.Instance == "" {
-		return ErrMissingInstance
-	}
-
-	return nil
-}
-
 func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, err
@@ -195,6 +157,14 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	}
 
 	return response, nil
+}
+
+func (args InfoArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
 }
 
 func (c *client) Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, *http.Response, error) {
@@ -478,6 +448,14 @@ func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.R
 	return response, nil
 }
 
+func (args GetAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
 func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, nil, err
@@ -507,12 +485,97 @@ func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*type
 	return spec, resp, nil
 }
 
+func (args CreateAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.MaxReplicas < 1 {
+		return ErrInvalidMaxReplicasNumber
+	}
+
+	if args.MinReplicas < 1 || args.MinReplicas > args.MaxReplicas {
+		return ErrInvalidMinReplicasNumber
+	}
+
+	if args.CPU < 1 {
+		return ErrInvalidCPUUsage
+	}
+	if args.Memory < 1 {
+		return ErrInvalidMemoryUsage
+	}
+
+	return nil
+}
+
 func (c *client) CreateAutoscale(ctx context.Context, args CreateAutoscaleArgs) (*http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, err
 	}
 
 	request, err := c.buildRequest("CreateAutoscale", args)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return resp, ErrUnexpectedStatusCode
+	}
+
+	return resp, nil
+}
+
+func (args UpdateAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.MaxReplicas == 0 && args.MaxReplicas == args.MinReplicas && args.MaxReplicas == args.CPU && args.MaxReplicas == args.Memory {
+		return ErrMissingValues
+	}
+	return nil
+}
+
+func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("UpdateAutoscale", args)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return resp, ErrUnexpectedStatusCode
+	}
+
+	return resp, nil
+}
+
+func (args RemoveAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+	return nil
+}
+
+func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("RemoveAutoscale", args)
 	if err != nil {
 		return nil, err
 	}
@@ -612,6 +675,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 		req, err = c.newRequest("GET", pathName, nil, args.Instance)
 
+	case "RemoveAutoscale":
+		args := data.(RemoveAutoscaleArgs)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
+		req, err = c.newRequest("DELETE", pathName, nil, args.Instance)
+
 	case "CreateAutoscale":
 		args := data.(CreateAutoscaleArgs)
 		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
@@ -620,6 +688,26 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		values.Set("minReplicas", fmt.Sprint(args.MinReplicas))
 		values.Set("cpu", fmt.Sprint(args.CPU))
 		values.Set("memory", fmt.Sprint(args.Memory))
+		body := strings.NewReader(values.Encode())
+		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	case "UpdateAutoscale":
+		args := data.(UpdateAutoscaleArgs)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
+		values := url.Values{}
+		if args.MaxReplicas > 0 {
+			values.Set("maxReplicas", fmt.Sprint(args.MaxReplicas))
+		}
+		if args.MinReplicas > 0 {
+			values.Set("minReplicas", fmt.Sprint(args.MinReplicas))
+		}
+		if args.CPU > 0 {
+			values.Set("cpu", fmt.Sprint(args.CPU))
+		}
+		if args.Memory > 0 {
+			values.Set("memory", fmt.Sprint(args.Memory))
+		}
 		body := strings.NewReader(values.Encode())
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

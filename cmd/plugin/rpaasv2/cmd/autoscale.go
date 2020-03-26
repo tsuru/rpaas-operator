@@ -19,6 +19,8 @@ func NewCmdAutoscale() *cli.Command {
 		Subcommands: []*cli.Command{
 			NewCmdGetAutoscale(),
 			NewCmdCreateAutoscale(),
+			NewCmdUpdateAutoscale(),
+			NewCmdRemoveAutoscale(),
 		},
 	}
 }
@@ -92,6 +94,75 @@ func runCreateAutoscale(c *cli.Context) error {
 	return nil
 }
 
+func NewCmdUpdateAutoscale() *cli.Command {
+	return &cli.Command{
+		Name:  "update",
+		Usage: "Updates autoscale spec configuration of the desired instance",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.IntFlag{
+				Name:     "minReplicas",
+				Aliases:  []string{"min", "min-replicas", "minimal-replicas", "minimum"},
+				Usage:    "the lower limit for the number of replicas that can be set",
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "maxReplicas",
+				Aliases:  []string{"max", "max-replicas", "maximal-replicas", "maximum"},
+				Usage:    "the upper limit for the number of replicas that can be set",
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "cpu",
+				Aliases:  []string{"cpu-utilization"},
+				Usage:    "the target average CPU utilization over all the units. Represented as a percentage of requested CPU",
+				Required: false,
+			},
+			&cli.IntFlag{
+				Name:     "memory",
+				Aliases:  []string{"memory-utilization"},
+				Usage:    "the target average memory utilization over all the units. Represented as a percentage of requested memory.",
+				Required: false,
+			},
+		},
+
+		Before: setupClient,
+		Action: runUpdateAutoscale,
+	}
+}
+
+func runUpdateAutoscale(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	updateArgs := rpaasclient.UpdateAutoscaleArgs{
+		Instance:    c.String("instance"),
+		MinReplicas: int32(c.Int("minReplicas")),
+		MaxReplicas: int32(c.Int("maxReplicas")),
+		CPU:         int32(c.Int("cpu")),
+		Memory:      int32(c.Int("memory")),
+	}
+	_, err = client.UpdateAutoscale(c.Context, updateArgs)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfuly updated\n", formatInstanceName(c))
+	return nil
+}
+
 func NewCmdGetAutoscale() *cli.Command {
 	return &cli.Command{
 		Name:  "get",
@@ -118,6 +189,75 @@ func NewCmdGetAutoscale() *cli.Command {
 		Before: setupClient,
 		Action: runGetAutoscale,
 	}
+}
+
+func runGetAutoscale(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	args := rpaasclient.GetAutoscaleArgs{
+		Instance: c.String("instance"),
+		Raw:      c.Bool("raw-output"),
+	}
+
+	spec, _, err := client.GetAutoscale(c.Context, args)
+	if err != nil {
+		return err
+	}
+
+	if args.Raw {
+		return writeAutoscaleJSON(c.App.Writer, spec)
+	}
+
+	if spec != nil {
+		writeAutoscale(c.App.Writer, spec)
+	}
+
+	return nil
+}
+
+func NewCmdRemoveAutoscale() *cli.Command {
+	return &cli.Command{
+		Name:  "remove",
+		Usage: "Removes autoscale of the desired instance",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+		},
+		Before: setupClient,
+		Action: runRemoveAutoscale,
+	}
+}
+
+func runRemoveAutoscale(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	args := rpaasclient.RemoveAutoscaleArgs{
+		Instance: c.String("instance"),
+	}
+
+	_, err = client.RemoveAutoscale(c.Context, args)
+	if err != nil {
+		return err
+	}
+
+	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfuly removed\n", formatInstanceName(c))
+
+	return nil
 }
 
 func writeAutoscaleJSON(w io.Writer, spec *clientTypes.Autoscale) error {
@@ -166,31 +306,4 @@ func writeAutoscale(w io.Writer, autoscale *clientTypes.Autoscale) {
 	}
 	table.AppendBulk(data)
 	table.Render()
-}
-
-func runGetAutoscale(c *cli.Context) error {
-	client, err := getClient(c)
-	if err != nil {
-		return err
-	}
-
-	args := rpaasclient.GetAutoscaleArgs{
-		Instance: c.String("instance"),
-		Raw:      c.Bool("raw-output"),
-	}
-
-	spec, _, err := client.GetAutoscale(c.Context, args)
-	if err != nil {
-		return err
-	}
-
-	if args.Raw {
-		return writeAutoscaleJSON(c.App.Writer, spec)
-	}
-
-	if spec != nil {
-		writeAutoscale(c.App.Writer, spec)
-	}
-
-	return nil
 }

@@ -694,6 +694,73 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          UpdateAutoscaleArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when the server returns an error",
+			args: UpdateAutoscaleArgs{
+				Instance:    "my-instance",
+				MinReplicas: int32(5),
+				MaxReplicas: int32(10),
+				CPU:         int32(27),
+				Memory:      int32(33),
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+		{
+			name: "when the server returns the expected response",
+			args: UpdateAutoscaleArgs{
+				Instance:    "my-instance",
+				MinReplicas: int32(5),
+				MaxReplicas: int32(10),
+				CPU:         int32(27),
+				Memory:      int32(33),
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+				expected := url.Values{
+					"maxReplicas": []string{"10"},
+					"minReplicas": []string{"5"},
+					"cpu":         []string{"27"},
+					"memory":      []string{"33"},
+				}
+				values, err := url.ParseQuery(getBody(t, r))
+				assert.NoError(t, err)
+				assert.Equal(t, expected, values)
+				w.WriteHeader(http.StatusCreated)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			_, err := client.UpdateAutoscale(context.TODO(), tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
 func TestClientThroughTsuru_CreateAutoscale(t *testing.T) {
 	tests := []struct {
 		name          string
@@ -803,6 +870,56 @@ func TestClientThroughTsuru_GetAutoscale(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
 			_, _, err := client.GetAutoscale(context.TODO(), tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			assert.NoError(t, err)
+		})
+	}
+}
+
+func TestClientThroughTsuru_RemoveAutoscale(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          RemoveAutoscaleArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when the server returns an error",
+			args: RemoveAutoscaleArgs{
+				Instance: "my-instance",
+			},
+			expectedError: "rpaasv2: unexpected status code",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+		{
+			name: "when the server returns the expected response",
+			args: RemoveAutoscaleArgs{
+				Instance: "my-instance",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "DELETE")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			_, err := client.RemoveAutoscale(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

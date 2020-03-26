@@ -75,6 +75,18 @@ type CreateAutoscaleArgs struct {
 	Memory      int32
 }
 
+type UpdateAutoscaleArgs struct {
+	Instance    string
+	MinReplicas int32
+	MaxReplicas int32
+	CPU         int32
+	Memory      int32
+}
+
+type RemoveAutoscaleArgs struct {
+	Instance string
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
@@ -89,4 +101,6 @@ type Client interface {
 	UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.Response, error)
 	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
 	CreateAutoscale(ctx context.Context, args CreateAutoscaleArgs) (*http.Response, error)
+	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error)
+	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error)
 }
