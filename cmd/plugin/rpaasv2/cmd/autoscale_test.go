@@ -128,7 +128,7 @@ func TestCreateAutoscale(t *testing.T) {
 					}, nil
 				},
 			},
-			expected: "Autoscale of my-service/my-instance successfuly created\n",
+			expected: "Autoscale of my-service/my-instance successfully created\n",
 		},
 	}
 	for _, tt := range tests {
@@ -187,7 +187,7 @@ func TestUpdateAutoscale(t *testing.T) {
 					}, nil
 				},
 			},
-			expected: "Autoscale of my-service/my-instance successfuly updated\n",
+			expected: "Autoscale of my-service/my-instance successfully updated\n",
 		},
 	}
 	for _, tt := range tests {
@@ -239,7 +239,7 @@ func TestRemoveAutoscale(t *testing.T) {
 					}, nil
 				},
 			},
-			expected: "Autoscale of my-service/my-instance successfuly removed\n",
+			expected: "Autoscale of my-service/my-instance successfully removed\n",
 		},
 	}
 	for _, tt := range tests {

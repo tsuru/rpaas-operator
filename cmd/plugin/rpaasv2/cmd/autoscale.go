@@ -90,7 +90,7 @@ func runCreateAutoscale(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfuly created\n", formatInstanceName(c))
+	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfully created\n", formatInstanceName(c))
 	return nil
 }
 
@@ -159,7 +159,7 @@ func runUpdateAutoscale(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfuly updated\n", formatInstanceName(c))
+	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfully updated\n", formatInstanceName(c))
 	return nil
 }
 
@@ -255,7 +255,7 @@ func runRemoveAutoscale(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfuly removed\n", formatInstanceName(c))
+	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfully removed\n", formatInstanceName(c))
 
 	return nil
 }
