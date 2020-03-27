@@ -494,17 +494,6 @@ func (args CreateAutoscaleArgs) Validate() error {
 		return ErrInvalidMaxReplicasNumber
 	}
 
-	if args.MinReplicas < 1 || args.MinReplicas > args.MaxReplicas {
-		return ErrInvalidMinReplicasNumber
-	}
-
-	if args.CPU < 1 {
-		return ErrInvalidCPUUsage
-	}
-	if args.Memory < 1 {
-		return ErrInvalidMemoryUsage
-	}
-
 	return nil
 }
 
@@ -684,8 +673,8 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		args := data.(CreateAutoscaleArgs)
 		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 		values := url.Values{}
-		values.Set("maxReplicas", fmt.Sprint(args.MaxReplicas))
-		values.Set("minReplicas", fmt.Sprint(args.MinReplicas))
+		values.Set("max", fmt.Sprint(args.MaxReplicas))
+		values.Set("min", fmt.Sprint(args.MinReplicas))
 		values.Set("cpu", fmt.Sprint(args.CPU))
 		values.Set("memory", fmt.Sprint(args.Memory))
 		body := strings.NewReader(values.Encode())
@@ -697,10 +686,10 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 		values := url.Values{}
 		if args.MaxReplicas > 0 {
-			values.Set("maxReplicas", fmt.Sprint(args.MaxReplicas))
+			values.Set("max", fmt.Sprint(args.MaxReplicas))
 		}
 		if args.MinReplicas > 0 {
-			values.Set("minReplicas", fmt.Sprint(args.MinReplicas))
+			values.Set("min", fmt.Sprint(args.MinReplicas))
 		}
 		if args.CPU > 0 {
 			values.Set("cpu", fmt.Sprint(args.CPU))
@@ -709,7 +698,7 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 			values.Set("memory", fmt.Sprint(args.Memory))
 		}
 		body := strings.NewReader(values.Encode())
-		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req, err = c.newRequest("PATCH", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	case "DeleteRoute":

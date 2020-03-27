@@ -730,14 +730,14 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 				Memory:      int32(33),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, "PATCH", r.Method)
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
 				expected := url.Values{
-					"maxReplicas": []string{"10"},
-					"minReplicas": []string{"5"},
-					"cpu":         []string{"27"},
-					"memory":      []string{"33"},
+					"max":    []string{"10"},
+					"min":    []string{"5"},
+					"cpu":    []string{"27"},
+					"memory": []string{"33"},
 				}
 				values, err := url.ParseQuery(getBody(t, r))
 				assert.NoError(t, err)
@@ -801,10 +801,10 @@ func TestClientThroughTsuru_CreateAutoscale(t *testing.T) {
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
 				expected := url.Values{
-					"maxReplicas": []string{"10"},
-					"minReplicas": []string{"5"},
-					"cpu":         []string{"27"},
-					"memory":      []string{"33"},
+					"max":    []string{"10"},
+					"min":    []string{"5"},
+					"cpu":    []string{"27"},
+					"memory": []string{"33"},
 				}
 				values, err := url.ParseQuery(getBody(t, r))
 				assert.NoError(t, err)
