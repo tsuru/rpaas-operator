@@ -22,14 +22,6 @@ install:
 jobs:
   fast_finish: true
   include:
-  - stage: test
-    script: make test
-    env: JOB=test
-  - stage: test
-    script: make lint
-    env:
-    - JOB=lint
-    - GOLANGCI_LINT_VERSION=v1.23.8
   - stage: integration
     script: make test/integration
     env:
