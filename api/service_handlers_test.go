@@ -32,6 +32,7 @@ func Test_serviceCreate(t *testing.T) {
 	}{
 		{
 			name:         "when some error is returned",
+			requestBody:  "foo=bar",
 			expectedCode: http.StatusBadRequest,
 			expectedBody: "some error message",
 			manager: &fake.RpaasManager{
@@ -137,6 +138,7 @@ func Test_serviceUpdate(t *testing.T) {
 		{
 			name:         "when some error is returned",
 			instance:     "my-instance",
+			requestBody:  "foo=bar",
 			expectedCode: http.StatusBadRequest,
 			expectedBody: "some error",
 			manager: &fake.RpaasManager{
