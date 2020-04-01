@@ -7,13 +7,16 @@ package api
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
+	"strings"
 	"sync"
 	"syscall"
 	"time"
 
+	"github.com/ajg/form"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/tsuru/rpaas-operator/config"
@@ -158,7 +161,7 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 func newEcho() *echo.Echo {
 	e := echo.New()
-
+	e.Binder = new(requestBinder)
 	e.HideBanner = true
 
 	e.Use(middleware.Recover())
@@ -220,4 +223,30 @@ func newEcho() *echo.Echo {
 	e.POST("/resources/:instance/purge", cachePurge)
 
 	return e
+}
+
+type requestBinder struct{}
+
+func (b *requestBinder) Bind(i interface{}, c echo.Context) error {
+	req := c.Request()
+
+	ctype := req.Header.Get(echo.HeaderContentType)
+	if !strings.HasPrefix(ctype, echo.MIMEApplicationForm) {
+		c.Response().Header().Set("Accept", echo.MIMEApplicationForm)
+		return echo.ErrUnsupportedMediaType
+	}
+
+	if err := newDecoder(req.Body).Decode(i); err != nil {
+		return fmt.Errorf("cannot decode the parameters: %w", err)
+	}
+	defer req.Body.Close()
+
+	return nil
+}
+
+func newDecoder(r io.Reader) *form.Decoder {
+	decoder := form.NewDecoder(r)
+	decoder.IgnoreCase(true)
+	decoder.IgnoreUnknownKeys(true)
+	return decoder
 }
