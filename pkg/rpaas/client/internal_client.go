@@ -33,7 +33,7 @@ var (
 	ErrInvalidMaxReplicasNumber = fmt.Errorf("rpaasv2: max replicas can't be lower than 1")
 	ErrInvalidMinReplicasNumber = fmt.Errorf("rpaasv2: min replicas can't be lower than 1 and can't be higher than the maximum number of replicas")
 	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%%")
-	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: Memory usage can't be lower than 1%%")
+	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: memory usage can't be lower than 1%%")
 	ErrMissingValues            = fmt.Errorf("rpaasv2: values can't be all empty")
 )
 
