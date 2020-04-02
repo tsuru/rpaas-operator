@@ -83,6 +83,8 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_cache_purge rpaas \$1\$is_args\$args;
 \s+}
 \s+}`, result)
+				assert.Regexp(t, `proxy_cache rpaas;`, result)
+
 			},
 		},
 		{
