@@ -15,7 +15,7 @@ import (
 func NewCmdAutoscale() *cli.Command {
 	return &cli.Command{
 		Name:  "autoscale",
-		Usage: "Manages the autoscale spec of the defined instance",
+		Usage: "Manages autoscaling settings of an instance",
 		Subcommands: []*cli.Command{
 			NewCmdGetAutoscale(),
 			NewCmdCreateAutoscale(),
