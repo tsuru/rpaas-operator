@@ -5,7 +5,6 @@
 package cmd
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -217,13 +216,7 @@ func runGetAutoscale(c *cli.Context) error {
 	}
 
 	if spec != nil {
-		// writeAutoscale(c.App.Writer, spec)
-		var buffer bytes.Buffer
-		_, err := buffer.WriteString(writeAutoscaleOnTableFormat(spec))
-		if err != nil {
-			return err
-		}
-		buffer.WriteTo(c.App.Writer)
+		writeAutoscale(c.App.Writer, spec)
 	}
 
 	return nil
