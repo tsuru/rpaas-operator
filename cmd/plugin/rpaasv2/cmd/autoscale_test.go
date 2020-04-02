@@ -1,3 +1,7 @@
+// Copyright 2019 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package cmd
 
 import (
@@ -23,7 +27,7 @@ func TestGetAutoscale(t *testing.T) {
 	}{
 		{
 			name:          "when GetAutoscale does not find the instance",
-			args:          []string{"./rpaasv2", "autoscale", "get", "-s", "my-service", "-i", "my-instance"},
+			args:          []string{"./rpaasv2", "autoscale", "info", "-s", "my-service", "-i", "my-instance"},
 			expectedError: "not found error",
 			client: &fake.FakeClient{
 				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, *http.Response, error) {
@@ -34,7 +38,7 @@ func TestGetAutoscale(t *testing.T) {
 		},
 		{
 			name: "when get autoscale route is successful",
-			args: []string{"./rpaasv2", "autoscale", "get", "-s", "my-service", "-i", "my-instance"},
+			args: []string{"./rpaasv2", "autoscale", "info", "-s", "my-service", "-i", "my-instance"},
 			client: &fake.FakeClient{
 				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
@@ -56,7 +60,7 @@ func TestGetAutoscale(t *testing.T) {
 		},
 		{
 			name: "when get autoscale route is successful on JSON format",
-			args: []string{"./rpaasv2", "autoscale", "get", "-s", "my-service", "-i", "my-instance", "--raw"},
+			args: []string{"./rpaasv2", "autoscale", "info", "-s", "my-service", "-i", "my-instance", "--raw"},
 			client: &fake.FakeClient{
 				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, *http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")

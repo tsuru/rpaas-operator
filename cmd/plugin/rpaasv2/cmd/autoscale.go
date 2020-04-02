@@ -1,6 +1,11 @@
+// Copyright 2019 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package cmd
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,14 +47,14 @@ func NewCmdCreateAutoscale() *cli.Command {
 				Required: true,
 			},
 			&cli.IntFlag{
-				Name:     "minReplicas",
-				Aliases:  []string{"min", "min-replicas", "minimal-replicas", "minimum"},
+				Name:     "min-replicas",
+				Aliases:  []string{"min"},
 				Usage:    "the lower limit for the number of replicas that can be set",
 				Required: false,
 			},
 			&cli.IntFlag{
-				Name:     "maxReplicas",
-				Aliases:  []string{"max", "max-replicas", "maximal-replicas", "maximum"},
+				Name:     "max-replicas",
+				Aliases:  []string{"max"},
 				Usage:    "the upper limit for the number of replicas that can be set",
 				Required: true,
 			},
@@ -80,8 +85,8 @@ func runCreateAutoscale(c *cli.Context) error {
 
 	createArgs := rpaasclient.CreateAutoscaleArgs{
 		Instance:    c.String("instance"),
-		MinReplicas: int32(c.Int("minReplicas")),
-		MaxReplicas: int32(c.Int("maxReplicas")),
+		MinReplicas: int32(c.Int("min")),
+		MaxReplicas: int32(c.Int("max")),
 		CPU:         int32(c.Int("cpu")),
 		Memory:      int32(c.Int("memory")),
 	}
@@ -165,8 +170,8 @@ func runUpdateAutoscale(c *cli.Context) error {
 
 func NewCmdGetAutoscale() *cli.Command {
 	return &cli.Command{
-		Name:  "get",
-		Usage: "Retrieves autoscale configuration of the desired instance",
+		Name:  "info",
+		Usage: "Shows  the autoscaling settings",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -212,7 +217,13 @@ func runGetAutoscale(c *cli.Context) error {
 	}
 
 	if spec != nil {
-		writeAutoscale(c.App.Writer, spec)
+		// writeAutoscale(c.App.Writer, spec)
+		var buffer bytes.Buffer
+		_, err := buffer.WriteString(writeAutoscaleOnTableFormat(spec))
+		if err != nil {
+			return err
+		}
+		buffer.WriteTo(c.App.Writer)
 	}
 
 	return nil
@@ -220,8 +231,9 @@ func runGetAutoscale(c *cli.Context) error {
 
 func NewCmdRemoveAutoscale() *cli.Command {
 	return &cli.Command{
-		Name:  "remove",
-		Usage: "Removes autoscale of the desired instance",
+		Name:    "remove",
+		Usage:   "Removes autoscale of the desired instance",
+		Aliases: []string{"delete"},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
