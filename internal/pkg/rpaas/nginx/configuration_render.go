@@ -311,6 +311,10 @@ http {
         {{- end }}
         {{- end }}
 
+        {{- if boolValue $config.CacheEnabled }}
+        proxy_cache rpaas;
+        {{- end }}
+
         location = /_nginx_healthcheck {
             {{- if boolValue $config.VTSEnabled }}
             vhost_traffic_status_bypass_limit on;
