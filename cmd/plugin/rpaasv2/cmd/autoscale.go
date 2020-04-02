@@ -48,7 +48,7 @@ func NewCmdCreateAutoscale() *cli.Command {
 			&cli.IntFlag{
 				Name:     "min-replicas",
 				Aliases:  []string{"min"},
-				Usage:    "the lower limit for the number of replicas that can be set",
+				Usage:    "the lower limit of replicas that can be reached",
 				Required: false,
 			},
 			&cli.IntFlag{
