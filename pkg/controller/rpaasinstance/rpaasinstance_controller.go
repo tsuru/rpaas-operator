@@ -26,6 +26,7 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	k8sResources "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -74,6 +75,14 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(&source.Kind{Type: &corev1.Secret{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &corev1.PersistentVolume{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
 	})
@@ -182,6 +191,16 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 
 	if err = r.reconcileNginx(nginx); err != nil {
 		return reconcile.Result{}, err
+	}
+
+	if plan.Spec.Config.CacheHeaterEnabled {
+		if err := r.reconcileCacheHeaterVolume(instance); err != nil {
+			return reconcile.Result{}, err
+		}
+	} else {
+		if err := r.destroyCacheHeaterVolume(instance); err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if err = r.reconcileHPA(ctx, *instance, *nginx); err != nil {
@@ -402,6 +421,74 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) erro
 		logrus.Errorf("Failed to update nginx CR: %v", err)
 	}
 	return err
+}
+
+func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance) error {
+	pvcName := instance.Name + "-heater-volume"
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
+	isNotFound := k8sErrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return err
+	} else if !isNotFound {
+		logrus.Infof("PersistentVolumeClaim %s is found, skipping creation", pvcName)
+		return nil
+	}
+
+	storageSize, err := resource.ParseQuantity("1Gi")
+	if err != nil {
+		return err
+	}
+	volumeMode := corev1.PersistentVolumeFilesystem
+	pvc = &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "PersistentVolumeClaim",
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteMany,
+			},
+			VolumeMode: &volumeMode,
+			Resources: corev1.ResourceRequirements{
+				Requests: corev1.ResourceList{
+					"storage": storageSize,
+				},
+			},
+		},
+	}
+	if err := r.client.Create(context.TODO(), pvc); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(instance *v1alpha1.RpaasInstance) error {
+	pvcName := instance.Name + "-heater-volume"
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
+	isNotFound := k8sErrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return err
+	} else if isNotFound {
+		logrus.Infof("PersistentVolumeClaim %s is not found, skipping destruction", pvcName)
+		return nil
+	}
+
+	return r.client.Delete(context.TODO(), pvc)
 }
 
 func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
