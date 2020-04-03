@@ -62,6 +62,23 @@ type InfoArgs struct {
 	Raw      bool
 }
 
+type GetAutoscaleArgs struct {
+	Instance string
+	Raw      bool
+}
+
+type UpdateAutoscaleArgs struct {
+	Instance    string
+	MinReplicas int32
+	MaxReplicas int32
+	CPU         int32
+	Memory      int32
+}
+
+type RemoveAutoscaleArgs struct {
+	Instance string
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
@@ -74,4 +91,7 @@ type Client interface {
 	DeleteRoute(ctx context.Context, args DeleteRouteArgs) (*http.Response, error)
 	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, *http.Response, error)
 	UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.Response, error)
+	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
+	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error)
+	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error)
 }

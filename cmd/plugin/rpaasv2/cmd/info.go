@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 	"strings"
 	"text/template"
 
@@ -38,7 +37,7 @@ func NewCmdInfo() *cli.Command {
 			},
 			&cli.BoolFlag{
 				Name:    "raw-output",
-				Aliases: []string{"r"},
+				Aliases: []string{"r", "raw"},
 				Usage:   "show as JSON instead of go template format",
 				Value:   false,
 			},
@@ -92,43 +91,8 @@ Autoscale:
 }
 
 func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
-	if autoscale == nil {
-		return ""
-	}
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Replicas", "Target Utilization"})
-	table.SetAutoWrapText(true)
-	table.SetRowLine(false)
-	var max, min, cpuPercentage, memPercentage string
-
-	if autoscale.MaxReplicas != nil {
-		max = fmt.Sprintf("Max: %s", strconv.Itoa(int(*autoscale.MaxReplicas)))
-	} else {
-		max = "Max: N/A"
-	}
-	if autoscale.MinReplicas != nil {
-		min = fmt.Sprintf("Min: %s", strconv.Itoa(int(*autoscale.MinReplicas)))
-	} else {
-		min = "Min: N/A"
-	}
-	if autoscale.CPU != nil {
-		cpuPercentage = fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.CPU)))
-	} else {
-		cpuPercentage = "CPU: N/A"
-	}
-	if autoscale.Memory != nil {
-		memPercentage = fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.Memory)))
-	} else {
-		memPercentage = "Memory: N/A"
-	}
-	data := [][]string{
-		{max, cpuPercentage},
-		{min, memPercentage},
-	}
-	table.AppendBulk(data)
-	table.Render()
-
+	writeAutoscale(&buffer, autoscale)
 	return buffer.String()
 }
 

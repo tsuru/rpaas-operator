@@ -23,13 +23,18 @@ import (
 )
 
 var (
-	ErrMissingTsuruTarget   = fmt.Errorf("rpaasv2: tsuru target cannot be empty")
-	ErrMissingTsuruToken    = fmt.Errorf("rpaasv2: tsuru token cannot be empty")
-	ErrMissingTsuruService  = fmt.Errorf("rpaasv2: tsuru service cannot be empty")
-	ErrMissingInstance      = fmt.Errorf("rpaasv2: instance cannot be empty")
-	ErrMissingBlockName     = fmt.Errorf("rpaasv2: block name cannot be empty")
-	ErrMissingPath          = fmt.Errorf("rpaasv2: path cannot be empty")
-	ErrUnexpectedStatusCode = fmt.Errorf("rpaasv2: unexpected status code")
+	ErrMissingTsuruTarget       = fmt.Errorf("rpaasv2: tsuru target cannot be empty")
+	ErrMissingTsuruToken        = fmt.Errorf("rpaasv2: tsuru token cannot be empty")
+	ErrMissingTsuruService      = fmt.Errorf("rpaasv2: tsuru service cannot be empty")
+	ErrMissingInstance          = fmt.Errorf("rpaasv2: instance cannot be empty")
+	ErrMissingBlockName         = fmt.Errorf("rpaasv2: block name cannot be empty")
+	ErrMissingPath              = fmt.Errorf("rpaasv2: path cannot be empty")
+	ErrUnexpectedStatusCode     = fmt.Errorf("rpaasv2: unexpected status code")
+	ErrInvalidMaxReplicasNumber = fmt.Errorf("rpaasv2: max replicas can't be lower than 1")
+	ErrInvalidMinReplicasNumber = fmt.Errorf("rpaasv2: min replicas can't be lower than 1 and can't be higher than the maximum number of replicas")
+	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%%")
+	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: memory usage can't be lower than 1%%")
+	ErrMissingValues            = fmt.Errorf("rpaasv2: values can't be all empty")
 )
 
 type ClientOptions struct {
@@ -132,14 +137,6 @@ func (args ScaleArgs) Validate() error {
 	return nil
 }
 
-func (args InfoArgs) Validate() error {
-	if args.Instance == "" {
-		return ErrMissingInstance
-	}
-
-	return nil
-}
-
 func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, err
@@ -160,6 +157,14 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	}
 
 	return response, nil
+}
+
+func (args InfoArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
 }
 
 func (c *client) Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, *http.Response, error) {
@@ -443,6 +448,128 @@ func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.R
 	return response, nil
 }
 
+func (args GetAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
+func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, err
+	}
+
+	request, err := c.buildRequest("GetAutoscale", args)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return nil, resp, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, resp, ErrUnexpectedStatusCode
+	}
+
+	defer resp.Body.Close()
+	var spec *types.Autoscale
+	err = json.NewDecoder(resp.Body).Decode(&spec)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	return spec, resp, nil
+}
+
+func (args UpdateAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.MaxReplicas == 0 && args.MaxReplicas == args.MinReplicas && args.MaxReplicas == args.CPU && args.MaxReplicas == args.Memory {
+		return ErrMissingValues
+	}
+	return nil
+}
+
+func (c *client) shouldCreate(ctx context.Context, instance string) (bool, error) {
+	_, resp, err := c.GetAutoscale(ctx, GetAutoscaleArgs{Instance: instance})
+	if err != nil {
+		if resp.StatusCode == http.StatusNotFound {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
+}
+
+func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	var request *http.Request
+	shouldCreate, err := c.shouldCreate(ctx, args.Instance)
+	if err != nil {
+		return nil, err
+	}
+	if shouldCreate {
+		request, err = c.buildRequest("CreateAutoscale", args)
+		if err != nil {
+			return nil, err
+		}
+	} else {
+		request, err = c.buildRequest("UpdateAutoscale", args)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode != http.StatusCreated {
+		return resp, ErrUnexpectedStatusCode
+	}
+
+	return resp, nil
+}
+
+func (args RemoveAutoscaleArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+	return nil
+}
+
+func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("RemoveAutoscale", args)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return resp, ErrUnexpectedStatusCode
+	}
+
+	return resp, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -520,6 +647,48 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		args := data.(ListBlocksArgs)
 		pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
 		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
+	case "GetAutoscale":
+		args := data.(GetAutoscaleArgs)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
+		req, err = c.newRequest("GET", pathName, nil, args.Instance)
+
+	case "RemoveAutoscale":
+		args := data.(RemoveAutoscaleArgs)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
+		req, err = c.newRequest("DELETE", pathName, nil, args.Instance)
+
+	case "CreateAutoscale":
+		args := data.(UpdateAutoscaleArgs)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
+		values := url.Values{}
+		values.Set("max", fmt.Sprint(args.MaxReplicas))
+		values.Set("min", fmt.Sprint(args.MinReplicas))
+		values.Set("cpu", fmt.Sprint(args.CPU))
+		values.Set("memory", fmt.Sprint(args.Memory))
+		body := strings.NewReader(values.Encode())
+		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	case "UpdateAutoscale":
+		args := data.(UpdateAutoscaleArgs)
+		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
+		values := url.Values{}
+		if args.MaxReplicas > 0 {
+			values.Set("max", fmt.Sprint(args.MaxReplicas))
+		}
+		if args.MinReplicas > 0 {
+			values.Set("min", fmt.Sprint(args.MinReplicas))
+		}
+		if args.CPU > 0 {
+			values.Set("cpu", fmt.Sprint(args.CPU))
+		}
+		if args.Memory > 0 {
+			values.Set("memory", fmt.Sprint(args.Memory))
+		}
+		body := strings.NewReader(values.Encode())
+		req, err = c.newRequest("PATCH", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	case "DeleteRoute":
 		args := data.(DeleteRouteArgs)
