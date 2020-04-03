@@ -86,6 +86,7 @@ type NginxConfig struct {
 
 type CacheHeaterStorage struct {
 	StorageClassName *string `json:"storageClassName"`
+	StorageSize      string  `json:"storageSize"`
 }
 
 func Bool(v bool) *bool {

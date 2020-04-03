@@ -194,7 +194,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	if plan.Spec.Config.CacheHeaterEnabled {
-		if err := r.reconcileCacheHeaterVolume(instance, plan.Spec.Config.CacheHeaterStorage); err != nil {
+		if err := r.reconcileCacheHeaterVolume(instance, plan); err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
@@ -423,7 +423,7 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) erro
 	return err
 }
 
-func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance, storageConfig *v1alpha1.CacheHeaterStorage) error {
+func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	pvcName := instance.Name + "-heater-volume"
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -436,15 +436,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 		return nil
 	}
 
-	storageSize, err := resource.ParseQuantity("1Gi")
-	if err != nil {
-		return err
-	}
 	volumeMode := corev1.PersistentVolumeFilesystem
-	var storageClassName *string
-	if storageConfig != nil {
-		storageClassName = storageConfig.StorageClassName
-	}
 	pvc = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -466,14 +458,29 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 				corev1.ReadWriteMany,
 			},
 			VolumeMode:       &volumeMode,
-			StorageClassName: storageClassName,
-			Resources: corev1.ResourceRequirements{
-				Requests: corev1.ResourceList{
-					"storage": storageSize,
-				},
-			},
+			StorageClassName: plan.Spec.Config.CacheHeaterStorage.StorageClassName,
 		},
 	}
+
+	storageSize := plan.Spec.Config.CacheSize
+	if cacheHeaterStorage := plan.Spec.Config.CacheHeaterStorage; cacheHeaterStorage != nil {
+		if cacheHeaterStorage.StorageSize != "" {
+			storageSize = cacheHeaterStorage.StorageSize
+		}
+	}
+
+	if storageSize != "" {
+		parsedSize, err := resource.ParseQuantity(storageSize)
+		if err != nil {
+			return err
+		}
+		pvc.Spec.Resources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				"storage": parsedSize,
+			},
+		}
+	}
+
 	if err := r.client.Create(context.TODO(), pvc); err != nil {
 		return err
 	}

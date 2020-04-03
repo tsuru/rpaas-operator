@@ -670,10 +670,17 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	storageConfig := &v1alpha1.CacheHeaterStorage{
-		StorageClassName: strPtr("my-storage-class"),
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{
+			Config: v1alpha1.NginxConfig{
+				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+					StorageClassName: strPtr("my-storage-class"),
+				},
+			},
+		},
 	}
-	err := reconciler.reconcileCacheHeaterVolume(instance1, storageConfig)
+
+	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -684,6 +691,79 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 	assert.Equal(t, pvc.ObjectMeta.OwnerReferences[0].Name, instance1.Name)
 	assert.Equal(t, pvc.Spec.StorageClassName, strPtr("my-storage-class"))
 	assert.Equal(t, pvc.Spec.AccessModes, []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany})
+}
+
+func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	resources := []runtime.Object{}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{
+			Config: v1alpha1.NginxConfig{
+				CacheSize: "10Gi",
+				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+					StorageClassName: strPtr("my-storage-class"),
+				},
+			},
+		},
+	}
+
+	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	require.NoError(t, err)
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-volume", Namespace: instance1.Namespace}, pvc)
+	require.NoError(t, err)
+
+	parsedSize, err := resource.ParseQuantity("10Gi")
+	assert.Equal(t, parsedSize, pvc.Spec.Resources.Requests["storage"])
+}
+
+func Test_reconcileHeaterVolumeUsingStorageSize(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	resources := []runtime.Object{}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{
+			Config: v1alpha1.NginxConfig{
+				CacheSize: "10Gi",
+				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+					StorageClassName: strPtr("my-storage-class"),
+					StorageSize:      "100Gi",
+				},
+			},
+		},
+	}
+
+	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	require.NoError(t, err)
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-volume", Namespace: instance1.Namespace}, pvc)
+	require.NoError(t, err)
+
+	parsedSize, err := resource.ParseQuantity("100Gi")
+	assert.Equal(t, parsedSize, pvc.Spec.Resources.Requests["storage"])
 }
 
 func Test_destroyHeaterVolume(t *testing.T) {
