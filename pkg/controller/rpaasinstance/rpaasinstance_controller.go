@@ -194,11 +194,11 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	if plan.Spec.Config.CacheHeaterEnabled {
-		if err := r.reconcileCacheHeaterVolume(instance); err != nil {
+		if err := r.reconcileCacheHeaterVolume(instance, plan.Spec.Config.CacheHeaterStorage); err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
-		if err := r.destroyCacheHeaterVolume(instance); err != nil {
+		if err := r.destroyCacheHeaterVolume(instance, plan.Spec.Config.CacheHeaterStorage); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
@@ -423,7 +423,7 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) erro
 	return err
 }
 
-func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance) error {
+func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance, storageConfig *v1alpha1.CacheHeaterStorage) error {
 	pvcName := instance.Name + "-heater-volume"
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -461,7 +461,8 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 			AccessModes: []corev1.PersistentVolumeAccessMode{
 				corev1.ReadWriteMany,
 			},
-			VolumeMode: &volumeMode,
+			VolumeMode:       &volumeMode,
+			StorageClassName: storageConfig.StorageClassName,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					"storage": storageSize,
@@ -475,7 +476,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(instance *v1alpha1.RpaasInstance) error {
+func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(instance *v1alpha1.RpaasInstance, storageConfig *v1alpha1.CacheHeaterStorage) error {
 	pvcName := instance.Name + "-heater-volume"
 
 	pvc := &corev1.PersistentVolumeClaim{}

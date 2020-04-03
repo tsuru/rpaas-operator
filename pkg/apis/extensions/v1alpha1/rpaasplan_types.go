@@ -66,7 +66,8 @@ type NginxConfig struct {
 	CacheSize        string `json:"cacheSize,omitempty"`
 	CacheZoneSize    string `json:"cacheZoneSize,omitempty"`
 
-	CacheHeaterEnabled bool `json:"cacheHeaterEnabled"`
+	CacheHeaterEnabled bool                `json:"cacheHeaterEnabled"`
+	CacheHeaterStorage *CacheHeaterStorage `json:"cacheHeaterStorage"`
 
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
@@ -81,6 +82,10 @@ type NginxConfig struct {
 
 	WorkerProcesses   int `json:"workerProcesses,omitempty"`
 	WorkerConnections int `json:"workerConnections,omitempty"`
+}
+
+type CacheHeaterStorage struct {
+	StorageClassName *string `json:"storageClassName"`
 }
 
 func Bool(v bool) *bool {

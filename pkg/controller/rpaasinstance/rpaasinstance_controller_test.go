@@ -669,7 +669,10 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	err := reconciler.reconcileCacheHeaterVolume(instance1)
+	storageConfig := &v1alpha1.CacheHeaterStorage{
+		StorageClassName: strPtr("my-storage-class"),
+	}
+	err := reconciler.reconcileCacheHeaterVolume(instance1, storageConfig)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -678,6 +681,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 
 	assert.Equal(t, pvc.ObjectMeta.OwnerReferences[0].Kind, "RpaasInstance")
 	assert.Equal(t, pvc.ObjectMeta.OwnerReferences[0].Name, instance1.Name)
+	assert.Equal(t, pvc.Spec.StorageClassName, strPtr("my-storage-class"))
 	assert.Equal(t, pvc.Spec.AccessModes, []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany})
 }
 
@@ -691,6 +695,9 @@ func Test_destroyHeaterVolume(t *testing.T) {
 			Namespace: "default",
 		},
 	}
+	storageConfig := &v1alpha1.CacheHeaterStorage{
+		StorageClassName: strPtr("my-storage-class"),
+	}
 	resources := []runtime.Object{pvc}
 	scheme := newScheme()
 	corev1.AddToScheme(scheme)
@@ -701,7 +708,7 @@ func Test_destroyHeaterVolume(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	err := reconciler.destroyCacheHeaterVolume(instance1)
+	err := reconciler.destroyCacheHeaterVolume(instance1, storageConfig)
 	require.NoError(t, err)
 
 	pvc = &corev1.PersistentVolumeClaim{}
@@ -711,6 +718,10 @@ func Test_destroyHeaterVolume(t *testing.T) {
 
 func int32Ptr(n int32) *int32 {
 	return &n
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
