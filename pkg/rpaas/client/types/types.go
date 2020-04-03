@@ -5,6 +5,8 @@
 package types
 
 import (
+	"time"
+
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
 
@@ -43,6 +45,16 @@ type InstanceAddress struct {
 	IP       string `json:"ip,omitempty"`
 }
 
+type Pod struct {
+	Name      string    `json:"name"`
+	IP        string    `json:"ip"`
+	HostIP    string    `json:"host"`
+	Status    string    `json:"status"`
+	CreatedAt time.Time `json:"createdAt"`
+	Restarts  int32     `json:"restarts"`
+	Ready     bool      `json:"ready"`
+}
+
 type InstanceInfo struct {
 	Addresses   []InstanceAddress `json:"addresses,omitempty"`
 	Replicas    *int32            `json:"replicas,omitempty"`
@@ -54,4 +66,5 @@ type InstanceInfo struct {
 	Name        string            `json:"name,omitempty"`
 	Description string            `json:"description,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
+	Pods        []Pod             `json:"pods,omitempty"`
 }

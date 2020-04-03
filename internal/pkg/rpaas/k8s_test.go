@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"testing"
+	"time"
 
 	"github.com/imdario/mergo"
 	"github.com/stretchr/testify/assert"
@@ -3573,6 +3574,8 @@ func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
 }
 
 func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
+	t0 := time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC)
+
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance1"
 	instance1.Annotations = map[string]string{
@@ -3619,6 +3622,9 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Name:      instance4.Name + "-service",
 			Namespace: instance4.Namespace,
 		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: []corev1.LoadBalancerIngress{
@@ -3637,13 +3643,53 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Namespace: instance4.Namespace,
 		},
 		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance4",
 			Services: []nginxv1alpha1.ServiceStatus{
 				{Name: service4.Name},
 			},
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4}
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance4-6f86f957b7-abcde",
+			Namespace: instance4.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance4",
+			},
+			CreationTimestamp: metav1.NewTime(t0),
+		},
+		Status: corev1.PodStatus{
+			Phase:  corev1.PodRunning,
+			PodIP:  "172.16.100.21",
+			HostIP: "10.10.10.11",
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name:         "nginx",
+					Ready:        true,
+					RestartCount: int32(10),
+				},
+			},
+		},
+	}
+
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance4-6f86f957b7-fghij",
+			Namespace: instance4.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance4",
+			},
+			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodPending,
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4, pod1, pod2}
 
 	testCases := []struct {
 		instance string
@@ -3712,6 +3758,22 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					{
 						IP:       "192.168.10.10",
 						Hostname: "instance4-service.rpaasv2.tsuru.example.com",
+					},
+				},
+				Pods: []clientTypes.Pod{
+					{
+						Name:      "instance4-6f86f957b7-abcde",
+						IP:        "172.16.100.21",
+						HostIP:    "10.10.10.11",
+						Status:    "Running",
+						CreatedAt: time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC),
+						Restarts:  int32(10),
+						Ready:     true,
+					},
+					{
+						Name:      "instance4-6f86f957b7-fghij",
+						Status:    "Pending",
+						CreatedAt: time.Date(2020, 4, 2, 17, 10, 0, 0, time.UTC),
 					},
 				},
 			},

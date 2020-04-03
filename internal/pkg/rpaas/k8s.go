@@ -19,6 +19,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"time"
 
 	"github.com/pkg/errors"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -31,6 +32,7 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -510,9 +512,8 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 		return "", err
 	}
 
-	var nginx nginxv1alpha1.Nginx
-	err = m.cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &nginx)
-	if err != nil && IsNotFoundError(err) {
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
 		return "", nil
 	}
 
@@ -520,29 +521,16 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 		return "", err
 	}
 
-	if len(nginx.Status.Services) == 0 {
-		return "", nil
-	}
-
-	svcName := nginx.Status.Services[0].Name
-	var svc corev1.Service
-	err = m.cli.Get(ctx, types.NamespacedName{Name: svcName, Namespace: instance.Namespace}, &svc)
+	addresses, err := m.getInstanceAddresses(ctx, nginx)
 	if err != nil {
 		return "", err
 	}
 
-	switch svc.Spec.Type {
-	case corev1.ServiceTypeLoadBalancer:
-		if len(svc.Status.LoadBalancer.Ingress) == 0 {
-			return "", nil
-		}
-
-		return svc.Status.LoadBalancer.Ingress[0].IP, nil
-	case corev1.ServiceTypeClusterIP, corev1.ServiceTypeNodePort:
-		return svc.Spec.ClusterIP, nil
+	if len(addresses) == 0 {
+		return "", nil
 	}
 
-	return "", nil
+	return addresses[0].IP, nil
 }
 
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {
@@ -1378,9 +1366,14 @@ func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
 	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }
 
-func newInstanceInfo(instance *v1alpha1.RpaasInstance, routes []Route, ingresses []corev1.LoadBalancerIngress) *clientTypes.InstanceInfo {
+func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
 	info := &clientTypes.InstanceInfo{
-		Name:        instance.ObjectMeta.Name,
+		Name:        instance.Name,
 		Description: instance.Annotations[labelKey("description")],
 		Team:        instance.Annotations[labelKey("team-owner")],
 		Tags:        strings.Split(instance.Annotations[labelKey("tags")], ","),
@@ -1399,6 +1392,11 @@ func newInstanceInfo(instance *v1alpha1.RpaasInstance, routes []Route, ingresses
 		}
 	}
 
+	routes, err := m.GetRoutes(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
 	for _, r := range routes {
 		info.Routes = append(info.Routes, clientTypes.Route{
 			Path:        r.Path,
@@ -1408,56 +1406,156 @@ func newInstanceInfo(instance *v1alpha1.RpaasInstance, routes []Route, ingresses
 		})
 	}
 
-	for _, ingress := range ingresses {
-		info.Addresses = append(info.Addresses, clientTypes.InstanceAddress{
-			Hostname: ingress.Hostname,
-			IP:       ingress.IP,
-		})
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return info, nil
 	}
 
-	return info
+	if err != nil {
+		return nil, err
+	}
+
+	info.Addresses, err = m.getInstanceAddresses(ctx, nginx)
+	if err != nil {
+		return nil, err
+	}
+
+	info.Pods, err = m.getPodStatuses(ctx, nginx)
+	if err != nil {
+		return nil, err
+	}
+
+	return info, nil
 }
 
-func (m *k8sRpaasManager) getLoadBalancerIngress(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]corev1.LoadBalancerIngress, error) {
+func (m *k8sRpaasManager) getNginx(ctx context.Context, instance *v1alpha1.RpaasInstance) (*nginxv1alpha1.Nginx, error) {
+	if instance == nil {
+		return nil, fmt.Errorf("rpaasinstance cannot be nil")
+	}
+
 	var nginx nginxv1alpha1.Nginx
 	err := m.cli.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &nginx)
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return nil, nil
-	}
-
 	if err != nil {
 		return nil, err
 	}
 
-	if len(nginx.Status.Services) == 0 {
-		return nil, nil
-	}
-
-	svcName := nginx.Status.Services[0].Name
-	var svc corev1.Service
-	err = m.cli.Get(ctx, types.NamespacedName{Name: svcName, Namespace: instance.Namespace}, &svc)
-	if err != nil {
-		return nil, err
-	}
-
-	return svc.Status.LoadBalancer.Ingress, nil
+	return &nginx, nil
 }
 
-func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
-	instance, err := m.GetInstance(ctx, instanceName)
+func (m *k8sRpaasManager) getPods(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]corev1.Pod, error) {
+	if nginx == nil {
+		return nil, fmt.Errorf("nginx resource cannot be nil")
+	}
+
+	if nginx.Status.PodSelector == "" {
+		return nil, fmt.Errorf("pod selector on nginx status cannot be empty")
+	}
+
+	labelSet, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
 	if err != nil {
 		return nil, err
 	}
 
-	routes, err := m.GetRoutes(ctx, instanceName)
+	var podList corev1.PodList
+	err = m.cli.List(ctx, &podList, &client.ListOptions{LabelSelector: labelSet.AsSelector(), Namespace: nginx.Namespace})
 	if err != nil {
 		return nil, err
 	}
 
-	ingresses, err := m.getLoadBalancerIngress(ctx, instance)
+	return podList.Items, nil
+}
+
+func (m *k8sRpaasManager) getServices(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]corev1.Service, error) {
+	if nginx == nil {
+		return nil, fmt.Errorf("nginx cannot be nil")
+	}
+
+	var services []corev1.Service
+	for _, svcStatus := range nginx.Status.Services {
+		var svc corev1.Service
+		err := m.cli.Get(ctx, types.NamespacedName{Name: svcStatus.Name, Namespace: nginx.Namespace}, &svc)
+		if err != nil {
+			return nil, err
+		}
+
+		services = append(services, svc)
+	}
+
+	return services, nil
+}
+
+func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]clientTypes.InstanceAddress, error) {
+	if nginx == nil {
+		return nil, fmt.Errorf("nginx cannot be nil")
+	}
+
+	services, err := m.getServices(ctx, nginx)
 	if err != nil {
 		return nil, err
 	}
 
-	return newInstanceInfo(instance, routes, ingresses), nil
+	var addresses []clientTypes.InstanceAddress
+	for _, svc := range services {
+		switch svc.Spec.Type {
+		case corev1.ServiceTypeLoadBalancer:
+			for _, lbIngress := range svc.Status.LoadBalancer.Ingress {
+				addresses = append(addresses, clientTypes.InstanceAddress{
+					IP:       lbIngress.IP,
+					Hostname: lbIngress.Hostname,
+				})
+			}
+
+		default:
+			addresses = append(addresses, clientTypes.InstanceAddress{IP: svc.Spec.ClusterIP})
+		}
+	}
+
+	sort.SliceStable(addresses, func(i, j int) bool {
+		return addresses[i].IP < addresses[j].IP
+	})
+
+	return addresses, nil
+}
+
+func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]clientTypes.Pod, error) {
+	if nginx == nil {
+		return nil, fmt.Errorf("nginx cannot be nil")
+	}
+
+	pods, err := m.getPods(ctx, nginx)
+	if err != nil {
+		return nil, err
+	}
+
+	var podStatuses []clientTypes.Pod
+	for _, pod := range pods {
+		podStatus := clientTypes.Pod{
+			Name:      pod.Name,
+			IP:        pod.Status.PodIP,
+			HostIP:    pod.Status.HostIP,
+			CreatedAt: pod.CreationTimestamp.Time.In(time.UTC),
+		}
+
+		phase := pod.Status.Phase
+		if phase == "" {
+			phase = corev1.PodUnknown
+		}
+		podStatus.Status = string(phase)
+
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.Name != "nginx" {
+				continue
+			}
+			podStatus.Restarts = containerStatus.RestartCount
+			podStatus.Ready = containerStatus.Ready
+		}
+
+		podStatuses = append(podStatuses, podStatus)
+	}
+
+	sort.Slice(podStatuses, func(i, j int) bool {
+		return podStatuses[i].Name < podStatuses[j].Name
+	})
+
+	return podStatuses, nil
 }
