@@ -485,40 +485,6 @@ func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*type
 	return spec, resp, nil
 }
 
-func (args CreateAutoscaleArgs) Validate() error {
-	if args.Instance == "" {
-		return ErrMissingInstance
-	}
-
-	if args.MaxReplicas < 1 {
-		return ErrInvalidMaxReplicasNumber
-	}
-
-	return nil
-}
-
-func (c *client) CreateAutoscale(ctx context.Context, args CreateAutoscaleArgs) (*http.Response, error) {
-	if err := args.Validate(); err != nil {
-		return nil, err
-	}
-
-	request, err := c.buildRequest("CreateAutoscale", args)
-	if err != nil {
-		return nil, err
-	}
-
-	resp, err := c.do(ctx, request)
-	if err != nil {
-		return resp, err
-	}
-
-	if resp.StatusCode != http.StatusOK {
-		return resp, ErrUnexpectedStatusCode
-	}
-
-	return resp, nil
-}
-
 func (args UpdateAutoscaleArgs) Validate() error {
 	if args.Instance == "" {
 		return ErrMissingInstance
@@ -530,14 +496,31 @@ func (args UpdateAutoscaleArgs) Validate() error {
 	return nil
 }
 
+func (c *client) shouldCreate(ctx context.Context, instance string) (bool, error) {
+	_, resp, err := c.GetAutoscale(ctx, GetAutoscaleArgs{Instance: instance})
+	if err != nil {
+		if resp.StatusCode == http.StatusNotFound {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
+}
+
 func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error) {
 	if err := args.Validate(); err != nil {
 		return nil, err
 	}
 
-	request, err := c.buildRequest("UpdateAutoscale", args)
+	var request *http.Request
+	shouldCreate, err := c.shouldCreate(ctx, args.Instance)
 	if err != nil {
 		return nil, err
+	}
+	if shouldCreate {
+		request, err = c.buildRequest("CreateAutoscale", args)
+	} else {
+		request, err = c.buildRequest("UpdateAutoscale", args)
 	}
 
 	resp, err := c.do(ctx, request)
@@ -670,7 +653,7 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		req, err = c.newRequest("DELETE", pathName, nil, args.Instance)
 
 	case "CreateAutoscale":
-		args := data.(CreateAutoscaleArgs)
+		args := data.(UpdateAutoscaleArgs)
 		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 		values := url.Values{}
 		values.Set("max", fmt.Sprint(args.MaxReplicas))

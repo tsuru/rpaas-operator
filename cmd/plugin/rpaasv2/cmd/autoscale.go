@@ -22,17 +22,17 @@ func NewCmdAutoscale() *cli.Command {
 		Usage: "Manages autoscaling settings of an instance",
 		Subcommands: []*cli.Command{
 			NewCmdGetAutoscale(),
-			NewCmdCreateAutoscale(),
 			NewCmdUpdateAutoscale(),
 			NewCmdRemoveAutoscale(),
 		},
 	}
 }
 
-func NewCmdCreateAutoscale() *cli.Command {
+func NewCmdUpdateAutoscale() *cli.Command {
 	return &cli.Command{
-		Name:  "add",
-		Usage: "Creates autoscale spec configuration of the desired instance",
+		Name:    "add",
+		Aliases: []string{"update"},
+		Usage:   "Creates autoscale spec configuration of the desired instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -46,85 +46,14 @@ func NewCmdCreateAutoscale() *cli.Command {
 				Required: true,
 			},
 			&cli.IntFlag{
-				Name:     "min-replicas",
-				Aliases:  []string{"min"},
+				Name:     "min",
 				Usage:    "the lower limit of replicas that can be reached",
 				Required: false,
 			},
 			&cli.IntFlag{
-				Name:     "max-replicas",
-				Aliases:  []string{"max"},
-				Usage:    "the upper limit for the number of replicas that can be set",
+				Name:     "max",
+				Usage:    "the upper limit of replicas that can be reached",
 				Required: true,
-			},
-			&cli.IntFlag{
-				Name:     "cpu",
-				Aliases:  []string{"cpu-utilization"},
-				Usage:    "the target average CPU utilization over all the units. Represented as a percentage of requested CPU",
-				Required: false,
-			},
-			&cli.IntFlag{
-				Name:     "memory",
-				Aliases:  []string{"memory-utilization"},
-				Usage:    "the target average memory utilization over all the units. Represented as a percentage of requested memory.",
-				Required: false,
-			},
-		},
-
-		Before: setupClient,
-		Action: runCreateAutoscale,
-	}
-}
-
-func runCreateAutoscale(c *cli.Context) error {
-	client, err := getClient(c)
-	if err != nil {
-		return err
-	}
-
-	createArgs := rpaasclient.CreateAutoscaleArgs{
-		Instance:    c.String("instance"),
-		MinReplicas: int32(c.Int("min")),
-		MaxReplicas: int32(c.Int("max")),
-		CPU:         int32(c.Int("cpu")),
-		Memory:      int32(c.Int("memory")),
-	}
-	_, err = client.CreateAutoscale(c.Context, createArgs)
-	if err != nil {
-		return err
-	}
-
-	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfully created\n", formatInstanceName(c))
-	return nil
-}
-
-func NewCmdUpdateAutoscale() *cli.Command {
-	return &cli.Command{
-		Name:  "update",
-		Usage: "Updates autoscale spec configuration of the desired instance",
-		Flags: []cli.Flag{
-			&cli.StringFlag{
-				Name:    "service",
-				Aliases: []string{"tsuru-service", "s"},
-				Usage:   "the Tsuru service name",
-			},
-			&cli.StringFlag{
-				Name:     "instance",
-				Aliases:  []string{"tsuru-service-instance", "i"},
-				Usage:    "the reverse proxy instance name",
-				Required: true,
-			},
-			&cli.IntFlag{
-				Name:     "minReplicas",
-				Aliases:  []string{"min", "min-replicas", "minimal-replicas", "minimum"},
-				Usage:    "the lower limit for the number of replicas that can be set",
-				Required: false,
-			},
-			&cli.IntFlag{
-				Name:     "maxReplicas",
-				Aliases:  []string{"max", "max-replicas", "maximal-replicas", "maximum"},
-				Usage:    "the upper limit for the number of replicas that can be set",
-				Required: false,
 			},
 			&cli.IntFlag{
 				Name:     "cpu",
@@ -153,8 +82,8 @@ func runUpdateAutoscale(c *cli.Context) error {
 
 	updateArgs := rpaasclient.UpdateAutoscaleArgs{
 		Instance:    c.String("instance"),
-		MinReplicas: int32(c.Int("minReplicas")),
-		MaxReplicas: int32(c.Int("maxReplicas")),
+		MinReplicas: int32(c.Int("min")),
+		MaxReplicas: int32(c.Int("max")),
 		CPU:         int32(c.Int("cpu")),
 		Memory:      int32(c.Int("memory")),
 	}
@@ -163,7 +92,7 @@ func runUpdateAutoscale(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfully updated\n", formatInstanceName(c))
+	fmt.Fprintf(c.App.Writer, "Autoscale of %s successfully updated!\n", formatInstanceName(c))
 	return nil
 }
 

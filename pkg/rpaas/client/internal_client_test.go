@@ -6,6 +6,7 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net/http"
@@ -695,11 +696,13 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 }
 
 func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
+	handlerCount := 0
 	tests := []struct {
 		name          string
 		args          UpdateAutoscaleArgs
 		expectedError string
 		handler       http.HandlerFunc
+		handlerCount  int
 	}{
 		{
 			name:          "when instance is empty",
@@ -721,7 +724,7 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 			},
 		},
 		{
-			name: "when the server returns the expected response",
+			name: "when an autoscale spec is found",
 			args: UpdateAutoscaleArgs{
 				Instance:    "my-instance",
 				MinReplicas: int32(5),
@@ -730,95 +733,77 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 				Memory:      int32(33),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, "PATCH", r.Method)
-				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
-				expected := url.Values{
-					"max":    []string{"10"},
-					"min":    []string{"5"},
-					"cpu":    []string{"27"},
-					"memory": []string{"33"},
+				switch handlerCount {
+				case 0:
+					assert.Equal(t, "GET", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					w.WriteHeader(http.StatusOK)
+					payload, err := json.Marshal(&types.Autoscale{})
+					require.NoError(t, err)
+					w.Write(payload)
+					handlerCount++
+
+				case 1:
+					assert.Equal(t, "PATCH", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					expected := url.Values{
+						"max":    []string{"10"},
+						"min":    []string{"5"},
+						"cpu":    []string{"27"},
+						"memory": []string{"33"},
+					}
+					values, err := url.ParseQuery(getBody(t, r))
+					assert.NoError(t, err)
+					assert.Equal(t, expected, values)
+					w.WriteHeader(http.StatusCreated)
+					handlerCount = 0
 				}
-				values, err := url.ParseQuery(getBody(t, r))
-				assert.NoError(t, err)
-				assert.Equal(t, expected, values)
-				w.WriteHeader(http.StatusCreated)
+			},
+		},
+		{
+			name: "when an autoscale spec is not found",
+			args: UpdateAutoscaleArgs{
+				Instance:    "my-instance",
+				MinReplicas: int32(5),
+				MaxReplicas: int32(10),
+				CPU:         int32(27),
+				Memory:      int32(33),
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch handlerCount {
+				case 0:
+					assert.Equal(t, "GET", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					w.WriteHeader(http.StatusNotFound)
+					handlerCount++
+
+				case 1:
+					assert.Equal(t, "POST", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					expected := url.Values{
+						"max":    []string{"10"},
+						"min":    []string{"5"},
+						"cpu":    []string{"27"},
+						"memory": []string{"33"},
+					}
+					values, err := url.ParseQuery(getBody(t, r))
+					assert.NoError(t, err)
+					assert.Equal(t, expected, values)
+					w.WriteHeader(http.StatusCreated)
+					handlerCount = 0
+				}
 			},
 		},
 	}
-
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
 			_, err := client.UpdateAutoscale(context.TODO(), tt.args)
-			if tt.expectedError != "" {
-				assert.EqualError(t, err, tt.expectedError)
-				return
-			}
-			assert.NoError(t, err)
-		})
-	}
-}
-
-func TestClientThroughTsuru_CreateAutoscale(t *testing.T) {
-	tests := []struct {
-		name          string
-		args          CreateAutoscaleArgs
-		expectedError string
-		handler       http.HandlerFunc
-	}{
-		{
-			name:          "when instance is empty",
-			expectedError: "rpaasv2: instance cannot be empty",
-		},
-		{
-			name: "when the server returns an error",
-			args: CreateAutoscaleArgs{
-				Instance:    "my-instance",
-				MinReplicas: int32(5),
-				MaxReplicas: int32(10),
-				CPU:         int32(27),
-				Memory:      int32(33),
-			},
-			expectedError: "rpaasv2: unexpected status code",
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				w.WriteHeader(http.StatusNotFound)
-				fmt.Fprintf(w, "instance not found")
-			},
-		},
-		{
-			name: "when the server returns the expected response",
-			args: CreateAutoscaleArgs{
-				Instance:    "my-instance",
-				MinReplicas: int32(5),
-				MaxReplicas: int32(10),
-				CPU:         int32(27),
-				Memory:      int32(33),
-			},
-			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, r.Method, "POST")
-				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
-				expected := url.Values{
-					"max":    []string{"10"},
-					"min":    []string{"5"},
-					"cpu":    []string{"27"},
-					"memory": []string{"33"},
-				}
-				values, err := url.ParseQuery(getBody(t, r))
-				assert.NoError(t, err)
-				assert.Equal(t, expected, values)
-				w.WriteHeader(http.StatusOK)
-			},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			client, server := newClientThroughTsuru(t, tt.handler)
-			defer server.Close()
-			_, err := client.CreateAutoscale(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
