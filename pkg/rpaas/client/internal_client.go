@@ -519,8 +519,14 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 	}
 	if shouldCreate {
 		request, err = c.buildRequest("CreateAutoscale", args)
+		if err != nil {
+			return nil, err
+		}
 	} else {
 		request, err = c.buildRequest("UpdateAutoscale", args)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	resp, err := c.do(ctx, request)

@@ -58,13 +58,13 @@ func NewCmdUpdateAutoscale() *cli.Command {
 			&cli.IntFlag{
 				Name:     "cpu",
 				Aliases:  []string{"cpu-utilization"},
-				Usage:    "the target average CPU utilization over all the units. Represented as a percentage of requested CPU",
+				Usage:    "the target average CPU utilization on all replicas (in percentage format, e.g. 80 equals to 80%)",
 				Required: false,
 			},
 			&cli.IntFlag{
 				Name:     "memory",
 				Aliases:  []string{"memory-utilization"},
-				Usage:    "the target average memory utilization over all the units. Represented as a percentage of requested memory.",
+				Usage:    "the target average memory utilization on all the replicas (in percentage format, e.g. 80 equals to 80%)",
 				Required: false,
 			},
 		},
