@@ -23,11 +23,8 @@ func getAutoscale(c echo.Context) error {
 		autoscale = &clientTypes.Autoscale{}
 	}
 
-	return c.JSON(http.StatusOK, struct {
-		Autoscale *clientTypes.Autoscale `json:"autoscale"`
-	}{autoscale})
+	return c.JSON(http.StatusOK, autoscale)
 }
-
 func createAutoscale(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {

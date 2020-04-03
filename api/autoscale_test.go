@@ -45,7 +45,7 @@ func Test_getAutoscale(t *testing.T) {
 			name:         "when instance exists and has no autoscale",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"autoscale":{}}`,
+			expectedBody: `{}`,
 			manager: &fake.RpaasManager{
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
@@ -57,7 +57,7 @@ func Test_getAutoscale(t *testing.T) {
 			name:         "when successfully getting autoscale settings",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"autoscale":{"minReplicas":3,"maxReplicas":10,"cpu":60,"memory":512}}`,
+			expectedBody: `{"minReplicas":3,"maxReplicas":10,"cpu":60,"memory":512}`,
 			manager: &fake.RpaasManager{
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
