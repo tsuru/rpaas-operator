@@ -655,6 +655,60 @@ func Test_reconcileHPA(t *testing.T) {
 	}
 }
 
+func Test_reconcileHeaterVolume(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	resources := []runtime.Object{}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	err := reconciler.reconcileCacheHeaterVolume(instance1)
+	require.NoError(t, err)
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-volume", Namespace: instance1.Namespace}, pvc)
+	require.NoError(t, err)
+
+	assert.Equal(t, pvc.ObjectMeta.OwnerReferences[0].Kind, "RpaasInstance")
+	assert.Equal(t, pvc.ObjectMeta.OwnerReferences[0].Name, instance1.Name)
+	assert.Equal(t, pvc.Spec.AccessModes, []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany})
+}
+
+func Test_destroyHeaterVolume(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance-1-heater-volume",
+			Namespace: "default",
+		},
+	}
+	resources := []runtime.Object{pvc}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	err := reconciler.destroyCacheHeaterVolume(instance1)
+	require.NoError(t, err)
+
+	pvc = &corev1.PersistentVolumeClaim{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-volume", Namespace: instance1.Namespace}, pvc)
+	require.True(t, k8sErrors.IsNotFound(err))
+}
+
 func int32Ptr(n int32) *int32 {
 	return &n
 }
