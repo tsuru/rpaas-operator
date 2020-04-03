@@ -441,6 +441,10 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 		return err
 	}
 	volumeMode := corev1.PersistentVolumeFilesystem
+	var storageClassName *string
+	if storageConfig != nil {
+		storageClassName = storageConfig.StorageClassName
+	}
 	pvc = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
@@ -462,7 +466,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 				corev1.ReadWriteMany,
 			},
 			VolumeMode:       &volumeMode,
-			StorageClassName: storageConfig.StorageClassName,
+			StorageClassName: storageClassName,
 			Resources: corev1.ResourceRequirements{
 				Requests: corev1.ResourceList{
 					"storage": storageSize,
@@ -625,7 +629,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			cacheConfig.Size = &cacheMaxSize
 		}
 	}
-	return &nginxv1alpha1.Nginx{
+	n := &nginxv1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
@@ -658,6 +662,19 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Lifecycle:       instance.Spec.Lifecycle,
 		},
 	}
+
+	if plan.Spec.Config.CacheHeaterEnabled {
+		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
+			Name: "cache-heater-volume",
+			VolumeSource: corev1.VolumeSource{
+				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+					ClaimName: instance.Name + "-heater-volume",
+				},
+			},
+		})
+	}
+
+	return n
 }
 
 func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
