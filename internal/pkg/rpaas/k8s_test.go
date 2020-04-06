@@ -3660,6 +3660,27 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			},
 			CreationTimestamp: metav1.NewTime(t0),
 		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "nginx",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:     "http",
+							HostPort: int32(30000),
+						},
+						{
+							Name:     "https",
+							HostPort: int32(30001),
+						},
+						{
+							Name:     "nginx-metrics",
+							HostPort: int32(30002),
+						},
+					},
+				},
+			},
+		},
 		Status: corev1.PodStatus{
 			Phase:  corev1.PodRunning,
 			PodIP:  "172.16.100.21",
@@ -3683,6 +3704,27 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				"nginx.tsuru.io/resource-name": "instance4",
 			},
 			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "nginx",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:     "http",
+							HostPort: int32(30000),
+						},
+						{
+							Name:     "https",
+							HostPort: int32(30001),
+						},
+						{
+							Name:     "nginx-metrics",
+							HostPort: int32(30002),
+						},
+					},
+				},
+			},
 		},
 		Status: corev1.PodStatus{
 			Phase: corev1.PodPending,
@@ -3769,11 +3811,39 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						CreatedAt: time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC),
 						Restarts:  int32(10),
 						Ready:     true,
+						Ports: []clientTypes.PodPort{
+							{
+								Name:     "http",
+								HostPort: int32(30000),
+							},
+							{
+								Name:     "https",
+								HostPort: int32(30001),
+							},
+							{
+								Name:     "nginx-metrics",
+								HostPort: int32(30002),
+							},
+						},
 					},
 					{
 						Name:      "instance4-6f86f957b7-fghij",
 						Status:    "Pending",
 						CreatedAt: time.Date(2020, 4, 2, 17, 10, 0, 0, time.UTC),
+						Ports: []clientTypes.PodPort{
+							{
+								Name:     "http",
+								HostPort: int32(30000),
+							},
+							{
+								Name:     "https",
+								HostPort: int32(30001),
+							},
+							{
+								Name:     "nginx-metrics",
+								HostPort: int32(30002),
+							},
+						},
 					},
 				},
 			},

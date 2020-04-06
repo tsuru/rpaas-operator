@@ -1542,12 +1542,30 @@ func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alph
 		}
 		podStatus.Status = string(phase)
 
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.Name != "nginx" {
+		const nginxContainerName = "nginx"
+		for _, container := range pod.Spec.Containers {
+			if container.Name != nginxContainerName {
 				continue
 			}
+
+			for _, port := range container.Ports {
+				podStatus.Ports = append(podStatus.Ports, clientTypes.PodPort(port))
+			}
+
+			sort.Slice(podStatus.Ports, func(i, j int) bool {
+				return podStatus.Ports[i].Name < podStatus.Ports[j].Name
+			})
+			break
+		}
+
+		for _, containerStatus := range pod.Status.ContainerStatuses {
+			if containerStatus.Name != nginxContainerName {
+				continue
+			}
+
 			podStatus.Restarts = containerStatus.RestartCount
 			podStatus.Ready = containerStatus.Ready
+			break
 		}
 
 		podStatuses = append(podStatuses, podStatus)

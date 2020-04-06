@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type Block struct {
@@ -45,11 +46,14 @@ type InstanceAddress struct {
 	IP       string `json:"ip,omitempty"`
 }
 
+type PodPort corev1.ContainerPort
+
 type Pod struct {
 	Name      string    `json:"name"`
 	IP        string    `json:"ip"`
 	HostIP    string    `json:"host"`
 	Status    string    `json:"status"`
+	Ports     []PodPort `json:"ports"`
 	CreatedAt time.Time `json:"createdAt"`
 	Restarts  int32     `json:"restarts"`
 	Ready     bool      `json:"ready"`
