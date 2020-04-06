@@ -194,11 +194,13 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	if plan.Spec.Config.CacheHeaterEnabled {
-		if err := r.reconcileCacheHeaterVolume(instance, plan); err != nil {
+		err = r.reconcileCacheHeaterVolume(instance, plan)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 	} else {
-		if err := r.destroyCacheHeaterVolume(instance, plan.Spec.Config.CacheHeaterStorage); err != nil {
+		err = r.destroyCacheHeaterVolume(instance, plan.Spec.Config.CacheHeaterStorage)
+		if err != nil {
 			return reconcile.Result{}, err
 		}
 	}
