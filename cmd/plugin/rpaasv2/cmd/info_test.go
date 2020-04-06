@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,7 +72,7 @@ func TestInfo(t *testing.T) {
 								Host: "some-host2",
 							},
 						},
-						Replicas: int32Ptr(5),
+						Replicas: int32Ptr(3),
 						Routes: []types.Route{
 							{
 								Path:        "some-path",
@@ -87,16 +88,150 @@ func TestInfo(t *testing.T) {
 							CPU:         int32Ptr(55),
 							Memory:      int32Ptr(77),
 						},
+						Pods: []clientTypes.Pod{
+							{
+								Name:      "my-instance-75c8bdc6b9-abcde",
+								IP:        "169.254.1.100",
+								HostIP:    "169.254.1.100",
+								Restarts:  int32(2),
+								Ready:     true,
+								Status:    "Running",
+								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:     "http",
+										HostPort: int32(30000),
+									},
+									{
+										Name:     "https",
+										HostPort: int32(30001),
+									},
+									{
+										Name:     "nginx-metrics",
+										HostPort: int32(30002),
+									},
+								},
+							},
+							{
+								Name:      "my-instance-75c8bdc6b9-bcdef",
+								IP:        "169.254.1.101",
+								HostIP:    "169.254.1.101",
+								Ready:     true,
+								Status:    "Running",
+								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:     "http",
+										HostPort: int32(30000),
+									},
+									{
+										Name:     "https",
+										HostPort: int32(30001),
+									},
+									{
+										Name:     "nginx-metrics",
+										HostPort: int32(30002),
+									},
+								},
+							},
+							{
+								Name:      "my-instance-75c8bdc6b9-cdefg",
+								IP:        "169.254.1.102",
+								HostIP:    "169.254.1.102",
+								Ready:     true,
+								Status:    "Running",
+								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:     "http",
+										HostPort: int32(30000),
+									},
+									{
+										Name:     "https",
+										HostPort: int32(30001),
+									},
+									{
+										Name:     "nginx-metrics",
+										HostPort: int32(30002),
+									},
+								},
+							},
+							{
+								Name:      "my-instance-123abc456f-aaaaa",
+								IP:        "169.254.10.10",
+								HostIP:    "169.254.10.10",
+								Ready:     false,
+								Status:    "Running",
+								Restarts:  int32(100),
+								CreatedAt: time.Now().In(time.UTC).Add(-5 * time.Minute),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:     "http",
+										HostPort: int32(30000),
+									},
+									{
+										Name:     "https",
+										HostPort: int32(30001),
+									},
+									{
+										Name:     "nginx-metrics",
+										HostPort: int32(30002),
+									},
+								},
+							},
+							{
+								Name:      "my-instance-123abc456f-bbbbb",
+								IP:        "169.254.10.11",
+								HostIP:    "169.254.10.11",
+								Ready:     false,
+								Status:    "Running",
+								Restarts:  int32(100),
+								CreatedAt: time.Now().In(time.UTC).Add(-5 * time.Minute),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:     "http",
+										HostPort: int32(30000),
+									},
+									{
+										Name:     "https",
+										HostPort: int32(30001),
+									},
+									{
+										Name:     "nginx-metrics",
+										HostPort: int32(30002),
+									},
+								},
+							},
+						},
 					}, nil, nil
 				},
 			},
-			expected: `
-Name: my-instance
-Team: some-team
+			expected: `Name: my-instance
 Description: some description
-Replicas: 5
-Plan: basic
 Tags: tag1, tag2, tag3
+Team owner: some-team
+Plan: basic
+
+Pods: 3
++------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
+|             NAME             |     HOST      |             PORTS              | READY | STATUS  | RESTARTS | AGE |
++------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
+| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | http(30000/TCP)                | ✓     | Running |        2 | 12h |
+|                              |               | https(30001/TCP)               |       |         |          |     |
+|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
+| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | http(30000/TCP)                | ✓     | Running |        0 | 12h |
+|                              |               | https(30001/TCP)               |       |         |          |     |
+|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
+| my-instance-75c8bdc6b9-cdefg | 169.254.1.102 | http(30000/TCP)                | ✓     | Running |        0 | 12h |
+|                              |               | https(30001/TCP)               |       |         |          |     |
+|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
+| my-instance-123abc456f-aaaaa | 169.254.10.10 | http(30000/TCP)                |       | Running |      100 | 5m  |
+|                              |               | https(30001/TCP)               |       |         |          |     |
+|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
+| my-instance-123abc456f-bbbbb | 169.254.10.11 | http(30000/TCP)                |       | Running |      100 | 5m  |
+|                              |               | https(30001/TCP)               |       |         |          |     |
+|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
++------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
 
 Binds:
 +------------+------------+
@@ -133,7 +268,6 @@ Autoscale:
 | Max: 5   | CPU: 55%           |
 | Min: 2   | Memory: 77%        |
 +----------+--------------------+
-
 `,
 		},
 		{

@@ -5,6 +5,7 @@
 package types
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
@@ -47,6 +48,20 @@ type InstanceAddress struct {
 }
 
 type PodPort corev1.ContainerPort
+
+func (p PodPort) String() string {
+	protocol := p.Protocol
+	if protocol == "" {
+		protocol = corev1.ProtocolTCP
+	}
+
+	port := p.HostPort
+	if port == int32(0) {
+		port = p.ContainerPort
+	}
+
+	return fmt.Sprintf("%s(%d/%s)", p.Name, port, protocol)
+}
 
 type Pod struct {
 	Name      string    `json:"name"`

@@ -11,12 +11,14 @@ import (
 	"io"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
+	"k8s.io/apimachinery/pkg/util/duration"
 )
 
 func NewCmdInfo() *cli.Command {
@@ -47,20 +49,29 @@ func NewCmdInfo() *cli.Command {
 	}
 }
 
-var (
-	tmpl, _ = prepareTemplate()
-)
-
-func prepareTemplate() (*template.Template, error) {
-	tmp := `
+var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
+	Funcs(template.FuncMap{
+		"formatTags":      formatTags,
+		"formatRoutes":    writeInfoRoutesOnTableFormat,
+		"formatAddresses": writeAddressesOnTableFormat,
+		"formatBinds":     writeBindsOnTableFormat,
+		"formatAutoscale": writeAutoscaleOnTableFormat,
+		"formatPods":      writePodsOnTableFormat,
+	}).
+	Parse(`
+{{- /* begin template */ -}}
 Name: {{ .Name }}
-Team: {{ .Team }}
 Description: {{ .Description }}
-Replicas: {{ .Replicas }}
-Plan: {{ .Plan }}
 Tags: {{ formatTags .Tags }}
-{{- with .Binds }}
+Team owner: {{ .Team }}
+Plan: {{ .Plan }}
 
+Pods: {{ .Replicas }}
+{{- with .Pods }}
+{{formatPods . }}
+{{- end }}
+
+{{- with .Binds }}
 Binds:
 {{ formatBinds . }}
 {{- end }}
@@ -79,15 +90,41 @@ Routes:
 Autoscale:
 {{ formatAutoscale . }}
 {{- end }}
-`
+{{- /* end template */ -}}
+`))
 
-	return template.New("root").Funcs(template.FuncMap{
-		"formatTags":      formatTags,
-		"formatRoutes":    writeInfoRoutesOnTableFormat,
-		"formatAddresses": writeAddressesOnTableFormat,
-		"formatBinds":     writeBindsOnTableFormat,
-		"formatAutoscale": writeAutoscaleOnTableFormat,
-	}).Parse(tmp)
+func writePodsOnTableFormat(pods []clientTypes.Pod) string {
+	if len(pods) == 0 {
+		return ""
+	}
+
+	var data [][]string
+	for _, pod := range pods {
+		var ports []string
+		for _, p := range pod.Ports {
+			ports = append(ports, p.String())
+		}
+
+		data = append(data, []string{
+			pod.Name,
+			pod.HostIP,
+			strings.Join(ports, " "),
+			checkedChar(pod.Ready),
+			pod.Status,
+			fmt.Sprintf("%d", pod.Restarts),
+			translateTimestampSince(pod.CreatedAt.In(time.UTC)),
+		})
+	}
+
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Name", "Host", "Ports", "Ready", "Status", "Restarts", "Age"})
+	table.SetAutoWrapText(true)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
 }
 
 func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
@@ -161,6 +198,14 @@ func writeInfoOnJSONFormat(w io.Writer, payload *clientTypes.InstanceInfo) error
 	return nil
 }
 
+func translateTimestampSince(timestamp time.Time) string {
+	if timestamp.IsZero() {
+		return "<unknown>"
+	}
+
+	return duration.HumanDuration(time.Since(timestamp))
+}
+
 func runInfo(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
@@ -181,11 +226,9 @@ func runInfo(c *cli.Context) error {
 		return writeInfoOnJSONFormat(c.App.Writer, infoPayload)
 	}
 
-	if infoPayload != nil {
-		err = tmpl.Execute(c.App.Writer, infoPayload)
-		if err != nil {
-			return err
-		}
+	err = instanceInfoTemplate.Execute(c.App.Writer, infoPayload)
+	if err != nil {
+		return err
 	}
 
 	return nil
