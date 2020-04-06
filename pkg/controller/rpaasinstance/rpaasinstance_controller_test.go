@@ -1348,6 +1348,9 @@ func TestReconcile(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
 				CacheHeaterEnabled: true,
+				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+					StorageClassName: strPtr("my-storage-class"),
+				},
 			},
 		},
 	}
