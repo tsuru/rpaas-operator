@@ -1362,10 +1362,14 @@ func TestReconcile(t *testing.T) {
 	result, err := reconciler.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
 	require.NoError(t, err)
 
+	assert.Equal(t, result, reconcile.Result{})
+
 	nginx := &nginxv1alpha1.Nginx{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
 	require.NoError(t, err)
 
 	assert.Equal(t, nginx.Spec.PodTemplate.Volumes[0].Name, "cache-heater-volume")
-	assert.Equal(t, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instanceheater-volume"})
+	assert.Equal(t, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-heater-volume"})
+	assert.Equal(t, nginx.Spec.PodTemplate.VolumeMounts[0].Name, "cache-heater-volume")
+	assert.Equal(t, nginx.Spec.PodTemplate.VolumeMounts[0].MountPath, "/var/cache/cache-heater")
 }

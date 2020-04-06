@@ -679,6 +679,11 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 				},
 			},
 		})
+
+		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, corev1.VolumeMount{
+			Name:      "cache-heater-volume",
+			MountPath: "/var/cache/cache-heater",
+		})
 	}
 
 	return n
