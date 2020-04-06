@@ -438,6 +438,11 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 		return nil
 	}
 
+	cacheHeaterStorage := &v1alpha1.CacheHeaterStorage{}
+	if plan.Spec.Config.CacheHeaterStorage != nil {
+		cacheHeaterStorage = plan.Spec.Config.CacheHeaterStorage
+	}
+
 	volumeMode := corev1.PersistentVolumeFilesystem
 	pvc = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
@@ -460,7 +465,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 				corev1.ReadWriteMany,
 			},
 			VolumeMode:       &volumeMode,
-			StorageClassName: plan.Spec.Config.CacheHeaterStorage.StorageClassName,
+			StorageClassName: cacheHeaterStorage.StorageClassName,
 		},
 	}
 
