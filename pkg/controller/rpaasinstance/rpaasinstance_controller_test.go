@@ -726,6 +726,7 @@ func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
 	require.NoError(t, err)
 
 	parsedSize, err := resource.ParseQuantity("10Gi")
+	require.NoError(t, err)
 	assert.Equal(t, parsedSize, pvc.Spec.Resources.Requests["storage"])
 }
 
@@ -763,6 +764,7 @@ func Test_reconcileHeaterVolumeUsingStorageSize(t *testing.T) {
 	require.NoError(t, err)
 
 	parsedSize, err := resource.ParseQuantity("100Gi")
+	require.NoError(t, err)
 	assert.Equal(t, parsedSize, pvc.Spec.Resources.Requests["storage"])
 }
 
