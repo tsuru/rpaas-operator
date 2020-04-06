@@ -1577,26 +1577,9 @@ func TestReconcile(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{
 			Image: "tsuru:mynginx:test",
 			Config: v1alpha1.NginxConfig{
-				CacheEnabled:         v1alpha1.Bool(true),
-				CacheSize:            resourceMustParsePtr("100M"),
-				CacheSnapshotEnabled: true,
-				CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
+				CacheHeaterEnabled: true,
+				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
-				},
-				CachePath: "/var/cache/nginx/rpaas",
-				CacheSnapshotSync: v1alpha1.CacheSnapshotSyncSpec{
-					Schedule: "1 * * * *",
-					Image:    "test/test:latest",
-					CmdPodToPVC: []string{
-						"/bin/bash",
-						"-c",
-						"echo 'this is a test'",
-					},
-					CmdPVCToPod: []string{
-						"/bin/bash",
-						"-c",
-						"echo 'this is a the first pod sync'",
-					},
 				},
 			},
 		},
