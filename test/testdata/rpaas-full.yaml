@@ -9,8 +9,7 @@ spec:
     cachePath: /var/cache/nginx
     cacheZoneSize: 100m
     cacheSize: 300m
-
-    cacheHeaterEnabled: true
+    cacheHeaterEnabled: false
   resources:
     limits:
       memory: "128Mi"
