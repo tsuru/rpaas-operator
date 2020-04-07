@@ -1551,17 +1551,17 @@ func newPodStatus(pod *corev1.Pod, events []corev1.Event) clientTypes.Pod {
 		phase = corev1.PodUnknown
 	}
 
+	errors := getErrorsForPod(pod, events)
+	if len(errors) > 0 {
+		phase = "Errored"
+	}
+
 	var restarts int32
 	var ready bool
 	for _, cs := range pod.Status.ContainerStatuses {
 		if cs.Name != nginxContainerName {
 			continue
 		}
-
-		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
-			phase = "Errored"
-		}
-
 		restarts, ready = cs.RestartCount, cs.Ready
 		break
 	}
@@ -1573,7 +1573,7 @@ func newPodStatus(pod *corev1.Pod, events []corev1.Event) clientTypes.Pod {
 		HostIP:    pod.Status.HostIP,
 		Status:    string(phase),
 		Ports:     getPortsForPod(pod),
-		Errors:    getErrorsForPod(pod, events),
+		Errors:    errors,
 		Restarts:  restarts,
 		Ready:     ready,
 	}
