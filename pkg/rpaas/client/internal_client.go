@@ -570,8 +570,51 @@ func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) 
 	return resp, nil
 }
 
+func (args CachePurgeArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.Path == "" {
+		return ErrMissingPath
+	}
+	return nil
+}
+
+func (c *client) CachePurge(ctx context.Context, args CachePurgeArgs) (*http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, err
+	}
+
+	request, err := c.buildRequest("CachePurge", args)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.do(ctx, request)
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return resp, ErrUnexpectedStatusCode
+	}
+
+	return resp, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
+	case "CachePurge":
+		args := data.(CachePurgeArgs)
+		pathName := fmt.Sprintf("/resources/%s/purge", args.Instance)
+		values := url.Values{}
+		values.Set("path", fmt.Sprint(args.Path))
+		values.Set("preserve_path", fmt.Sprint(args.Preserve))
+		body := strings.NewReader(values.Encode())
+		req, err = c.newRequest("POST", pathName, body, args.Instance)
+		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
 	case "Scale":
 		args := data.(ScaleArgs)
 		pathName := fmt.Sprintf("/resources/%s/scale", args.Instance)

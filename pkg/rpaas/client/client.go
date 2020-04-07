@@ -79,6 +79,12 @@ type RemoveAutoscaleArgs struct {
 	Instance string
 }
 
+type CachePurgeArgs struct {
+	Instance string
+	Path     string
+	Preserve bool
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
@@ -94,4 +100,5 @@ type Client interface {
 	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error)
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error)
+	CachePurge(ctx context.Context, args CachePurgeArgs) (*http.Response, error)
 }
