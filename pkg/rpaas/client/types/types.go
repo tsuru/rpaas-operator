@@ -71,12 +71,12 @@ type PodError struct {
 }
 
 type Pod struct {
-	CreatedAt time.Time  `json:"createdAt"`
+	CreatedAt time.Time  `json:"createdAt,omitempty"`
 	Name      string     `json:"name"`
 	IP        string     `json:"ip"`
 	HostIP    string     `json:"host"`
 	Status    string     `json:"status"`
-	Ports     []PodPort  `json:"ports"`
+	Ports     []PodPort  `json:"ports,omitempty"`
 	Errors    []PodError `json:"errors,omitempty"`
 	Restarts  int32      `json:"restarts"`
 	Ready     bool       `json:"ready"`

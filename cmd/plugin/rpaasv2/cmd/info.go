@@ -57,9 +57,10 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 		"formatBinds":     writeBindsOnTableFormat,
 		"formatAutoscale": writeAutoscaleOnTableFormat,
 		"formatPods":      writePodsOnTableFormat,
+		"formatPodErrors": writePodErrorsOnTableFormat,
 	}).
 	Parse(`
-{{- /* begin template */ -}}
+{{- $instance := . -}}
 Name: {{ .Name }}
 Description: {{ .Description }}
 Tags: {{ formatTags .Tags }}
@@ -68,7 +69,8 @@ Plan: {{ .Plan }}
 
 Pods: {{ .Replicas }}
 {{- with .Pods }}
-{{formatPods . }}
+{{ formatPods . }}
+{{ formatPodErrors . }}
 {{- end }}
 
 {{- with .Binds }}
@@ -125,6 +127,35 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 	table.Render()
 
 	return buffer.String()
+}
+
+func writePodErrorsOnTableFormat(pods []clientTypes.Pod) string {
+	data := [][]string{}
+	for _, pod := range pods {
+		for _, err := range pod.Errors {
+			age := translateTimestampSince(err.Last)
+			if err.Count > int32(1) {
+				age = fmt.Sprintf("%s (x%d over %s)", age, err.Count, translateTimestampSince(err.First))
+			}
+
+			data = append(data, []string{age, pod.Name, err.Message})
+		}
+	}
+
+	if len(data) == 0 {
+		return ""
+	}
+
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Age", "Pod", "Message"})
+	table.SetAutoWrapText(true)
+	table.AppendBulk(data)
+	table.Render()
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Errors:\n%v", buffer.String()))
+	return sb.String()
 }
 
 func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {

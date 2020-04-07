@@ -161,7 +161,7 @@ func TestInfo(t *testing.T) {
 								IP:        "169.254.10.10",
 								HostIP:    "169.254.10.10",
 								Ready:     false,
-								Status:    "Running",
+								Status:    "Errored",
 								Restarts:  int32(100),
 								CreatedAt: time.Now().In(time.UTC).Add(-5 * time.Minute),
 								Ports: []clientTypes.PodPort{
@@ -178,13 +178,26 @@ func TestInfo(t *testing.T) {
 										HostPort: int32(30002),
 									},
 								},
+								Errors: []clientTypes.PodError{
+									{
+										First:   time.Now().Add(-50 * time.Minute).UTC(),
+										Last:    time.Now().Add(-30 * time.Minute).UTC(),
+										Count:   int32(20),
+										Message: "Back-off 5m0s restarting failed container=nginx pod=my-instance-123abc456f-aaaaa_default(pod uuid)",
+									},
+									{
+										First:   time.Now().Add(-50 * time.Minute).UTC(),
+										Last:    time.Now().Add(-50 * time.Minute).UTC(),
+										Message: "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"my-instance-123abc456f-aaaaa_default(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
+									},
+								},
 							},
 							{
 								Name:      "my-instance-123abc456f-bbbbb",
 								IP:        "169.254.10.11",
 								HostIP:    "169.254.10.11",
 								Ready:     false,
-								Status:    "Running",
+								Status:    "Errored",
 								Restarts:  int32(100),
 								CreatedAt: time.Now().In(time.UTC).Add(-5 * time.Minute),
 								Ports: []clientTypes.PodPort{
@@ -199,6 +212,14 @@ func TestInfo(t *testing.T) {
 									{
 										Name:     "nginx-metrics",
 										HostPort: int32(30002),
+									},
+								},
+								Errors: []clientTypes.PodError{
+									{
+										First:   time.Now().Add(-50 * time.Minute).UTC(),
+										Last:    time.Now().Add(-30 * time.Minute).UTC(),
+										Count:   int32(20),
+										Message: "Back-off 5m0s restarting failed container=nginx pod=my-instance-123abc456f-bbbbb_default(pod uuid)",
 									},
 								},
 							},
@@ -225,13 +246,48 @@ Pods: 3
 | my-instance-75c8bdc6b9-cdefg | 169.254.1.102 | http(30000/TCP)                | ✓     | Running |        0 | 12h |
 |                              |               | https(30001/TCP)               |       |         |          |     |
 |                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
-| my-instance-123abc456f-aaaaa | 169.254.10.10 | http(30000/TCP)                |       | Running |      100 | 5m  |
+| my-instance-123abc456f-aaaaa | 169.254.10.10 | http(30000/TCP)                |       | Errored |      100 | 5m  |
 |                              |               | https(30001/TCP)               |       |         |          |     |
 |                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
-| my-instance-123abc456f-bbbbb | 169.254.10.11 | http(30000/TCP)                |       | Running |      100 | 5m  |
+| my-instance-123abc456f-bbbbb | 169.254.10.11 | http(30000/TCP)                |       | Errored |      100 | 5m  |
 |                              |               | https(30001/TCP)               |       |         |          |     |
 |                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
 +------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
+
+Errors:
++--------------------+------------------------------+----------------------------------------------+
+|        AGE         |             POD              |                   MESSAGE                    |
++--------------------+------------------------------+----------------------------------------------+
+| 30m (x20 over 50m) | my-instance-123abc456f-aaaaa | Back-off 5m0s restarting                     |
+|                    |                              | failed container=nginx                       |
+|                    |                              | pod=my-instance-123abc456f-aaaaa_default(pod |
+|                    |                              | uuid)                                        |
+| 50m                | my-instance-123abc456f-aaaaa | Exec lifecycle hook ([/bin/sh                |
+|                    |                              | -c nginx -t && touch /tmp/done])             |
+|                    |                              | for Container "nginx" in Pod                 |
+|                    |                              | "my-instance-123abc456f-aaaaa_default(pod    |
+|                    |                              | uuid)" failed - error: command               |
+|                    |                              | '/bin/sh -c nginx -t && touch                |
+|                    |                              | /tmp/done' exited with 1: 2020/04/07         |
+|                    |                              | 16:54:18 [emerg] 18#18: "location"           |
+|                    |                              | directive is not allowed here in             |
+|                    |                              | /etc/nginx/nginx.conf:118 nginx: [emerg]     |
+|                    |                              | "location" directive is not allowed          |
+|                    |                              | here in /etc/nginx/nginx.conf:118 nginx:     |
+|                    |                              | configuration file /etc/nginx/nginx.conf     |
+|                    |                              | test failed , message: "2020/04/07           |
+|                    |                              | 16:54:18 [emerg] 18#18: \"location\"         |
+|                    |                              | directive is not allowed here in             |
+|                    |                              | /etc/nginx/nginx.conf:118\nnginx: [emerg]    |
+|                    |                              | \"location\" directive is not allowed        |
+|                    |                              | here in /etc/nginx/nginx.conf:118\nnginx:    |
+|                    |                              | configuration file /etc/nginx/nginx.conf     |
+|                    |                              | test failed\n"                               |
+| 30m (x20 over 50m) | my-instance-123abc456f-bbbbb | Back-off 5m0s restarting                     |
+|                    |                              | failed container=nginx                       |
+|                    |                              | pod=my-instance-123abc456f-bbbbb_default(pod |
+|                    |                              | uuid)                                        |
++--------------------+------------------------------+----------------------------------------------+
 
 Binds:
 +------------+------------+
