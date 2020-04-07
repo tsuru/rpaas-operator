@@ -1530,52 +1530,12 @@ func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alph
 
 	var podStatuses []clientTypes.Pod
 	for _, pod := range pods {
-		podStatus := clientTypes.Pod{
-			Name:      pod.Name,
-			IP:        pod.Status.PodIP,
-			HostIP:    pod.Status.HostIP,
-			CreatedAt: pod.CreationTimestamp.Time.In(time.UTC),
-		}
-
 		events, err := m.eventsForPod(ctx, &pod)
 		if err != nil {
 			return nil, err
 		}
 
-		podStatus.Errors = getErrorsForPod(&pod, events)
-
-		phase := pod.Status.Phase
-		if phase == "" {
-			phase = corev1.PodUnknown
-		}
-		podStatus.Status = string(phase)
-
-		for _, container := range pod.Spec.Containers {
-			if container.Name != nginxContainerName {
-				continue
-			}
-
-			for _, port := range container.Ports {
-				podStatus.Ports = append(podStatus.Ports, clientTypes.PodPort(port))
-			}
-
-			sort.Slice(podStatus.Ports, func(i, j int) bool {
-				return podStatus.Ports[i].Name < podStatus.Ports[j].Name
-			})
-			break
-		}
-
-		for _, containerStatus := range pod.Status.ContainerStatuses {
-			if containerStatus.Name != nginxContainerName {
-				continue
-			}
-
-			podStatus.Restarts = containerStatus.RestartCount
-			podStatus.Ready = containerStatus.Ready
-			break
-		}
-
-		podStatuses = append(podStatuses, podStatus)
+		podStatuses = append(podStatuses, newPodStatus(&pod, events))
 	}
 
 	sort.Slice(podStatuses, func(i, j int) bool {
@@ -1583,6 +1543,60 @@ func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alph
 	})
 
 	return podStatuses, nil
+}
+
+func newPodStatus(pod *corev1.Pod, events []corev1.Event) clientTypes.Pod {
+	phase := pod.Status.Phase
+	if phase == "" {
+		phase = corev1.PodUnknown
+	}
+
+	var restarts int32
+	var ready bool
+	for _, cs := range pod.Status.ContainerStatuses {
+		if cs.Name != nginxContainerName {
+			continue
+		}
+
+		if cs.State.Waiting != nil && cs.State.Waiting.Reason == "CrashLoopBackOff" {
+			phase = "Errored"
+		}
+
+		restarts, ready = cs.RestartCount, cs.Ready
+		break
+	}
+
+	return clientTypes.Pod{
+		CreatedAt: pod.CreationTimestamp.Time.In(time.UTC),
+		Name:      pod.Name,
+		IP:        pod.Status.PodIP,
+		HostIP:    pod.Status.HostIP,
+		Status:    string(phase),
+		Ports:     getPortsForPod(pod),
+		Errors:    getErrorsForPod(pod, events),
+		Restarts:  restarts,
+		Ready:     ready,
+	}
+}
+
+func getPortsForPod(pod *corev1.Pod) []clientTypes.PodPort {
+	var ports []clientTypes.PodPort
+	for _, container := range pod.Spec.Containers {
+		if container.Name != nginxContainerName {
+			continue
+		}
+
+		for _, port := range container.Ports {
+			ports = append(ports, clientTypes.PodPort(port))
+		}
+
+		sort.Slice(ports, func(i, j int) bool {
+			return ports[i].Name < ports[j].Name
+		})
+
+		break
+	}
+	return ports
 }
 
 func getErrorsForPod(pod *corev1.Pod, events []corev1.Event) []clientTypes.PodError {

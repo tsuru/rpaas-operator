@@ -3895,7 +3895,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					},
 					{
 						Name:      "instance4-6f86f957b7-fghij",
-						Status:    "Running",
+						Status:    "Errored",
 						CreatedAt: time.Date(2020, 4, 2, 17, 10, 0, 0, time.UTC),
 						Ports: []clientTypes.PodPort{
 							{
