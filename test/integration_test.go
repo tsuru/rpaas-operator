@@ -50,7 +50,7 @@ func Test_RpaasOperator(t *testing.T) {
 		nginx, err := getReadyNginx("my-instance", namespaceName, 2, 1)
 		require.NoError(t, err)
 		assert.Equal(t, int32(2), *nginx.Spec.Replicas)
-		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
+		assert.Equal(t, "tsuru/nginx-tsuru:1.16.1", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 		assert.Len(t, nginx.Status.Pods, 2)
 		for _, podStatus := range nginx.Status.Pods {
@@ -176,7 +176,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, nginx)
 		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
-		assert.Equal(t, "tsuru/nginx-tsuru:1.15.0", nginx.Spec.Image)
+		assert.Equal(t, "tsuru/nginx-tsuru:1.16.1", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 
 		nginxService := &corev1.Service{
