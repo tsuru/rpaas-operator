@@ -127,6 +127,52 @@ func TestNewClientThroughTsuruWithOptions(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_CachePurge(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          CachePurgeArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name: "when path is empty",
+			args: CachePurgeArgs{
+				Instance: "my-instance",
+			},
+			expectedError: "rpaasv2: path cannot be empty",
+		},
+		{
+			name: "when server returns the expected response",
+			args: CachePurgeArgs{
+				Instance: "my-instance",
+				Path:     "/some/path",
+				Preserve: true,
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "POST")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/purge"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+				assert.Equal(t, `path=%2Fsome%2Fpath&preserve_path=true`, getBody(t, r))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			_, err := client.CachePurge(context.TODO(), tt.args)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
 func TestClientThroughTsuru_Scale(t *testing.T) {
 	tests := []struct {
 		name          string

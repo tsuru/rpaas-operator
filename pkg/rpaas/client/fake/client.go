@@ -27,9 +27,18 @@ type FakeClient struct {
 	FakeGetAutoscale      func(args client.GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
 	FakeUpdateAutoscale   func(args client.UpdateAutoscaleArgs) (*http.Response, error)
 	FakeRemoveAutoscale   func(args client.RemoveAutoscaleArgs) (*http.Response, error)
+	FakeCachePurge        func(args client.CachePurgeArgs) (*http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
+
+func (f *FakeClient) CachePurge(ctx context.Context, args client.CachePurgeArgs) (*http.Response, error) {
+	if f.FakeCachePurge != nil {
+		return f.FakeCachePurge(args)
+	}
+
+	return nil, nil
+}
 
 func (f *FakeClient) RemoveAutoscale(ctx context.Context, args client.RemoveAutoscaleArgs) (*http.Response, error) {
 	if f.FakeRemoveAutoscale != nil {

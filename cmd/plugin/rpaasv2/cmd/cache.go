@@ -1,17 +1,20 @@
-import (
-	"fmt"
-
-	"github.com/urfave/cli/v2"
-)
-
 // Copyright 2020 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
+package cmd
+
+import (
+	"fmt"
+
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	"github.com/urfave/cli/v2"
+)
+
 func NewCmdCache() *cli.Command {
 	return &cli.Command{
 		Name:  "cache",
-		Usage: "TBI",
+		Usage: "Manages cache settings of an instance",
 		Subcommands: []*cli.Command{
 			NewCmdCachePurge(),
 		},
@@ -21,7 +24,7 @@ func NewCmdCache() *cli.Command {
 func NewCmdCachePurge() *cli.Command {
 	return &cli.Command{
 		Name:  "purge",
-		Usage: "TBI",
+		Usage: "removes all occurrences of the specified cache path",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -36,13 +39,13 @@ func NewCmdCachePurge() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:     "path",
-				Usage:    "TBI",
+				Usage:    "the route whose path shall be purged",
 				Required: true,
 			},
 			&cli.BoolFlag{
 				Name:    "preserve",
-				Aliases: "preserve-path",
-				Usage:   "TBI",
+				Aliases: []string{"preserve-path"},
+				Usage:   "specifies whether a request to purge/<protocol>/<purge Path> should be made",
 			},
 		},
 
@@ -62,7 +65,8 @@ func runCachePurge(c *cli.Context) error {
 		Path:     c.String("path"),
 		Preserve: c.Bool("preserve"),
 	}
-	_, err = client.CachePurge(c.Context, updateArgs)
+
+	_, err = client.CachePurge(c.Context, purgeArgs)
 	if err != nil {
 		return err
 	}
@@ -70,4 +74,3 @@ func runCachePurge(c *cli.Context) error {
 	fmt.Fprintf(c.App.Writer, "Cache of %s purged\n", formatInstanceName(c))
 	return nil
 }
-
