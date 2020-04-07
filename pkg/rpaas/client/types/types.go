@@ -63,15 +63,23 @@ func (p PodPort) String() string {
 	return fmt.Sprintf("%s(%d/%s)", p.Name, port, protocol)
 }
 
+type PodError struct {
+	First   time.Time `json:"first"`
+	Last    time.Time `json:"last"`
+	Message string    `json:"message"`
+	Count   int32     `json:"count"`
+}
+
 type Pod struct {
-	Name      string    `json:"name"`
-	IP        string    `json:"ip"`
-	HostIP    string    `json:"host"`
-	Status    string    `json:"status"`
-	Ports     []PodPort `json:"ports"`
-	CreatedAt time.Time `json:"createdAt"`
-	Restarts  int32     `json:"restarts"`
-	Ready     bool      `json:"ready"`
+	Name      string     `json:"name"`
+	IP        string     `json:"ip"`
+	HostIP    string     `json:"host"`
+	Status    string     `json:"status"`
+	Ports     []PodPort  `json:"ports"`
+	CreatedAt time.Time  `json:"createdAt"`
+	Restarts  int32      `json:"restarts"`
+	Ready     bool       `json:"ready"`
+	Errors    []PodError `json:"errors,omitempty"`
 }
 
 type InstanceInfo struct {
