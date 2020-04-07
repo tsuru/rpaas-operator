@@ -24,7 +24,7 @@ import (
 func NewCmdInfo() *cli.Command {
 	return &cli.Command{
 		Name:  "info",
-		Usage: "Retrieves information of the rpaas-operator instance given",
+		Usage: "Shows an information summary about an instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -40,7 +40,7 @@ func NewCmdInfo() *cli.Command {
 			&cli.BoolFlag{
 				Name:    "raw-output",
 				Aliases: []string{"r", "raw"},
-				Usage:   "show as JSON instead of go template format",
+				Usage:   "show as JSON instead of the predefined format",
 				Value:   false,
 			},
 		},
