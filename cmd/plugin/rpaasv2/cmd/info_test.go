@@ -75,8 +75,17 @@ func TestInfo(t *testing.T) {
 						Replicas: int32Ptr(3),
 						Routes: []types.Route{
 							{
-								Path:        "some-path",
-								Destination: "some-destination",
+								Path:        "/app1",
+								Destination: "app1.tsuru.example.com",
+							},
+							{
+								Path:        "/login/provider1",
+								Destination: "app2.tsuru.example.com",
+								HTTPSOnly:   true,
+							},
+							{
+								Path:    "/app3/",
+								Content: "# some raw nginx config",
 							},
 						},
 						Team:        "some-team",
@@ -289,6 +298,14 @@ Errors:
 |                    |                              | uuid)                                        |
 +--------------------+------------------------------+----------------------------------------------+
 
+Autoscale:
++----------+--------------------+
+| REPLICAS | TARGET UTILIZATION |
++----------+--------------------+
+| Max: 5   | CPU: 55%           |
+| Min: 2   | Memory: 77%        |
++----------+--------------------+
+
 Binds:
 +------------+------------+
 |    APP     |  ADDRESS   |
@@ -297,7 +314,6 @@ Binds:
 +------------+------------+
 | some-name2 | some-host2 |
 +------------+------------+
-
 
 Addresses:
 +------------+---------+
@@ -308,22 +324,16 @@ Addresses:
 | some-host2 | 0.0.0.1 |
 +------------+---------+
 
-
 Routes:
-+-----------+------------------+
-|   PATH    |   DESTINATION    |
-+-----------+------------------+
-| some-path | some-destination |
-+-----------+------------------+
-
-
-Autoscale:
-+----------+--------------------+
-| REPLICAS | TARGET UTILIZATION |
-+----------+--------------------+
-| Max: 5   | CPU: 55%           |
-| Min: 2   | Memory: 77%        |
-+----------+--------------------+
++------------------+------------------------+--------------+-------------------------+
+|       PATH       |      DESTINATION       | FORCE HTTPS? |      CONFIGURATION      |
++------------------+------------------------+--------------+-------------------------+
+| /app1            | app1.tsuru.example.com |              |                         |
++------------------+------------------------+--------------+-------------------------+
+| /login/provider1 | app2.tsuru.example.com |      ✓       |                         |
++------------------+------------------------+--------------+-------------------------+
+| /app3/           |                        |              | # some raw nginx config |
++------------------+------------------------+--------------+-------------------------+
 `,
 		},
 		{

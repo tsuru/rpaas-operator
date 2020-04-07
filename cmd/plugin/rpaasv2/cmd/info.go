@@ -51,7 +51,7 @@ func NewCmdInfo() *cli.Command {
 
 var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 	Funcs(template.FuncMap{
-		"formatTags":      formatTags,
+		"joinStrings":     strings.Join,
 		"formatRoutes":    writeInfoRoutesOnTableFormat,
 		"formatAddresses": writeAddressesOnTableFormat,
 		"formatBinds":     writeBindsOnTableFormat,
@@ -63,7 +63,7 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 {{- $instance := . -}}
 Name: {{ .Name }}
 Description: {{ .Description }}
-Tags: {{ formatTags .Tags }}
+Tags: {{ joinStrings .Tags ", " }}
 Team owner: {{ .Team }}
 Plan: {{ .Plan }}
 
@@ -73,24 +73,24 @@ Pods: {{ .Replicas }}
 {{ formatPodErrors . }}
 {{- end }}
 
+{{- with .Autoscale }}
+Autoscale:
+{{ formatAutoscale . }}
+{{- end }}
+
 {{- with .Binds }}
 Binds:
 {{ formatBinds . }}
 {{- end }}
-{{- with .Addresses }}
 
+{{- with .Addresses }}
 Addresses:
 {{ formatAddresses . }}
 {{- end }}
-{{- with .Routes }}
 
+{{- with .Routes }}
 Routes:
 {{ formatRoutes . }}
-{{- end }}
-{{- with .Autoscale }}
-
-Autoscale:
-{{ formatAutoscale . }}
 {{- end }}
 {{- /* end template */ -}}
 `))
@@ -122,7 +122,6 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Name", "Host", "Ports", "Ready", "Status", "Restarts", "Age"})
 	table.SetAutoWrapText(true)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(data)
 	table.Render()
 
@@ -177,29 +176,13 @@ func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string 
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(data)
 	table.Render()
-
 	return buffer.String()
 }
 
 func writeInfoRoutesOnTableFormat(routes []clientTypes.Route) string {
-	data := [][]string{}
-	for _, route := range routes {
-		data = append(data, []string{route.Path, route.Destination})
-	}
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Path", "Destination"})
-	table.SetRowLine(true)
-	table.SetAutoWrapText(true)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
-	table.AppendBulk(data)
-	table.Render()
-
+	writeRoutesOnTableFormat(&buffer, routes)
 	return buffer.String()
-}
-
-func formatTags(tags []string) string {
-	return strings.Join(tags, ", ")
 }
 
 func writeBindsOnTableFormat(binds []v1alpha1.Bind) string {
