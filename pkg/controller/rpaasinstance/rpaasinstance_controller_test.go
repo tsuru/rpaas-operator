@@ -693,6 +693,46 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 	assert.Equal(t, pvc.Spec.AccessModes, []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany})
 }
 
+func Test_reconcileHeaterVolumeWithLabels(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	resources := []runtime.Object{}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{
+			Config: v1alpha1.NginxConfig{
+				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+					StorageClassName: strPtr("my-storage-class"),
+					VolumeLabels: map[string]string{
+						"some-label":  "foo",
+						"other-label": "bar",
+					},
+				},
+			},
+		},
+	}
+
+	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	require.NoError(t, err)
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-volume", Namespace: instance1.Namespace}, pvc)
+	require.NoError(t, err)
+
+	assert.Equal(t, 2, len(pvc.ObjectMeta.Labels))
+	assert.Equal(t, "foo", pvc.ObjectMeta.Labels["some-label"])
+	assert.Equal(t, "bar", pvc.ObjectMeta.Labels["other-label"])
+}
+
 func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"

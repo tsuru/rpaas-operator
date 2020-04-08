@@ -448,6 +448,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
 			Namespace: instance.Namespace,
+			Labels:    cacheHeaterStorage.VolumeLabels,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.SchemeGroupVersion.Group,

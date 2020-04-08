@@ -66,8 +66,8 @@ type NginxConfig struct {
 	CacheSize        string `json:"cacheSize,omitempty"`
 	CacheZoneSize    string `json:"cacheZoneSize,omitempty"`
 
-	CacheHeaterEnabled bool                `json:"cacheHeaterEnabled"`
-	CacheHeaterStorage *CacheHeaterStorage `json:"cacheHeaterStorage"`
+	CacheHeaterEnabled bool                `json:"cacheHeaterEnabled,omitempty"`
+	CacheHeaterStorage *CacheHeaterStorage `json:"cacheHeaterStorage,omitempty"`
 
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
@@ -85,8 +85,9 @@ type NginxConfig struct {
 }
 
 type CacheHeaterStorage struct {
-	StorageClassName *string `json:"storageClassName"`
-	StorageSize      string  `json:"storageSize"`
+	StorageClassName *string           `json:"storageClassName,omitempty"`
+	StorageSize      string            `json:"storageSize,omitempty"`
+	VolumeLabels     map[string]string `json:"volumeLabels,omitempty"`
 }
 
 func Bool(v bool) *bool {
