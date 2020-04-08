@@ -52,6 +52,7 @@ func NewCmdInfo() *cli.Command {
 var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 	Funcs(template.FuncMap{
 		"joinStrings":     strings.Join,
+		"formatBlocks":    writeInfoBlocksOnTableFormat,
 		"formatRoutes":    writeInfoRoutesOnTableFormat,
 		"formatAddresses": writeAddressesOnTableFormat,
 		"formatBinds":     writeBindsOnTableFormat,
@@ -86,6 +87,11 @@ Binds:
 {{- with .Addresses }}
 Addresses:
 {{ formatAddresses . }}
+{{- end }}
+
+{{- with .Blocks }}
+Blocks:
+{{ formatBlocks . }}
 {{- end }}
 
 {{- with .Routes }}
@@ -176,6 +182,12 @@ func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string 
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(data)
 	table.Render()
+	return buffer.String()
+}
+
+func writeInfoBlocksOnTableFormat(blocks []clientTypes.Block) string {
+	var buffer bytes.Buffer
+	writeBlocksOnTableFormat(&buffer, blocks)
 	return buffer.String()
 }
 

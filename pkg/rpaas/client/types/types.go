@@ -86,6 +86,7 @@ type InstanceInfo struct {
 	Addresses   []InstanceAddress `json:"addresses,omitempty"`
 	Replicas    *int32            `json:"replicas,omitempty"`
 	Plan        string            `json:"plan,omitempty"`
+	Blocks      []Block           `json:"blocks,omitempty"`
 	Routes      []Route           `json:"routes,omitempty"`
 	Autoscale   *Autoscale        `json:"autoscale,omitempty"`
 	Binds       []v1alpha1.Bind   `json:"binds,omitempty"`

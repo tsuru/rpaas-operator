@@ -1411,6 +1411,18 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		})
 	}
 
+	blocks, err := m.ListBlocks(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, block := range blocks {
+		info.Blocks = append(info.Blocks, clientTypes.Block{
+			Name:    block.Name,
+			Content: block.Content,
+		})
+	}
+
 	nginx, err := m.getNginx(ctx, instance)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		return info, nil

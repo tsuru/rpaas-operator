@@ -73,6 +73,16 @@ func TestInfo(t *testing.T) {
 							},
 						},
 						Replicas: int32Ptr(3),
+						Blocks: []clientTypes.Block{
+							{
+								Name:    "http",
+								Content: "# some nginx config at http context",
+							},
+							{
+								Name:    "server",
+								Content: "# some nginx config at server context",
+							},
+						},
 						Routes: []types.Route{
 							{
 								Path:        "/app1",
@@ -323,6 +333,14 @@ Addresses:
 +------------+---------+
 | some-host2 | 0.0.0.1 |
 +------------+---------+
+
+Blocks:
++---------+---------------------------------------+
+| CONTEXT |             CONFIGURATION             |
++---------+---------------------------------------+
+| http    | # some nginx config at http context   |
+| server  | # some nginx config at server context |
++---------+---------------------------------------+
 
 Routes:
 +------------------+------------------------+--------------+-------------------------+

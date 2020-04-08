@@ -3593,6 +3593,14 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 
 	instance3 := instance1.DeepCopy()
 	instance3.Name = "instance3"
+	instance3.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+		v1alpha1.BlockTypeHTTP: {
+			Value: "# some nginx config at http context",
+		},
+		v1alpha1.BlockTypeServer: {
+			Value: "# some nginx config at server context",
+		},
+	}
 	instance3.Spec.Locations = []v1alpha1.Location{
 		{
 			Path:        "/custom/path/1",
@@ -3838,6 +3846,16 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
+				Blocks: []clientTypes.Block{
+					{
+						Name:    "http",
+						Content: "# some nginx config at http context",
+					},
+					{
+						Name:    "server",
+						Content: "# some nginx config at server context",
+					},
+				},
 				Routes: []clientTypes.Route{
 					{
 						Path:        "/custom/path/1",
