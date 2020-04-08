@@ -1542,12 +1542,11 @@ func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alph
 
 	var podStatuses []clientTypes.Pod
 	for _, pod := range pods {
-		events, err := m.eventsForPod(ctx, &pod)
+		ps, err := m.newPodStatus(ctx, &pod)
 		if err != nil {
 			return nil, err
 		}
-
-		podStatuses = append(podStatuses, newPodStatus(&pod, events))
+		podStatuses = append(podStatuses, ps)
 	}
 
 	sort.Slice(podStatuses, func(i, j int) bool {
@@ -1557,13 +1556,17 @@ func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alph
 	return podStatuses, nil
 }
 
-func newPodStatus(pod *corev1.Pod, events []corev1.Event) clientTypes.Pod {
+func (m *k8sRpaasManager) newPodStatus(ctx context.Context, pod *corev1.Pod) (clientTypes.Pod, error) {
 	phase := pod.Status.Phase
 	if phase == "" {
 		phase = corev1.PodUnknown
 	}
 
-	errors := getErrorsForPod(pod, events)
+	errors, err := m.getErrorsForPod(ctx, pod)
+	if err != nil {
+		return clientTypes.Pod{}, err
+	}
+
 	if len(errors) > 0 {
 		phase = "Errored"
 	}
@@ -1588,7 +1591,7 @@ func newPodStatus(pod *corev1.Pod, events []corev1.Event) clientTypes.Pod {
 		Errors:    errors,
 		Restarts:  restarts,
 		Ready:     ready,
-	}
+	}, nil
 }
 
 func getPortsForPod(pod *corev1.Pod) []clientTypes.PodPort {
@@ -1611,11 +1614,16 @@ func getPortsForPod(pod *corev1.Pod) []clientTypes.PodPort {
 	return ports
 }
 
-func getErrorsForPod(pod *corev1.Pod, events []corev1.Event) []clientTypes.PodError {
+func (m *k8sRpaasManager) getErrorsForPod(ctx context.Context, pod *corev1.Pod) ([]clientTypes.PodError, error) {
 	for _, cs := range pod.Status.ContainerStatuses {
 		if cs.Name == nginxContainerName && cs.State.Running != nil {
-			return nil
+			return nil, nil
 		}
+	}
+
+	events, err := m.eventsForPod(ctx, pod)
+	if err != nil {
+		return nil, err
 	}
 
 	var errors []clientTypes.PodError
@@ -1637,5 +1645,5 @@ func getErrorsForPod(pod *corev1.Pod, events []corev1.Event) []clientTypes.PodEr
 		return errors[i].Last.After(errors[j].Last)
 	})
 
-	return errors
+	return errors, nil
 }
