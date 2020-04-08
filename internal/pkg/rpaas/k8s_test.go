@@ -8,6 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"testing"
+	"time"
 
 	"github.com/imdario/mergo"
 	"github.com/stretchr/testify/assert"
@@ -1146,11 +1147,6 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 }
 
 func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
-
 	instance1 := newEmptyRpaasInstance()
 	instance2 := newEmptyRpaasInstance()
 	instance2.ObjectMeta.Name = "instance2"
@@ -1160,41 +1156,40 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 	instance4.ObjectMeta.Name = "instance4"
 	instance5 := newEmptyRpaasInstance()
 	instance5.ObjectMeta.Name = "instance5"
+
 	nginx1 := &nginxv1alpha1.Nginx{
 		ObjectMeta: instance1.ObjectMeta,
 		Status: nginxv1alpha1.NginxStatus{
-			Pods: []nginxv1alpha1.PodStatus{
-				{Name: "pod1"},
-				{Name: "pod2"},
-			},
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance",
 		},
 	}
 	nginx2 := &nginxv1alpha1.Nginx{
 		ObjectMeta: instance2.ObjectMeta,
 		Status: nginxv1alpha1.NginxStatus{
-			Pods: []nginxv1alpha1.PodStatus{
-				{Name: "pod3"},
-			},
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance2",
 		},
 	}
 	nginx3 := &nginxv1alpha1.Nginx{
 		ObjectMeta: instance3.ObjectMeta,
 		Status: nginxv1alpha1.NginxStatus{
-			Pods: []nginxv1alpha1.PodStatus{},
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance3",
 		},
 	}
 	nginx4 := &nginxv1alpha1.Nginx{
 		ObjectMeta: instance5.ObjectMeta,
 		Status: nginxv1alpha1.NginxStatus{
-			Pods: []nginxv1alpha1.PodStatus{
-				{Name: "pod4"},
-			},
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance5",
 		},
 	}
+
 	pod1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod1",
 			Namespace: instance1.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "my-instance",
+			},
 		},
 		Status: corev1.PodStatus{
 			PodIP: "10.0.0.1",
@@ -1204,6 +1199,10 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod2",
 			Namespace: instance1.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "my-instance",
+			},
 		},
 		Status: corev1.PodStatus{
 			PodIP: "10.0.0.2",
@@ -1212,7 +1211,11 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 	pod4 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "pod4",
-			Namespace: instance1.Namespace,
+			Namespace: instance5.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance5",
+			},
 		},
 		Status: corev1.PodStatus{
 			PodIP: "10.0.0.9",
@@ -1278,18 +1281,6 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 			},
 		},
 		{
-			"instance2",
-			func(t *testing.T, podMap PodStatusMap, err error) {
-				assert.NoError(t, err)
-				assert.Equal(t, podMap, PodStatusMap{
-					"pod3": PodStatus{
-						Running: false,
-						Status:  "pods \"pod3\" not found",
-					},
-				})
-			},
-		},
-		{
 			"instance3",
 			func(t *testing.T, podMap PodStatusMap, err error) {
 				assert.NoError(t, err)
@@ -1326,7 +1317,7 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.instance, func(t *testing.T) {
-			fakeCli := fake.NewFakeClientWithScheme(scheme, resources...)
+			fakeCli := fake.NewFakeClientWithScheme(newScheme(), resources...)
 			manager := &k8sRpaasManager{
 				nonCachedCli: fakeCli,
 				cli:          fakeCli,
@@ -1694,24 +1685,23 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 	nginx1 := &nginxv1alpha1.Nginx{
 		ObjectMeta: instance1.ObjectMeta,
 		Status: nginxv1alpha1.NginxStatus{
-			Pods: []nginxv1alpha1.PodStatus{
-				{Name: "my-instance-pod-1"},
-				{Name: "my-instance-pod-2"},
-			},
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance",
 		},
 	}
 	nginx2 := &nginxv1alpha1.Nginx{
 		ObjectMeta: instance2.ObjectMeta,
 		Status: nginxv1alpha1.NginxStatus{
-			Pods: []nginxv1alpha1.PodStatus{
-				{Name: "not-running-instance"},
-			},
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=not-running-instance",
 		},
 	}
 	pod1 := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance-pod-1",
 			Namespace: instance1.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "my-instance",
+			},
 		},
 		Status: corev1.PodStatus{
 			PodIP:             "10.0.0.9",
@@ -1722,6 +1712,10 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance-pod-2",
 			Namespace: instance1.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "my-instance",
+			},
 		},
 		Status: corev1.PodStatus{
 			PodIP:             "10.0.0.10",
@@ -1732,6 +1726,10 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "not-running-instance-pod",
 			Namespace: instance2.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "not-running-instance",
+			},
 		},
 		Status: corev1.PodStatus{
 			PodIP:             "10.0.0.11",
@@ -3573,6 +3571,8 @@ func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
 }
 
 func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
+	t0 := time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC)
+
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance1"
 	instance1.Annotations = map[string]string{
@@ -3593,6 +3593,14 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 
 	instance3 := instance1.DeepCopy()
 	instance3.Name = "instance3"
+	instance3.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+		v1alpha1.BlockTypeHTTP: {
+			Value: "# some nginx config at http context",
+		},
+		v1alpha1.BlockTypeServer: {
+			Value: "# some nginx config at server context",
+		},
+	}
 	instance3.Spec.Locations = []v1alpha1.Location{
 		{
 			Path:        "/custom/path/1",
@@ -3619,6 +3627,9 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Name:      instance4.Name + "-service",
 			Namespace: instance4.Namespace,
 		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: []corev1.LoadBalancerIngress{
@@ -3637,13 +3648,165 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Namespace: instance4.Namespace,
 		},
 		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance4",
 			Services: []nginxv1alpha1.ServiceStatus{
 				{Name: service4.Name},
 			},
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4}
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance4-6f86f957b7-abcde",
+			Namespace: instance4.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance4",
+			},
+			CreationTimestamp: metav1.NewTime(t0),
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "nginx",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:     "http",
+							HostPort: int32(30000),
+						},
+						{
+							Name:     "https",
+							HostPort: int32(30001),
+						},
+						{
+							Name:     "nginx-metrics",
+							HostPort: int32(30002),
+						},
+					},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase:  corev1.PodRunning,
+			PodIP:  "172.16.100.21",
+			HostIP: "10.10.10.11",
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name:         "nginx",
+					Ready:        true,
+					RestartCount: int32(10),
+				},
+			},
+		},
+	}
+
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance4-6f86f957b7-fghij",
+			Namespace: instance4.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance4",
+			},
+			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "nginx",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:     "http",
+							HostPort: int32(30000),
+						},
+						{
+							Name:     "https",
+							HostPort: int32(30001),
+						},
+						{
+							Name:     "nginx-metrics",
+							HostPort: int32(30002),
+						},
+					},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name: "nginx",
+					State: corev1.ContainerState{
+						Waiting: &corev1.ContainerStateWaiting{
+							Reason:  "CrashLoopBackOff",
+							Message: "Back-off 5m0s restarting failed container=nginx pod=instance4-6f86f957b7-fghij_default(pod uuid)",
+						},
+					},
+					LastTerminationState: corev1.ContainerState{
+						Terminated: &corev1.ContainerStateTerminated{
+							ExitCode: int32(137),
+							Reason:   "Error",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	event1 := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pod2.Name + ".1",
+			Namespace: pod2.Namespace,
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Kind:      "Pod",
+			Name:      pod2.Name,
+			Namespace: pod2.Namespace,
+		},
+		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+		LastTimestamp:  metav1.NewTime(t0.Add(-time.Hour)),
+		Type:           corev1.EventTypeNormal,
+		Reason:         "Pulled",
+		Message:        "Container image \"nginx:1.16.1\" already present on machine",
+	}
+
+	event2 := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pod2.Name + ".2",
+			Namespace: pod2.Namespace,
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Kind:      "Pod",
+			Name:      pod2.Name,
+			Namespace: pod2.Namespace,
+		},
+		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+		LastTimestamp:  metav1.NewTime(t0.Add(-time.Minute)),
+		Count:          15,
+		Type:           corev1.EventTypeWarning,
+		Reason:         "FailedPostStartHook",
+		Message:        "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"instance4-6f86f957b7-fghij_rpaasv2-be-rjdev(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
+	}
+
+	event3 := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pod2.Name + ".3",
+			Namespace: pod2.Namespace,
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Kind:      "Pod",
+			Name:      pod2.Name,
+			Namespace: pod2.Namespace,
+		},
+		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
+		Count:          16,
+		Type:           corev1.EventTypeWarning,
+		Reason:         "BackOff",
+		Message:        "Back-off restarting failed container",
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4, pod1, pod2, event1, event2, event3}
 
 	testCases := []struct {
 		instance string
@@ -3683,6 +3846,16 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
+				Blocks: []clientTypes.Block{
+					{
+						Name:    "http",
+						Content: "# some nginx config at http context",
+					},
+					{
+						Name:    "server",
+						Content: "# some nginx config at server context",
+					},
+				},
 				Routes: []clientTypes.Route{
 					{
 						Path:        "/custom/path/1",
@@ -3714,13 +3887,76 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Hostname: "instance4-service.rpaasv2.tsuru.example.com",
 					},
 				},
+				Pods: []clientTypes.Pod{
+					{
+						Name:      "instance4-6f86f957b7-abcde",
+						IP:        "172.16.100.21",
+						HostIP:    "10.10.10.11",
+						Status:    "Running",
+						CreatedAt: time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC),
+						Restarts:  int32(10),
+						Ready:     true,
+						Ports: []clientTypes.PodPort{
+							{
+								Name:     "http",
+								HostPort: int32(30000),
+							},
+							{
+								Name:     "https",
+								HostPort: int32(30001),
+							},
+							{
+								Name:     "nginx-metrics",
+								HostPort: int32(30002),
+							},
+						},
+					},
+					{
+						Name:      "instance4-6f86f957b7-fghij",
+						Status:    "Errored",
+						CreatedAt: time.Date(2020, 4, 2, 17, 10, 0, 0, time.UTC),
+						Ports: []clientTypes.PodPort{
+							{
+								Name:     "http",
+								HostPort: int32(30000),
+							},
+							{
+								Name:     "https",
+								HostPort: int32(30001),
+							},
+							{
+								Name:     "nginx-metrics",
+								HostPort: int32(30002),
+							},
+						},
+						Ready: false,
+						Errors: []clientTypes.PodError{
+							{
+								First:   t0.Add(-time.Hour).In(time.UTC),
+								Last:    t0.Add(-time.Second).In(time.UTC),
+								Count:   int32(16),
+								Message: "Back-off restarting failed container",
+							},
+							{
+								First:   t0.Add(-time.Hour).In(time.UTC),
+								Last:    t0.Add(-time.Minute).In(time.UTC),
+								Count:   int32(15),
+								Message: "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"instance4-6f86f957b7-fghij_rpaasv2-be-rjdev(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
+							},
+						},
+					},
+				},
 			},
 		},
 	}
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), resources...)}
+			fakeCli := fake.NewFakeClientWithScheme(newScheme(), resources...)
+			manager := &k8sRpaasManager{
+				cli:          fakeCli,
+				nonCachedCli: fakeCli,
+			}
 			got, err := manager.GetInstanceInfo(context.Background(), tt.instance)
 			require.NoError(t, err)
 			require.NotNil(t, got)

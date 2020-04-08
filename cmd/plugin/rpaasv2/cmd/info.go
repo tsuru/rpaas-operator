@@ -11,18 +11,20 @@ import (
 	"io"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/olekukonko/tablewriter"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
+	"k8s.io/apimachinery/pkg/util/duration"
 )
 
 func NewCmdInfo() *cli.Command {
 	return &cli.Command{
 		Name:  "info",
-		Usage: "Retrieves information of the rpaas-operator instance given",
+		Usage: "Shows an information summary about an instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -38,7 +40,7 @@ func NewCmdInfo() *cli.Command {
 			&cli.BoolFlag{
 				Name:    "raw-output",
 				Aliases: []string{"r", "raw"},
-				Usage:   "show as JSON instead of go template format",
+				Usage:   "show as JSON instead of the predefined format",
 				Value:   false,
 			},
 		},
@@ -47,47 +49,118 @@ func NewCmdInfo() *cli.Command {
 	}
 }
 
-var (
-	tmpl, _ = prepareTemplate()
-)
-
-func prepareTemplate() (*template.Template, error) {
-	tmp := `
-Name: {{ .Name }}
-Team: {{ .Team }}
-Description: {{ .Description }}
-Replicas: {{ .Replicas }}
-Plan: {{ .Plan }}
-Tags: {{ formatTags .Tags }}
-{{- with .Binds }}
-
-Binds:
-{{ formatBinds . }}
-{{- end }}
-{{- with .Addresses }}
-
-Addresses:
-{{ formatAddresses . }}
-{{- end }}
-{{- with .Routes }}
-
-Routes:
-{{ formatRoutes . }}
-{{- end }}
-{{- with .Autoscale }}
-
-Autoscale:
-{{ formatAutoscale . }}
-{{- end }}
-`
-
-	return template.New("root").Funcs(template.FuncMap{
-		"formatTags":      formatTags,
+var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
+	Funcs(template.FuncMap{
+		"joinStrings":     strings.Join,
+		"formatBlocks":    writeInfoBlocksOnTableFormat,
 		"formatRoutes":    writeInfoRoutesOnTableFormat,
 		"formatAddresses": writeAddressesOnTableFormat,
 		"formatBinds":     writeBindsOnTableFormat,
 		"formatAutoscale": writeAutoscaleOnTableFormat,
-	}).Parse(tmp)
+		"formatPods":      writePodsOnTableFormat,
+		"formatPodErrors": writePodErrorsOnTableFormat,
+	}).
+	Parse(`
+{{- $instance := . -}}
+Name: {{ .Name }}
+Description: {{ .Description }}
+Tags: {{ joinStrings .Tags ", " }}
+Team owner: {{ .Team }}
+Plan: {{ .Plan }}
+
+Pods: {{ .Replicas }}
+{{- with .Pods }}
+{{ formatPods . }}
+{{ formatPodErrors . }}
+{{- end }}
+
+{{- with .Autoscale }}
+Autoscale:
+{{ formatAutoscale . }}
+{{- end }}
+
+{{- with .Binds }}
+Binds:
+{{ formatBinds . }}
+{{- end }}
+
+{{- with .Addresses }}
+Addresses:
+{{ formatAddresses . }}
+{{- end }}
+
+{{- with .Blocks }}
+Blocks:
+{{ formatBlocks . }}
+{{- end }}
+
+{{- with .Routes }}
+Routes:
+{{ formatRoutes . }}
+{{- end }}
+{{- /* end template */ -}}
+`))
+
+func writePodsOnTableFormat(pods []clientTypes.Pod) string {
+	if len(pods) == 0 {
+		return ""
+	}
+
+	var data [][]string
+	for _, pod := range pods {
+		var ports []string
+		for _, p := range pod.Ports {
+			ports = append(ports, p.String())
+		}
+
+		data = append(data, []string{
+			pod.Name,
+			pod.HostIP,
+			strings.Join(ports, " "),
+			checkedChar(pod.Ready),
+			pod.Status,
+			fmt.Sprintf("%d", pod.Restarts),
+			translateTimestampSince(pod.CreatedAt.In(time.UTC)),
+		})
+	}
+
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Name", "Host", "Ports", "Ready", "Status", "Restarts", "Age"})
+	table.SetAutoWrapText(true)
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
+}
+
+func writePodErrorsOnTableFormat(pods []clientTypes.Pod) string {
+	data := [][]string{}
+	for _, pod := range pods {
+		for _, err := range pod.Errors {
+			age := translateTimestampSince(err.Last)
+			if err.Count > int32(1) {
+				age = fmt.Sprintf("%s (x%d over %s)", age, err.Count, translateTimestampSince(err.First))
+			}
+
+			data = append(data, []string{age, pod.Name, err.Message})
+		}
+	}
+
+	if len(data) == 0 {
+		return ""
+	}
+
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Age", "Pod", "Message"})
+	table.SetAutoWrapText(true)
+	table.AppendBulk(data)
+	table.Render()
+
+	var sb strings.Builder
+	sb.WriteString(fmt.Sprintf("Errors:\n%v", buffer.String()))
+	return sb.String()
 }
 
 func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
@@ -109,29 +182,19 @@ func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string 
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(data)
 	table.Render()
+	return buffer.String()
+}
 
+func writeInfoBlocksOnTableFormat(blocks []clientTypes.Block) string {
+	var buffer bytes.Buffer
+	writeBlocksOnTableFormat(&buffer, blocks)
 	return buffer.String()
 }
 
 func writeInfoRoutesOnTableFormat(routes []clientTypes.Route) string {
-	data := [][]string{}
-	for _, route := range routes {
-		data = append(data, []string{route.Path, route.Destination})
-	}
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Path", "Destination"})
-	table.SetRowLine(true)
-	table.SetAutoWrapText(true)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
-	table.AppendBulk(data)
-	table.Render()
-
+	writeRoutesOnTableFormat(&buffer, routes)
 	return buffer.String()
-}
-
-func formatTags(tags []string) string {
-	return strings.Join(tags, ", ")
 }
 
 func writeBindsOnTableFormat(binds []v1alpha1.Bind) string {
@@ -161,6 +224,14 @@ func writeInfoOnJSONFormat(w io.Writer, payload *clientTypes.InstanceInfo) error
 	return nil
 }
 
+func translateTimestampSince(timestamp time.Time) string {
+	if timestamp.IsZero() {
+		return "<unknown>"
+	}
+
+	return duration.HumanDuration(time.Since(timestamp))
+}
+
 func runInfo(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
@@ -181,11 +252,9 @@ func runInfo(c *cli.Context) error {
 		return writeInfoOnJSONFormat(c.App.Writer, infoPayload)
 	}
 
-	if infoPayload != nil {
-		err = tmpl.Execute(c.App.Writer, infoPayload)
-		if err != nil {
-			return err
-		}
+	err = instanceInfoTemplate.Execute(c.App.Writer, infoPayload)
+	if err != nil {
+		return err
 	}
 
 	return nil

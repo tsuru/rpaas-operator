@@ -5,7 +5,11 @@
 package types
 
 import (
+	"fmt"
+	"time"
+
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	corev1 "k8s.io/api/core/v1"
 )
 
 type Block struct {
@@ -43,10 +47,46 @@ type InstanceAddress struct {
 	IP       string `json:"ip,omitempty"`
 }
 
+type PodPort corev1.ContainerPort
+
+func (p PodPort) String() string {
+	protocol := p.Protocol
+	if protocol == "" {
+		protocol = corev1.ProtocolTCP
+	}
+
+	port := p.HostPort
+	if port == int32(0) {
+		port = p.ContainerPort
+	}
+
+	return fmt.Sprintf("%s(%d/%s)", p.Name, port, protocol)
+}
+
+type PodError struct {
+	First   time.Time `json:"first"`
+	Last    time.Time `json:"last"`
+	Message string    `json:"message"`
+	Count   int32     `json:"count"`
+}
+
+type Pod struct {
+	CreatedAt time.Time  `json:"createdAt,omitempty"`
+	Name      string     `json:"name"`
+	IP        string     `json:"ip"`
+	HostIP    string     `json:"host"`
+	Status    string     `json:"status"`
+	Ports     []PodPort  `json:"ports,omitempty"`
+	Errors    []PodError `json:"errors,omitempty"`
+	Restarts  int32      `json:"restarts"`
+	Ready     bool       `json:"ready"`
+}
+
 type InstanceInfo struct {
 	Addresses   []InstanceAddress `json:"addresses,omitempty"`
 	Replicas    *int32            `json:"replicas,omitempty"`
 	Plan        string            `json:"plan,omitempty"`
+	Blocks      []Block           `json:"blocks,omitempty"`
 	Routes      []Route           `json:"routes,omitempty"`
 	Autoscale   *Autoscale        `json:"autoscale,omitempty"`
 	Binds       []v1alpha1.Bind   `json:"binds,omitempty"`
@@ -54,4 +94,5 @@ type InstanceInfo struct {
 	Name        string            `json:"name,omitempty"`
 	Description string            `json:"description,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
+	Pods        []Pod             `json:"pods,omitempty"`
 }
