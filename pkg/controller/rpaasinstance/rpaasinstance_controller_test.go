@@ -756,7 +756,6 @@ func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
 					VolumeLabels: map[string]string{
 						"some-label":  "foo",
 						"other-label": "bar",
-						volumeTeamLabel: "another-team",
 					},
 				},
 			},
@@ -774,6 +773,49 @@ func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
 	assert.Equal(t, "foo", pvc.ObjectMeta.Labels["some-label"])
 	assert.Equal(t, "bar", pvc.ObjectMeta.Labels["other-label"])
 	assert.Equal(t, "team-one", pvc.ObjectMeta.Labels[volumeTeamLabel])
+}
+
+func Test_reconcileHeaterVolumeLabels(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+  instance1.SetTeamOwner("team-one")
+
+	resources := []runtime.Object{}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{
+			Config: v1alpha1.NginxConfig{
+				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+					StorageClassName: strPtr("my-storage-class"),
+					VolumeLabels: map[string]string{
+						"some-label":  "foo",
+						"other-label": "bar",
+						volumeTeamLabel: "another-team",
+					},
+				},
+			},
+		},
+	}
+
+	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	require.NoError(t, err)
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-volume", Namespace: instance1.Namespace}, pvc)
+	require.NoError(t, err)
+
+	assert.Equal(t, 3, len(pvc.ObjectMeta.Labels))
+	assert.Equal(t, "foo", pvc.ObjectMeta.Labels["some-label"])
+	assert.Equal(t, "bar", pvc.ObjectMeta.Labels["other-label"])
+	assert.Equal(t, "another-team", pvc.ObjectMeta.Labels[volumeTeamLabel])
 }
 
 func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {

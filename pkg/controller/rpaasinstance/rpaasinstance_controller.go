@@ -443,20 +443,19 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 	if plan.Spec.Config.CacheHeaterStorage != nil {
 		cacheHeaterStorage = plan.Spec.Config.CacheHeaterStorage
 	}
-
 	volumeMode := corev1.PersistentVolumeFilesystem
   labels := map[string]string{}
-  if cacheHeaterStorage.VolumeLabels != nil {
-    labels = cacheHeaterStorage.VolumeLabels
-  }
   if teamOwner := instance.TeamOwner(); teamOwner != "" {
     labels[volumeTeamLabel] = teamOwner
+  }
+  for k, v := range cacheHeaterStorage.VolumeLabels {
+    labels[k] = v
   }
 	pvc = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
 			Namespace: instance.Namespace,
-			Labels:    cacheHeaterStorage.VolumeLabels,
+			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.SchemeGroupVersion.Group,
