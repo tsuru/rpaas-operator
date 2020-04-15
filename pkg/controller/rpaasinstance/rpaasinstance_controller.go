@@ -45,6 +45,7 @@ const (
 	defaultConfigHistoryLimit = 10
 
 	defaultPortAllocationResource = "default"
+  volumeTeamLabel = "tsuru.io/volume-name"
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -444,6 +445,13 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 	}
 
 	volumeMode := corev1.PersistentVolumeFilesystem
+  labels := map[string]string{}
+  if cacheHeaterStorage.VolumeLabels != nil {
+    labels = cacheHeaterStorage.VolumeLabels
+  }
+  if teamOwner := instance.TeamOwner(); teamOwner != "" {
+    labels[volumeTeamLabel] = teamOwner
+  }
 	pvc = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,
