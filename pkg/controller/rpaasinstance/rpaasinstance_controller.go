@@ -23,6 +23,8 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/util"
 	"github.com/willf/bitset"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -42,10 +44,12 @@ import (
 )
 
 const (
-	defaultConfigHistoryLimit = 10
+	defaultConfigHistoryLimit   = 10
+	defaultCacheHeaterCronImage = "bitnami/kubectl:latest"
+	defaultCacheHeaterSchedule  = "* * * * *"
 
 	defaultPortAllocationResource = "default"
-  volumeTeamLabel = "tsuru.io/volume-name"
+	volumeTeamLabel               = "tsuru.io/volume-name"
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -195,6 +199,10 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	if plan.Spec.Config.CacheHeaterEnabled {
+		err = r.reconcileCacheHeaterCronJob(instance, plan)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 		err = r.reconcileCacheHeaterVolume(instance, plan)
 		if err != nil {
 			return reconcile.Result{}, err
@@ -426,6 +434,84 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) erro
 	return err
 }
 
+func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+	cronName := instance.Name + "-heater-cron-job"
+	cronJob := &batchv1beta1.CronJob{}
+
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
+	isNotFound := k8sErrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return err
+	} else if !isNotFound {
+		logrus.Infof("CronJob %s is found, skipping creation", cronName)
+		return nil
+	}
+
+	podCommand := "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"
+
+	schedule := defaultCacheHeaterSchedule
+	if plan.Spec.Config.CacheHeaterSync.Schedule != "" {
+		schedule = plan.Spec.Config.CacheHeaterSync.Schedule
+	}
+
+	image := defaultCacheHeaterCronImage
+	if plan.Spec.Config.CacheHeaterSync.Image != "" {
+		image = plan.Spec.Config.CacheHeaterSync.Image
+	}
+
+	cronJob = &batchv1beta1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cronName,
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1beta1",
+			Kind:       "CronJob",
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule: schedule,
+			JobTemplate: batchv1beta1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							ServiceAccountName: "rpaas-cache-heater-cronjob",
+							Containers: []corev1.Container{
+								{
+									Name:  "cache-synchronize",
+									Image: image,
+									Command: []string{
+										"/bin/bash",
+									},
+									Args: []string{
+										"-c",
+										fmt.Sprintf("pods=($(kubectl -n rpaasv2-be-cme get pod -l rpaas.extensions.tsuru.io/service-name=%q -l rpaas.extensions.tsuru.io/instance-name=%q --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}')); ", instance.Namespace, instance.Name) +
+											"for pod in ${pods[@]}; do " +
+											fmt.Sprintf("kubectl -n %q exec ${pod} -- %q;", instance.Namespace, podCommand) +
+											"if [[ $? == 0 ]]; then exit 0; fi; " +
+											"done",
+									},
+								},
+							},
+							RestartPolicy: corev1.RestartPolicyNever,
+						},
+					},
+				},
+			},
+		},
+	}
+	err = r.client.Create(context.TODO(), cronJob)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	pvcName := instance.Name + "-heater-volume"
 
@@ -444,13 +530,14 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 		cacheHeaterStorage = plan.Spec.Config.CacheHeaterStorage
 	}
 	volumeMode := corev1.PersistentVolumeFilesystem
-  labels := map[string]string{}
-  if teamOwner := instance.TeamOwner(); teamOwner != "" {
-    labels[volumeTeamLabel] = teamOwner
-  }
-  for k, v := range cacheHeaterStorage.VolumeLabels {
-    labels[k] = v
-  }
+	labels := map[string]string{}
+	if teamOwner := instance.TeamOwner(); teamOwner != "" {
+		labels[volumeTeamLabel] = teamOwner
+	}
+	for k, v := range cacheHeaterStorage.VolumeLabels {
+		labels[k] = v
+	}
+
 	pvc = &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pvcName,

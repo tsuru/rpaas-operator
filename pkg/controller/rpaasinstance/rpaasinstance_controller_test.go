@@ -15,6 +15,8 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -736,7 +738,7 @@ func Test_reconcileHeaterVolumeWithLabels(t *testing.T) {
 func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
-  instance1.SetTeamOwner("team-one")
+	instance1.SetTeamOwner("team-one")
 
 	resources := []runtime.Object{}
 	scheme := newScheme()
@@ -778,7 +780,7 @@ func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
 func Test_reconcileHeaterVolumeLabels(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
-  instance1.SetTeamOwner("team-one")
+	instance1.SetTeamOwner("team-one")
 
 	resources := []runtime.Object{}
 	scheme := newScheme()
@@ -796,8 +798,8 @@ func Test_reconcileHeaterVolumeLabels(t *testing.T) {
 				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 					VolumeLabels: map[string]string{
-						"some-label":  "foo",
-						"other-label": "bar",
+						"some-label":    "foo",
+						"other-label":   "bar",
 						volumeTeamLabel: "another-team",
 					},
 				},
@@ -1478,12 +1480,18 @@ func TestReconcile(t *testing.T) {
 				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
+				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
+					Schedule: "1 * * * *",
+					Image:    "test/test:latest",
+				},
 			},
 		},
 	}
 	resources := []runtime.Object{rpaas, plan}
 	scheme := newScheme()
 	corev1.AddToScheme(scheme)
+	batchv1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
 	client := fake.NewFakeClientWithScheme(scheme, resources...)
 	reconciler := &ReconcileRpaasInstance{
 		client: client,
@@ -1502,4 +1510,18 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-heater-volume"})
 	assert.Equal(t, nginx.Spec.PodTemplate.VolumeMounts[0].Name, "cache-heater-volume")
 	assert.Equal(t, nginx.Spec.PodTemplate.VolumeMounts[0].MountPath, "/var/cache/cache-heater")
+
+	cronJob := &batchv1beta1.CronJob{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-instance-heater-cron-job", Namespace: rpaas.Namespace}, cronJob)
+	require.NoError(t, err)
+
+	assert.Equal(t, "1 * * * *", cronJob.Spec.Schedule)
+	templateSpec := cronJob.Spec.JobTemplate.Spec.Template.Spec
+	assert.Equal(t, "test/test:latest", templateSpec.Containers[0].Image)
+	assert.Equal(t, "pods=($(kubectl -n rpaasv2-be-cme get pod -l rpaas.extensions.tsuru.io/service-name=\"default\" -l rpaas.extensions.tsuru.io/instance-name=\"my-instance\" --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));"+
+		" for pod in ${pods[@]}; "+
+		"do kubectl -n \"default\" exec ${pod} -- \"rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater\";"+
+		"if [[ $? == 0 ]]; then exit 0; fi; done",
+		templateSpec.Containers[0].Args[1],
+	)
 }

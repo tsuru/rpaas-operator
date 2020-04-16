@@ -68,6 +68,7 @@ type NginxConfig struct {
 
 	CacheHeaterEnabled bool                `json:"cacheHeaterEnabled,omitempty"`
 	CacheHeaterStorage *CacheHeaterStorage `json:"cacheHeaterStorage,omitempty"`
+	CacheHeaterSync    CacheHeaterSyncSpec `json:"cacheHeaterSync,omitempty"`
 
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
@@ -82,6 +83,15 @@ type NginxConfig struct {
 
 	WorkerProcesses   int `json:"workerProcesses,omitempty"`
 	WorkerConnections int `json:"workerConnections,omitempty"`
+}
+
+type CacheHeaterSyncSpec struct {
+	// The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+	Schedule string `json:"schedule,omitempty"`
+
+	// Container image used to sync the containers
+	// default is bitnami/kubectl:latest
+	Image string `json:"image,omitempty"`
 }
 
 type CacheHeaterStorage struct {
