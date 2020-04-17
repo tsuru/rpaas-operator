@@ -566,10 +566,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 		return nil
 	}
 
-	cacheHeaterStorage := &v1alpha1.CacheHeaterStorage{}
-	if plan.Spec.Config.CacheHeaterStorage != nil {
-		cacheHeaterStorage = plan.Spec.Config.CacheHeaterStorage
-	}
+	cacheHeaterStorage := plan.Spec.Config.CacheHeaterStorage
 	volumeMode := corev1.PersistentVolumeFilesystem
 	labels := map[string]string{}
 	if teamOwner := instance.TeamOwner(); teamOwner != "" {
@@ -606,10 +603,8 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 	}
 
 	storageSize := plan.Spec.Config.CacheSize
-	if cacheHeaterStorage := plan.Spec.Config.CacheHeaterStorage; cacheHeaterStorage != nil {
-		if cacheHeaterStorage.StorageSize != "" {
-			storageSize = cacheHeaterStorage.StorageSize
-		}
+	if cacheHeaterStorage.StorageSize != "" {
+		storageSize = cacheHeaterStorage.StorageSize
 	}
 
 	if storageSize != "" {

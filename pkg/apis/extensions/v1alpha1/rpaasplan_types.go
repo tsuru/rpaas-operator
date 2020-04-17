@@ -67,7 +67,7 @@ type NginxConfig struct {
 	CacheZoneSize    string `json:"cacheZoneSize,omitempty"`
 
 	CacheHeaterEnabled bool                `json:"cacheHeaterEnabled,omitempty"`
-	CacheHeaterStorage *CacheHeaterStorage `json:"cacheHeaterStorage,omitempty"`
+	CacheHeaterStorage CacheHeaterStorage  `json:"cacheHeaterStorage,omitempty"`
 	CacheHeaterSync    CacheHeaterSyncSpec `json:"cacheHeaterSync,omitempty"`
 
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`

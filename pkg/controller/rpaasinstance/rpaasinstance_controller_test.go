@@ -675,7 +675,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 	plan := &v1alpha1.RpaasPlan{
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
-				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
 			},
@@ -712,7 +712,7 @@ func Test_reconcileHeaterVolumeWithLabels(t *testing.T) {
 	plan := &v1alpha1.RpaasPlan{
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
-				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 					VolumeLabels: map[string]string{
 						"some-label":  "foo",
@@ -753,7 +753,7 @@ func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
 	plan := &v1alpha1.RpaasPlan{
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
-				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 					VolumeLabels: map[string]string{
 						"some-label":  "foo",
@@ -795,7 +795,7 @@ func Test_reconcileHeaterVolumeLabels(t *testing.T) {
 	plan := &v1alpha1.RpaasPlan{
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
-				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 					VolumeLabels: map[string]string{
 						"some-label":    "foo",
@@ -838,7 +838,7 @@ func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
 				CacheSize: "10Gi",
-				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
 			},
@@ -875,7 +875,7 @@ func Test_reconcileHeaterVolumeUsingStorageSize(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
 				CacheSize: "10Gi",
-				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 					StorageSize:      "100Gi",
 				},
@@ -1504,7 +1504,7 @@ func TestReconcile(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
 				CacheHeaterEnabled: true,
-				CacheHeaterStorage: &v1alpha1.CacheHeaterStorage{
+				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
 				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
