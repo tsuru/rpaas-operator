@@ -44,12 +44,26 @@ import (
 )
 
 const (
-	defaultConfigHistoryLimit   = 10
-	defaultCacheHeaterCronImage = "bitnami/kubectl:latest"
-	defaultCacheHeaterSchedule  = "* * * * *"
-
+	defaultConfigHistoryLimit     = 10
+	defaultCacheHeaterCronImage   = "bitnami/kubectl:latest"
+	defaultCacheHeaterSchedule    = "* * * * *"
 	defaultPortAllocationResource = "default"
 	volumeTeamLabel               = "tsuru.io/volume-name"
+)
+
+var (
+	defaultCacheHeaterCmds = []string{
+		"/bin/bash",
+		"-c",
+		`
+pods=($(kubectl -n rpaasv2-be-cme get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
+for pod in ${pods[@]}; do
+	kubectl -n ${SERVICE_NAME} exec ${pod} -- ${POD_CMD};
+	if [[ $? == 0 ]]; then
+		exit 0;
+	fi
+done
+`}
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -96,6 +110,11 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
+	})
+
+	err = c.Watch(&source.Kind{Type: &batchv1beta1.CronJob{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
 	})
@@ -208,7 +227,11 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 			return reconcile.Result{}, err
 		}
 	} else {
-		err = r.destroyCacheHeaterVolume(instance, plan.Spec.Config.CacheHeaterStorage)
+		err = r.destroyCacheHeaterCronJob(instance)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
+		err = r.destroyCacheHeaterVolume(instance)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
@@ -439,12 +462,11 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(instance *v1alpha1.
 	cronJob := &batchv1beta1.CronJob{}
 
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
-	isNotFound := k8sErrors.IsNotFound(err)
-	if err != nil && !isNotFound {
-		return err
-	} else if !isNotFound {
+	if err == nil {
 		logrus.Infof("CronJob %s is found, skipping creation", cronName)
 		return nil
+	} else if !k8sErrors.IsNotFound(err) {
+		return err
 	}
 
 	podCommand := "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"
@@ -457,6 +479,11 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(instance *v1alpha1.
 	image := defaultCacheHeaterCronImage
 	if plan.Spec.Config.CacheHeaterSync.Image != "" {
 		image = plan.Spec.Config.CacheHeaterSync.Image
+	}
+
+	cmds := defaultCacheHeaterCmds
+	if len(plan.Spec.Config.CacheHeaterSync.Cmds) > 0 {
+		cmds = plan.Spec.Config.CacheHeaterSync.Cmds
 	}
 
 	cronJob = &batchv1beta1.CronJob{
@@ -487,15 +514,13 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(instance *v1alpha1.
 									Name:  "cache-synchronize",
 									Image: image,
 									Command: []string{
-										"/bin/bash",
+										cmds[0],
 									},
-									Args: []string{
-										"-c",
-										fmt.Sprintf("pods=($(kubectl -n rpaasv2-be-cme get pod -l rpaas.extensions.tsuru.io/service-name=%q -l rpaas.extensions.tsuru.io/instance-name=%q --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}')); ", instance.Namespace, instance.Name) +
-											"for pod in ${pods[@]}; do " +
-											fmt.Sprintf("kubectl -n %q exec ${pod} -- %q;", instance.Namespace, podCommand) +
-											"if [[ $? == 0 ]]; then exit 0; fi; " +
-											"done",
+									Args: cmds[1:],
+									Env: []corev1.EnvVar{
+										{Name: "SERVICE_NAME", Value: instance.Namespace},
+										{Name: "INSTANCE_NAME", Value: instance.Name},
+										{Name: "POD_CMD", Value: podCommand},
 									},
 								},
 							},
@@ -511,6 +536,22 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(instance *v1alpha1.
 		return err
 	}
 	return nil
+}
+
+func (r *ReconcileRpaasInstance) destroyCacheHeaterCronJob(instance *v1alpha1.RpaasInstance) error {
+	cronName := instance.Name + "-heater-cron-job"
+	cronJob := &batchv1beta1.CronJob{}
+
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
+	isNotFound := k8sErrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return err
+	} else if isNotFound {
+		logrus.Infof("CronJob %s is not found, skipping destruction", cronName)
+		return nil
+	}
+
+	return r.client.Delete(context.TODO(), cronJob)
 }
 func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	pvcName := instance.Name + "-heater-volume"
@@ -589,7 +630,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(instance *v1alpha1.RpaasInstance, storageConfig *v1alpha1.CacheHeaterStorage) error {
+func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(instance *v1alpha1.RpaasInstance) error {
 	pvcName := instance.Name + "-heater-volume"
 
 	pvc := &corev1.PersistentVolumeClaim{}

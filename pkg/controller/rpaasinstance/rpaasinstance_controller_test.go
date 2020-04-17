@@ -905,9 +905,6 @@ func Test_destroyHeaterVolume(t *testing.T) {
 			Namespace: "default",
 		},
 	}
-	storageConfig := &v1alpha1.CacheHeaterStorage{
-		StorageClassName: strPtr("my-storage-class"),
-	}
 	resources := []runtime.Object{pvc}
 	scheme := newScheme()
 	corev1.AddToScheme(scheme)
@@ -918,7 +915,7 @@ func Test_destroyHeaterVolume(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	err := reconciler.destroyCacheHeaterVolume(instance1, storageConfig)
+	err := reconciler.destroyCacheHeaterVolume(instance1)
 	require.NoError(t, err)
 
 	pvc = &corev1.PersistentVolumeClaim{}
@@ -926,6 +923,36 @@ func Test_destroyHeaterVolume(t *testing.T) {
 	require.True(t, k8sErrors.IsNotFound(err))
 }
 
+func Test_destroyHeaterCronJob(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	cronJob := &batchv1beta1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance1.Name + "-heater-cron-job",
+			Namespace: instance1.Namespace,
+		},
+	}
+
+	resources := []runtime.Object{cronJob}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	err := reconciler.destroyCacheHeaterCronJob(instance1)
+	require.NoError(t, err)
+
+	cronJob = &batchv1beta1.CronJob{}
+
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-cron-job", Namespace: instance1.Namespace}, cronJob)
+	require.True(t, k8sErrors.IsNotFound(err))
+}
 func int32Ptr(n int32) *int32 {
 	return &n
 }
@@ -1483,6 +1510,11 @@ func TestReconcile(t *testing.T) {
 				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
 					Schedule: "1 * * * *",
 					Image:    "test/test:latest",
+					Cmds: []string{
+						"/bin/bash",
+						"-c",
+						"echo 'this is a test'",
+					},
 				},
 			},
 		},
@@ -1518,10 +1550,12 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, "1 * * * *", cronJob.Spec.Schedule)
 	templateSpec := cronJob.Spec.JobTemplate.Spec.Template.Spec
 	assert.Equal(t, "test/test:latest", templateSpec.Containers[0].Image)
-	assert.Equal(t, "pods=($(kubectl -n rpaasv2-be-cme get pod -l rpaas.extensions.tsuru.io/service-name=\"default\" -l rpaas.extensions.tsuru.io/instance-name=\"my-instance\" --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));"+
-		" for pod in ${pods[@]}; "+
-		"do kubectl -n \"default\" exec ${pod} -- \"rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater\";"+
-		"if [[ $? == 0 ]]; then exit 0; fi; done",
-		templateSpec.Containers[0].Args[1],
-	)
+	assert.Equal(t, "/bin/bash", templateSpec.Containers[0].Command[0])
+	assert.Equal(t, "-c", templateSpec.Containers[0].Args[0])
+	assert.Equal(t, "echo 'this is a test'", templateSpec.Containers[0].Args[1])
+	assert.Equal(t, []corev1.EnvVar{
+		{Name: "SERVICE_NAME", Value: "default"},
+		{Name: "INSTANCE_NAME", Value: "my-instance"},
+		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"},
+	}, templateSpec.Containers[0].Env)
 }
