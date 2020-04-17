@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/config"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
@@ -94,23 +95,28 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 
 	instance := newRpaasInstance(args.Name)
 	instance.Namespace = nsName
-	instance.Spec.PlanName = plan.Name
-	instance.Spec.Replicas = func(n int32) *int32 { return &n }(int32(1)) // one replica
-	instance.Spec.Service = &nginxv1alpha1.NginxService{
-		Type:        corev1.ServiceTypeLoadBalancer,
-		Annotations: instance.Annotations,
-		Labels:      instance.Labels,
-	}
-	instance.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
-		Affinity:    getAffinity(args.Team),
-		Annotations: instance.Annotations,
-		Labels:      instance.Labels,
+	instance.Spec = v1alpha1.RpaasInstanceSpec{
+		Replicas: func(n int32) *int32 { return &n }(int32(1)),
+		PlanName: plan.Name,
+		Flavors:  args.Flavors(),
+		Service: &nginxv1alpha1.NginxService{
+			Type:        corev1.ServiceTypeLoadBalancer,
+			Annotations: instance.Annotations,
+			Labels:      instance.Labels,
+		},
+		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+			Affinity:    getAffinity(args.Team),
+			Annotations: instance.Annotations,
+			Labels:      instance.Labels,
+		},
 	}
 
 	setDescription(instance, args.Description)
 	setTeamOwner(instance, args.Team)
+	setTags(instance, args.Tags)
+	setIP(instance, args.IP())
 
-	if err := m.setTags(ctx, instance, args.Tags); err != nil {
+	if err = setPlanTemplate(instance, args.PlanOverride()); err != nil {
 		return err
 	}
 
@@ -118,21 +124,32 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
+	if err := m.validateUpdateInstanceArgs(ctx, args); err != nil {
+		return err
+	}
+
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
-	plan, err := m.getPlan(ctx, args.Plan)
-	if err != nil {
-		return err
+	if args.Plan != "" && args.Plan != instance.Spec.PlanName {
+		plan, err := m.getPlan(ctx, args.Plan)
+		if err != nil {
+			return err
+		}
+
+		instance.Spec.PlanName = plan.Name
 	}
 
-	instance.Spec.PlanName = plan.Name
+	instance.Spec.Flavors = args.Flavors()
+
 	setDescription(instance, args.Description)
 	setTeamOwner(instance, args.Team)
+	setTags(instance, args.Tags)
+	setIP(instance, args.IP())
 
-	if err = m.setTags(ctx, instance, args.Tags); err != nil {
+	if err := setPlanTemplate(instance, args.PlanOverride()); err != nil {
 		return err
 	}
 
@@ -549,13 +566,39 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 	return &instance, nil
 }
 
-func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error) {
+func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]Plan, error) {
 	var planList v1alpha1.RpaasPlanList
 	if err := m.cli.List(ctx, &planList, client.InNamespace(namespaceName())); err != nil {
 		return nil, err
 	}
 
-	return planList.Items, nil
+	flavors, err := m.GetFlavors(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	var schemas *osb.Schemas
+	if p := buildServiceInstanceParametersForPlan(flavors); p != nil {
+		schemas = &osb.Schemas{
+			ServiceInstance: &osb.ServiceInstanceSchema{
+				Create: &osb.InputParametersSchema{Parameters: p},
+				Update: &osb.InputParametersSchema{Parameters: p},
+			},
+		}
+	}
+
+	var plans []Plan
+	for _, p := range planList.Items {
+		plans = append(plans, Plan{
+			Name:        p.Name,
+			Description: p.Spec.Description,
+			Schemas:     schemas,
+		})
+	}
+
+	sort.SliceStable(plans, func(i, j int) bool { return plans[i].Name < plans[j].Name })
+
+	return plans, nil
 }
 
 func (m *k8sRpaasManager) GetFlavors(ctx context.Context) ([]Flavor, error) {
@@ -589,14 +632,14 @@ func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavo
 	return flavorList.Items, nil
 }
 
-func (m *k8sRpaasManager) isFlavorAvailable(ctx context.Context, flavorName string) bool {
+func (m *k8sRpaasManager) isFlavorAvailable(ctx context.Context, name string) bool {
 	flavors, err := m.getFlavors(ctx)
 	if err != nil {
 		return false
 	}
 
-	for _, flavor := range flavors {
-		if flavor.Name == flavorName {
+	for _, f := range flavors {
+		if f.Name == name {
 			return true
 		}
 	}
@@ -993,8 +1036,13 @@ func (m *k8sRpaasManager) getDefaultPlan(ctx context.Context) (*v1alpha1.RpaasPl
 
 	var defaultPlans []v1alpha1.RpaasPlan
 	for _, p := range plans {
-		if p.Spec.Default {
-			defaultPlans = append(defaultPlans, p)
+		pp, err := m.getPlan(ctx, p.Name)
+		if err != nil {
+			return nil, err
+		}
+
+		if pp.Spec.Default {
+			defaultPlans = append(defaultPlans, *pp)
 		}
 	}
 
@@ -1075,17 +1123,36 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 		return ConflictError{Msg: fmt.Sprintf("rpaas instance named %q already exists", args.Name)}
 	}
 
+	if err = m.validateFlavors(ctx, args.Flavors()); err != nil {
+		return err
+	}
+
 	return nil
 }
 
-func parseTagArg(tags []string, name string, destination *string) {
-	for _, tag := range tags {
-		parts := strings.SplitN(tag, "=", 2)
-		if parts[0] == name {
-			*destination = parts[1]
-			break
-		}
+func (m *k8sRpaasManager) validateUpdateInstanceArgs(ctx context.Context, args UpdateInstanceArgs) error {
+	if err := m.validateFlavors(ctx, args.Flavors()); err != nil {
+		return err
 	}
+
+	return nil
+}
+
+func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string) error {
+	encountered := map[string]bool{}
+	for _, f := range flavors {
+		if !m.isFlavorAvailable(ctx, f) {
+			return ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
+		}
+
+		if _, duplicated := encountered[f]; duplicated {
+			return ValidationError{Msg: fmt.Sprintf("flavor %q only can be set once", f)}
+		}
+
+		encountered[f] = true
+	}
+
+	return nil
 }
 
 func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {
@@ -1301,9 +1368,40 @@ func setDescription(instance *v1alpha1.RpaasInstance, description string) {
 	})
 }
 
-func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasInstance, tags []string) error {
+func setIP(instance *v1alpha1.RpaasInstance, ip string) {
+	if instance == nil {
+		return
+	}
+
+	if instance.Spec.Service == nil {
+		instance.Spec.Service = &nginxv1alpha1.NginxService{}
+	}
+
+	instance.Spec.Service.LoadBalancerIP = ip
+}
+
+func setPlanTemplate(instance *v1alpha1.RpaasInstance, override string) error {
 	if instance == nil {
 		return nil
+	}
+
+	instance.Spec.PlanTemplate = nil
+	if override == "" {
+		return nil
+	}
+
+	var planTemplate v1alpha1.RpaasPlanSpec
+	if err := json.Unmarshal([]byte(override), &planTemplate); err != nil {
+		return fmt.Errorf("unable to unmarshal plan-override on plan spec: %w", err)
+	}
+
+	instance.Spec.PlanTemplate = &planTemplate
+	return nil
+}
+
+func setTags(instance *v1alpha1.RpaasInstance, tags []string) {
+	if instance == nil {
+		return
 	}
 
 	sort.Strings(tags)
@@ -1311,52 +1409,6 @@ func (m *k8sRpaasManager) setTags(ctx context.Context, instance *v1alpha1.RpaasI
 	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
 		labelKey("tags"): strings.Join(tags, ","),
 	})
-
-	var ip string
-	parseTagArg(tags, "ip", &ip)
-	if instance.Spec.Service == nil {
-		instance.Spec.Service = &nginxv1alpha1.NginxService{}
-	}
-	instance.Spec.Service.LoadBalancerIP = ip
-
-	var flavor string
-	parseTagArg(tags, "flavor", &flavor)
-	if err := m.setFlavors(ctx, instance, strings.Split(flavor, ",")); err != nil {
-		return err
-	}
-
-	var planOverride string
-	parseTagArg(tags, "plan-override", &planOverride)
-	instance.Spec.PlanTemplate = nil
-	if planOverride == "" {
-		return nil
-	}
-
-	var planTemplate v1alpha1.RpaasPlanSpec
-	if err := json.Unmarshal([]byte(planOverride), &planTemplate); err != nil {
-		return errors.Wrapf(err, "unable to parse plan-override from data %q", planOverride)
-	}
-	instance.Spec.PlanTemplate = &planTemplate
-
-	return nil
-}
-
-func (m *k8sRpaasManager) setFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, flavorNames []string) error {
-	var flavors []string
-	for _, flavor := range flavorNames {
-		if flavor == "" {
-			break
-		}
-
-		if !m.isFlavorAvailable(ctx, flavor) {
-			return NotFoundError{Msg: fmt.Sprintf("flavor %q not found", flavor)}
-		}
-
-		flavors = append(flavors, flavor)
-	}
-
-	instance.Spec.Flavors = flavors
-	return nil
 }
 
 func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
@@ -1646,4 +1698,62 @@ func (m *k8sRpaasManager) getErrorsForPod(ctx context.Context, pod *corev1.Pod) 
 	})
 
 	return errors, nil
+}
+
+func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
+	return map[string]interface{}{
+		"$id":     "https://example.com/schema.json",
+		"$schema": "https://json-schema.org/draft-07/schema#",
+		"type":    "object",
+		"properties": map[string]interface{}{
+			"flavors": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"$ref": "#/definitions/flavor",
+				},
+				"description": formatFlavorsDescription(flavors),
+				"enum":        flavorNames(flavors),
+			},
+			"ip": map[string]interface{}{
+				"type":        "string",
+				"description": "IP address that will be assigned to load balancer.\nExamples:\n\tip=192.168.15.10",
+			},
+			"plan-override": map[string]interface{}{
+				"type":        "object",
+				"description": "Allows an instance to change its plan parameters to specific ones.\nExamples:\n\tplan-override={\"config\": {\"cacheEnabled\": false}}\n\tplan-override={\"image\": \"tsuru/nginx:latest\"}",
+			},
+		},
+		"definitions": map[string]interface{}{
+			"flavor": map[string]interface{}{
+				"type": "string",
+			},
+		},
+	}
+}
+
+func formatFlavorsDescription(flavors []Flavor) string {
+	var sb strings.Builder
+	sb.WriteString("Provides a self-contained set of features that can be enabled on this plan.\n")
+
+	if len(flavors) == 0 {
+		return sb.String()
+	}
+
+	sb.WriteString("\n")
+	sb.WriteString("Supported flavors:")
+	for _, f := range flavors {
+		sb.WriteString("\n")
+		sb.WriteString(fmt.Sprintf("\t- name: %s\n", f.Name))
+		sb.WriteString(fmt.Sprintf("\t  description: %s", f.Description))
+	}
+
+	return sb.String()
+}
+
+func flavorNames(flavors []Flavor) (names []string) {
+	for _, f := range flavors {
+		names = append(names, f.Name)
+	}
+
+	return
 }

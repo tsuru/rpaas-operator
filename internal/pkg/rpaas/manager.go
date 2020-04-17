@@ -10,7 +10,10 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"sort"
+	"strings"
 
+	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -79,18 +82,44 @@ type RouteHandler interface {
 }
 
 type CreateArgs struct {
-	Name        string   `json:"name" form:"name"`
-	Plan        string   `json:"plan" form:"plan"`
-	Team        string   `json:"team" form:"team"`
-	Tags        []string `json:"tags" form:"tags"`
-	Description string   `json:"description" form:"description"`
+	Name        string                 `form:"name"`
+	Team        string                 `form:"team"`
+	Plan        string                 `form:"plan"`
+	Description string                 `form:"description"`
+	Tags        []string               `form:"tags"`
+	Parameters  map[string]interface{} `form:"parameters"`
+}
+
+func (args CreateArgs) Flavors() []string {
+	return getFlavors(args.Parameters, args.Tags)
+}
+
+func (args CreateArgs) IP() string {
+	return getIP(args.Parameters, args.Tags)
+}
+
+func (args CreateArgs) PlanOverride() string {
+	return getPlanOverride(args.Parameters, args.Tags)
 }
 
 type UpdateInstanceArgs struct {
-	Description string   `json:"description" form:"description"`
-	Plan        string   `json:"plan" form:"plan"`
-	Tags        []string `json:"tags" form:"tags"`
-	Team        string   `json:"team" form:"team"`
+	Team        string                 `form:"team"`
+	Description string                 `form:"description"`
+	Plan        string                 `form:"plan"`
+	Tags        []string               `form:"tags"`
+	Parameters  map[string]interface{} `form:"parameters"`
+}
+
+func (args UpdateInstanceArgs) Flavors() []string {
+	return getFlavors(args.Parameters, args.Tags)
+}
+
+func (args UpdateInstanceArgs) IP() string {
+	return getIP(args.Parameters, args.Tags)
+}
+
+func (args UpdateInstanceArgs) PlanOverride() string {
+	return getPlanOverride(args.Parameters, args.Tags)
 }
 
 type PodStatusMap map[string]PodStatus
@@ -115,6 +144,12 @@ type CacheManager interface {
 type PurgeCacheArgs struct {
 	Path         string `json:"path" form:"path"`
 	PreservePath bool   `json:"preserve_path" form:"preserve_path"`
+}
+
+type Plan struct {
+	Name        string       `json:"name"`
+	Description string       `json:"description"`
+	Schemas     *osb.Schemas `json:"schemas,omitempty"`
 }
 
 type Flavor struct {
@@ -145,7 +180,7 @@ type RpaasManager interface {
 	GetInstanceAddress(ctx context.Context, name string) (string, error)
 	GetInstanceStatus(ctx context.Context, name string) (*nginxv1alpha1.Nginx, PodStatusMap, error)
 	Scale(ctx context.Context, name string, replicas int32) error
-	GetPlans(ctx context.Context) ([]v1alpha1.RpaasPlan, error)
+	GetPlans(ctx context.Context) ([]Plan, error)
 	GetFlavors(ctx context.Context) ([]Flavor, error)
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error
 	UnbindApp(ctx context.Context, instanceName, appName string) error
@@ -157,4 +192,104 @@ type CertificateData struct {
 	Name        string `json:"name"`
 	Certificate string `json:"certificate"`
 	Key         string `json:"key"`
+}
+
+func getFlavors(params map[string]interface{}, tags []string) (flavors []string) {
+	p, found := params["flavors"]
+	if !found {
+		return legacyGetFlavors(tags)
+	}
+
+	flavorsParams, ok := p.(map[string]interface{})
+	if !ok {
+		return
+	}
+
+	var sortedKeys []string
+	for key := range flavorsParams {
+		sortedKeys = append(sortedKeys, key)
+	}
+
+	sort.Strings(sortedKeys)
+
+	for _, key := range sortedKeys {
+		flavors = append(flavors, flavorsParams[key].(string))
+	}
+
+	return
+}
+
+func legacyGetFlavors(tags []string) (flavors []string) {
+	values := extractTagValues([]string{"flavor:", "flavor=", "flavors:", "flavors="}, tags)
+	if len(values) == 0 {
+		return nil
+	}
+
+	return strings.Split(values[0], ",")
+}
+
+func getIP(params map[string]interface{}, tags []string) string {
+	p, found := params["ip"]
+	if !found {
+		return legacyGetIP(tags)
+	}
+
+	ip, ok := p.(string)
+	if !ok {
+		return ""
+	}
+
+	return ip
+}
+
+func legacyGetIP(tags []string) string {
+	values := extractTagValues([]string{"ip:", "ip="}, tags)
+	if len(values) == 0 {
+		return ""
+	}
+
+	return values[0]
+}
+
+func getPlanOverride(params map[string]interface{}, tags []string) string {
+	p, found := params["plan-override"]
+	if !found {
+		return legacyGetPlanOverride(tags)
+	}
+
+	override, ok := p.(string)
+	if !ok {
+		return ""
+	}
+
+	return override
+}
+
+func legacyGetPlanOverride(tags []string) string {
+	values := extractTagValues([]string{"plan-override:", "plan-override="}, tags)
+	if len(values) == 0 {
+		return ""
+	}
+
+	return values[0]
+}
+
+func extractTagValues(prefixes, tags []string) []string {
+	for _, t := range tags {
+		for _, p := range prefixes {
+			if !strings.HasPrefix(t, p) {
+				continue
+			}
+
+			separator := string(p[len(p)-1])
+			parts := strings.SplitN(t, separator, 2)
+			if len(parts) == 1 {
+				return nil
+			}
+
+			return parts[1:]
+		}
+	}
+
+	return nil
 }

@@ -14,23 +14,20 @@ import (
 )
 
 func serviceCreate(c echo.Context) error {
-	if c.Request().ContentLength == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
-	}
-
 	var args rpaas.CreateArgs
-	err := c.Bind(&args)
-	if err != nil {
+	if err := c.Bind(&args); err != nil {
 		return err
 	}
+
 	manager, err := getManager(c)
 	if err != nil {
 		return err
 	}
-	err = manager.CreateInstance(c.Request().Context(), args)
-	if err != nil {
+
+	if err = manager.CreateInstance(c.Request().Context(), args); err != nil {
 		return err
 	}
+
 	return c.NoContent(http.StatusCreated)
 }
 
@@ -39,6 +36,7 @@ func serviceDelete(c echo.Context) error {
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "name is required")
 	}
+
 	manager, err := getManager(c)
 	if err != nil {
 		return err
@@ -51,10 +49,6 @@ func serviceDelete(c echo.Context) error {
 }
 
 func serviceUpdate(c echo.Context) error {
-	if c.Request().ContentLength == 0 {
-		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
-	}
-
 	var args rpaas.UpdateInstanceArgs
 	if err := c.Bind(&args); err != nil {
 		return err
@@ -72,12 +66,6 @@ func serviceUpdate(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-type plan struct {
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Default     bool   `json:"default"`
-}
-
 func servicePlans(c echo.Context) error {
 	manager, err := getManager(c)
 	if err != nil {
@@ -89,20 +77,11 @@ func servicePlans(c echo.Context) error {
 		return err
 	}
 
-	var result []plan
-	for _, p := range plans {
-		result = append(result, plan{
-			Name:        p.Name,
-			Description: p.Spec.Description,
-			Default:     p.Spec.Default,
-		})
+	if plans == nil {
+		plans = make([]rpaas.Plan, 0)
 	}
 
-	if result == nil {
-		result = []plan{}
-	}
-
-	return c.JSON(http.StatusOK, result)
+	return c.JSON(http.StatusOK, plans)
 }
 
 func serviceInfo(c echo.Context) error {
