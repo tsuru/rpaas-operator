@@ -59,7 +59,7 @@ var (
 		"/bin/bash",
 		"-c",
 		`
-pods=($(kubectl -n rpaasv2-be-cme get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
+pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
 for pod in ${pods[@]}; do
 	kubectl -n ${SERVICE_NAME} exec ${pod} -- ${POD_CMD};
 	if [[ $? == 0 ]]; then
@@ -870,18 +870,19 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 			Schedule:          schedule,
 			ConcurrencyPolicy: batchv1beta1.ForbidConcurrent,
 			JobTemplate: batchv1beta1.JobTemplateSpec{
-				ObjectMeta: metav1.ObjectMeta{
-					Labels: map[string]string{
-						"k8s-app": cronName,
-					},
-				},
+
 				Spec: batchv1.JobSpec{
 					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: map[string]string{
+								"k8s-app": cronName,
+							},
+						},
 						Spec: corev1.PodSpec{
 							ServiceAccountName: "rpaas-cache-heater-cronjob",
 							Containers: []corev1.Container{
 								{
-									Name:  "cache-synchronize",
+									Name:  cronName,
 									Image: image,
 									Command: []string{
 										cmds[0],
