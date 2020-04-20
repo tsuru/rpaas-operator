@@ -923,6 +923,82 @@ func Test_destroyHeaterVolume(t *testing.T) {
 	require.True(t, k8sErrors.IsNotFound(err))
 }
 
+func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	resources := []runtime.Object{}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{},
+	}
+
+	err := reconciler.reconcileCacheHeaterCronJob(instance1, plan)
+	require.NoError(t, err)
+
+	cronJob := &batchv1beta1.CronJob{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-cron-job", Namespace: instance1.Namespace}, cronJob)
+	require.NoError(t, err)
+
+	assert.Equal(t, "RpaasInstance", cronJob.ObjectMeta.OwnerReferences[0].Kind)
+	assert.Equal(t, instance1.Name, cronJob.ObjectMeta.OwnerReferences[0].Name)
+}
+
+func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	previousCronJob := &batchv1beta1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: instance1.Name + "-heater-cronjob",
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule: "old-schedule",
+		},
+	}
+
+	resources := []runtime.Object{previousCronJob}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{
+			Config: v1alpha1.NginxConfig{
+				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
+					Schedule: "new-schedule",
+				},
+			},
+		},
+	}
+
+	err := reconciler.reconcileCacheHeaterCronJob(instance1, plan)
+	require.NoError(t, err)
+
+	cronJob := &batchv1beta1.CronJob{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-cron-job", Namespace: instance1.Namespace}, cronJob)
+	require.NoError(t, err)
+
+	assert.Equal(t, "RpaasInstance", cronJob.ObjectMeta.OwnerReferences[0].Kind)
+	assert.Equal(t, instance1.Name, cronJob.ObjectMeta.OwnerReferences[0].Name)
+	assert.Equal(t, "new-schedule", cronJob.Spec.Schedule)
+}
+
 func Test_destroyHeaterCronJob(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"

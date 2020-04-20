@@ -49,6 +49,9 @@ const (
 	defaultCacheHeaterSchedule    = "* * * * *"
 	defaultPortAllocationResource = "default"
 	volumeTeamLabel               = "tsuru.io/volume-name"
+
+	cacheHeaterCronJobSuffix = "-heater-cron-job"
+	cacheHeaterVolumeSuffix  = "-heater-volume"
 )
 
 var (
@@ -458,88 +461,27 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) erro
 }
 
 func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	cronName := instance.Name + "-heater-cron-job"
-	cronJob := &batchv1beta1.CronJob{}
-
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
-	if err == nil {
-		logrus.Infof("CronJob %s is found, skipping creation", cronName)
-		return nil
-	} else if !k8sErrors.IsNotFound(err) {
+	foundCronJob := &batchv1beta1.CronJob{}
+	cronName := instance.Name + cacheHeaterCronJobSuffix
+	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
+	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 
-	podCommand := "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"
-
-	schedule := defaultCacheHeaterSchedule
-	if plan.Spec.Config.CacheHeaterSync.Schedule != "" {
-		schedule = plan.Spec.Config.CacheHeaterSync.Schedule
+	newestCronJob := newCronJob(instance, plan)
+	if k8sErrors.IsNotFound(err) {
+		return r.client.Create(context.TODO(), newestCronJob)
 	}
 
-	image := defaultCacheHeaterCronImage
-	if plan.Spec.Config.CacheHeaterSync.Image != "" {
-		image = plan.Spec.Config.CacheHeaterSync.Image
+	if !reflect.DeepEqual(foundCronJob.Spec, newestCronJob.Spec) {
+		return r.client.Update(context.TODO(), newestCronJob)
 	}
 
-	cmds := defaultCacheHeaterCmds
-	if len(plan.Spec.Config.CacheHeaterSync.Cmds) > 0 {
-		cmds = plan.Spec.Config.CacheHeaterSync.Cmds
-	}
-
-	cronJob = &batchv1beta1.CronJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cronName,
-			Namespace: instance.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
-					Group:   v1alpha1.SchemeGroupVersion.Group,
-					Version: v1alpha1.SchemeGroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1beta1",
-			Kind:       "CronJob",
-		},
-		Spec: batchv1beta1.CronJobSpec{
-			Schedule: schedule,
-			JobTemplate: batchv1beta1.JobTemplateSpec{
-				Spec: batchv1.JobSpec{
-					Template: corev1.PodTemplateSpec{
-						Spec: corev1.PodSpec{
-							ServiceAccountName: "rpaas-cache-heater-cronjob",
-							Containers: []corev1.Container{
-								{
-									Name:  "cache-synchronize",
-									Image: image,
-									Command: []string{
-										cmds[0],
-									},
-									Args: cmds[1:],
-									Env: []corev1.EnvVar{
-										{Name: "SERVICE_NAME", Value: instance.Namespace},
-										{Name: "INSTANCE_NAME", Value: instance.Name},
-										{Name: "POD_CMD", Value: podCommand},
-									},
-								},
-							},
-							RestartPolicy: corev1.RestartPolicyNever,
-						},
-					},
-				},
-			},
-		},
-	}
-	err = r.client.Create(context.TODO(), cronJob)
-	if err != nil {
-		return err
-	}
 	return nil
 }
 
 func (r *ReconcileRpaasInstance) destroyCacheHeaterCronJob(instance *v1alpha1.RpaasInstance) error {
-	cronName := instance.Name + "-heater-cron-job"
+	cronName := instance.Name + cacheHeaterCronJobSuffix
 	cronJob := &batchv1beta1.CronJob{}
 
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
@@ -554,7 +496,7 @@ func (r *ReconcileRpaasInstance) destroyCacheHeaterCronJob(instance *v1alpha1.Rp
 	return r.client.Delete(context.TODO(), cronJob)
 }
 func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	pvcName := instance.Name + "-heater-volume"
+	pvcName := instance.Name + cacheHeaterVolumeSuffix
 
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
@@ -626,7 +568,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 }
 
 func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(instance *v1alpha1.RpaasInstance) error {
-	pvcName := instance.Name + "-heater-volume"
+	pvcName := instance.Name + cacheHeaterVolumeSuffix
 
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
@@ -813,7 +755,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Name: "cache-heater-volume",
 			VolumeSource: corev1.VolumeSource{
 				PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-					ClaimName: instance.Name + "-heater-volume",
+					ClaimName: instance.Name + cacheHeaterVolumeSuffix,
 				},
 			},
 		})
@@ -886,6 +828,77 @@ func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscal
 			MinReplicas: minReplicas,
 			MaxReplicas: instance.Spec.Autoscale.MaxReplicas,
 			Metrics:     metrics,
+		},
+	}
+}
+
+func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
+	cronName := instance.Name + cacheHeaterCronJobSuffix
+	podCommand := "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"
+
+	schedule := defaultCacheHeaterSchedule
+	if plan.Spec.Config.CacheHeaterSync.Schedule != "" {
+		schedule = plan.Spec.Config.CacheHeaterSync.Schedule
+	}
+
+	image := defaultCacheHeaterCronImage
+	if plan.Spec.Config.CacheHeaterSync.Image != "" {
+		image = plan.Spec.Config.CacheHeaterSync.Image
+	}
+
+	cmds := defaultCacheHeaterCmds
+	if len(plan.Spec.Config.CacheHeaterSync.Cmds) > 0 {
+		cmds = plan.Spec.Config.CacheHeaterSync.Cmds
+	}
+	return &batchv1beta1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cronName,
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1beta1",
+			Kind:       "CronJob",
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule:          schedule,
+			ConcurrencyPolicy: batchv1beta1.ForbidConcurrent,
+			JobTemplate: batchv1beta1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"k8s-app": cronName,
+					},
+				},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						Spec: corev1.PodSpec{
+							ServiceAccountName: "rpaas-cache-heater-cronjob",
+							Containers: []corev1.Container{
+								{
+									Name:  "cache-synchronize",
+									Image: image,
+									Command: []string{
+										cmds[0],
+									},
+									Args: cmds[1:],
+									Env: []corev1.EnvVar{
+										{Name: "SERVICE_NAME", Value: instance.Namespace},
+										{Name: "INSTANCE_NAME", Value: instance.Name},
+										{Name: "POD_CMD", Value: podCommand},
+									},
+								},
+							},
+							RestartPolicy: corev1.RestartPolicyNever,
+						},
+					},
+				},
+			},
 		},
 	}
 }
