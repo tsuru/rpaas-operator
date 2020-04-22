@@ -152,11 +152,7 @@ func k8sQuantityToNginx(quantity *resource.Quantity) string {
 	}
 	repr := quantity.String()
 
-	if repr[len(repr)-1] == 'i' {
-		return repr[0 : len(repr)-1]
-
-	}
-	return repr
+	return strings.TrimSuffix(repr, "i")
 }
 
 var templateFuncs = template.FuncMap(map[string]interface{}{
