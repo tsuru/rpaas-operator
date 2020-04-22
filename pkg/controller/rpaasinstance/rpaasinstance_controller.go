@@ -28,8 +28,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/api/resource"
-	k8sResources "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -545,18 +543,14 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 	}
 
 	storageSize := plan.Spec.Config.CacheSize
-	if cacheHeaterStorage.StorageSize != "" {
+	if cacheHeaterStorage.StorageSize != nil && !cacheHeaterStorage.StorageSize.IsZero() {
 		storageSize = cacheHeaterStorage.StorageSize
 	}
 
-	if storageSize != "" {
-		parsedSize, err := resource.ParseQuantity(storageSize)
-		if err != nil {
-			return err
-		}
+	if storageSize != nil && !storageSize.IsZero() {
 		pvc.Spec.Resources = corev1.ResourceRequirements{
 			Requests: corev1.ResourceList{
-				"storage": parsedSize,
+				"storage": *storageSize,
 			},
 		}
 	}
@@ -711,9 +705,8 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
-		cacheMaxSize, err := k8sResources.ParseQuantity(plan.Spec.Config.CacheSize)
-		if err == nil && !cacheMaxSize.IsZero() {
-			cacheConfig.Size = &cacheMaxSize
+		if plan.Spec.Config.CacheSize != nil && !plan.Spec.Config.CacheSize.IsZero() {
+			cacheConfig.Size = plan.Spec.Config.CacheSize
 		}
 	}
 	n := &nginxv1alpha1.Nginx{

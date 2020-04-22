@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -59,12 +60,12 @@ type NginxConfig struct {
 
 	UpstreamKeepalive int `json:"upstreamKeepalive,omitempty"`
 
-	CacheEnabled     *bool  `json:"cacheEnabled,omitempty"`
-	CacheInactive    string `json:"cacheInactive,omitempty"`
-	CacheLoaderFiles int    `json:"cacheLoaderFiles,omitempty"`
-	CachePath        string `json:"cachePath,omitempty"`
-	CacheSize        string `json:"cacheSize,omitempty"`
-	CacheZoneSize    string `json:"cacheZoneSize,omitempty"`
+	CacheEnabled     *bool              `json:"cacheEnabled,omitempty"`
+	CacheInactive    string             `json:"cacheInactive,omitempty"`
+	CacheLoaderFiles int                `json:"cacheLoaderFiles,omitempty"`
+	CachePath        string             `json:"cachePath,omitempty"`
+	CacheSize        *resource.Quantity `json:"cacheSize,omitempty"`
+	CacheZoneSize    *resource.Quantity `json:"cacheZoneSize,omitempty"`
 
 	CacheHeaterEnabled bool                `json:"cacheHeaterEnabled,omitempty"`
 	CacheHeaterStorage CacheHeaterStorage  `json:"cacheHeaterStorage,omitempty"`
@@ -98,9 +99,9 @@ type CacheHeaterSyncSpec struct {
 }
 
 type CacheHeaterStorage struct {
-	StorageClassName *string           `json:"storageClassName,omitempty"`
-	StorageSize      string            `json:"storageSize,omitempty"`
-	VolumeLabels     map[string]string `json:"volumeLabels,omitempty"`
+	StorageClassName *string            `json:"storageClassName,omitempty"`
+	StorageSize      *resource.Quantity `json:"storageSize,omitempty"`
+	VolumeLabels     map[string]string  `json:"volumeLabels,omitempty"`
 }
 
 func Bool(v bool) *bool {

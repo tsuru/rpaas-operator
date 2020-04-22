@@ -61,7 +61,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "root",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(true),
 				},
 			},
@@ -76,7 +76,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "ubuntu",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(true),
 				},
 			},
@@ -87,7 +87,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "root",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(true),
 				},
 			},
@@ -103,7 +103,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "ubuntu",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(false),
 				},
 			},
@@ -837,7 +837,7 @@ func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
 	plan := &v1alpha1.RpaasPlan{
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
-				CacheSize: "10Gi",
+				CacheSize: resourceMustParsePtr("10Gi"),
 				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
@@ -874,10 +874,10 @@ func Test_reconcileHeaterVolumeUsingStorageSize(t *testing.T) {
 	plan := &v1alpha1.RpaasPlan{
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
-				CacheSize: "10Gi",
+				CacheSize: resourceMustParsePtr("10Gi"),
 				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
-					StorageSize:      "100Gi",
+					StorageSize:      resourceMustParsePtr("100Gi"),
 				},
 			},
 		},
@@ -1579,6 +1579,8 @@ func TestReconcile(t *testing.T) {
 		},
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
+				CacheEnabled:       v1alpha1.Bool(true),
+				CacheSize:          resourceMustParsePtr("100M"),
 				CacheHeaterEnabled: true,
 				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
@@ -1614,10 +1616,12 @@ func TestReconcile(t *testing.T) {
 	err = client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
 	require.NoError(t, err)
 
-	assert.Equal(t, nginx.Spec.PodTemplate.Volumes[0].Name, "cache-heater-volume")
-	assert.Equal(t, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-heater-volume"})
-	assert.Equal(t, nginx.Spec.PodTemplate.VolumeMounts[0].Name, "cache-heater-volume")
-	assert.Equal(t, nginx.Spec.PodTemplate.VolumeMounts[0].MountPath, "/var/cache/cache-heater")
+	assert.Equal(t, "cache-heater-volume", nginx.Spec.PodTemplate.Volumes[0].Name)
+	assert.Equal(t, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-heater-volume"}, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim)
+	assert.Equal(t, "cache-heater-volume", nginx.Spec.PodTemplate.VolumeMounts[0].Name)
+	assert.Equal(t, "/var/cache/cache-heater", nginx.Spec.PodTemplate.VolumeMounts[0].MountPath)
+
+	assert.Equal(t, resource.MustParse("100M"), *nginx.Spec.Cache.Size)
 
 	cronJob := &batchv1beta1.CronJob{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-instance-heater-cron-job", Namespace: rpaas.Namespace}, cronJob)
@@ -1637,4 +1641,9 @@ func TestReconcile(t *testing.T) {
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"},
 	}, podSpec.Containers[0].Env)
+}
+
+func resourceMustParsePtr(fmt string) *resource.Quantity {
+	qty := resource.MustParse(fmt)
+	return &qty
 }

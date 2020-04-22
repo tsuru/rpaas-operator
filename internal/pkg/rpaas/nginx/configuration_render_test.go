@@ -12,9 +12,13 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestRpaasConfigurationRenderer_Render(t *testing.T) {
+	size100MB := resource.MustParse("100Mi")
+	size300MB := resource.MustParse("300Mi")
+
 	tests := []struct {
 		name      string
 		blocks    ConfigurationBlocks
@@ -70,12 +74,12 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					CacheEnabled:  v1alpha1.Bool(true),
 					CachePath:     "/path/to/cache/dir",
-					CacheZoneSize: "100m",
+					CacheZoneSize: &size100MB,
 				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100m;`, result)
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100M;`, result)
 				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
 				assert.Regexp(t, `server {
 \s+listen 8800;
@@ -95,13 +99,13 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 					CachePath:        "/path/to/cache/dir",
 					CacheInactive:    "12h",
 					CacheLoaderFiles: 1000,
-					CacheSize:        "300m",
-					CacheZoneSize:    "100m",
+					CacheSize:        &size300MB,
+					CacheZoneSize:    &size100MB,
 				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100m inactive=12h max_size=300m loader_files=1000;`, result)
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100M inactive=12h max_size=300M loader_files=1000;`, result)
 				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
 				assert.Regexp(t, `server {
 \s+listen 8800;
