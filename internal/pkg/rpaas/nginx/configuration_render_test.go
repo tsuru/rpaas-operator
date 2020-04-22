@@ -562,3 +562,26 @@ func Test_hasRootPath(t *testing.T) {
 		})
 	}
 }
+
+func TestK8sQuantityToNginx(t *testing.T) {
+	type expectation struct {
+		k8sQuantity   string
+		nginxQuantity string
+	}
+
+	expectations := []expectation{
+		{"100Ki", "100K"},
+		{"100Mi", "100M"},
+		{"100M", "100000000"},
+		{"1Gi", "1G"},
+		{"1G", "1000000000"},
+		{"1024Gi", "1099511627776"},
+		{"2Ti", "2199023255552"},
+	}
+
+	for _, expectation := range expectations {
+		k8sQuantity := resource.MustParse(expectation.k8sQuantity)
+		nginxQuantity := k8sQuantityToNginx(&k8sQuantity)
+		assert.Equal(t, expectation.nginxQuantity, nginxQuantity)
+	}
+}
