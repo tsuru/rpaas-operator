@@ -875,14 +875,15 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
 							Labels: map[string]string{
-								"k8s-app": cronName,
+								"log-app-name":     instance.Name,
+								"log-process-name": "cache-synchronize",
 							},
 						},
 						Spec: corev1.PodSpec{
 							ServiceAccountName: "rpaas-cache-heater-cronjob",
 							Containers: []corev1.Container{
 								{
-									Name:  cronName,
+									Name:  "cache-synchronize",
 									Image: image,
 									Command: []string{
 										cmds[0],

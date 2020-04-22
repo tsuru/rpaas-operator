@@ -1624,14 +1624,17 @@ func TestReconcile(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "1 * * * *", cronJob.Spec.Schedule)
-	templateSpec := cronJob.Spec.JobTemplate.Spec.Template.Spec
-	assert.Equal(t, "test/test:latest", templateSpec.Containers[0].Image)
-	assert.Equal(t, "/bin/bash", templateSpec.Containers[0].Command[0])
-	assert.Equal(t, "-c", templateSpec.Containers[0].Args[0])
-	assert.Equal(t, "echo 'this is a test'", templateSpec.Containers[0].Args[1])
+	podTemplateSpec := cronJob.Spec.JobTemplate.Spec.Template
+	podSpec := podTemplateSpec.Spec
+	assert.Equal(t, "test/test:latest", podSpec.Containers[0].Image)
+	assert.Equal(t, "/bin/bash", podSpec.Containers[0].Command[0])
+	assert.Equal(t, "-c", podSpec.Containers[0].Args[0])
+	assert.Equal(t, "echo 'this is a test'", podSpec.Containers[0].Args[1])
+	assert.Equal(t, "my-instance", podTemplateSpec.ObjectMeta.Labels["log-app-name"])
+	assert.Equal(t, "cache-synchronize", podTemplateSpec.ObjectMeta.Labels["log-process-name"])
 	assert.Equal(t, []corev1.EnvVar{
 		{Name: "SERVICE_NAME", Value: "default"},
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"},
-	}, templateSpec.Containers[0].Env)
+	}, podSpec.Containers[0].Env)
 }
