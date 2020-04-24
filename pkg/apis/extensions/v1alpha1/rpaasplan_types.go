@@ -94,10 +94,8 @@ type CacheSnapshotSyncSpec struct {
 	// default is bitnami/kubectl:latest
 	Image string `json:"image,omitempty"`
 
-	// CmdPodToPVC is used to customize command used to sync memory cache (POD) to persistent storage (PVC)
+	// Cmds that are used to customize command used to sync memory cache to persistent storage
 	CmdPodToPVC []string `json:"cmdPodToPVC,omitempty"`
-
-	// CmdPVCToPod is used to customize command used to sync persistent storage (PVC) to memory cache (POD)
 	CmdPVCToPod []string `json:"cmdPVCToPod,omitempty"`
 }
 

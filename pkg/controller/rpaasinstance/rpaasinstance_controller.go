@@ -1,4 +1,4 @@
-// Copyright 2019 tsuru authors. All rights reserved.
+// Copyright 2020 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -52,20 +52,15 @@ const (
 	defaultPortAllocationResource = "default"
 	volumeTeamLabel               = "tsuru.io/volume-team"
 
-	cacheSnapshotCronJobSuffix = "-snapshot-cron-job"
-	cacheSnapshotVolumeSuffix  = "-snapshot-volume"
+	cacheHeaterCronJobSuffix = "-heater-cron-job"
+	cacheHeaterVolumeSuffix  = "-heater-volume"
 
-	cacheSnapshotMountPoint = "/var/cache/cache-snapshot"
-
-	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_SNAPSHOT_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_SNAPSHOT_MOUNTPOINT}"
-	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx ${CACHE_PATH}"
-
-	sessionTicketsSecretSuffix  = "-session-tickets"
-	sessionTicketsCronJobSuffix = "-session-tickets"
+	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"
+	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-heater/nginx /var/cache/nginx/rpaas"
 )
 
 var (
-	defaultCacheSnapshotCmdPodToPVC = []string{
+	defaultCacheHeaterCmdPodToPVC = []string{
 		"/bin/bash",
 		"-c",
 		`pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
@@ -89,90 +84,14 @@ mkdir -p ${CACHE_PATH}/nginx_tmp;
 ${POD_CMD}
 `}
 
-	defaultRotateTLSSessionTicketsImage = "bitnami/kubectl:latest"
-
-	sessionTicketsVolumeName      = "tls-session-tickets"
-	sessionTicketsVolumeMountPath = "/etc/nginx/tickets"
-
-	rotateTLSSessionTicketsServiceAccountName = "rpaas-session-tickets-rotator"
-	rotateTLSSessionTicketsVolumeName         = "tls-session-tickets-script"
-	rotateTLSSessionTicketsScriptDir          = "/var/run/rpaasv2"
-	rotateTLSSessionTicketsScriptFilename     = "tls_session_tickets_rotate.sh"
-	rotateTLSSessionTicketsScriptPath         = fmt.Sprintf("%s/%s", rotateTLSSessionTicketsScriptDir, rotateTLSSessionTicketsScriptFilename)
-	rotateTLSSessionTicketsScript             = `#!/bin/bash
-set -euf -o pipefail
-
-KUBECTL=${KUBECTL:-kubectl}
-OPENSSL=${OPENSSL:-openssl}
-BASE64=${BASE64:-base64}
-
-SESSION_TICKET_KEY_LENGTH=${SESSION_TICKET_KEY_LENGTH:?missing session ticket key length}
-SESSION_TICKET_KEYS=${SESSION_TICKET_KEYS:?missing number of session ticket keys}
-
-SECRET_NAME=${SECRET_NAME:?missing Secret's name}
-SECRET_NAMESPACE=${SECRET_NAMESPACE:?missing Secret's namespace}
-
-function validate_key_length() {
-  case ${SESSION_TICKET_KEY_LENGTH} in
-    48|80)
-      ;;
-    *)
-      echo "Nginx only has support to tickets with either 48 or 80 bytes, got ${SESSION_TICKET_KEY_LENGTH} bytes." &> /dev/stderr
-      exit 1
-  esac
-}
-
-function generate_key() {
-  base64 -w0 <(${OPENSSL} rand ${SESSION_TICKET_KEY_LENGTH})
-}
-
-function json_merge_patch_payload() {
-  local key=${1}
-
-  local others=''
-  for (( i = ${SESSION_TICKET_KEYS} - 1; i >= 1; i-- )) do
-    others+=$(printf '{"op": "copy", "from": "/data/ticket.%d.key", "path": "/data/ticket.%d.key"},\n' $(( ${i} - 1 )) ${i})
-  done
-
-  cat <<-EOL
-[
-  ${others}
-  {
-    "op": "replace",
-    "path": "/data/ticket.0.key",
-    "value": "${key}"
-  }
-]
-EOL
-}
-
-function rotate_session_tickets() {
-  local key=${1}
-
-  ${KUBECTL} patch secrets ${SECRET_NAME} --namespace ${SECRET_NAMESPACE} --type=json \
-    --patch="$(json_merge_patch_payload ${key})"
-}
-
-function update_nginx_pods() {
-  local selector=${1}
-
-  ${KUBECTL} annotate pods --overwrite --namespace ${SECRET_NAMESPACE} --selector ${selector} \
-    rpaas.extensions.tsuru.io/last-session-ticket-key-rotation="$(date +'%Y-%m-%dT%H:%M:%SZ')"
-}
-
-function main() {
-  echo "Starting rotation of TLS session tickets within Secret (${SECRET_NAMESPACE}/${SECRET_NAME})..."
-  rotate_session_tickets $(generate_key)
-  echo "TLS session tickets successfully updated."
-
-  if [[ -n ${NGINX_LABEL_SELECTOR} ]]; then
-    echo "Updating Nginx pods with selector (${NGINX_LABEL_SELECTOR})..."
-    update_nginx_pods ${NGINX_LABEL_SELECTOR}
-  fi
-}
-
-main $@
-`
+	defaultCacheHeaterCmdPVCToPod = []string{
+		"/bin/bash",
+		"-c",
+		`
+mkdir -p /var/cache/cache-heater/temp;
+mkdir -p /var/cache/nginx/rpaas/nginx_tmp;
+bash -c ${POD_CMD}
+`}
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -1135,7 +1054,12 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		},
 	}
 
-	if isTLSSessionTicketEnabled(instance) {
+	if plan.Spec.Config.CacheHeaterEnabled {
+		initCmd := defaultCacheHeaterCmdPVCToPod
+		if len(plan.Spec.Config.CacheHeaterSync.CmdPVCToPod) > 0 {
+			initCmd = plan.Spec.Config.CacheHeaterSync.CmdPVCToPod
+		}
+
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
 			Name: sessionTicketsVolumeName,
 			VolumeSource: corev1.VolumeSource{
@@ -1145,10 +1069,32 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			},
 		})
 
-		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, corev1.VolumeMount{
-			Name:      sessionTicketsVolumeName,
-			MountPath: sessionTicketsVolumeMountPath,
-			ReadOnly:  true,
+		cacheHeaterVolume := corev1.VolumeMount{
+			Name:      "cache-heater-volume",
+			MountPath: "/var/cache/cache-heater",
+		}
+
+		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, cacheHeaterVolume)
+
+		n.Spec.PodTemplate.InitContainers = append(n.Spec.PodTemplate.InitContainers, corev1.Container{
+			Name:  "heat-cache",
+			Image: plan.Spec.Image,
+			Command: []string{
+				initCmd[0],
+			},
+			Args: initCmd[1:],
+			VolumeMounts: []corev1.VolumeMount{
+				cacheHeaterVolume,
+				{
+					Name:      "cache-vol",
+					MountPath: plan.Spec.Config.CachePath,
+				},
+			},
+			Env: []corev1.EnvVar{
+				{Name: "SERVICE_NAME", Value: instance.Namespace},
+				{Name: "INSTANCE_NAME", Value: instance.Name},
+				{Name: "POD_CMD", Value: rsyncCommandPVCToPod},
+			},
 		})
 	}
 
@@ -1265,7 +1211,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 }
 
 func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
-	cronName := instance.Name + cacheSnapshotCronJobSuffix
+	cronName := instance.Name + cacheHeaterCronJobSuffix
 
 	schedule := defaultCacheSnapshotSchedule
 	if plan.Spec.Config.CacheSnapshotSync.Schedule != "" {
@@ -1277,9 +1223,9 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 		image = plan.Spec.Config.CacheSnapshotSync.Image
 	}
 
-	cmds := defaultCacheSnapshotCmdPodToPVC
-	if len(plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC) > 0 {
-		cmds = plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC
+	cmds := defaultCacheHeaterCmdPodToPVC
+	if len(plan.Spec.Config.CacheHeaterSync.CmdPodToPVC) > 0 {
+		cmds = plan.Spec.Config.CacheHeaterSync.CmdPodToPVC
 	}
 	jobLabels := labelsForRpaasInstance(instance)
 	jobLabels["log-app-name"] = instance.Name
@@ -1321,10 +1267,11 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 										cmds[0],
 									},
 									Args: cmds[1:],
-									Env: append(cacheSnapshotEnvVars(instance, plan), corev1.EnvVar{
-										Name:  "POD_CMD",
-										Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPodToPVC, plan),
-									}),
+									Env: []corev1.EnvVar{
+										{Name: "SERVICE_NAME", Value: instance.Namespace},
+										{Name: "INSTANCE_NAME", Value: instance.Name},
+										{Name: "POD_CMD", Value: rsyncCommandPodToPVC},
+									},
 								},
 							},
 							RestartPolicy: corev1.RestartPolicyNever,

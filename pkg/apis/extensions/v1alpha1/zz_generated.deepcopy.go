@@ -161,8 +161,8 @@ func (in *NginxConfig) DeepCopyInto(out *NginxConfig) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	in.CacheSnapshotStorage.DeepCopyInto(&out.CacheSnapshotStorage)
-	in.CacheSnapshotSync.DeepCopyInto(&out.CacheSnapshotSync)
+	in.CacheHeaterStorage.DeepCopyInto(&out.CacheHeaterStorage)
+	in.CacheHeaterSync.DeepCopyInto(&out.CacheHeaterSync)
 	if in.VTSEnabled != nil {
 		in, out := &in.VTSEnabled, &out.VTSEnabled
 		*out = new(bool)
