@@ -75,7 +75,7 @@ done
 		`
 mkdir -p /var/cache/cache-heater/temp;
 mkdir -p /var/cache/nginx/rpaas/nginx_tmp;
-bash -c ${POD_CMD}
+bash -c "${POD_CMD}"
 `}
 )
 
