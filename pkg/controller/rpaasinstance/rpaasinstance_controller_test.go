@@ -1578,6 +1578,7 @@ func TestReconcile(t *testing.T) {
 			Namespace: "default",
 		},
 		Spec: v1alpha1.RpaasPlanSpec{
+			Image: "tsuru:mynginx:test",
 			Config: v1alpha1.NginxConfig{
 				CacheEnabled:       v1alpha1.Bool(true),
 				CacheSize:          resourceMustParsePtr("100M"),
@@ -1585,13 +1586,19 @@ func TestReconcile(t *testing.T) {
 				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
+				CachePath: "/var/cache/nginx",
 				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
 					Schedule: "1 * * * *",
 					Image:    "test/test:latest",
-					Cmds: []string{
+					CmdPodToPVC: []string{
 						"/bin/bash",
 						"-c",
 						"echo 'this is a test'",
+					},
+					CmdPVCToPod: []string{
+						"/bin/bash",
+						"-c",
+						"echo 'this is a the first pod sync'",
 					},
 				},
 			},
@@ -1622,6 +1629,23 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, "/var/cache/cache-heater", nginx.Spec.PodTemplate.VolumeMounts[0].MountPath)
 
 	assert.Equal(t, resource.MustParse("100M"), *nginx.Spec.Cache.Size)
+
+	initContainer := nginx.Spec.PodTemplate.InitContainers[0]
+	assert.Equal(t, "heat-cache", initContainer.Name)
+	assert.Equal(t, "tsuru:mynginx:test", initContainer.Image)
+	assert.Equal(t, "/bin/bash", initContainer.Command[0])
+	assert.Equal(t, "-c", initContainer.Args[0])
+	assert.Equal(t, "echo 'this is a the first pod sync'", initContainer.Args[1])
+	assert.Equal(t, []corev1.EnvVar{
+		{Name: "SERVICE_NAME", Value: "default"},
+		{Name: "INSTANCE_NAME", Value: "my-instance"},
+		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-heater/nginx /var/cache/nginx/rpaas"},
+	}, initContainer.Env)
+
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "cache-heater-volume", MountPath: "/var/cache/cache-heater"},
+		{Name: "cache-vol", MountPath: "/var/cache/nginx"},
+	}, initContainer.VolumeMounts)
 
 	cronJob := &batchv1beta1.CronJob{}
 	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-instance-heater-cron-job", Namespace: rpaas.Namespace}, cronJob)

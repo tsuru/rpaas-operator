@@ -94,8 +94,9 @@ type CacheHeaterSyncSpec struct {
 	// default is bitnami/kubectl:latest
 	Image string `json:"image,omitempty"`
 
-	// Cmds is used to customize command used to sync memory cache to persistent storage
-	Cmds []string `json:"cmds,omitempty"`
+	// Cmds that are used to customize command used to sync memory cache to persistent storage
+	CmdPodToPVC []string `json:"cmdPodToPVC,omitempty"`
+	CmdPVCToPod []string `json:"cmdPVCToPod,omitempty"`
 }
 
 type CacheHeaterStorage struct {

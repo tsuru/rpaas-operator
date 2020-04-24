@@ -1,4 +1,4 @@
-// Copyright 2019 tsuru authors. All rights reserved.
+// Copyright 2020 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -50,10 +50,13 @@ const (
 
 	cacheHeaterCronJobSuffix = "-heater-cron-job"
 	cacheHeaterVolumeSuffix  = "-heater-volume"
+
+	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"
+	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-heater/nginx /var/cache/nginx/rpaas"
 )
 
 var (
-	defaultCacheHeaterCmds = []string{
+	defaultCacheHeaterCmdPodToPVC = []string{
 		"/bin/bash",
 		"-c",
 		`
@@ -64,6 +67,15 @@ for pod in ${pods[@]}; do
 		exit 0;
 	fi
 done
+`}
+
+	defaultCacheHeaterCmdPVCToPod = []string{
+		"/bin/bash",
+		"-c",
+		`
+mkdir -p /var/cache/cache-heater/temp;
+mkdir -p /var/cache/nginx/rpaas/nginx_tmp;
+bash -c ${POD_CMD}
 `}
 )
 
@@ -744,6 +756,11 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 	}
 
 	if plan.Spec.Config.CacheHeaterEnabled {
+		initCmd := defaultCacheHeaterCmdPVCToPod
+		if len(plan.Spec.Config.CacheHeaterSync.CmdPVCToPod) > 0 {
+			initCmd = plan.Spec.Config.CacheHeaterSync.CmdPVCToPod
+		}
+
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
 			Name: "cache-heater-volume",
 			VolumeSource: corev1.VolumeSource{
@@ -753,9 +770,32 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			},
 		})
 
-		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, corev1.VolumeMount{
+		cacheHeaterVolume := corev1.VolumeMount{
 			Name:      "cache-heater-volume",
 			MountPath: "/var/cache/cache-heater",
+		}
+
+		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, cacheHeaterVolume)
+
+		n.Spec.PodTemplate.InitContainers = append(n.Spec.PodTemplate.InitContainers, corev1.Container{
+			Name:  "heat-cache",
+			Image: plan.Spec.Image,
+			Command: []string{
+				initCmd[0],
+			},
+			Args: initCmd[1:],
+			VolumeMounts: []corev1.VolumeMount{
+				cacheHeaterVolume,
+				{
+					Name:      "cache-vol",
+					MountPath: plan.Spec.Config.CachePath,
+				},
+			},
+			Env: []corev1.EnvVar{
+				{Name: "SERVICE_NAME", Value: instance.Namespace},
+				{Name: "INSTANCE_NAME", Value: instance.Name},
+				{Name: "POD_CMD", Value: rsyncCommandPVCToPod},
+			},
 		})
 	}
 
@@ -827,7 +867,6 @@ func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscal
 
 func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
 	cronName := instance.Name + cacheHeaterCronJobSuffix
-	podCommand := "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"
 
 	schedule := defaultCacheHeaterSchedule
 	if plan.Spec.Config.CacheHeaterSync.Schedule != "" {
@@ -839,9 +878,9 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 		image = plan.Spec.Config.CacheHeaterSync.Image
 	}
 
-	cmds := defaultCacheHeaterCmds
-	if len(plan.Spec.Config.CacheHeaterSync.Cmds) > 0 {
-		cmds = plan.Spec.Config.CacheHeaterSync.Cmds
+	cmds := defaultCacheHeaterCmdPodToPVC
+	if len(plan.Spec.Config.CacheHeaterSync.CmdPodToPVC) > 0 {
+		cmds = plan.Spec.Config.CacheHeaterSync.CmdPodToPVC
 	}
 	return &batchv1beta1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
@@ -885,7 +924,7 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 									Env: []corev1.EnvVar{
 										{Name: "SERVICE_NAME", Value: instance.Namespace},
 										{Name: "INSTANCE_NAME", Value: instance.Name},
-										{Name: "POD_CMD", Value: podCommand},
+										{Name: "POD_CMD", Value: rsyncCommandPodToPVC},
 									},
 								},
 							},
