@@ -1639,6 +1639,8 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, []corev1.EnvVar{
 		{Name: "SERVICE_NAME", Value: "default"},
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
+		{Name: "CACHE_HEATER_MOUNTPOINT", Value: "/var/cache/cache-heater"},
+		{Name: "CACHE_PATH", Value: "/var/cache/nginx"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-heater/nginx /var/cache/nginx/rpaas"},
 	}, initContainer.Env)
 
@@ -1663,6 +1665,8 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, []corev1.EnvVar{
 		{Name: "SERVICE_NAME", Value: "default"},
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
+		{Name: "CACHE_HEATER_MOUNTPOINT", Value: "/var/cache/cache-heater"},
+		{Name: "CACHE_PATH", Value: "/var/cache/nginx"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"},
 	}, podSpec.Containers[0].Env)
 }
