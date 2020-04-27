@@ -16,8 +16,6 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 )
 
-var terabyte = resource.NewQuantity(1*1024*1024*1024*1024, resource.BinarySI)
-
 type ConfigurationRenderer interface {
 	Render(ConfigurationData) (string, error)
 }
@@ -155,13 +153,7 @@ func k8sQuantityToNginx(quantity *resource.Quantity) string {
 	}
 
 	bytesN, _ := quantity.AsInt64()
-	// nginx is not support terabyte yet
-	// https://github.com/nginx/nginx/blob/3ba88365b5acef17f01671cd969c909dee5e2cde/src/core/ngx_parse.c#L81-L87
-	if quantity.Cmp(*terabyte) >= 0 {
-		return strconv.Itoa(int(bytesN))
-	}
-
-	return strings.TrimSuffix(resource.NewQuantity(bytesN, resource.BinarySI).String(), "i")
+	return strconv.Itoa(int(bytesN))
 }
 
 var templateFuncs = template.FuncMap(map[string]interface{}{

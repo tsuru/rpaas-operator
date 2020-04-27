@@ -79,7 +79,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100M;`, result)
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:104857600;`, result)
 				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
 				assert.Regexp(t, `server {
 \s+listen 8800;
@@ -105,7 +105,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100M inactive=12h max_size=300M loader_files=1000;`, result)
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:104857600 inactive=12h max_size=314572800 loader_files=1000;`, result)
 				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
 				assert.Regexp(t, `server {
 \s+listen 8800;
@@ -570,10 +570,10 @@ func TestK8sQuantityToNginx(t *testing.T) {
 	}
 
 	expectations := []expectation{
-		{"100Ki", "100K"},
-		{"100Mi", "100M"},
+		{"100Ki", "102400"},
+		{"100Mi", "104857600"},
 		{"100M", "100000000"},
-		{"1Gi", "1G"},
+		{"1Gi", "1073741824"},
 		{"1G", "1000000000"},
 		{"1024Gi", "1099511627776"},
 		{"2Ti", "2199023255552"},
