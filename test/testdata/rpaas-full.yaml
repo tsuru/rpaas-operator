@@ -4,12 +4,7 @@ metadata:
   name: basic
 spec:
   image: tsuru/nginx-tsuru:1.16.1
-  config:
-    cacheEnabled: true
-    cachePath: /var/cache/nginx
-    cacheZoneSize: 100Mi
-    cacheSize: 300Mi
-    cacheHeaterEnabled: false
+  config: {}
   resources:
     limits:
       memory: "128Mi"
