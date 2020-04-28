@@ -7,8 +7,8 @@ spec:
   config:
     cacheEnabled: true
     cachePath: /var/cache/nginx
-    cacheZoneSize: 100m
-    cacheSize: 300m
+    cacheZoneSize: 100Mi
+    cacheSize: 300Mi
     cacheHeaterEnabled: false
   resources:
     limits:
