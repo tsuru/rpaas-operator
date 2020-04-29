@@ -39,7 +39,7 @@ func NewCmdCachePurge() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:     "path",
-				Usage:    "the route whose path shall be purged",
+				Usage:    "the resource path that is going to be removed",
 				Required: true,
 			},
 			&cli.BoolFlag{
