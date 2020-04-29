@@ -36,6 +36,16 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func assertInstanceContains(t *testing.T, localPort int, expectedStatus int, bodyPart string) {
+	rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
+	require.NoError(t, iErr)
+	assert.Equal(t, expectedStatus, rsp.StatusCode)
+	defer rsp.Body.Close()
+	rawBody, iErr := ioutil.ReadAll(rsp.Body)
+	require.NoError(t, iErr)
+	assert.Contains(t, string(rawBody), bodyPart)
+}
+
 func Test_RpaasOperator(t *testing.T) {
 	t.Run("apply manifests at rpaas-full.yaml", func(t *testing.T) {
 		namespaceName := "rpaasoperator-full" + strconv.Itoa(rand.Int())
@@ -213,22 +223,13 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "2m", "-n", namespaceName)
 		require.NoError(t, err)
 
-		assertInstanceReturns := func(localPort int, expectedBody string) {
-			rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
-			require.NoError(t, iErr)
-			defer rsp.Body.Close()
-			rawBody, iErr := ioutil.ReadAll(rsp.Body)
-			require.NoError(t, iErr)
-			assert.Equal(t, expectedBody, string(rawBody))
-		}
-
 		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
 		servicePort := "80"
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "instance not bound\n")
+			assertInstanceContains(t, localPort, http.StatusNotFound, "instance not bound")
 		})
 		require.NoError(t, err)
 
@@ -244,7 +245,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "Hello World!")
+			assertInstanceContains(t, localPort, http.StatusOK, "CLIENT VALUES")
 		})
 		require.NoError(t, err)
 
@@ -259,7 +260,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "instance not bound\n")
+			assertInstanceContains(t, localPort, http.StatusNotFound, "instance not bound")
 		})
 		require.NoError(t, err)
 	})
@@ -294,22 +295,13 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=echo-server", "pod", "--timeout", "2m", "-n", namespaceName)
 		require.NoError(t, err)
 
-		assertInstanceReturns := func(localPort int, expectedBody string) {
-			rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
-			require.NoError(t, iErr)
-			defer rsp.Body.Close()
-			rawBody, iErr := ioutil.ReadAll(rsp.Body)
-			require.NoError(t, iErr)
-			assert.Equal(t, expectedBody, string(rawBody))
-		}
-
 		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
 		servicePort := "80"
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "instance not bound\n")
+			assertInstanceContains(t, localPort, http.StatusNotFound, "instance not bound")
 		})
 		require.NoError(t, err)
 
@@ -328,7 +320,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "Hello World!")
+			assertInstanceContains(t, localPort, http.StatusOK, "CLIENT VALUES")
 		})
 		require.NoError(t, err)
 
@@ -340,16 +332,10 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
-		assertInstanceReturnsStatusCode := func(localPort int, expectedCode int) {
-			rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
-			require.NoError(t, iErr)
-			assert.Equal(t, expectedCode, rsp.StatusCode)
-		}
-
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturnsStatusCode(localPort, http.StatusOK)
+			assertInstanceContains(t, localPort, http.StatusOK, "")
 		})
 		require.NoError(t, err)
 
@@ -364,7 +350,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceReturns(localPort, "instance not bound\n")
+			assertInstanceContains(t, localPort, http.StatusNotFound, "instance not bound")
 		})
 		require.NoError(t, err)
 
