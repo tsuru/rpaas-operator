@@ -45,7 +45,7 @@ func NewCmdCachePurge() *cli.Command {
 			&cli.BoolFlag{
 				Name:    "preserve",
 				Aliases: []string{"preserve-path"},
-				Usage:   "specifies whether a request to purge/<protocol>/<purge Path> should be made",
+				Usage:   "specifies whether the resource path should not be modified (read as the whole cache key)",
 			},
 		},
 
