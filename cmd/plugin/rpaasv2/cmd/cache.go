@@ -24,7 +24,7 @@ func NewCmdCache() *cli.Command {
 func NewCmdCachePurge() *cli.Command {
 	return &cli.Command{
 		Name:  "purge",
-		Usage: "removes all occurrences of the specified cache path",
+		Usage: "Removes outdated cached files from the cache",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
