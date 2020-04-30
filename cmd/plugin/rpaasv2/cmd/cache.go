@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"fmt"
+	"io/ioutil"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
@@ -61,16 +62,21 @@ func runCachePurge(c *cli.Context) error {
 	}
 
 	purgeArgs := rpaasclient.CachePurgeArgs{
-		Instance: c.String("instance"),
-		Path:     c.String("path"),
-		Preserve: c.Bool("preserve"),
+		Instance:     c.String("instance"),
+		Path:         c.String("path"),
+		PreservePath: c.Bool("preserve"),
 	}
 
-	_, err = client.CachePurge(c.Context, purgeArgs)
+	resp, err := client.CachePurge(c.Context, purgeArgs)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Cache of %s purged\n", formatInstanceName(c))
+	bodyBytes, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Fprintf(c.App.Writer, "%s", string(bodyBytes))
+
 	return nil
 }

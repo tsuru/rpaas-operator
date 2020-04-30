@@ -610,7 +610,7 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		pathName := fmt.Sprintf("/resources/%s/purge", args.Instance)
 		values := url.Values{}
 		values.Set("path", fmt.Sprint(args.Path))
-		values.Set("preserve_path", fmt.Sprint(args.Preserve))
+		values.Set("preserve_path", fmt.Sprint(args.PreservePath))
 		body := strings.NewReader(values.Encode())
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", "application/x-www-form-urlencoded")

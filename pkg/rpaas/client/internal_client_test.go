@@ -144,9 +144,9 @@ func TestClientThroughTsuru_CachePurge(t *testing.T) {
 		{
 			name: "when server returns the expected response",
 			args: CachePurgeArgs{
-				Instance: "my-instance",
-				Path:     "/some/path",
-				Preserve: true,
+				Instance:     "my-instance",
+				Path:         "/some/path",
+				PreservePath: true,
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")

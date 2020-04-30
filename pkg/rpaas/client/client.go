@@ -80,9 +80,9 @@ type RemoveAutoscaleArgs struct {
 }
 
 type CachePurgeArgs struct {
-	Instance string
-	Path     string
-	Preserve bool
+	Instance     string
+	Path         string
+	PreservePath bool
 }
 
 type Client interface {

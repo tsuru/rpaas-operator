@@ -7,6 +7,7 @@ package cmd
 import (
 	"bytes"
 	"fmt"
+	"io/ioutil"
 	"net/http"
 	"testing"
 
@@ -39,12 +40,16 @@ func TestCachePurge(t *testing.T) {
 		{
 			name:     "when CachePurge is successful",
 			args:     []string{"./rpaasv2", "cache", "purge", "-s", "some-service", "-i", "my-instance", "-path", "/some/path"},
-			expected: "Cache of some-service/my-instance purged\n",
+			expected: "Object purged on 2 servers",
 			client: &fake.FakeClient{
 				FakeCachePurge: func(args client.CachePurgeArgs) (*http.Response, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					require.Equal(t, args.Path, "/some/path")
-					return nil, nil
+					return &http.Response{
+						Status:     "200 OK",
+						StatusCode: 200,
+						Body:       ioutil.NopCloser(bytes.NewBufferString("Object purged on 2 servers")),
+					}, nil
 				},
 			},
 		},
