@@ -87,7 +87,7 @@ type NginxConfig struct {
 }
 
 type CacheHeaterSyncSpec struct {
-	// The schedule in Cron format, see https://en.wikipedia.org/wiki/Cron.
+	// Schedule is the the cron time string format, see https://en.wikipedia.org/wiki/Cron.
 	Schedule string `json:"schedule,omitempty"`
 
 	// Container image used to sync the containers
