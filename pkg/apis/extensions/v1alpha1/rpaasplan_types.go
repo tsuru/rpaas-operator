@@ -90,12 +90,14 @@ type CacheHeaterSyncSpec struct {
 	// Schedule is the the cron time string format, see https://en.wikipedia.org/wiki/Cron.
 	Schedule string `json:"schedule,omitempty"`
 
-	// Container image used to sync the containers
+	// Container is the image used to sync the containers
 	// default is bitnami/kubectl:latest
 	Image string `json:"image,omitempty"`
 
-	// Cmds that are used to customize command used to sync memory cache to persistent storage
+	// CmdPodToPVC is used to customize command used to sync memory cache (POD) to persistent storage (PVC)
 	CmdPodToPVC []string `json:"cmdPodToPVC,omitempty"`
+
+	// CmdPVCToPod is used to customize command used to sync persistent storage (PVC) to memory cache (POD)
 	CmdPVCToPod []string `json:"cmdPVCToPod,omitempty"`
 }
 
