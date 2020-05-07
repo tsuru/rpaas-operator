@@ -77,6 +77,7 @@ done
 		"-c",
 		`
 mkdir -p ${CACHE_HEATER_MOUNTPOINT}/temp;
+mkdir -p ${CACHE_HEATER_MOUNTPOINT}/nginx;
 mkdir -p ${CACHE_PATH}/rpaas/nginx_tmp;
 ${POD_CMD}
 `}
