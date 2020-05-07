@@ -571,10 +571,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(ctx context.Context,
 	}
 
 	logrus.Infof("creating PersistentVolumeClaim %s", pvcName)
-	if err := r.client.Create(ctx, pvc); err != nil {
-		return err
-	}
-	return nil
+	return r.client.Create(ctx, pvc)
 }
 
 func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
