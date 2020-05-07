@@ -208,49 +208,33 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
-	rendered, err := r.renderTemplate(instance, plan)
+	rendered, err := r.renderTemplate(ctx, instance, plan)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	configMap := newConfigMap(instance, rendered)
-	err = r.reconcileConfigMap(configMap)
+	err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	configList, err := r.listConfigs(instance)
+	configList, err := r.listConfigs(ctx, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if shouldDeleteOldConfig(instance, configList) {
-		if err = r.deleteOldConfig(instance, configList); err != nil {
+		if err = r.deleteOldConfig(ctx, instance, configList); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
 	nginx := newNginx(instance, plan, configMap)
 
-	if err = r.reconcileNginx(nginx); err != nil {
+	if err = r.reconcileNginx(ctx, nginx); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if plan.Spec.Config.CacheHeaterEnabled {
-		err = r.reconcileCacheHeaterCronJob(instance, plan)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		err = r.reconcileCacheHeaterVolume(instance, plan)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	} else {
-		err = r.destroyCacheHeaterCronJob(instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-		err = r.destroyCacheHeaterVolume(instance)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
+	if err = r.reconcileCacheHeater(ctx, instance, plan); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	if err = r.reconcileHPA(ctx, *instance, *nginx); err != nil {
@@ -285,7 +269,7 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 	logger := log.WithName("mergeInstanceWithFlavors").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
-	defaultFlavors, err := r.listDefaultFlavors(instance)
+	defaultFlavors, err := r.listDefaultFlavors(ctx, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -350,9 +334,9 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) listDefaultFlavors(instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
+func (r *ReconcileRpaasInstance) listDefaultFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
-	if err := r.client.List(context.TODO(), flavorList, client.InNamespace(instance.Namespace)); err != nil {
+	if err := r.client.List(ctx, flavorList, client.InNamespace(instance.Namespace)); err != nil {
 		return nil, err
 	}
 	var result []v1alpha1.RpaasFlavor
@@ -425,15 +409,15 @@ func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1al
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap) error {
+func (r *ReconcileRpaasInstance) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) error {
 	found := &corev1.ConfigMap{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
+	err := r.client.Get(ctx, types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get configMap: %v", err)
 			return err
 		}
-		err = r.client.Create(context.TODO(), configMap)
+		err = r.client.Create(ctx, configMap)
 		if err != nil {
 			logrus.Errorf("Failed to create configMap: %v", err)
 			return err
@@ -442,22 +426,22 @@ func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap)
 	}
 
 	configMap.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
-	err = r.client.Update(context.TODO(), configMap)
+	err = r.client.Update(ctx, configMap)
 	if err != nil {
 		logrus.Errorf("Failed to update configMap: %v", err)
 	}
 	return err
 }
 
-func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) error {
+func (r *ReconcileRpaasInstance) reconcileNginx(ctx context.Context, nginx *nginxv1alpha1.Nginx) error {
 	found := &nginxv1alpha1.Nginx{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, found)
+	err := r.client.Get(ctx, types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, found)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get nginx CR: %v", err)
 			return err
 		}
-		err = r.client.Create(context.TODO(), nginx)
+		err = r.client.Create(ctx, nginx)
 		if err != nil {
 			logrus.Errorf("Failed to create nginx CR: %v", err)
 			return err
@@ -466,59 +450,74 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) erro
 	}
 
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
-	err = r.client.Update(context.TODO(), nginx)
+	err = r.client.Update(ctx, nginx)
 	if err != nil {
 		logrus.Errorf("Failed to update nginx CR: %v", err)
 	}
 	return err
 }
 
-func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+func (r *ReconcileRpaasInstance) reconcileCacheHeater(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+	if plan.Spec.Config.CacheHeaterEnabled {
+		err := r.reconcileCacheHeaterCronJob(ctx, instance, plan)
+		if err != nil {
+			return err
+		}
+		return r.reconcileCacheHeaterVolume(ctx, instance, plan)
+	}
+
+	err := r.destroyCacheHeaterCronJob(ctx, instance)
+	if err != nil {
+		return err
+	}
+	return r.destroyCacheHeaterVolume(ctx, instance)
+}
+
+func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	foundCronJob := &batchv1beta1.CronJob{}
 	cronName := instance.Name + cacheHeaterCronJobSuffix
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
 	}
 
 	newestCronJob := newCronJob(instance, plan)
 	if k8sErrors.IsNotFound(err) {
-		return r.client.Create(context.TODO(), newestCronJob)
+		return r.client.Create(ctx, newestCronJob)
 	}
 
 	newestCronJob.ObjectMeta.ResourceVersion = foundCronJob.ObjectMeta.ResourceVersion
 	if !reflect.DeepEqual(foundCronJob.Spec, newestCronJob.Spec) {
-		return r.client.Update(context.TODO(), newestCronJob)
+		return r.client.Update(ctx, newestCronJob)
 	}
 
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) destroyCacheHeaterCronJob(instance *v1alpha1.RpaasInstance) error {
+func (r *ReconcileRpaasInstance) destroyCacheHeaterCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	cronName := instance.Name + cacheHeaterCronJobSuffix
 	cronJob := &batchv1beta1.CronJob{}
 
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
+	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
 	isNotFound := k8sErrors.IsNotFound(err)
 	if err != nil && !isNotFound {
 		return err
 	} else if isNotFound {
-		logrus.Infof("CronJob %s is not found, skipping destruction", cronName)
 		return nil
 	}
 
-	return r.client.Delete(context.TODO(), cronJob)
+	logrus.Infof("deleting cronjob %s", cronName)
+	return r.client.Delete(ctx, cronJob)
 }
-func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	pvcName := instance.Name + cacheHeaterVolumeSuffix
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
+	err := r.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
 	isNotFound := k8sErrors.IsNotFound(err)
 	if err != nil && !isNotFound {
 		return err
 	} else if !isNotFound {
-		logrus.Infof("PersistentVolumeClaim %s is found, skipping creation", pvcName)
 		return nil
 	}
 
@@ -571,35 +570,36 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(instance *v1alpha1.R
 		}
 	}
 
-	if err := r.client.Create(context.TODO(), pvc); err != nil {
+	logrus.Infof("creating PersistentVolumeClaim %s", pvcName)
+	if err := r.client.Create(ctx, pvc); err != nil {
 		return err
 	}
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(instance *v1alpha1.RpaasInstance) error {
+func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	pvcName := instance.Name + cacheHeaterVolumeSuffix
 
 	pvc := &corev1.PersistentVolumeClaim{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
+	err := r.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
 	isNotFound := k8sErrors.IsNotFound(err)
 	if err != nil && !isNotFound {
 		return err
 	} else if isNotFound {
-		logrus.Infof("PersistentVolumeClaim %s is not found, skipping destruction", pvcName)
 		return nil
 	}
 
-	return r.client.Delete(context.TODO(), pvc)
+	logrus.Infof("deleting PersistentVolumeClaim %s", pvcName)
+	return r.client.Delete(ctx, pvc)
 }
 
-func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
-	blocks, err := r.getConfigurationBlocks(instance, plan)
+func (r *ReconcileRpaasInstance) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
+	blocks, err := r.getConfigurationBlocks(ctx, instance, plan)
 	if err != nil {
 		return "", err
 	}
 
-	if err = r.updateLocationValues(instance); err != nil {
+	if err = r.updateLocationValues(ctx, instance); err != nil {
 		return "", err
 	}
 
@@ -614,11 +614,11 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 	})
 }
 
-func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {
+func (r *ReconcileRpaasInstance) getConfigurationBlocks(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {
 	var blocks nginx.ConfigurationBlocks
 
 	if plan.Spec.Template != nil {
-		mainBlock, err := util.GetValue(context.TODO(), r.client, "", plan.Spec.Template)
+		mainBlock, err := util.GetValue(ctx, r.client, "", plan.Spec.Template)
 		if err != nil {
 			return blocks, err
 		}
@@ -627,7 +627,7 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 	}
 
 	for blockType, blockValue := range instance.Spec.Blocks {
-		content, err := util.GetValue(context.TODO(), r.client, instance.Namespace, &blockValue)
+		content, err := util.GetValue(ctx, r.client, instance.Namespace, &blockValue)
 		if err != nil {
 			return blocks, err
 		}
@@ -649,13 +649,13 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 	return blocks, nil
 }
 
-func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasInstance) error {
+func (r *ReconcileRpaasInstance) updateLocationValues(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	for _, location := range instance.Spec.Locations {
 		if location.Content == nil {
 			continue
 		}
 
-		content, err := util.GetValue(context.TODO(), r.client, instance.Namespace, location.Content)
+		content, err := util.GetValue(ctx, r.client, instance.Namespace, location.Content)
 		if err != nil {
 			return err
 		}
@@ -665,7 +665,7 @@ func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasIn
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) listConfigs(instance *v1alpha1.RpaasInstance) (*corev1.ConfigMapList, error) {
+func (r *ReconcileRpaasInstance) listConfigs(ctx context.Context, instance *v1alpha1.RpaasInstance) (*corev1.ConfigMapList, error) {
 	configList := &corev1.ConfigMapList{}
 	listOptions := &client.ListOptions{Namespace: instance.ObjectMeta.Namespace}
 	client.MatchingLabels(map[string]string{
@@ -673,16 +673,16 @@ func (r *ReconcileRpaasInstance) listConfigs(instance *v1alpha1.RpaasInstance) (
 		"type":     "config",
 	}).ApplyToList(listOptions)
 
-	err := r.client.List(context.TODO(), configList, listOptions)
+	err := r.client.List(ctx, configList, listOptions)
 	return configList, err
 }
 
-func (r *ReconcileRpaasInstance) deleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.ConfigMapList) error {
+func (r *ReconcileRpaasInstance) deleteOldConfig(ctx context.Context, instance *v1alpha1.RpaasInstance, configList *corev1.ConfigMapList) error {
 	list := configList.Items
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].ObjectMeta.CreationTimestamp.String() < list[j].ObjectMeta.CreationTimestamp.String()
 	})
-	if err := r.client.Delete(context.TODO(), &list[0]); err != nil {
+	if err := r.client.Delete(ctx, &list[0]); err != nil {
 		return err
 	}
 	return nil

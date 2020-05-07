@@ -659,6 +659,7 @@ func Test_reconcileHPA(t *testing.T) {
 }
 
 func Test_reconcileHeaterVolume(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -682,7 +683,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	err := reconciler.reconcileCacheHeaterVolume(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -696,6 +697,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 }
 
 func Test_reconcileHeaterVolumeWithLabels(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -723,7 +725,7 @@ func Test_reconcileHeaterVolumeWithLabels(t *testing.T) {
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	err := reconciler.reconcileCacheHeaterVolume(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -736,6 +738,7 @@ func Test_reconcileHeaterVolumeWithLabels(t *testing.T) {
 }
 
 func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 	instance1.SetTeamOwner("team-one")
@@ -764,7 +767,7 @@ func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	err := reconciler.reconcileCacheHeaterVolume(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -778,6 +781,7 @@ func Test_reconcileHeaterVolumeWithInstanceTeamOwner(t *testing.T) {
 }
 
 func Test_reconcileHeaterVolumeLabels(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 	instance1.SetTeamOwner("team-one")
@@ -807,7 +811,7 @@ func Test_reconcileHeaterVolumeLabels(t *testing.T) {
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	err := reconciler.reconcileCacheHeaterVolume(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -821,6 +825,7 @@ func Test_reconcileHeaterVolumeLabels(t *testing.T) {
 }
 
 func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -845,7 +850,7 @@ func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	err := reconciler.reconcileCacheHeaterVolume(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -858,6 +863,7 @@ func Test_reconcileHeaterVolumeUsingCacheSize(t *testing.T) {
 }
 
 func Test_reconcileHeaterVolumeUsingStorageSize(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -883,7 +889,7 @@ func Test_reconcileHeaterVolumeUsingStorageSize(t *testing.T) {
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterVolume(instance1, plan)
+	err := reconciler.reconcileCacheHeaterVolume(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	pvc := &corev1.PersistentVolumeClaim{}
@@ -896,6 +902,7 @@ func Test_reconcileHeaterVolumeUsingStorageSize(t *testing.T) {
 }
 
 func Test_destroyHeaterVolume(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -915,7 +922,7 @@ func Test_destroyHeaterVolume(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	err := reconciler.destroyCacheHeaterVolume(instance1)
+	err := reconciler.destroyCacheHeaterVolume(ctx, instance1)
 	require.NoError(t, err)
 
 	pvc = &corev1.PersistentVolumeClaim{}
@@ -924,6 +931,7 @@ func Test_destroyHeaterVolume(t *testing.T) {
 }
 
 func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -942,7 +950,7 @@ func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{},
 	}
 
-	err := reconciler.reconcileCacheHeaterCronJob(instance1, plan)
+	err := reconciler.reconcileCacheHeaterCronJob(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	cronJob := &batchv1beta1.CronJob{}
@@ -954,6 +962,7 @@ func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
 }
 
 func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -987,7 +996,7 @@ func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterCronJob(instance1, plan)
+	err := reconciler.reconcileCacheHeaterCronJob(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	cronJob := &batchv1beta1.CronJob{}
@@ -1000,6 +1009,7 @@ func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
 }
 
 func Test_destroyHeaterCronJob(t *testing.T) {
+	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
@@ -1021,7 +1031,7 @@ func Test_destroyHeaterCronJob(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	err := reconciler.destroyCacheHeaterCronJob(instance1)
+	err := reconciler.destroyCacheHeaterCronJob(ctx, instance1)
 	require.NoError(t, err)
 
 	cronJob = &batchv1beta1.CronJob{}
