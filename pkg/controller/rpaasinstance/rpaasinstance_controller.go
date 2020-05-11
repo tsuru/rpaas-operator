@@ -54,8 +54,8 @@ const (
 
 	cacheHeaterMountPoint = "/var/cache/cache-heater"
 
-	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_HEATER_MOUNTPOINT}/temp ${CACHE_PATH}/rpaas/nginx ${CACHE_HEATER_MOUNTPOINT}"
-	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/rpaas/nginx_tmp ${CACHE_HEATER_MOUNTPOINT}/nginx ${CACHE_PATH}/rpaas"
+	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_HEATER_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_HEATER_MOUNTPOINT}"
+	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_HEATER_MOUNTPOINT}/nginx ${CACHE_PATH}"
 )
 
 var (

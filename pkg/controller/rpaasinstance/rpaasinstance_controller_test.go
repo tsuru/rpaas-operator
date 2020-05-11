@@ -1466,7 +1466,7 @@ func TestReconcile(t *testing.T) {
 				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
-				CachePath: "/var/cache/nginx",
+				CachePath: "/var/cache/nginx/rpaas",
 				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
 					Schedule: "1 * * * *",
 					Image:    "test/test:latest",
@@ -1520,13 +1520,13 @@ func TestReconcile(t *testing.T) {
 		{Name: "SERVICE_NAME", Value: "default"},
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
 		{Name: "CACHE_HEATER_MOUNTPOINT", Value: "/var/cache/cache-heater"},
-		{Name: "CACHE_PATH", Value: "/var/cache/nginx"},
+		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-heater/nginx /var/cache/nginx/rpaas"},
 	}, initContainer.Env)
 
 	assert.Equal(t, []corev1.VolumeMount{
 		{Name: "cache-heater-volume", MountPath: "/var/cache/cache-heater"},
-		{Name: "cache-vol", MountPath: "/var/cache/nginx"},
+		{Name: "cache-vol", MountPath: "/var/cache/nginx/rpaas"},
 	}, initContainer.VolumeMounts)
 
 	cronJob := &batchv1beta1.CronJob{}
@@ -1546,7 +1546,7 @@ func TestReconcile(t *testing.T) {
 		{Name: "SERVICE_NAME", Value: "default"},
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
 		{Name: "CACHE_HEATER_MOUNTPOINT", Value: "/var/cache/cache-heater"},
-		{Name: "CACHE_PATH", Value: "/var/cache/nginx"},
+		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"},
 	}, podSpec.Containers[0].Env)
 }
