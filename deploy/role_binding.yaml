@@ -14,10 +14,10 @@ roleRef:
 kind: ClusterRoleBinding
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: rpaas-cache-heater-cronjob
+  name: rpaas-cache-snapshot-cronjob
 subjects:
 - kind: ServiceAccount
-  name: rpaas-cache-heater
+  name: rpaas-cache-snapshot
   namespace: rpaas-operator-integration
 roleRef:
   kind: ClusterRole

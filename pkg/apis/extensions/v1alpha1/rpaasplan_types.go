@@ -67,9 +67,9 @@ type NginxConfig struct {
 	CacheSize        *resource.Quantity `json:"cacheSize,omitempty"`
 	CacheZoneSize    *resource.Quantity `json:"cacheZoneSize,omitempty"`
 
-	CacheHeaterEnabled bool                `json:"cacheHeaterEnabled,omitempty"`
-	CacheHeaterStorage CacheHeaterStorage  `json:"cacheHeaterStorage,omitempty"`
-	CacheHeaterSync    CacheHeaterSyncSpec `json:"cacheHeaterSync,omitempty"`
+	CacheSnapshotEnabled bool                  `json:"cacheSnapshotEnabled,omitempty"`
+	CacheSnapshotStorage CacheSnapshotStorage  `json:"cacheSnapshotStorage,omitempty"`
+	CacheSnapshotSync    CacheSnapshotSyncSpec `json:"cacheSnapshotSync,omitempty"`
 
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
@@ -86,7 +86,7 @@ type NginxConfig struct {
 	WorkerConnections int `json:"workerConnections,omitempty"`
 }
 
-type CacheHeaterSyncSpec struct {
+type CacheSnapshotSyncSpec struct {
 	// Schedule is the the cron time string format, see https://en.wikipedia.org/wiki/Cron.
 	Schedule string `json:"schedule,omitempty"`
 
@@ -101,7 +101,7 @@ type CacheHeaterSyncSpec struct {
 	CmdPVCToPod []string `json:"cmdPVCToPod,omitempty"`
 }
 
-type CacheHeaterStorage struct {
+type CacheSnapshotStorage struct {
 	StorageClassName *string            `json:"storageClassName,omitempty"`
 	StorageSize      *resource.Quantity `json:"storageSize,omitempty"`
 	VolumeLabels     map[string]string  `json:"volumeLabels,omitempty"`

@@ -44,22 +44,22 @@ import (
 
 const (
 	defaultConfigHistoryLimit     = 10
-	defaultCacheHeaterCronImage   = "bitnami/kubectl:latest"
-	defaultCacheHeaterSchedule    = "* * * * *"
+	defaultCacheSnapshotCronImage = "bitnami/kubectl:latest"
+	defaultCacheSnapshotSchedule  = "* * * * *"
 	defaultPortAllocationResource = "default"
 	volumeTeamLabel               = "tsuru.io/volume-team"
 
-	cacheHeaterCronJobSuffix = "-heater-cron-job"
-	cacheHeaterVolumeSuffix  = "-heater-volume"
+	cacheSnapshotCronJobSuffix = "-snapshot-cron-job"
+	cacheSnapshotVolumeSuffix  = "-snapshot-volume"
 
-	cacheHeaterMountPoint = "/var/cache/cache-heater"
+	cacheSnapshotMountPoint = "/var/cache/cache-snapshot"
 
-	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_HEATER_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_HEATER_MOUNTPOINT}"
-	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_HEATER_MOUNTPOINT}/nginx ${CACHE_PATH}"
+	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_SNAPSHOT_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_SNAPSHOT_MOUNTPOINT}"
+	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx ${CACHE_PATH}"
 )
 
 var (
-	defaultCacheHeaterCmdPodToPVC = []string{
+	defaultCacheSnapshotCmdPodToPVC = []string{
 		"/bin/bash",
 		"-c",
 		`pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
@@ -73,12 +73,12 @@ echo "No pods found";
 exit 1
 `}
 
-	defaultCacheHeaterCmdPVCToPod = []string{
+	defaultCacheSnapshotCmdPVCToPod = []string{
 		"/bin/bash",
 		"-c",
 		`
-mkdir -p ${CACHE_HEATER_MOUNTPOINT}/temp;
-mkdir -p ${CACHE_HEATER_MOUNTPOINT}/nginx;
+mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/temp;
+mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx;
 mkdir -p ${CACHE_PATH}/rpaas/nginx_tmp;
 ${POD_CMD}
 `}
@@ -131,6 +131,9 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		IsController: true,
 		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
 	})
+	if err != nil {
+		return err
+	}
 
 	err = c.Watch(&source.Kind{Type: &batchv1beta1.CronJob{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
@@ -235,7 +238,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	if err = r.reconcileCacheHeater(ctx, instance, plan); err != nil {
+	if err = r.reconcileCacheSnapshot(ctx, instance, plan); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -459,25 +462,25 @@ func (r *ReconcileRpaasInstance) reconcileNginx(ctx context.Context, nginx *ngin
 	return err
 }
 
-func (r *ReconcileRpaasInstance) reconcileCacheHeater(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	if plan.Spec.Config.CacheHeaterEnabled {
-		err := r.reconcileCacheHeaterCronJob(ctx, instance, plan)
+func (r *ReconcileRpaasInstance) reconcileCacheSnapshot(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+	if plan.Spec.Config.CacheSnapshotEnabled {
+		err := r.reconcileCacheSnapshotCronJob(ctx, instance, plan)
 		if err != nil {
 			return err
 		}
-		return r.reconcileCacheHeaterVolume(ctx, instance, plan)
+		return r.reconcileCacheSnapshotVolume(ctx, instance, plan)
 	}
 
-	err := r.destroyCacheHeaterCronJob(ctx, instance)
+	err := r.destroyCacheSnapshotCronJob(ctx, instance)
 	if err != nil {
 		return err
 	}
-	return r.destroyCacheHeaterVolume(ctx, instance)
+	return r.destroyCacheSnapshotVolume(ctx, instance)
 }
 
-func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+func (r *ReconcileRpaasInstance) reconcileCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	foundCronJob := &batchv1beta1.CronJob{}
-	cronName := instance.Name + cacheHeaterCronJobSuffix
+	cronName := instance.Name + cacheSnapshotCronJobSuffix
 	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
@@ -496,8 +499,8 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterCronJob(ctx context.Context
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) destroyCacheHeaterCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	cronName := instance.Name + cacheHeaterCronJobSuffix
+func (r *ReconcileRpaasInstance) destroyCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	cronName := instance.Name + cacheSnapshotCronJobSuffix
 	cronJob := &batchv1beta1.CronJob{}
 
 	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
@@ -511,8 +514,8 @@ func (r *ReconcileRpaasInstance) destroyCacheHeaterCronJob(ctx context.Context, 
 	logrus.Infof("deleting cronjob %s", cronName)
 	return r.client.Delete(ctx, cronJob)
 }
-func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	pvcName := instance.Name + cacheHeaterVolumeSuffix
+func (r *ReconcileRpaasInstance) reconcileCacheSnapshotVolume(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+	pvcName := instance.Name + cacheSnapshotVolumeSuffix
 
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
@@ -523,13 +526,13 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(ctx context.Context,
 		return nil
 	}
 
-	cacheHeaterStorage := plan.Spec.Config.CacheHeaterStorage
+	cacheSnapshotStorage := plan.Spec.Config.CacheSnapshotStorage
 	volumeMode := corev1.PersistentVolumeFilesystem
 	labels := labelsForRpaasInstance(instance)
 	if teamOwner := instance.TeamOwner(); teamOwner != "" {
 		labels[volumeTeamLabel] = teamOwner
 	}
-	for k, v := range cacheHeaterStorage.VolumeLabels {
+	for k, v := range cacheSnapshotStorage.VolumeLabels {
 		labels[k] = v
 	}
 
@@ -555,13 +558,13 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(ctx context.Context,
 				corev1.ReadWriteMany,
 			},
 			VolumeMode:       &volumeMode,
-			StorageClassName: cacheHeaterStorage.StorageClassName,
+			StorageClassName: cacheSnapshotStorage.StorageClassName,
 		},
 	}
 
 	storageSize := plan.Spec.Config.CacheSize
-	if cacheHeaterStorage.StorageSize != nil && !cacheHeaterStorage.StorageSize.IsZero() {
-		storageSize = cacheHeaterStorage.StorageSize
+	if cacheSnapshotStorage.StorageSize != nil && !cacheSnapshotStorage.StorageSize.IsZero() {
+		storageSize = cacheSnapshotStorage.StorageSize
 	}
 
 	if storageSize != nil && !storageSize.IsZero() {
@@ -576,8 +579,8 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(ctx context.Context,
 	return r.client.Create(ctx, pvc)
 }
 
-func (r *ReconcileRpaasInstance) destroyCacheHeaterVolume(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	pvcName := instance.Name + cacheHeaterVolumeSuffix
+func (r *ReconcileRpaasInstance) destroyCacheSnapshotVolume(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	pvcName := instance.Name + cacheSnapshotVolumeSuffix
 
 	pvc := &corev1.PersistentVolumeClaim{}
 	err := r.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
@@ -760,48 +763,48 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		},
 	}
 
-	if !plan.Spec.Config.CacheHeaterEnabled {
+	if !plan.Spec.Config.CacheSnapshotEnabled {
 		return n
 	}
 
-	initCmd := defaultCacheHeaterCmdPVCToPod
-	if len(plan.Spec.Config.CacheHeaterSync.CmdPVCToPod) > 0 {
-		initCmd = plan.Spec.Config.CacheHeaterSync.CmdPVCToPod
+	initCmd := defaultCacheSnapshotCmdPVCToPod
+	if len(plan.Spec.Config.CacheSnapshotSync.CmdPVCToPod) > 0 {
+		initCmd = plan.Spec.Config.CacheSnapshotSync.CmdPVCToPod
 	}
 
 	n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
-		Name: "cache-heater-volume",
+		Name: "cache-snapshot-volume",
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: instance.Name + cacheHeaterVolumeSuffix,
+				ClaimName: instance.Name + cacheSnapshotVolumeSuffix,
 			},
 		},
 	})
 
-	cacheHeaterVolume := corev1.VolumeMount{
-		Name:      "cache-heater-volume",
-		MountPath: cacheHeaterMountPoint,
+	cacheSnapshotVolume := corev1.VolumeMount{
+		Name:      "cache-snapshot-volume",
+		MountPath: cacheSnapshotMountPoint,
 	}
 
-	n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, cacheHeaterVolume)
+	n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, cacheSnapshotVolume)
 
 	n.Spec.PodTemplate.InitContainers = append(n.Spec.PodTemplate.InitContainers, corev1.Container{
-		Name:  "heat-cache",
+		Name:  "restore-snapshot",
 		Image: plan.Spec.Image,
 		Command: []string{
 			initCmd[0],
 		},
 		Args: initCmd[1:],
 		VolumeMounts: []corev1.VolumeMount{
-			cacheHeaterVolume,
+			cacheSnapshotVolume,
 			{
 				Name:      "cache-vol",
 				MountPath: plan.Spec.Config.CachePath,
 			},
 		},
-		Env: append(cacheHeaterEnvVars(instance, plan), corev1.EnvVar{
+		Env: append(cacheSnapshotEnvVars(instance, plan), corev1.EnvVar{
 			Name:  "POD_CMD",
-			Value: interpolateCacheHeaterPodCmdTemplate(rsyncCommandPVCToPod, plan),
+			Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPVCToPod, plan),
 		}),
 	})
 
@@ -873,21 +876,21 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 }
 
 func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
-	cronName := instance.Name + cacheHeaterCronJobSuffix
+	cronName := instance.Name + cacheSnapshotCronJobSuffix
 
-	schedule := defaultCacheHeaterSchedule
-	if plan.Spec.Config.CacheHeaterSync.Schedule != "" {
-		schedule = plan.Spec.Config.CacheHeaterSync.Schedule
+	schedule := defaultCacheSnapshotSchedule
+	if plan.Spec.Config.CacheSnapshotSync.Schedule != "" {
+		schedule = plan.Spec.Config.CacheSnapshotSync.Schedule
 	}
 
-	image := defaultCacheHeaterCronImage
-	if plan.Spec.Config.CacheHeaterSync.Image != "" {
-		image = plan.Spec.Config.CacheHeaterSync.Image
+	image := defaultCacheSnapshotCronImage
+	if plan.Spec.Config.CacheSnapshotSync.Image != "" {
+		image = plan.Spec.Config.CacheSnapshotSync.Image
 	}
 
-	cmds := defaultCacheHeaterCmdPodToPVC
-	if len(plan.Spec.Config.CacheHeaterSync.CmdPodToPVC) > 0 {
-		cmds = plan.Spec.Config.CacheHeaterSync.CmdPodToPVC
+	cmds := defaultCacheSnapshotCmdPodToPVC
+	if len(plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC) > 0 {
+		cmds = plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC
 	}
 	jobLabels := labelsForRpaasInstance(instance)
 	jobLabels["log-app-name"] = instance.Name
@@ -920,7 +923,7 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 							Labels: jobLabels,
 						},
 						Spec: corev1.PodSpec{
-							ServiceAccountName: "rpaas-cache-heater-cronjob",
+							ServiceAccountName: "rpaas-cache-snapshot-cronjob",
 							Containers: []corev1.Container{
 								{
 									Name:  "cache-synchronize",
@@ -929,9 +932,9 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 										cmds[0],
 									},
 									Args: cmds[1:],
-									Env: append(cacheHeaterEnvVars(instance, plan), corev1.EnvVar{
+									Env: append(cacheSnapshotEnvVars(instance, plan), corev1.EnvVar{
 										Name:  "POD_CMD",
-										Value: interpolateCacheHeaterPodCmdTemplate(rsyncCommandPodToPVC, plan),
+										Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPodToPVC, plan),
 									}),
 								},
 							},
@@ -944,19 +947,19 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 	}
 }
 
-func interpolateCacheHeaterPodCmdTemplate(podCmd string, plan *v1alpha1.RpaasPlan) string {
+func interpolateCacheSnapshotPodCmdTemplate(podCmd string, plan *v1alpha1.RpaasPlan) string {
 	replacer := strings.NewReplacer(
-		"${CACHE_HEATER_MOUNTPOINT}", cacheHeaterMountPoint,
+		"${CACHE_SNAPSHOT_MOUNTPOINT}", cacheSnapshotMountPoint,
 		"${CACHE_PATH}", plan.Spec.Config.CachePath,
 	)
 	return replacer.Replace(podCmd)
 }
 
-func cacheHeaterEnvVars(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) []corev1.EnvVar {
+func cacheSnapshotEnvVars(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) []corev1.EnvVar {
 	return []corev1.EnvVar{
 		{Name: "SERVICE_NAME", Value: instance.Namespace},
 		{Name: "INSTANCE_NAME", Value: instance.Name},
-		{Name: "CACHE_HEATER_MOUNTPOINT", Value: cacheHeaterMountPoint},
+		{Name: "CACHE_SNAPSHOT_MOUNTPOINT", Value: cacheSnapshotMountPoint},
 		{Name: "CACHE_PATH", Value: plan.Spec.Config.CachePath},
 	}
 }

@@ -667,7 +667,7 @@ func Test_reconcileHPA(t *testing.T) {
 	}
 }
 
-func Test_reconcileHeaterVolume(t *testing.T) {
+func Test_reconcileSnapshotVolume(t *testing.T) {
 	ctx := context.TODO()
 	rpaasInstance := newEmptyRpaasInstance()
 	rpaasInstance.Name = "my-instance"
@@ -683,7 +683,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 			planSpec: v1alpha1.RpaasPlanSpec{
 				Config: v1alpha1.NginxConfig{
 					CacheSize: resourceMustParsePtr("10Gi"),
-					CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
 						StorageClassName: strPtr("my-storage-class"),
 					},
 				},
@@ -702,7 +702,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 			name: "Should repass volume labels to PVC",
 			planSpec: v1alpha1.RpaasPlanSpec{
 				Config: v1alpha1.NginxConfig{
-					CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
 						StorageClassName: strPtr("my-storage-class"),
 						VolumeLabels: map[string]string{
 							"some-label":  "foo",
@@ -714,9 +714,9 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 			assert: func(t *testing.T, pvc *corev1.PersistentVolumeClaim) {
 				assert.Equal(t, 5, len(pvc.ObjectMeta.Labels))
 				assert.Equal(t, map[string]string{
-					"some-label":                              "foo",
-					"other-label":                             "bar",
-					"tsuru.io/volume-team":                    "team-one",
+					"some-label":           "foo",
+					"other-label":          "bar",
+					"tsuru.io/volume-team": "team-one",
 					"rpaas.extensions.tsuru.io/instance-name": "my-instance",
 					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
 				}, pvc.ObjectMeta.Labels)
@@ -727,7 +727,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 			name: "Should priorize the team inside plan",
 			planSpec: v1alpha1.RpaasPlanSpec{
 				Config: v1alpha1.NginxConfig{
-					CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
 						VolumeLabels: map[string]string{
 							"tsuru.io/volume-team": "another-team",
 						},
@@ -743,7 +743,7 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 			planSpec: v1alpha1.RpaasPlanSpec{
 				Config: v1alpha1.NginxConfig{
 					CacheSize: resourceMustParsePtr("10Gi"),
-					CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
 						StorageSize: resourceMustParsePtr("100Gi"),
 					},
 				},
@@ -766,12 +766,12 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 				client: k8sClient,
 				scheme: newScheme(),
 			}
-			err := reconciler.reconcileCacheHeaterVolume(ctx, rpaasInstance, &v1alpha1.RpaasPlan{Spec: tt.planSpec})
+			err := reconciler.reconcileCacheSnapshotVolume(ctx, rpaasInstance, &v1alpha1.RpaasPlan{Spec: tt.planSpec})
 			require.NoError(t, err)
 
 			pvc := &corev1.PersistentVolumeClaim{}
 			err = k8sClient.Get(ctx, types.NamespacedName{
-				Name:      rpaasInstance.Name + "-heater-volume",
+				Name:      rpaasInstance.Name + "-snapshot-volume",
 				Namespace: rpaasInstance.Namespace,
 			}, pvc)
 			require.NoError(t, err)
@@ -782,14 +782,14 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 
 }
 
-func Test_destroyHeaterVolume(t *testing.T) {
+func Test_destroySnapshotVolume(t *testing.T) {
 	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
 	pvc := &corev1.PersistentVolumeClaim{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance-1-heater-volume",
+			Name:      "instance-1-snapshot-volume",
 			Namespace: "default",
 		},
 	}
@@ -803,15 +803,15 @@ func Test_destroyHeaterVolume(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	err := reconciler.destroyCacheHeaterVolume(ctx, instance1)
+	err := reconciler.destroyCacheSnapshotVolume(ctx, instance1)
 	require.NoError(t, err)
 
 	pvc = &corev1.PersistentVolumeClaim{}
-	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-volume", Namespace: instance1.Namespace}, pvc)
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-volume", Namespace: instance1.Namespace}, pvc)
 	require.True(t, k8sErrors.IsNotFound(err))
 }
 
-func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
+func Test_reconcileCacheSnapshotCronJobCreation(t *testing.T) {
 	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
@@ -831,11 +831,11 @@ func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{},
 	}
 
-	err := reconciler.reconcileCacheHeaterCronJob(ctx, instance1, plan)
+	err := reconciler.reconcileCacheSnapshotCronJob(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	cronJob := &batchv1beta1.CronJob{}
-	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-cron-job", Namespace: instance1.Namespace}, cronJob)
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
 	require.NoError(t, err)
 
 	assert.Equal(t, "RpaasInstance", cronJob.ObjectMeta.OwnerReferences[0].Kind)
@@ -847,21 +847,21 @@ func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
 	}, cronJob.ObjectMeta.Labels)
 
 	assert.Equal(t, map[string]string{
-		"log-app-name":                            "instance-1",
-		"log-process-name":                        "cache-synchronize",
+		"log-app-name":     "instance-1",
+		"log-process-name": "cache-synchronize",
 		"rpaas.extensions.tsuru.io/instance-name": "instance-1",
 		"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
 	}, cronJob.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
 }
 
-func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
+func Test_reconcileCacheSnapshotCronJobUpdate(t *testing.T) {
 	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
 	previousCronJob := &batchv1beta1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: instance1.Name + "-heater-cronjob",
+			Name: instance1.Name + "-snapshot-cronjob",
 		},
 		Spec: batchv1beta1.CronJobSpec{
 			Schedule: "old-schedule",
@@ -882,18 +882,18 @@ func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
 	plan := &v1alpha1.RpaasPlan{
 		Spec: v1alpha1.RpaasPlanSpec{
 			Config: v1alpha1.NginxConfig{
-				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
+				CacheSnapshotSync: v1alpha1.CacheSnapshotSyncSpec{
 					Schedule: "new-schedule",
 				},
 			},
 		},
 	}
 
-	err := reconciler.reconcileCacheHeaterCronJob(ctx, instance1, plan)
+	err := reconciler.reconcileCacheSnapshotCronJob(ctx, instance1, plan)
 	require.NoError(t, err)
 
 	cronJob := &batchv1beta1.CronJob{}
-	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-cron-job", Namespace: instance1.Namespace}, cronJob)
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
 	require.NoError(t, err)
 
 	assert.Equal(t, "RpaasInstance", cronJob.ObjectMeta.OwnerReferences[0].Kind)
@@ -901,14 +901,14 @@ func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
 	assert.Equal(t, "new-schedule", cronJob.Spec.Schedule)
 }
 
-func Test_destroyHeaterCronJob(t *testing.T) {
+func Test_destroySnapshotCronJob(t *testing.T) {
 	ctx := context.TODO()
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
 	cronJob := &batchv1beta1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance1.Name + "-heater-cron-job",
+			Name:      instance1.Name + "-snapshot-cron-job",
 			Namespace: instance1.Namespace,
 		},
 	}
@@ -924,12 +924,12 @@ func Test_destroyHeaterCronJob(t *testing.T) {
 		scheme: newScheme(),
 	}
 
-	err := reconciler.destroyCacheHeaterCronJob(ctx, instance1)
+	err := reconciler.destroyCacheSnapshotCronJob(ctx, instance1)
 	require.NoError(t, err)
 
 	cronJob = &batchv1beta1.CronJob{}
 
-	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-heater-cron-job", Namespace: instance1.Namespace}, cronJob)
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
 	require.True(t, k8sErrors.IsNotFound(err))
 }
 func int32Ptr(n int32) *int32 {
@@ -1485,14 +1485,14 @@ func TestReconcile(t *testing.T) {
 		Spec: v1alpha1.RpaasPlanSpec{
 			Image: "tsuru:mynginx:test",
 			Config: v1alpha1.NginxConfig{
-				CacheEnabled:       v1alpha1.Bool(true),
-				CacheSize:          resourceMustParsePtr("100M"),
-				CacheHeaterEnabled: true,
-				CacheHeaterStorage: v1alpha1.CacheHeaterStorage{
+				CacheEnabled:         v1alpha1.Bool(true),
+				CacheSize:            resourceMustParsePtr("100M"),
+				CacheSnapshotEnabled: true,
+				CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
 					StorageClassName: strPtr("my-storage-class"),
 				},
 				CachePath: "/var/cache/nginx/rpaas",
-				CacheHeaterSync: v1alpha1.CacheHeaterSyncSpec{
+				CacheSnapshotSync: v1alpha1.CacheSnapshotSyncSpec{
 					Schedule: "1 * * * *",
 					Image:    "test/test:latest",
 					CmdPodToPVC: []string{
@@ -1528,15 +1528,15 @@ func TestReconcile(t *testing.T) {
 	err = client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
 	require.NoError(t, err)
 
-	assert.Equal(t, "cache-heater-volume", nginx.Spec.PodTemplate.Volumes[0].Name)
-	assert.Equal(t, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-heater-volume"}, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim)
-	assert.Equal(t, "cache-heater-volume", nginx.Spec.PodTemplate.VolumeMounts[0].Name)
-	assert.Equal(t, "/var/cache/cache-heater", nginx.Spec.PodTemplate.VolumeMounts[0].MountPath)
+	assert.Equal(t, "cache-snapshot-volume", nginx.Spec.PodTemplate.Volumes[0].Name)
+	assert.Equal(t, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-snapshot-volume"}, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim)
+	assert.Equal(t, "cache-snapshot-volume", nginx.Spec.PodTemplate.VolumeMounts[0].Name)
+	assert.Equal(t, "/var/cache/cache-snapshot", nginx.Spec.PodTemplate.VolumeMounts[0].MountPath)
 
 	assert.Equal(t, resource.MustParse("100M"), *nginx.Spec.Cache.Size)
 
 	initContainer := nginx.Spec.PodTemplate.InitContainers[0]
-	assert.Equal(t, "heat-cache", initContainer.Name)
+	assert.Equal(t, "restore-snapshot", initContainer.Name)
 	assert.Equal(t, "tsuru:mynginx:test", initContainer.Image)
 	assert.Equal(t, "/bin/bash", initContainer.Command[0])
 	assert.Equal(t, "-c", initContainer.Args[0])
@@ -1544,18 +1544,18 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, []corev1.EnvVar{
 		{Name: "SERVICE_NAME", Value: "default"},
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
-		{Name: "CACHE_HEATER_MOUNTPOINT", Value: "/var/cache/cache-heater"},
+		{Name: "CACHE_SNAPSHOT_MOUNTPOINT", Value: "/var/cache/cache-snapshot"},
 		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
-		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-heater/nginx /var/cache/nginx/rpaas"},
+		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-snapshot/nginx /var/cache/nginx/rpaas"},
 	}, initContainer.Env)
 
 	assert.Equal(t, []corev1.VolumeMount{
-		{Name: "cache-heater-volume", MountPath: "/var/cache/cache-heater"},
+		{Name: "cache-snapshot-volume", MountPath: "/var/cache/cache-snapshot"},
 		{Name: "cache-vol", MountPath: "/var/cache/nginx/rpaas"},
 	}, initContainer.VolumeMounts)
 
 	cronJob := &batchv1beta1.CronJob{}
-	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-instance-heater-cron-job", Namespace: rpaas.Namespace}, cronJob)
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-instance-snapshot-cron-job", Namespace: rpaas.Namespace}, cronJob)
 	require.NoError(t, err)
 
 	assert.Equal(t, "1 * * * *", cronJob.Spec.Schedule)
@@ -1570,9 +1570,9 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, []corev1.EnvVar{
 		{Name: "SERVICE_NAME", Value: "default"},
 		{Name: "INSTANCE_NAME", Value: "my-instance"},
-		{Name: "CACHE_HEATER_MOUNTPOINT", Value: "/var/cache/cache-heater"},
+		{Name: "CACHE_SNAPSHOT_MOUNTPOINT", Value: "/var/cache/cache-snapshot"},
 		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
-		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-heater/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-heater"},
+		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-snapshot/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-snapshot"},
 	}, podSpec.Containers[0].Env)
 }
 
