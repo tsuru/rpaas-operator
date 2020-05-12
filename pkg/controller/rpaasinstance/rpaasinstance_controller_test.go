@@ -289,6 +289,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance1.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName: "my-plan",
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation": "default",
@@ -323,7 +324,8 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance2.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors: []string{"mint"},
+					Flavors:  []string{"mint"},
+					PlanName: "my-plan",
 					Lifecycle: &nginxv1alpha1.NginxLifecycle{
 						PostStart: &nginxv1alpha1.NginxLifecycleHandler{
 							Exec: &corev1.ExecAction{
@@ -378,7 +380,8 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance3.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors: []string{"mint", "mango"},
+					Flavors:  []string{"mint", "mango"},
+					PlanName: "my-plan",
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation":   "default",
@@ -430,6 +433,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName: "my-plan",
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation":   "default",
@@ -531,14 +535,14 @@ func Test_reconcileHPA(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		instance  v1alpha1.RpaasInstance
-		nginx     nginxv1alpha1.Nginx
+		instance  *v1alpha1.RpaasInstance
+		nginx     *nginxv1alpha1.Nginx
 		assertion func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler)
 	}{
 		{
 			name:     "when there is HPA resource but autoscale spec is nil",
-			instance: *instance2,
-			nginx:    *nginx2,
+			instance: instance2,
+			nginx:    nginx2,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.Error(t, err)
 				assert.True(t, k8sErrors.IsNotFound(err))
@@ -546,8 +550,8 @@ func Test_reconcileHPA(t *testing.T) {
 		},
 		{
 			name:     "when there is no HPA resource but autoscale spec is provided",
-			instance: *instance1,
-			nginx:    *nginx1,
+			instance: instance1,
+			nginx:    nginx1,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -579,11 +583,16 @@ func Test_reconcileHPA(t *testing.T) {
 						},
 					},
 				}, got.Spec.Metrics[1])
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/instance-name": "instance-1",
+					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+				}, got.ObjectMeta.Labels)
 			},
 		},
 		{
 			name: "when there is HPA resource but differs from autoscale spec",
-			instance: v1alpha1.RpaasInstance{
+			instance: &v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "extensions.tsuru.io/v1alpha1",
 					Kind:       "RpaasInstance",
@@ -601,7 +610,7 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				},
 			},
-			nginx: *nginx2,
+			nginx: nginx2,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -703,11 +712,13 @@ func Test_reconcileHeaterVolume(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, pvc *corev1.PersistentVolumeClaim) {
-				assert.Equal(t, 3, len(pvc.ObjectMeta.Labels))
+				assert.Equal(t, 5, len(pvc.ObjectMeta.Labels))
 				assert.Equal(t, map[string]string{
-					"some-label":           "foo",
-					"other-label":          "bar",
-					"tsuru.io/volume-team": "team-one",
+					"some-label":                              "foo",
+					"other-label":                             "bar",
+					"tsuru.io/volume-team":                    "team-one",
+					"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
 				}, pvc.ObjectMeta.Labels)
 			},
 		},
@@ -829,6 +840,18 @@ func Test_reconcileCacheHeaterCronJobCreation(t *testing.T) {
 
 	assert.Equal(t, "RpaasInstance", cronJob.ObjectMeta.OwnerReferences[0].Kind)
 	assert.Equal(t, instance1.Name, cronJob.ObjectMeta.OwnerReferences[0].Name)
+
+	assert.Equal(t, map[string]string{
+		"rpaas.extensions.tsuru.io/instance-name": "instance-1",
+		"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+	}, cronJob.ObjectMeta.Labels)
+
+	assert.Equal(t, map[string]string{
+		"log-app-name":                            "instance-1",
+		"log-process-name":                        "cache-synchronize",
+		"rpaas.extensions.tsuru.io/instance-name": "instance-1",
+		"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+	}, cronJob.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
 }
 
 func Test_reconcileCacheHeaterCronJobUpdate(t *testing.T) {
@@ -927,7 +950,9 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 			Name:      "my-instance",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.RpaasInstanceSpec{},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PlanName: "my-plan",
+		},
 	}
 }
 

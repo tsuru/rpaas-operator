@@ -62,14 +62,15 @@ var (
 	defaultCacheHeaterCmdPodToPVC = []string{
 		"/bin/bash",
 		"-c",
-		`
-pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
+		`pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
 for pod in ${pods[@]}; do
 	kubectl -n ${SERVICE_NAME} exec ${pod} -- ${POD_CMD};
 	if [[ $? == 0 ]]; then
 		exit 0;
 	fi
 done
+echo "No pods found";
+exit 1
 `}
 
 	defaultCacheHeaterCmdPVCToPod = []string{
@@ -238,7 +239,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		return reconcile.Result{}, err
 	}
 
-	if err = r.reconcileHPA(ctx, *instance, *nginx); err != nil {
+	if err = r.reconcileHPA(ctx, instance, nginx); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -350,7 +351,7 @@ func (r *ReconcileRpaasInstance) listDefaultFlavors(ctx context.Context, instanc
 	return result, nil
 }
 
-func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) error {
+func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
 	logger := log.WithName("reconcileHPA").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}).
 		WithValues("Nginx", types.NamespacedName{Name: nginx.Name, Namespace: nginx.Namespace})
@@ -524,7 +525,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheHeaterVolume(ctx context.Context,
 
 	cacheHeaterStorage := plan.Spec.Config.CacheHeaterStorage
 	volumeMode := corev1.PersistentVolumeFilesystem
-	labels := map[string]string{}
+	labels := labelsForRpaasInstance(instance)
 	if teamOwner := instance.TeamOwner(); teamOwner != "" {
 		labels[volumeTeamLabel] = teamOwner
 	}
@@ -688,14 +689,15 @@ func (r *ReconcileRpaasInstance) deleteOldConfig(ctx context.Context, instance *
 
 func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(renderedTemplate)))
+	labels := labelsForRpaasInstance(instance)
+	labels["type"] = "config"
+	labels["instance"] = instance.Name
+
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-config-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
-			Labels: map[string]string{
-				"type":     "config",
-				"instance": instance.Name,
-			},
+			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.SchemeGroupVersion.Group,
@@ -734,6 +736,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 					Kind:    "RpaasInstance",
 				}),
 			},
+			Labels: labelsForRpaasInstance(instance),
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Nginx",
@@ -805,7 +808,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 	return n
 }
 
-func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
+func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
 	var metrics []autoscalingv2beta2.MetricSpec
 
 	if instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
@@ -848,12 +851,13 @@ func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscal
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.SchemeGroupVersion.Group,
 					Version: v1alpha1.SchemeGroupVersion.Version,
 					Kind:    "RpaasInstance",
 				}),
 			},
+			Labels: labelsForRpaasInstance(instance),
 		},
 		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
@@ -885,6 +889,10 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 	if len(plan.Spec.Config.CacheHeaterSync.CmdPodToPVC) > 0 {
 		cmds = plan.Spec.Config.CacheHeaterSync.CmdPodToPVC
 	}
+	jobLabels := labelsForRpaasInstance(instance)
+	jobLabels["log-app-name"] = instance.Name
+	jobLabels["log-process-name"] = "cache-synchronize"
+
 	return &batchv1beta1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cronName,
@@ -896,6 +904,7 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 					Kind:    "RpaasInstance",
 				}),
 			},
+			Labels: labelsForRpaasInstance(instance),
 		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "batch/v1beta1",
@@ -905,14 +914,10 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 			Schedule:          schedule,
 			ConcurrencyPolicy: batchv1beta1.ForbidConcurrent,
 			JobTemplate: batchv1beta1.JobTemplateSpec{
-
 				Spec: batchv1.JobSpec{
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{
-							Labels: map[string]string{
-								"log-app-name":     instance.Name,
-								"log-process-name": "cache-synchronize",
-							},
+							Labels: jobLabels,
 						},
 						Spec: corev1.PodSpec{
 							ServiceAccountName: "rpaas-cache-heater-cronjob",
@@ -1161,4 +1166,11 @@ func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *e
 	}
 
 	return instancePorts, nil
+}
+
+func labelsForRpaasInstance(instance *extensionsv1alpha1.RpaasInstance) map[string]string {
+	return map[string]string{
+		"rpaas.extensions.tsuru.io/instance-name": instance.Name,
+		"rpaas.extensions.tsuru.io/plan-name":     instance.Spec.PlanName,
+	}
 }
