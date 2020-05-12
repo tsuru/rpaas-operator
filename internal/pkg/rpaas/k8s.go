@@ -112,7 +112,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	}
 
 	setDescription(instance, args.Description)
-	setTeamOwner(instance, args.Team)
+	instance.SetTeamOwner(args.Team)
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 
@@ -145,7 +145,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	instance.Spec.Flavors = args.Flavors()
 
 	setDescription(instance, args.Description)
-	setTeamOwner(instance, args.Team)
+	instance.SetTeamOwner(args.Team)
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 
@@ -1409,18 +1409,6 @@ func setTags(instance *v1alpha1.RpaasInstance, tags []string) {
 	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
 		labelKey("tags"): strings.Join(tags, ","),
 	})
-}
-
-func setTeamOwner(instance *v1alpha1.RpaasInstance, team string) {
-	if instance == nil {
-		return
-	}
-
-	newLabels := map[string]string{labelKey("team-owner"): team}
-
-	instance.Annotations = mergeMap(instance.Annotations, newLabels)
-	instance.Labels = mergeMap(instance.Labels, newLabels)
-	instance.Spec.PodTemplate.Labels = mergeMap(instance.Spec.PodTemplate.Labels, newLabels)
 }
 
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {

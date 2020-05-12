@@ -10,3 +10,16 @@ roleRef:
   kind: ClusterRole
   name: rpaas-operator
   apiGroup: rbac.authorization.k8s.io
+---
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: rpaas-cache-snapshot-cronjob
+subjects:
+- kind: ServiceAccount
+  name: rpaas-cache-snapshot
+  namespace: rpaas-operator-integration
+roleRef:
+  kind: ClusterRole
+  name: rpaas-cache-syncer
+  apiGroup: rbac.authorization.k8s.io

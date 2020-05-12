@@ -611,8 +611,8 @@ github.com/tidwall/pretty v0.0.0-20180105212114-65a9db5fad51/go.mod h1:XNkn88O1C
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tsuru/config v0.0.0-20180418191556-87403ee7da02/go.mod h1:bilf/jr5AGl9raMFnhM9hsp+ms6PK752UF89ODoRHW4=
-github.com/tsuru/nginx-operator v0.5.0 h1:oWSu/9WHm+wKbvJSZn0NebQZCw2R0R5HYgGNZcasp+w=
-github.com/tsuru/nginx-operator v0.5.0/go.mod h1:hvXj+bM5dUsnOt/PQE1ktHnLxM1ucnhKM0zOdHZyzsg=
+github.com/tsuru/nginx-operator v0.5.2 h1:5i+0EKOnvVrkXEiXIxzKT75h4y80dj50kiqZwqlyeUk=
+github.com/tsuru/nginx-operator v0.5.2/go.mod h1:hvXj+bM5dUsnOt/PQE1ktHnLxM1ucnhKM0zOdHZyzsg=
 github.com/ugorji/go v1.1.4/go.mod h1:uQMGLiO92mf5W77hV/PUCpI3pbzQx3CRekS0kk+RGrc=
 github.com/ugorji/go/codec v0.0.0-20181204163529-d75b2dcb6bc8/go.mod h1:VFNgLljTbGfSG7qAOspJ7OScBnGdDN/yBr0sguwnwf0=
 github.com/urfave/cli/v2 v2.0.0 h1:+HU9SCbu8GnEUFtIBfuUNXN39ofWViIEJIp6SURMpCg=

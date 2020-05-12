@@ -7,11 +7,13 @@ package nginx
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"strings"
 	"text/template"
 
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/util"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 type ConfigurationRenderer interface {
@@ -145,6 +147,15 @@ func managePort(instance *v1alpha1.RpaasInstance) int32 {
 	return defaultManagePort
 }
 
+func k8sQuantityToNginx(quantity *resource.Quantity) string {
+	if quantity == nil || quantity.IsZero() {
+		return "0"
+	}
+
+	bytesN, _ := quantity.AsInt64()
+	return strconv.Itoa(int(bytesN))
+}
+
 var templateFuncs = template.FuncMap(map[string]interface{}{
 	"boolValue":          v1alpha1.BoolValue,
 	"buildLocationKey":   buildLocationKey,
@@ -159,6 +170,7 @@ var templateFuncs = template.FuncMap(map[string]interface{}{
 	"contains":           strings.Contains,
 	"hasPrefix":          strings.HasPrefix,
 	"hasSuffix":          strings.HasSuffix,
+	"k8sQuantityToNginx": k8sQuantityToNginx,
 })
 
 var defaultMainTemplate = template.Must(template.New("main").
@@ -217,9 +229,9 @@ http {
     proxy_http_version 1.1;
 
     {{- if boolValue $config.CacheEnabled }}
-    proxy_cache_path {{ $config.CachePath }}/nginx levels=1:2 keys_zone=rpaas:{{ $config.CacheZoneSize }}
+    proxy_cache_path {{ $config.CachePath }}/nginx levels=1:2 keys_zone=rpaas:{{ k8sQuantityToNginx $config.CacheZoneSize }}
         {{- with $config.CacheInactive }} inactive={{ . }}{{ end }}
-        {{- with $config.CacheSize }} max_size={{ . }}{{ end }}
+        {{- with $config.CacheSize }} max_size={{ k8sQuantityToNginx . }}{{ end }}
         {{- with $config.CacheLoaderFiles }} loader_files={{ . }}{{ end }};
 
     proxy_temp_path {{ $config.CachePath }}/nginx_tmp 1 2;
@@ -309,6 +321,10 @@ http {
         ssl_certificate_key certs/{{ with $item.KeyPath }}{{ . }}{{ else }}{{ $item.KeyField }}{{ end }};
         {{- end }}
         {{- end }}
+        {{- end }}
+
+        {{- if boolValue $config.CacheEnabled }}
+        proxy_cache rpaas;
         {{- end }}
 
         location = /_nginx_healthcheck {

@@ -15,6 +15,8 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -22,6 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func Test_mergePlans(t *testing.T) {
@@ -58,7 +61,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "root",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(true),
 				},
 			},
@@ -73,7 +76,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "ubuntu",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(true),
 				},
 			},
@@ -84,7 +87,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "root",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(true),
 				},
 			},
@@ -100,7 +103,7 @@ func Test_mergePlans(t *testing.T) {
 				Description: "a",
 				Config: v1alpha1.NginxConfig{
 					User:         "ubuntu",
-					CacheSize:    "10",
+					CacheSize:    resourceMustParsePtr("10M"),
 					CacheEnabled: v1alpha1.Bool(false),
 				},
 			},
@@ -286,6 +289,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance1.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName: "my-plan",
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation": "default",
@@ -320,7 +324,8 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance2.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors: []string{"mint"},
+					Flavors:  []string{"mint"},
+					PlanName: "my-plan",
 					Lifecycle: &nginxv1alpha1.NginxLifecycle{
 						PostStart: &nginxv1alpha1.NginxLifecycleHandler{
 							Exec: &corev1.ExecAction{
@@ -375,7 +380,8 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance3.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors: []string{"mint", "mango"},
+					Flavors:  []string{"mint", "mango"},
+					PlanName: "my-plan",
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation":   "default",
@@ -427,6 +433,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName: "my-plan",
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation":   "default",
@@ -528,14 +535,14 @@ func Test_reconcileHPA(t *testing.T) {
 
 	tests := []struct {
 		name      string
-		instance  v1alpha1.RpaasInstance
-		nginx     nginxv1alpha1.Nginx
+		instance  *v1alpha1.RpaasInstance
+		nginx     *nginxv1alpha1.Nginx
 		assertion func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler)
 	}{
 		{
 			name:     "when there is HPA resource but autoscale spec is nil",
-			instance: *instance2,
-			nginx:    *nginx2,
+			instance: instance2,
+			nginx:    nginx2,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.Error(t, err)
 				assert.True(t, k8sErrors.IsNotFound(err))
@@ -543,8 +550,8 @@ func Test_reconcileHPA(t *testing.T) {
 		},
 		{
 			name:     "when there is no HPA resource but autoscale spec is provided",
-			instance: *instance1,
-			nginx:    *nginx1,
+			instance: instance1,
+			nginx:    nginx1,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -576,11 +583,16 @@ func Test_reconcileHPA(t *testing.T) {
 						},
 					},
 				}, got.Spec.Metrics[1])
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/instance-name": "instance-1",
+					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+				}, got.ObjectMeta.Labels)
 			},
 		},
 		{
 			name: "when there is HPA resource but differs from autoscale spec",
-			instance: v1alpha1.RpaasInstance{
+			instance: &v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "extensions.tsuru.io/v1alpha1",
 					Kind:       "RpaasInstance",
@@ -598,7 +610,7 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				},
 			},
-			nginx: *nginx2,
+			nginx: nginx2,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -655,8 +667,277 @@ func Test_reconcileHPA(t *testing.T) {
 	}
 }
 
+func Test_reconcileSnapshotVolume(t *testing.T) {
+	ctx := context.TODO()
+	rpaasInstance := newEmptyRpaasInstance()
+	rpaasInstance.Name = "my-instance"
+	rpaasInstance.SetTeamOwner("team-one")
+
+	tests := []struct {
+		name     string
+		planSpec v1alpha1.RpaasPlanSpec
+		assert   func(*testing.T, *corev1.PersistentVolumeClaim)
+	}{
+		{
+			name: "Should repass attributes to PVC",
+			planSpec: v1alpha1.RpaasPlanSpec{
+				Config: v1alpha1.NginxConfig{
+					CacheSize: resourceMustParsePtr("10Gi"),
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
+						StorageClassName: strPtr("my-storage-class"),
+					},
+				},
+			},
+			assert: func(t *testing.T, pvc *corev1.PersistentVolumeClaim) {
+				assert.Equal(t, pvc.ObjectMeta.OwnerReferences[0].Kind, "RpaasInstance")
+				assert.Equal(t, pvc.ObjectMeta.OwnerReferences[0].Name, rpaasInstance.Name)
+				assert.Equal(t, pvc.Spec.StorageClassName, strPtr("my-storage-class"))
+				assert.Equal(t, pvc.Spec.AccessModes, []corev1.PersistentVolumeAccessMode{corev1.ReadWriteMany})
+
+				parsedSize, _ := resource.ParseQuantity("10Gi")
+				assert.Equal(t, parsedSize, pvc.Spec.Resources.Requests["storage"])
+			},
+		},
+		{
+			name: "Should repass volume labels to PVC",
+			planSpec: v1alpha1.RpaasPlanSpec{
+				Config: v1alpha1.NginxConfig{
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
+						StorageClassName: strPtr("my-storage-class"),
+						VolumeLabels: map[string]string{
+							"some-label":  "foo",
+							"other-label": "bar",
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, pvc *corev1.PersistentVolumeClaim) {
+				assert.Equal(t, 5, len(pvc.ObjectMeta.Labels))
+				assert.Equal(t, map[string]string{
+					"some-label":           "foo",
+					"other-label":          "bar",
+					"tsuru.io/volume-team": "team-one",
+					"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+				}, pvc.ObjectMeta.Labels)
+			},
+		},
+
+		{
+			name: "Should priorize the team inside plan",
+			planSpec: v1alpha1.RpaasPlanSpec{
+				Config: v1alpha1.NginxConfig{
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
+						VolumeLabels: map[string]string{
+							"tsuru.io/volume-team": "another-team",
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, pvc *corev1.PersistentVolumeClaim) {
+				assert.Equal(t, "another-team", pvc.ObjectMeta.Labels["tsuru.io/volume-team"])
+			},
+		},
+		{
+			name: "Should allow to customize size of PVC separately of cache settings",
+			planSpec: v1alpha1.RpaasPlanSpec{
+				Config: v1alpha1.NginxConfig{
+					CacheSize: resourceMustParsePtr("10Gi"),
+					CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
+						StorageSize: resourceMustParsePtr("100Gi"),
+					},
+				},
+			},
+			assert: func(t *testing.T, pvc *corev1.PersistentVolumeClaim) {
+				parsedSize, _ := resource.ParseQuantity("100Gi")
+				assert.Equal(t, parsedSize, pvc.Spec.Resources.Requests["storage"])
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resources := []runtime.Object{}
+			scheme := newScheme()
+			corev1.AddToScheme(scheme)
+
+			k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+			reconciler := &ReconcileRpaasInstance{
+				client: k8sClient,
+				scheme: newScheme(),
+			}
+			err := reconciler.reconcileCacheSnapshotVolume(ctx, rpaasInstance, &v1alpha1.RpaasPlan{Spec: tt.planSpec})
+			require.NoError(t, err)
+
+			pvc := &corev1.PersistentVolumeClaim{}
+			err = k8sClient.Get(ctx, types.NamespacedName{
+				Name:      rpaasInstance.Name + "-snapshot-volume",
+				Namespace: rpaasInstance.Namespace,
+			}, pvc)
+			require.NoError(t, err)
+
+			tt.assert(t, pvc)
+		})
+	}
+
+}
+
+func Test_destroySnapshotVolume(t *testing.T) {
+	ctx := context.TODO()
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	pvc := &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance-1-snapshot-volume",
+			Namespace: "default",
+		},
+	}
+	resources := []runtime.Object{pvc}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	err := reconciler.destroyCacheSnapshotVolume(ctx, instance1)
+	require.NoError(t, err)
+
+	pvc = &corev1.PersistentVolumeClaim{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-volume", Namespace: instance1.Namespace}, pvc)
+	require.True(t, k8sErrors.IsNotFound(err))
+}
+
+func Test_reconcileCacheSnapshotCronJobCreation(t *testing.T) {
+	ctx := context.TODO()
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	resources := []runtime.Object{}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{},
+	}
+
+	err := reconciler.reconcileCacheSnapshotCronJob(ctx, instance1, plan)
+	require.NoError(t, err)
+
+	cronJob := &batchv1beta1.CronJob{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
+	require.NoError(t, err)
+
+	assert.Equal(t, "RpaasInstance", cronJob.ObjectMeta.OwnerReferences[0].Kind)
+	assert.Equal(t, instance1.Name, cronJob.ObjectMeta.OwnerReferences[0].Name)
+
+	assert.Equal(t, map[string]string{
+		"rpaas.extensions.tsuru.io/instance-name": "instance-1",
+		"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+	}, cronJob.ObjectMeta.Labels)
+
+	assert.Equal(t, map[string]string{
+		"log-app-name":     "instance-1",
+		"log-process-name": "cache-synchronize",
+		"rpaas.extensions.tsuru.io/instance-name": "instance-1",
+		"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+	}, cronJob.Spec.JobTemplate.Spec.Template.ObjectMeta.Labels)
+}
+
+func Test_reconcileCacheSnapshotCronJobUpdate(t *testing.T) {
+	ctx := context.TODO()
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	previousCronJob := &batchv1beta1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: instance1.Name + "-snapshot-cronjob",
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule: "old-schedule",
+		},
+	}
+
+	resources := []runtime.Object{previousCronJob}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	plan := &v1alpha1.RpaasPlan{
+		Spec: v1alpha1.RpaasPlanSpec{
+			Config: v1alpha1.NginxConfig{
+				CacheSnapshotSync: v1alpha1.CacheSnapshotSyncSpec{
+					Schedule: "new-schedule",
+				},
+			},
+		},
+	}
+
+	err := reconciler.reconcileCacheSnapshotCronJob(ctx, instance1, plan)
+	require.NoError(t, err)
+
+	cronJob := &batchv1beta1.CronJob{}
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
+	require.NoError(t, err)
+
+	assert.Equal(t, "RpaasInstance", cronJob.ObjectMeta.OwnerReferences[0].Kind)
+	assert.Equal(t, instance1.Name, cronJob.ObjectMeta.OwnerReferences[0].Name)
+	assert.Equal(t, "new-schedule", cronJob.Spec.Schedule)
+}
+
+func Test_destroySnapshotCronJob(t *testing.T) {
+	ctx := context.TODO()
+	instance1 := newEmptyRpaasInstance()
+	instance1.Name = "instance-1"
+
+	cronJob := &batchv1beta1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance1.Name + "-snapshot-cron-job",
+			Namespace: instance1.Namespace,
+		},
+	}
+
+	resources := []runtime.Object{cronJob}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
+
+	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: k8sClient,
+		scheme: newScheme(),
+	}
+
+	err := reconciler.destroyCacheSnapshotCronJob(ctx, instance1)
+	require.NoError(t, err)
+
+	cronJob = &batchv1beta1.CronJob{}
+
+	err = k8sClient.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
+	require.True(t, k8sErrors.IsNotFound(err))
+}
 func int32Ptr(n int32) *int32 {
 	return &n
+}
+
+func strPtr(s string) *string {
+	return &s
 }
 
 func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
@@ -669,7 +950,9 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 			Name:      "my-instance",
 			Namespace: "default",
 		},
-		Spec: v1alpha1.RpaasInstanceSpec{},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PlanName: "my-plan",
+		},
 	}
 }
 
@@ -1182,4 +1465,118 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 			tt.assertion(t, err, ports, allocation.Spec)
 		})
 	}
+}
+
+func TestReconcile(t *testing.T) {
+	rpaas := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PlanName: "my-plan",
+		},
+	}
+	plan := &v1alpha1.RpaasPlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-plan",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasPlanSpec{
+			Image: "tsuru:mynginx:test",
+			Config: v1alpha1.NginxConfig{
+				CacheEnabled:         v1alpha1.Bool(true),
+				CacheSize:            resourceMustParsePtr("100M"),
+				CacheSnapshotEnabled: true,
+				CacheSnapshotStorage: v1alpha1.CacheSnapshotStorage{
+					StorageClassName: strPtr("my-storage-class"),
+				},
+				CachePath: "/var/cache/nginx/rpaas",
+				CacheSnapshotSync: v1alpha1.CacheSnapshotSyncSpec{
+					Schedule: "1 * * * *",
+					Image:    "test/test:latest",
+					CmdPodToPVC: []string{
+						"/bin/bash",
+						"-c",
+						"echo 'this is a test'",
+					},
+					CmdPVCToPod: []string{
+						"/bin/bash",
+						"-c",
+						"echo 'this is a the first pod sync'",
+					},
+				},
+			},
+		},
+	}
+	resources := []runtime.Object{rpaas, plan}
+	scheme := newScheme()
+	corev1.AddToScheme(scheme)
+	batchv1.AddToScheme(scheme)
+	batchv1beta1.AddToScheme(scheme)
+	client := fake.NewFakeClientWithScheme(scheme, resources...)
+	reconciler := &ReconcileRpaasInstance{
+		client: client,
+		scheme: scheme,
+	}
+	result, err := reconciler.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
+	require.NoError(t, err)
+
+	assert.Equal(t, result, reconcile.Result{})
+
+	nginx := &nginxv1alpha1.Nginx{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
+	require.NoError(t, err)
+
+	assert.Equal(t, "cache-snapshot-volume", nginx.Spec.PodTemplate.Volumes[0].Name)
+	assert.Equal(t, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-snapshot-volume"}, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim)
+	assert.Equal(t, "cache-snapshot-volume", nginx.Spec.PodTemplate.VolumeMounts[0].Name)
+	assert.Equal(t, "/var/cache/cache-snapshot", nginx.Spec.PodTemplate.VolumeMounts[0].MountPath)
+
+	assert.Equal(t, resource.MustParse("100M"), *nginx.Spec.Cache.Size)
+
+	initContainer := nginx.Spec.PodTemplate.InitContainers[0]
+	assert.Equal(t, "restore-snapshot", initContainer.Name)
+	assert.Equal(t, "tsuru:mynginx:test", initContainer.Image)
+	assert.Equal(t, "/bin/bash", initContainer.Command[0])
+	assert.Equal(t, "-c", initContainer.Args[0])
+	assert.Equal(t, "echo 'this is a the first pod sync'", initContainer.Args[1])
+	assert.Equal(t, []corev1.EnvVar{
+		{Name: "SERVICE_NAME", Value: "default"},
+		{Name: "INSTANCE_NAME", Value: "my-instance"},
+		{Name: "CACHE_SNAPSHOT_MOUNTPOINT", Value: "/var/cache/cache-snapshot"},
+		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
+		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/nginx/rpaas/nginx_tmp /var/cache/cache-snapshot/nginx /var/cache/nginx/rpaas"},
+	}, initContainer.Env)
+
+	assert.Equal(t, []corev1.VolumeMount{
+		{Name: "cache-snapshot-volume", MountPath: "/var/cache/cache-snapshot"},
+		{Name: "cache-vol", MountPath: "/var/cache/nginx/rpaas"},
+	}, initContainer.VolumeMounts)
+
+	cronJob := &batchv1beta1.CronJob{}
+	err = client.Get(context.TODO(), types.NamespacedName{Name: "my-instance-snapshot-cron-job", Namespace: rpaas.Namespace}, cronJob)
+	require.NoError(t, err)
+
+	assert.Equal(t, "1 * * * *", cronJob.Spec.Schedule)
+	podTemplateSpec := cronJob.Spec.JobTemplate.Spec.Template
+	podSpec := podTemplateSpec.Spec
+	assert.Equal(t, "test/test:latest", podSpec.Containers[0].Image)
+	assert.Equal(t, "/bin/bash", podSpec.Containers[0].Command[0])
+	assert.Equal(t, "-c", podSpec.Containers[0].Args[0])
+	assert.Equal(t, "echo 'this is a test'", podSpec.Containers[0].Args[1])
+	assert.Equal(t, "my-instance", podTemplateSpec.ObjectMeta.Labels["log-app-name"])
+	assert.Equal(t, "cache-synchronize", podTemplateSpec.ObjectMeta.Labels["log-process-name"])
+	assert.Equal(t, []corev1.EnvVar{
+		{Name: "SERVICE_NAME", Value: "default"},
+		{Name: "INSTANCE_NAME", Value: "my-instance"},
+		{Name: "CACHE_SNAPSHOT_MOUNTPOINT", Value: "/var/cache/cache-snapshot"},
+		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
+		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-snapshot/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-snapshot"},
+	}, podSpec.Containers[0].Env)
+}
+
+func resourceMustParsePtr(fmt string) *resource.Quantity {
+	qty := resource.MustParse(fmt)
+	return &qty
 }

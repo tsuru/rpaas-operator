@@ -11,6 +11,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strings"
 	"text/template"
 
 	"github.com/imdario/mergo"
@@ -23,10 +24,11 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/util"
 	"github.com/willf/bitset"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	batchv1 "k8s.io/api/batch/v1"
+	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	k8sResources "k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -41,9 +43,45 @@ import (
 )
 
 const (
-	defaultConfigHistoryLimit = 10
-
+	defaultConfigHistoryLimit     = 10
+	defaultCacheSnapshotCronImage = "bitnami/kubectl:latest"
+	defaultCacheSnapshotSchedule  = "* * * * *"
 	defaultPortAllocationResource = "default"
+	volumeTeamLabel               = "tsuru.io/volume-team"
+
+	cacheSnapshotCronJobSuffix = "-snapshot-cron-job"
+	cacheSnapshotVolumeSuffix  = "-snapshot-volume"
+
+	cacheSnapshotMountPoint = "/var/cache/cache-snapshot"
+
+	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_SNAPSHOT_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_SNAPSHOT_MOUNTPOINT}"
+	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx ${CACHE_PATH}"
+)
+
+var (
+	defaultCacheSnapshotCmdPodToPVC = []string{
+		"/bin/bash",
+		"-c",
+		`pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
+for pod in ${pods[@]}; do
+	kubectl -n ${SERVICE_NAME} exec ${pod} -- ${POD_CMD};
+	if [[ $? == 0 ]]; then
+		exit 0;
+	fi
+done
+echo "No pods found";
+exit 1
+`}
+
+	defaultCacheSnapshotCmdPVCToPod = []string{
+		"/bin/bash",
+		"-c",
+		`
+mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/temp;
+mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx;
+mkdir -p ${CACHE_PATH}/nginx_tmp;
+${POD_CMD}
+`}
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -81,7 +119,23 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
+	err = c.Watch(&source.Kind{Type: &corev1.PersistentVolumeClaim{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
+	})
+	if err != nil {
+		return err
+	}
+
 	err = c.Watch(&source.Kind{Type: &corev1.ConfigMap{}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
+	})
+	if err != nil {
+		return err
+	}
+
+	err = c.Watch(&source.Kind{Type: &batchv1beta1.CronJob{}}, &handler.EnqueueRequestForOwner{
 		IsController: true,
 		OwnerType:    &extensionsv1alpha1.RpaasInstance{},
 	})
@@ -159,32 +213,36 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
-	rendered, err := r.renderTemplate(instance, plan)
+	rendered, err := r.renderTemplate(ctx, instance, plan)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	configMap := newConfigMap(instance, rendered)
-	err = r.reconcileConfigMap(configMap)
+	err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-	configList, err := r.listConfigs(instance)
+	configList, err := r.listConfigs(ctx, instance)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 	if shouldDeleteOldConfig(instance, configList) {
-		if err = r.deleteOldConfig(instance, configList); err != nil {
+		if err = r.deleteOldConfig(ctx, instance, configList); err != nil {
 			return reconcile.Result{}, err
 		}
 	}
 
 	nginx := newNginx(instance, plan, configMap)
 
-	if err = r.reconcileNginx(nginx); err != nil {
+	if err = r.reconcileNginx(ctx, nginx); err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if err = r.reconcileHPA(ctx, *instance, *nginx); err != nil {
+	if err = r.reconcileCacheSnapshot(ctx, instance, plan); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	if err = r.reconcileHPA(ctx, instance, nginx); err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -216,7 +274,7 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 	logger := log.WithName("mergeInstanceWithFlavors").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
-	defaultFlavors, err := r.listDefaultFlavors(instance)
+	defaultFlavors, err := r.listDefaultFlavors(ctx, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -281,9 +339,9 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) listDefaultFlavors(instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
+func (r *ReconcileRpaasInstance) listDefaultFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
-	if err := r.client.List(context.TODO(), flavorList, client.InNamespace(instance.Namespace)); err != nil {
+	if err := r.client.List(ctx, flavorList, client.InNamespace(instance.Namespace)); err != nil {
 		return nil, err
 	}
 	var result []v1alpha1.RpaasFlavor
@@ -296,7 +354,7 @@ func (r *ReconcileRpaasInstance) listDefaultFlavors(instance *v1alpha1.RpaasInst
 	return result, nil
 }
 
-func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) error {
+func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
 	logger := log.WithName("reconcileHPA").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}).
 		WithValues("Nginx", types.NamespacedName{Name: nginx.Name, Namespace: nginx.Namespace})
@@ -356,15 +414,15 @@ func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance v1al
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap) error {
+func (r *ReconcileRpaasInstance) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) error {
 	found := &corev1.ConfigMap{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
+	err := r.client.Get(ctx, types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get configMap: %v", err)
 			return err
 		}
-		err = r.client.Create(context.TODO(), configMap)
+		err = r.client.Create(ctx, configMap)
 		if err != nil {
 			logrus.Errorf("Failed to create configMap: %v", err)
 			return err
@@ -373,22 +431,22 @@ func (r *ReconcileRpaasInstance) reconcileConfigMap(configMap *corev1.ConfigMap)
 	}
 
 	configMap.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
-	err = r.client.Update(context.TODO(), configMap)
+	err = r.client.Update(ctx, configMap)
 	if err != nil {
 		logrus.Errorf("Failed to update configMap: %v", err)
 	}
 	return err
 }
 
-func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) error {
+func (r *ReconcileRpaasInstance) reconcileNginx(ctx context.Context, nginx *nginxv1alpha1.Nginx) error {
 	found := &nginxv1alpha1.Nginx{}
-	err := r.client.Get(context.TODO(), types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, found)
+	err := r.client.Get(ctx, types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, found)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get nginx CR: %v", err)
 			return err
 		}
-		err = r.client.Create(context.TODO(), nginx)
+		err = r.client.Create(ctx, nginx)
 		if err != nil {
 			logrus.Errorf("Failed to create nginx CR: %v", err)
 			return err
@@ -397,20 +455,153 @@ func (r *ReconcileRpaasInstance) reconcileNginx(nginx *nginxv1alpha1.Nginx) erro
 	}
 
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
-	err = r.client.Update(context.TODO(), nginx)
+	err = r.client.Update(ctx, nginx)
 	if err != nil {
 		logrus.Errorf("Failed to update nginx CR: %v", err)
 	}
 	return err
 }
 
-func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
-	blocks, err := r.getConfigurationBlocks(instance, plan)
+func (r *ReconcileRpaasInstance) reconcileCacheSnapshot(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+	if plan.Spec.Config.CacheSnapshotEnabled {
+		err := r.reconcileCacheSnapshotCronJob(ctx, instance, plan)
+		if err != nil {
+			return err
+		}
+		return r.reconcileCacheSnapshotVolume(ctx, instance, plan)
+	}
+
+	err := r.destroyCacheSnapshotCronJob(ctx, instance)
+	if err != nil {
+		return err
+	}
+	return r.destroyCacheSnapshotVolume(ctx, instance)
+}
+
+func (r *ReconcileRpaasInstance) reconcileCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+	foundCronJob := &batchv1beta1.CronJob{}
+	cronName := instance.Name + cacheSnapshotCronJobSuffix
+	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
+	if err != nil && !k8sErrors.IsNotFound(err) {
+		return err
+	}
+
+	newestCronJob := newCronJob(instance, plan)
+	if k8sErrors.IsNotFound(err) {
+		return r.client.Create(ctx, newestCronJob)
+	}
+
+	newestCronJob.ObjectMeta.ResourceVersion = foundCronJob.ObjectMeta.ResourceVersion
+	if !reflect.DeepEqual(foundCronJob.Spec, newestCronJob.Spec) {
+		return r.client.Update(ctx, newestCronJob)
+	}
+
+	return nil
+}
+
+func (r *ReconcileRpaasInstance) destroyCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	cronName := instance.Name + cacheSnapshotCronJobSuffix
+	cronJob := &batchv1beta1.CronJob{}
+
+	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
+	isNotFound := k8sErrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return err
+	} else if isNotFound {
+		return nil
+	}
+
+	logrus.Infof("deleting cronjob %s", cronName)
+	return r.client.Delete(ctx, cronJob)
+}
+func (r *ReconcileRpaasInstance) reconcileCacheSnapshotVolume(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
+	pvcName := instance.Name + cacheSnapshotVolumeSuffix
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
+	isNotFound := k8sErrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return err
+	} else if !isNotFound {
+		return nil
+	}
+
+	cacheSnapshotStorage := plan.Spec.Config.CacheSnapshotStorage
+	volumeMode := corev1.PersistentVolumeFilesystem
+	labels := labelsForRpaasInstance(instance)
+	if teamOwner := instance.TeamOwner(); teamOwner != "" {
+		labels[volumeTeamLabel] = teamOwner
+	}
+	for k, v := range cacheSnapshotStorage.VolumeLabels {
+		labels[k] = v
+	}
+
+	pvc = &corev1.PersistentVolumeClaim{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      pvcName,
+			Namespace: instance.Namespace,
+			Labels:    labels,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "PersistentVolumeClaim",
+		},
+		Spec: corev1.PersistentVolumeClaimSpec{
+			AccessModes: []corev1.PersistentVolumeAccessMode{
+				corev1.ReadWriteMany,
+			},
+			VolumeMode:       &volumeMode,
+			StorageClassName: cacheSnapshotStorage.StorageClassName,
+		},
+	}
+
+	storageSize := plan.Spec.Config.CacheSize
+	if cacheSnapshotStorage.StorageSize != nil && !cacheSnapshotStorage.StorageSize.IsZero() {
+		storageSize = cacheSnapshotStorage.StorageSize
+	}
+
+	if storageSize != nil && !storageSize.IsZero() {
+		pvc.Spec.Resources = corev1.ResourceRequirements{
+			Requests: corev1.ResourceList{
+				"storage": *storageSize,
+			},
+		}
+	}
+
+	logrus.Infof("creating PersistentVolumeClaim %s", pvcName)
+	return r.client.Create(ctx, pvc)
+}
+
+func (r *ReconcileRpaasInstance) destroyCacheSnapshotVolume(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	pvcName := instance.Name + cacheSnapshotVolumeSuffix
+
+	pvc := &corev1.PersistentVolumeClaim{}
+	err := r.client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
+	isNotFound := k8sErrors.IsNotFound(err)
+	if err != nil && !isNotFound {
+		return err
+	} else if isNotFound {
+		return nil
+	}
+
+	logrus.Infof("deleting PersistentVolumeClaim %s", pvcName)
+	return r.client.Delete(ctx, pvc)
+}
+
+func (r *ReconcileRpaasInstance) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
+	blocks, err := r.getConfigurationBlocks(ctx, instance, plan)
 	if err != nil {
 		return "", err
 	}
 
-	if err = r.updateLocationValues(instance); err != nil {
+	if err = r.updateLocationValues(ctx, instance); err != nil {
 		return "", err
 	}
 
@@ -425,11 +616,11 @@ func (r *ReconcileRpaasInstance) renderTemplate(instance *v1alpha1.RpaasInstance
 	})
 }
 
-func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {
+func (r *ReconcileRpaasInstance) getConfigurationBlocks(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {
 	var blocks nginx.ConfigurationBlocks
 
 	if plan.Spec.Template != nil {
-		mainBlock, err := util.GetValue(context.TODO(), r.client, "", plan.Spec.Template)
+		mainBlock, err := util.GetValue(ctx, r.client, "", plan.Spec.Template)
 		if err != nil {
 			return blocks, err
 		}
@@ -438,7 +629,7 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 	}
 
 	for blockType, blockValue := range instance.Spec.Blocks {
-		content, err := util.GetValue(context.TODO(), r.client, instance.Namespace, &blockValue)
+		content, err := util.GetValue(ctx, r.client, instance.Namespace, &blockValue)
 		if err != nil {
 			return blocks, err
 		}
@@ -460,13 +651,13 @@ func (r *ReconcileRpaasInstance) getConfigurationBlocks(instance *v1alpha1.Rpaas
 	return blocks, nil
 }
 
-func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasInstance) error {
+func (r *ReconcileRpaasInstance) updateLocationValues(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	for _, location := range instance.Spec.Locations {
 		if location.Content == nil {
 			continue
 		}
 
-		content, err := util.GetValue(context.TODO(), r.client, instance.Namespace, location.Content)
+		content, err := util.GetValue(ctx, r.client, instance.Namespace, location.Content)
 		if err != nil {
 			return err
 		}
@@ -476,7 +667,7 @@ func (r *ReconcileRpaasInstance) updateLocationValues(instance *v1alpha1.RpaasIn
 	return nil
 }
 
-func (r *ReconcileRpaasInstance) listConfigs(instance *v1alpha1.RpaasInstance) (*corev1.ConfigMapList, error) {
+func (r *ReconcileRpaasInstance) listConfigs(ctx context.Context, instance *v1alpha1.RpaasInstance) (*corev1.ConfigMapList, error) {
 	configList := &corev1.ConfigMapList{}
 	listOptions := &client.ListOptions{Namespace: instance.ObjectMeta.Namespace}
 	client.MatchingLabels(map[string]string{
@@ -484,16 +675,16 @@ func (r *ReconcileRpaasInstance) listConfigs(instance *v1alpha1.RpaasInstance) (
 		"type":     "config",
 	}).ApplyToList(listOptions)
 
-	err := r.client.List(context.TODO(), configList, listOptions)
+	err := r.client.List(ctx, configList, listOptions)
 	return configList, err
 }
 
-func (r *ReconcileRpaasInstance) deleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.ConfigMapList) error {
+func (r *ReconcileRpaasInstance) deleteOldConfig(ctx context.Context, instance *v1alpha1.RpaasInstance, configList *corev1.ConfigMapList) error {
 	list := configList.Items
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].ObjectMeta.CreationTimestamp.String() < list[j].ObjectMeta.CreationTimestamp.String()
 	})
-	if err := r.client.Delete(context.TODO(), &list[0]); err != nil {
+	if err := r.client.Delete(ctx, &list[0]); err != nil {
 		return err
 	}
 	return nil
@@ -501,14 +692,15 @@ func (r *ReconcileRpaasInstance) deleteOldConfig(instance *v1alpha1.RpaasInstanc
 
 func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(renderedTemplate)))
+	labels := labelsForRpaasInstance(instance)
+	labels["type"] = "config"
+	labels["instance"] = instance.Name
+
 	return &corev1.ConfigMap{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-config-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
-			Labels: map[string]string{
-				"type":     "config",
-				"instance": instance.Name,
-			},
+			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.SchemeGroupVersion.Group,
@@ -532,12 +724,11 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
-		cacheMaxSize, err := k8sResources.ParseQuantity(plan.Spec.Config.CacheSize)
-		if err == nil && !cacheMaxSize.IsZero() {
-			cacheConfig.Size = &cacheMaxSize
+		if plan.Spec.Config.CacheSize != nil && !plan.Spec.Config.CacheSize.IsZero() {
+			cacheConfig.Size = plan.Spec.Config.CacheSize
 		}
 	}
-	return &nginxv1alpha1.Nginx{
+	n := &nginxv1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
@@ -548,6 +739,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 					Kind:    "RpaasInstance",
 				}),
 			},
+			Labels: labelsForRpaasInstance(instance),
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Nginx",
@@ -570,9 +762,56 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			Lifecycle:       instance.Spec.Lifecycle,
 		},
 	}
+
+	if !plan.Spec.Config.CacheSnapshotEnabled {
+		return n
+	}
+
+	initCmd := defaultCacheSnapshotCmdPVCToPod
+	if len(plan.Spec.Config.CacheSnapshotSync.CmdPVCToPod) > 0 {
+		initCmd = plan.Spec.Config.CacheSnapshotSync.CmdPVCToPod
+	}
+
+	n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
+		Name: "cache-snapshot-volume",
+		VolumeSource: corev1.VolumeSource{
+			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
+				ClaimName: instance.Name + cacheSnapshotVolumeSuffix,
+			},
+		},
+	})
+
+	cacheSnapshotVolume := corev1.VolumeMount{
+		Name:      "cache-snapshot-volume",
+		MountPath: cacheSnapshotMountPoint,
+	}
+
+	n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, cacheSnapshotVolume)
+
+	n.Spec.PodTemplate.InitContainers = append(n.Spec.PodTemplate.InitContainers, corev1.Container{
+		Name:  "restore-snapshot",
+		Image: plan.Spec.Image,
+		Command: []string{
+			initCmd[0],
+		},
+		Args: initCmd[1:],
+		VolumeMounts: []corev1.VolumeMount{
+			cacheSnapshotVolume,
+			{
+				Name:      "cache-vol",
+				MountPath: plan.Spec.Config.CachePath,
+			},
+		},
+		Env: append(cacheSnapshotEnvVars(instance, plan), corev1.EnvVar{
+			Name:  "POD_CMD",
+			Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPVCToPod, plan),
+		}),
+	})
+
+	return n
 }
 
-func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
+func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
 	var metrics []autoscalingv2beta2.MetricSpec
 
 	if instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
@@ -615,12 +854,13 @@ func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscal
 			Name:      instance.Name,
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.SchemeGroupVersion.Group,
 					Version: v1alpha1.SchemeGroupVersion.Version,
 					Kind:    "RpaasInstance",
 				}),
 			},
+			Labels: labelsForRpaasInstance(instance),
 		},
 		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
@@ -632,6 +872,95 @@ func newHPA(instance v1alpha1.RpaasInstance, nginx nginxv1alpha1.Nginx) autoscal
 			MaxReplicas: instance.Spec.Autoscale.MaxReplicas,
 			Metrics:     metrics,
 		},
+	}
+}
+
+func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
+	cronName := instance.Name + cacheSnapshotCronJobSuffix
+
+	schedule := defaultCacheSnapshotSchedule
+	if plan.Spec.Config.CacheSnapshotSync.Schedule != "" {
+		schedule = plan.Spec.Config.CacheSnapshotSync.Schedule
+	}
+
+	image := defaultCacheSnapshotCronImage
+	if plan.Spec.Config.CacheSnapshotSync.Image != "" {
+		image = plan.Spec.Config.CacheSnapshotSync.Image
+	}
+
+	cmds := defaultCacheSnapshotCmdPodToPVC
+	if len(plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC) > 0 {
+		cmds = plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC
+	}
+	jobLabels := labelsForRpaasInstance(instance)
+	jobLabels["log-app-name"] = instance.Name
+	jobLabels["log-process-name"] = "cache-synchronize"
+
+	return &batchv1beta1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      cronName,
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Labels: labelsForRpaasInstance(instance),
+		},
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1beta1",
+			Kind:       "CronJob",
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule:          schedule,
+			ConcurrencyPolicy: batchv1beta1.ForbidConcurrent,
+			JobTemplate: batchv1beta1.JobTemplateSpec{
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Labels: jobLabels,
+						},
+						Spec: corev1.PodSpec{
+							ServiceAccountName: "rpaas-cache-snapshot-cronjob",
+							Containers: []corev1.Container{
+								{
+									Name:  "cache-synchronize",
+									Image: image,
+									Command: []string{
+										cmds[0],
+									},
+									Args: cmds[1:],
+									Env: append(cacheSnapshotEnvVars(instance, plan), corev1.EnvVar{
+										Name:  "POD_CMD",
+										Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPodToPVC, plan),
+									}),
+								},
+							},
+							RestartPolicy: corev1.RestartPolicyNever,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func interpolateCacheSnapshotPodCmdTemplate(podCmd string, plan *v1alpha1.RpaasPlan) string {
+	replacer := strings.NewReplacer(
+		"${CACHE_SNAPSHOT_MOUNTPOINT}", cacheSnapshotMountPoint,
+		"${CACHE_PATH}", plan.Spec.Config.CachePath,
+	)
+	return replacer.Replace(podCmd)
+}
+
+func cacheSnapshotEnvVars(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) []corev1.EnvVar {
+	return []corev1.EnvVar{
+		{Name: "SERVICE_NAME", Value: instance.Namespace},
+		{Name: "INSTANCE_NAME", Value: instance.Name},
+		{Name: "CACHE_SNAPSHOT_MOUNTPOINT", Value: cacheSnapshotMountPoint},
+		{Name: "CACHE_PATH", Value: plan.Spec.Config.CachePath},
 	}
 }
 
@@ -840,4 +1169,11 @@ func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *e
 	}
 
 	return instancePorts, nil
+}
+
+func labelsForRpaasInstance(instance *extensionsv1alpha1.RpaasInstance) map[string]string {
+	return map[string]string{
+		"rpaas.extensions.tsuru.io/instance-name": instance.Name,
+		"rpaas.extensions.tsuru.io/plan-name":     instance.Spec.PlanName,
+	}
 }

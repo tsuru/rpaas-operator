@@ -12,9 +12,13 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
 
 func TestRpaasConfigurationRenderer_Render(t *testing.T) {
+	size100MB := resource.MustParse("100Mi")
+	size300MB := resource.MustParse("300Mi")
+
 	tests := []struct {
 		name      string
 		blocks    ConfigurationBlocks
@@ -70,12 +74,12 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					CacheEnabled:  v1alpha1.Bool(true),
 					CachePath:     "/path/to/cache/dir",
-					CacheZoneSize: "100m",
+					CacheZoneSize: &size100MB,
 				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100m;`, result)
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:104857600;`, result)
 				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
 				assert.Regexp(t, `server {
 \s+listen 8800;
@@ -83,6 +87,8 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_cache_purge rpaas \$1\$is_args\$args;
 \s+}
 \s+}`, result)
+				assert.Regexp(t, `proxy_cache rpaas;`, result)
+
 			},
 		},
 		{
@@ -93,13 +99,13 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 					CachePath:        "/path/to/cache/dir",
 					CacheInactive:    "12h",
 					CacheLoaderFiles: 1000,
-					CacheSize:        "300m",
-					CacheZoneSize:    "100m",
+					CacheSize:        &size300MB,
+					CacheZoneSize:    &size100MB,
 				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:100m inactive=12h max_size=300m loader_files=1000;`, result)
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:104857600 inactive=12h max_size=314572800 loader_files=1000;`, result)
 				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
 				assert.Regexp(t, `server {
 \s+listen 8800;
@@ -554,5 +560,28 @@ func Test_hasRootPath(t *testing.T) {
 			got := hasRootPath(tt.locations)
 			assert.Equal(t, tt.expected, got)
 		})
+	}
+}
+
+func TestK8sQuantityToNginx(t *testing.T) {
+	type expectation struct {
+		k8sQuantity   string
+		nginxQuantity string
+	}
+
+	expectations := []expectation{
+		{"100Ki", "102400"},
+		{"100Mi", "104857600"},
+		{"100M", "100000000"},
+		{"1Gi", "1073741824"},
+		{"1G", "1000000000"},
+		{"1024Gi", "1099511627776"},
+		{"2Ti", "2199023255552"},
+	}
+
+	for _, expectation := range expectations {
+		k8sQuantity := resource.MustParse(expectation.k8sQuantity)
+		nginxQuantity := k8sQuantityToNginx(&k8sQuantity)
+		assert.Equal(t, expectation.nginxQuantity, nginxQuantity)
 	}
 }

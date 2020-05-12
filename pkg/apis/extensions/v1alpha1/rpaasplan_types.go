@@ -6,6 +6,7 @@ package v1alpha1
 
 import (
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -59,12 +60,16 @@ type NginxConfig struct {
 
 	UpstreamKeepalive int `json:"upstreamKeepalive,omitempty"`
 
-	CacheEnabled     *bool  `json:"cacheEnabled,omitempty"`
-	CacheInactive    string `json:"cacheInactive,omitempty"`
-	CacheLoaderFiles int    `json:"cacheLoaderFiles,omitempty"`
-	CachePath        string `json:"cachePath,omitempty"`
-	CacheSize        string `json:"cacheSize,omitempty"`
-	CacheZoneSize    string `json:"cacheZoneSize,omitempty"`
+	CacheEnabled     *bool              `json:"cacheEnabled,omitempty"`
+	CacheInactive    string             `json:"cacheInactive,omitempty"`
+	CacheLoaderFiles int                `json:"cacheLoaderFiles,omitempty"`
+	CachePath        string             `json:"cachePath,omitempty"`
+	CacheSize        *resource.Quantity `json:"cacheSize,omitempty"`
+	CacheZoneSize    *resource.Quantity `json:"cacheZoneSize,omitempty"`
+
+	CacheSnapshotEnabled bool                  `json:"cacheSnapshotEnabled,omitempty"`
+	CacheSnapshotStorage CacheSnapshotStorage  `json:"cacheSnapshotStorage,omitempty"`
+	CacheSnapshotSync    CacheSnapshotSyncSpec `json:"cacheSnapshotSync,omitempty"`
 
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
@@ -79,6 +84,27 @@ type NginxConfig struct {
 
 	WorkerProcesses   int `json:"workerProcesses,omitempty"`
 	WorkerConnections int `json:"workerConnections,omitempty"`
+}
+
+type CacheSnapshotSyncSpec struct {
+	// Schedule is the the cron time string format, see https://en.wikipedia.org/wiki/Cron.
+	Schedule string `json:"schedule,omitempty"`
+
+	// Container is the image used to sync the containers
+	// default is bitnami/kubectl:latest
+	Image string `json:"image,omitempty"`
+
+	// CmdPodToPVC is used to customize command used to sync memory cache (POD) to persistent storage (PVC)
+	CmdPodToPVC []string `json:"cmdPodToPVC,omitempty"`
+
+	// CmdPVCToPod is used to customize command used to sync persistent storage (PVC) to memory cache (POD)
+	CmdPVCToPod []string `json:"cmdPVCToPod,omitempty"`
+}
+
+type CacheSnapshotStorage struct {
+	StorageClassName *string            `json:"storageClassName,omitempty"`
+	StorageSize      *resource.Quantity `json:"storageSize,omitempty"`
+	VolumeLabels     map[string]string  `json:"volumeLabels,omitempty"`
 }
 
 func Bool(v bool) *bool {
