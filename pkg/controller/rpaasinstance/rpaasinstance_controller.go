@@ -79,7 +79,7 @@ exit 1
 		`
 mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/temp;
 mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx;
-mkdir -p ${CACHE_PATH}/rpaas/nginx_tmp;
+mkdir -p ${CACHE_PATH}/nginx_tmp;
 ${POD_CMD}
 `}
 )
