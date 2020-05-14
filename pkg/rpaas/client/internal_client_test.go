@@ -148,7 +148,7 @@ func TestClientThroughTsuru_Scale(t *testing.T) {
 				Instance: "my-instance",
 				Replicas: int32(777),
 			},
-			expectedError: ErrUnexpectedStatusCode.Error(),
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -240,7 +240,7 @@ func TestClientThroughTsuru_UpdateCertificate(t *testing.T) {
 				Certificate: `my certificate`,
 				Key:         `my key`,
 			},
-			expectedError: ErrUnexpectedStatusCode.Error(),
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -312,7 +312,7 @@ func TestClientThroughTsuru_UpdateBlock(t *testing.T) {
 				Name:     "server",
 				Content:  "Some NGINX snippet",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -371,7 +371,7 @@ func TestClientThroughTsuru_DeleteBlock(t *testing.T) {
 				Instance: "my-instance",
 				Name:     "server",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -410,7 +410,7 @@ func TestClientThroughTsuru_ListBlocks(t *testing.T) {
 			args: ListBlocksArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -480,7 +480,7 @@ func TestClientThroughTsuru_DeleteRoute(t *testing.T) {
 				Instance: "my-instance",
 				Path:     "/custom/path",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -534,7 +534,7 @@ func TestClientThroughTsuru_ListRoutes(t *testing.T) {
 			args: ListRoutesArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -650,7 +650,7 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 				Path:        "/app",
 				Destination: "app.tsuru.example.com",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -717,7 +717,7 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 				CPU:         int32(27),
 				Memory:      int32(33),
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -829,7 +829,7 @@ func TestClientThroughTsuru_GetAutoscale(t *testing.T) {
 			args: GetAutoscaleArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -880,7 +880,7 @@ func TestClientThroughTsuru_RemoveAutoscale(t *testing.T) {
 			args: RemoveAutoscaleArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")

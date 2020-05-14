@@ -29,13 +29,18 @@ var (
 	ErrMissingInstance          = fmt.Errorf("rpaasv2: instance cannot be empty")
 	ErrMissingBlockName         = fmt.Errorf("rpaasv2: block name cannot be empty")
 	ErrMissingPath              = fmt.Errorf("rpaasv2: path cannot be empty")
-	ErrUnexpectedStatusCode     = fmt.Errorf("rpaasv2: unexpected status code")
 	ErrInvalidMaxReplicasNumber = fmt.Errorf("rpaasv2: max replicas can't be lower than 1")
 	ErrInvalidMinReplicasNumber = fmt.Errorf("rpaasv2: min replicas can't be lower than 1 and can't be higher than the maximum number of replicas")
 	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%%")
 	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: memory usage can't be lower than 1%%")
 	ErrMissingValues            = fmt.Errorf("rpaasv2: values can't be all empty")
 )
+
+type ErrUnexpectedStatusCode string
+
+func (statusCode ErrUnexpectedStatusCode) Error() string {
+	return fmt.Sprintf("rpaasv2: unexpected status code: %s", string(statusCode))
+}
 
 type ClientOptions struct {
 	Timeout time.Duration
@@ -153,7 +158,7 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode
+		return response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	return response, nil
@@ -182,15 +187,15 @@ func (c *client) Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, 
 		return nil, nil, err
 	}
 
+	if response.StatusCode != http.StatusOK {
+		return nil, response, ErrUnexpectedStatusCode(response.Status)
+	}
+
 	defer response.Body.Close()
 	var infoPayload types.InstanceInfo
 	err = json.NewDecoder(response.Body).Decode(&infoPayload)
 	if err != nil {
 		return nil, nil, err
-	}
-
-	if response.StatusCode != http.StatusOK {
-		return nil, response, ErrUnexpectedStatusCode
 	}
 
 	return &infoPayload, response, nil
@@ -228,7 +233,7 @@ func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateAr
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode
+		return response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	return response, nil
@@ -266,7 +271,7 @@ func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.R
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode
+		return response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	return response, nil
@@ -300,7 +305,7 @@ func (c *client) DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.R
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode
+		return response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	return response, nil
@@ -330,7 +335,7 @@ func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.B
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return nil, response, ErrUnexpectedStatusCode
+		return nil, response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	var blockList struct {
@@ -371,7 +376,7 @@ func (c *client) DeleteRoute(ctx context.Context, args DeleteRouteArgs) (*http.R
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode
+		return response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	return response, nil
@@ -401,7 +406,7 @@ func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.R
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return nil, response, ErrUnexpectedStatusCode
+		return nil, response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	var routes struct {
@@ -442,7 +447,7 @@ func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.R
 	}
 
 	if response.StatusCode != http.StatusCreated {
-		return response, ErrUnexpectedStatusCode
+		return response, ErrUnexpectedStatusCode(response.Status)
 	}
 
 	return response, nil
@@ -472,7 +477,7 @@ func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*type
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, resp, ErrUnexpectedStatusCode
+		return nil, resp, ErrUnexpectedStatusCode(resp.Status)
 	}
 
 	defer resp.Body.Close()
@@ -535,7 +540,7 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return resp, ErrUnexpectedStatusCode
+		return resp, ErrUnexpectedStatusCode(resp.Status)
 	}
 
 	return resp, nil
@@ -564,7 +569,7 @@ func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) 
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return resp, ErrUnexpectedStatusCode
+		return resp, ErrUnexpectedStatusCode(resp.Status)
 	}
 
 	return resp, nil
