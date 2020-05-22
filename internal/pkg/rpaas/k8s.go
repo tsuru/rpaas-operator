@@ -15,6 +15,8 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net"
+	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
@@ -35,8 +37,14 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -51,13 +59,125 @@ var _ RpaasManager = &k8sRpaasManager{}
 type k8sRpaasManager struct {
 	cli          client.Client
 	cacheManager CacheManager
+	restConfig   *rest.Config
 }
 
-func NewK8S(k8sClient client.Client) RpaasManager {
+func NewK8S(mgr manager.Manager) (RpaasManager, error) {
+	mgrConfig := mgr.GetConfig()
+	nonCachedCli, err := client.New(mgrConfig, client.Options{
+		Scheme: mgr.GetScheme(),
+		Mapper: mgr.GetRESTMapper(),
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &k8sRpaasManager{
 		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
+		restConfig:   mgrConfig,
+	}, nil
+}
+
+func keepAliveSpdyExecutor(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
+	tlsConfig, err := rest.TLSConfigFor(config)
+	if err != nil {
+		return nil, err
 	}
+	upgradeRoundTripper := spdy.NewSpdyRoundTripper(tlsConfig, true, false)
+	upgradeRoundTripper.Dialer = &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 10 * time.Second,
+	}
+	wrapper, err := rest.HTTPWrappersForConfig(config, upgradeRoundTripper)
+	if err != nil {
+		return nil, err
+	}
+	return remotecommand.NewSPDYExecutorForTransports(wrapper, upgradeRoundTripper, method, url)
+}
+
+type fixedSizeQueue struct {
+	sz *remotecommand.TerminalSize
+}
+
+func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
+	defer func() { q.sz = nil }()
+	return q.sz
+}
+
+func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
+	gv, err := schema.ParseGroupVersion("/v1")
+	if err != nil {
+		return err
+	}
+	m.restConfig.ContentConfig.GroupVersion = &gv
+	m.restConfig.ContentConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
+	m.restConfig.APIPath = "/api"
+	//  fmt.Printf("restconf: %s\n\n", m.restConfig.APIPath)
+	restCli, err := rest.RESTClientFor(m.restConfig)
+	if err != nil {
+		return err
+	}
+
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil {
+		return err
+	}
+	pods, err := m.getPods(ctx, nginx)
+	if err != nil {
+		return err
+	}
+	var chosenPod corev1.Pod
+	for _, pod := range pods {
+		for _, c := range pod.Status.Conditions {
+			if c.Type == "Ready" {
+				if c.Status == "True" {
+					chosenPod = pod
+					break
+				}
+			}
+		}
+	}
+	// if chosenPod.ObjectMeta.Name == "" {
+	// 	return errors.New("No pod available")
+	// }
+	chosenName := chosenPod.Spec.Containers[0].Name
+
+	req := restCli.Post().
+		Resource("pods").
+		Name(chosenPod.Name).
+		Namespace(chosenPod.Namespace).
+		SubResource("exec")
+	req.VersionedParams(&corev1.PodExecOptions{
+		Container: chosenName,
+		Command:   args.Command,
+		Stdin:     args.Stdin != nil,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       args.Tty,
+	}, scheme.ParameterCodec)
+
+	executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("URL: %s\n\n", req.URL())
+
+	return executor.Stream(remotecommand.StreamOptions{
+		Stdin:  args.Stdin,
+		Stdout: args.Stdout,
+		Stderr: args.Stderr,
+		Tty:    args.Tty,
+		TerminalSizeQueue: &fixedSizeQueue{
+			sz: &remotecommand.TerminalSize{
+				Width:  uint16(100),
+				Height: uint16(80),
+			}},
+	})
 }
 
 func (m *k8sRpaasManager) DeleteInstance(ctx context.Context, name string) error {

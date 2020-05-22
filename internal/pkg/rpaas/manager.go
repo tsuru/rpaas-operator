@@ -10,6 +10,7 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
+	"io"
 	"sort"
 	"strings"
 
@@ -172,6 +173,16 @@ type AutoscaleHandler interface {
 	DeleteAutoscale(ctx context.Context, name string) error
 }
 
+type ExecArgs struct {
+	Stdin          io.ReadCloser
+	Stdout         io.Writer
+	Stderr         io.Writer
+	Command        []string
+	Tty            bool
+	TerminalWidth  string `json:"width"`
+	TerminalHeight string `json:"height"`
+}
+
 type RpaasManager interface {
 	ConfigurationBlockHandler
 	ExtraFileHandler
@@ -194,6 +205,7 @@ type RpaasManager interface {
 	UnbindApp(ctx context.Context, instanceName, appName string) error
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
 	GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error)
+	Exec(ctx context.Context, instanceName string, args ExecArgs) error
 }
 
 type CertificateData struct {

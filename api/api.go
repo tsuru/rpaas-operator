@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
+	"regexp"
 	"sync"
 	"syscall"
 	"time"
@@ -22,6 +23,8 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
+	"golang.org/x/net/http2"
+	"golang.org/x/net/http2/h2c"
 )
 
 type api struct {
@@ -56,9 +59,13 @@ func New(manager rpaas.RpaasManager) (*api, error) {
 		Address:         `:9999`,
 		TLSAddress:      `:9993`,
 		ShutdownTimeout: 30 * time.Second,
-		e:               newEcho(manager),
+		e:               newEcho(rm),
+		mgr:             mgr,
 		shutdown:        make(chan struct{}),
-	}, nil
+		rpaasManager:    rm,
+	}
+	// a.e.Use(a.rpaasManagerInjector())
+	return a, nil
 }
 
 func (a *api) startServer() error {
@@ -140,12 +147,25 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func newEcho(manager rpaas.RpaasManager) *echo.Echo {
+func getInstance(urlPath string) string {
+	re := regexp.MustCompile(`.*\/resources\/(.*)\/`)
+	s := re.FindStringSubmatch(urlPath)
+	return s[1]
+}
+
+func newEcho(mgr rpaas.RpaasManager) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
+	e.Use(
+		func(next echo.HandlerFunc) echo.HandlerFunc {
+			return func(ctx echo.Context) error {
+				setManager(ctx, mgr)
+				return next(ctx)
+			}
+		})
 	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
 		Skipper: func(c echo.Context) bool {
 			conf := config.Get()
@@ -207,6 +227,36 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e.GET("/resources/:instance/route", getRoutes)
 	e.POST("/resources/:instance/route", updateRoute)
 	e.POST("/resources/:instance/purge", cachePurge)
+
+	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		var useTty bool
+		if tty := r.FormValue("tty"); tty == "true" {
+			useTty = true
+		}
+		if r.URL == nil {
+			w.Write([]byte("missing URL"))
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+
+		instanceName := getInstance(r.URL.Path)
+		err := mgr.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
+			Stdin:          nil,
+			Stdout:         w,
+			Stderr:         w,
+			Tty:            useTty,
+			Command:        []string{"uptime"},
+			TerminalWidth:  r.FormValue("w"),
+			TerminalHeight: r.FormValue("r"),
+		})
+		if err != nil {
+			fmt.Printf("error: %#v\n\n", err)
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+		}
+	})
+	h2s := &http2.Server{}
+	e.Any("/resources/:instance/exec", echo.WrapHandler(h2c.NewHandler(handler, h2s)))
 
 	return e
 }
