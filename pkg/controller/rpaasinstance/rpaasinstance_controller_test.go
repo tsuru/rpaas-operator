@@ -6,7 +6,9 @@ package rpaasinstance
 
 import (
 	"context"
+	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -1579,4 +1581,34 @@ func TestReconcile(t *testing.T) {
 func resourceMustParsePtr(fmt string) *resource.Quantity {
 	qty := resource.MustParse(fmt)
 	return &qty
+}
+
+func TestDurationToSchedule(t *testing.T) {
+	tests := []struct {
+		input time.Duration
+		want  string
+	}{
+		{
+			want: "*/1 * * * *",
+		},
+		{
+			input: time.Hour,
+			want:  "*/60 * * * *",
+		},
+		{
+			input: 12 * time.Hour,
+			want:  "*/720 * * * *",
+		},
+		{
+			input: 5*time.Minute + 30*time.Second,
+			want:  "*/5 * * * *",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%s == %q", tt.input, tt.want), func(t *testing.T) {
+			have := durationToSchedule(tt.input)
+			assert.Equal(t, tt.want, have)
+		})
+	}
 }

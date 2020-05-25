@@ -7,12 +7,15 @@ package rpaasinstance
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"reflect"
 	"sort"
 	"strings"
 	"text/template"
+	"time"
 
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
@@ -56,6 +59,9 @@ const (
 
 	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_SNAPSHOT_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_SNAPSHOT_MOUNTPOINT}"
 	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx ${CACHE_PATH}"
+
+	currentSessionTicketLabelKey  = "current.key"
+	previousSessionTicketLabelKey = "previous.key"
 )
 
 var (
@@ -82,6 +88,69 @@ mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx;
 mkdir -p ${CACHE_PATH}/nginx_tmp;
 ${POD_CMD}
 `}
+
+	scriptSessionTicket = `
+#!/bin/bash
+set -euf -o pipefail
+
+KUBECTL=${KUBECTL:-kubectl}
+OPENSSL=${OPENSSL:-openssl}
+BASE64=${BASE64:-base64}
+
+SESSION_TICKET_KEY_LENGTH=${SESSION_TICKET_KEY_LENGTH:?Missing required}
+SECRET_NAME=${SECRET_NAME:?Missing}
+SECRET_NAMESPACE=${SECRET_NAMESPACE:?Missing}
+
+function validate_key_length() {
+  case ${SESSION_TICKET_KEY_LENGTH} in
+    48|80)
+      ;;
+    *)
+      echo "Nginx only has support to session tickets with 48 or 80 bytes of length" >/dev/stderr
+      exit 1
+  esac
+}
+
+function generate_key() {
+  local key_length=${1}
+  base64 -w0 <(${OPENSSL} rand ${key_length})
+}
+
+function json_merge_patch_payload() {
+  local key=${1}
+
+  cat <<-EOL
+[
+  {
+    "op": "copy",
+    "from": "/data/current.key",
+    "path": "/data/previous.key"
+  },
+  {
+    "op": "replace",
+    "path": "/data/current.key",
+    "value": "${key}"
+  }
+]
+EOL
+}
+
+function rotate_session_tickets() {
+  local key=${1}
+
+  ${KUBECTL} patch secrets ${SECRET_NAME} --namespace ${SECRET_NAMESPACE} --type=json \
+    --patch="$(json_merge_patch_payload ${key})"
+}
+
+rotate_session_tickets $(generate_key ${SESSION_TICKET_KEY_LENGTH})
+echo "TLS Session Tickets successfully rotated!"
+`
+
+	defaultSessionTicketRotateCommand = []string{
+		"/bin/bash",
+		"-c",
+		`echo "Hello world!"`,
+	}
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -232,6 +301,10 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
+	if err = r.reconcileTLSSessionResumption(ctx, instance); err != nil {
+		return reconcile.Result{}, err
+	}
+
 	nginx := newNginx(instance, plan, configMap)
 
 	if err = r.reconcileNginx(ctx, nginx); err != nil {
@@ -352,6 +425,245 @@ func (r *ReconcileRpaasInstance) listDefaultFlavors(ctx context.Context, instanc
 	}
 	sort.SliceStable(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result, nil
+}
+
+func (r *ReconcileRpaasInstance) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	logger := log.WithName("reconcileTLSSessionResumption").
+		WithValues("RpaasInstance", fmt.Sprintf("%s/%s", instance.Namespace, instance.Name))
+
+	if instance.Spec.TLSSessionResumption == nil {
+		logger.V(3).Info("there are no TLS session resumption enabled")
+		return nil
+	}
+
+	if instance.Spec.TLSSessionResumption.SessionTicket == nil {
+		logger.V(3).Info("TLS session ticket is not enabled")
+		return nil
+	}
+
+	secret, err := r.reconcileSecretForSessionTicket(ctx, instance)
+	if err != nil {
+		return err
+	}
+
+	return r.reconcileCronJobForSessioTickets(ctx, instance, secret)
+}
+
+func (r *ReconcileRpaasInstance) reconcileSecretForSessionTicket(ctx context.Context, instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
+	logger := log.WithName("bbbbbbbbb")
+
+	newSecret, err := newSecretForTLSSessionTickets(instance)
+	if err != nil {
+		return nil, err
+	}
+
+	secretObjectName := types.NamespacedName{
+		Name:      newSecret.Name,
+		Namespace: newSecret.Namespace,
+	}
+
+	err = r.client.Get(ctx, secretObjectName, newSecret)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		logger.V(3).Info("Secret with session tickets not found")
+
+		if err = r.client.Create(ctx, newSecret); err != nil {
+			return nil, err
+		}
+
+		logger.V(3).Info("Secret with the generated session tickets was created")
+	}
+
+	if err != nil {
+		logger.Error(err, "could not get the Secret resource")
+		return nil, err
+	}
+
+	return newSecret, nil
+}
+
+func (r *ReconcileRpaasInstance) reconcileCronJobForSessioTickets(ctx context.Context, instance *v1alpha1.RpaasInstance, secret *corev1.Secret) error {
+	cronJob := newCronJobTLSSessionTicket(instance, secret)
+
+	var cj batchv1beta1.CronJob
+
+	cronjobName := types.NamespacedName{
+		Name:      cronJob.Name,
+		Namespace: cronJob.Namespace,
+	}
+
+	err := r.client.Get(ctx, cronjobName, &cj)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return r.client.Create(ctx, cronJob)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if reflect.DeepEqual(cronJob.Spec, cj.Spec) {
+		return nil
+	}
+
+	cronJob.ResourceVersion = cj.ResourceVersion
+	return r.client.Update(ctx, cronJob)
+}
+
+func newCronJobTLSSessionTicket(instance *v1alpha1.RpaasInstance, secret *corev1.Secret) *batchv1beta1.CronJob {
+	keyLength := instance.Spec.TLSSessionResumption.SessionTicket.KeyLength
+	if keyLength == v1alpha1.SessionTicketKeyLength(0) {
+		keyLength = v1alpha1.DefaultSessionTicketKeyLength
+	}
+
+	rotatationInterval := instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval
+	if rotatationInterval == 0 {
+		rotatationInterval = v1alpha1.DefaultSessionTicketKeyRotationInteval
+	}
+
+	image := defaultCacheSnapshotCronImage
+
+	return &batchv1beta1.CronJob{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1beta1",
+			Kind:       "CronJob",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-session-tickets-rotator", instance.Name),
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Labels: labelsForRpaasInstance(instance),
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule:          durationToSchedule(rotatationInterval),
+			ConcurrencyPolicy: batchv1beta1.ReplaceConcurrent,
+			JobTemplate: batchv1beta1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+					Labels:      labelsForRpaasInstance(instance),
+				},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								"rotate_session_tickets.sh": scriptSessionTicket,
+							},
+						},
+						Spec: corev1.PodSpec{
+							ServiceAccountName: "rpaas-session-tickets-rotator",
+							Containers: []corev1.Container{
+								{
+									Name:    "session-ticket-rotator",
+									Image:   image,
+									Command: []string{"/bin/bash"},
+									Args:    []string{"/var/run/rpaasv2/rotate_session_tickets.sh"},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "SECRET_NAME",
+											Value: secret.Name,
+										},
+										{
+											Name:  "SECRET_NAMESPACE",
+											Value: secret.Namespace,
+										},
+										{
+											Name:  "SESSION_TICKET_KEY_LENGTH",
+											Value: fmt.Sprint(keyLength),
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      "script",
+											MountPath: "/var/run/rpaasv2",
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: "script",
+									VolumeSource: corev1.VolumeSource{
+										DownwardAPI: &corev1.DownwardAPIVolumeSource{
+											Items: []corev1.DownwardAPIVolumeFile{
+												{
+													Path: "rotate_session_tickets.sh",
+													FieldRef: &corev1.ObjectFieldSelector{
+														FieldPath: fmt.Sprintf("metadata.annotations['%s']", "rotate_session_tickets.sh"),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+							RestartPolicy: corev1.RestartPolicyNever,
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
+	keyLength := instance.Spec.TLSSessionResumption.SessionTicket.KeyLength
+	if keyLength == v1alpha1.SessionTicketKeyLength(0) {
+		keyLength = v1alpha1.DefaultSessionTicketKeyLength
+	}
+
+	key1, err := generateSessionTicket(keyLength)
+	if err != nil {
+		return nil, err
+	}
+
+	key2, err := generateSessionTicket(keyLength)
+	if err != nil {
+		return nil, err
+	}
+
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s-session-tickets", instance.Name),
+			Namespace: instance.Namespace,
+			Labels:    labelsForRpaasInstance(instance),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+		},
+		Data: map[string][]byte{
+			currentSessionTicketLabelKey:  key1,
+			previousSessionTicketLabelKey: key2,
+		},
+	}, nil
+}
+
+func generateSessionTicket(keyLength v1alpha1.SessionTicketKeyLength) ([]byte, error) {
+	buffer := make([]byte, int(keyLength))
+	_, err := rand.Read(buffer)
+	if err != nil {
+		return nil, err
+	}
+
+	return base64Encode(buffer), nil
+}
+
+func base64Encode(src []byte) []byte {
+	encoding := base64.StdEncoding
+	dst := make([]byte, encoding.EncodedLen(len(src)))
+	encoding.Encode(dst, src)
+	return dst
 }
 
 func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
@@ -945,6 +1257,17 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 			},
 		},
 	}
+}
+
+func durationToSchedule(d time.Duration) string {
+	one := float64(1)
+
+	minutes := d.Truncate(time.Minute).Minutes()
+	if minutes < one {
+		minutes = one
+	}
+
+	return fmt.Sprintf("*/%.0f * * * *", minutes)
 }
 
 func interpolateCacheSnapshotPodCmdTemplate(podCmd string, plan *v1alpha1.RpaasPlan) string {

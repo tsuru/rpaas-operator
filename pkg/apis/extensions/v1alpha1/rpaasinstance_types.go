@@ -5,6 +5,8 @@
 package v1alpha1
 
 import (
+	"time"
+
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -79,6 +81,11 @@ type RpaasInstanceSpec struct {
 	// some event happens to nginx container.
 	// +optional
 	Lifecycle *nginxv1alpha1.NginxLifecycle `json:"lifecycle,omitempty"`
+
+	// TLSSessionResumption configures the instance to support session resumption
+	// using either session tickets or session ID (in the future).
+	// +optional
+	TLSSessionResumption *TLSSessionResumptionMode `json:"tlsSessionResumption,omitempty"`
 }
 
 type Bind struct {
@@ -160,6 +167,43 @@ type RpaasInstanceAutoscaleSpec struct {
 	// int32(80) equals to 80%.
 	// +optional
 	TargetMemoryUtilizationPercentage *int32 `json:"targetMemoryUtilizationPercentage,omitempty"`
+}
+
+type TLSSessionResumptionMode struct {
+	// SessionTicket configures the session ticket working.
+	// +optional
+	SessionTicket *TLSSessionTicket `json:"sessionTicket,omitempty"`
+}
+
+const (
+	// DefaultSessionTicketKeyRotationInteval holds the default time interval to
+	// rotate the session tickets: 1 hour.
+	DefaultSessionTicketKeyRotationInteval = time.Hour
+)
+
+type SessionTicketKeyLength uint16
+
+const (
+	// SessionTicketKeyLength48 represents 48 bytes of session ticket key length.
+	SessionTicketKeyLength48 = SessionTicketKeyLength(48)
+
+	// SessionTicketKeyLength80 represents 80 bytes of session ticket key length.
+	SessionTicketKeyLength80 = SessionTicketKeyLength(80)
+
+	// DefaultSessionTicketKeyLength holds the default session ticket key length.
+	DefaultSessionTicketKeyLength = SessionTicketKeyLength48
+)
+
+type TLSSessionTicket struct {
+	// KeyRotationInterval defines the time inverval wich the key rotation occurs.
+	// Defaults to a hour.
+	// +optional
+	KeyRotationInterval time.Duration `json:"keyRotationInterval,omitempty"`
+
+	// KeyLength defines the length used to generate session tickets.
+	// Defaults to 48 bytes.
+	// +optional
+	KeyLength SessionTicketKeyLength `json:"keyLength,omitempty"`
 }
 
 func init() {
