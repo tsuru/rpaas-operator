@@ -7,11 +7,13 @@ package client
 import (
 	"bytes"
 	"context"
+	"crypto/tls"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -20,6 +22,7 @@ import (
 	"time"
 
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
+	"golang.org/x/net/http2"
 )
 
 var (
@@ -64,6 +67,14 @@ func NewClientWithOptions(address, user, password string, opts ClientOptions) (C
 		rpaasUser:     user,
 		rpaasPassword: password,
 		client:        newHTTPClient(opts),
+		http2Client: &http.Client{
+			Transport: &http2.Transport{
+				AllowHTTP: true,
+				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
+					return net.Dial(network, addr)
+				},
+			},
+		},
 	}, nil
 }
 
@@ -117,7 +128,8 @@ type client struct {
 	tsuruService string
 	throughTsuru bool
 
-	client *http.Client
+	http2Client *http.Client
+	client      *http.Client
 }
 
 var _ Client = &client{}
@@ -575,8 +587,38 @@ func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) 
 	return resp, nil
 }
 
+func (c *client) Exec(ctx context.Context, args ExecArgs) (*http.Response, error) {
+	request, err := c.buildRequest("Exec", args)
+	if err != nil {
+		return nil, err
+	}
+
+	resp, err := c.http2Client.Do(request.WithContext(ctx))
+	if err != nil {
+		return resp, err
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return resp, ErrUnexpectedStatusCode
+	}
+
+	return resp, nil
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
+	case "Exec":
+		args := data.(ExecArgs)
+		v := url.Values{}
+		//hardcoded sh
+		v.Set("command", "sh")
+		v.Set("tty", strconv.FormatBool(args.Tty))
+		v.Set("instance", args.Instance)
+		pathName := fmt.Sprintf("/exec?%s", v.Encode())
+		req, err = c.newRequest("POST", pathName, args.Reader, args.Instance)
+		// req.Header.Set("upgrade", "h2c")
+		// req.Header.Set("http2-settings", "AAMAAABkAAQCAAAAAAIAAAAA")
+
 	case "Scale":
 		args := data.(ScaleArgs)
 		pathName := fmt.Sprintf("/resources/%s/scale", args.Instance)

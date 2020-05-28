@@ -10,7 +10,6 @@ import (
 	"net/http"
 	"os"
 	"os/signal"
-	"regexp"
 	"sync"
 	"syscall"
 	"time"
@@ -73,7 +72,51 @@ func (a *api) startServer() error {
 	if conf.TLSCertificate != "" && conf.TLSKey != "" {
 		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
 	}
-	return a.e.Start(a.Address)
+	// return a.e.Start(a.Address)
+	h2s := &http2.Server{}
+	mux := http.NewServeMux()
+	mux.Handle("/exec", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// err := r.ParseForm()
+		// if err != nil {
+		// 	fmt.Printf("error: %#v\n\n", err)
+		// 	w.WriteHeader(http.StatusInternalServerError)
+		// 	w.Write([]byte(err.Error()))
+		// }
+
+		// var useTty bool
+		// if tty := r.FormValue("tty"); tty == "true" {
+		// 	useTty = true
+		// }
+		if r.URL == nil {
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte("missing URL"))
+			return
+		}
+		instanceName := r.FormValue("instance")
+		if f, ok := w.(http.Flusher); ok {
+			w.WriteHeader(200)
+			f.Flush()
+		}
+		err := a.rpaasManager.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
+			Stdin:   nil,
+			Stdout:  w,
+			Stderr:  w,
+			Tty:     true,
+			Command: []string{"ls"},
+			// TerminalWidth:  r.FormValue("width"),
+			// TerminalHeight: r.FormValue("height"),
+		})
+		if err != nil {
+			fmt.Printf("error: %s\n\n", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+		}
+	}))
+	mux.Handle("/", a.e)
+	a.e.Server.Handler = h2c.NewHandler(mux, h2s)
+	// a.e.Server.Handler = h2c.NewHandler(a.e, h2s)
+	a.e.Server.Addr = a.Address
+	return a.e.Server.ListenAndServe()
 }
 
 // Start runs the web server.
@@ -147,11 +190,11 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func getInstance(urlPath string) string {
-	re := regexp.MustCompile(`.*\/resources\/(.*)\/`)
-	s := re.FindStringSubmatch(urlPath)
-	return s[1]
-}
+// func getInstance(urlPath string) string {
+// 	re := regexp.MustCompile(`.*\/resources\/(.*)\/`)
+// 	s := re.FindStringSubmatch(urlPath)
+// 	return s[1]
+// }
 
 func newEcho(mgr rpaas.RpaasManager) *echo.Echo {
 	e := echo.New()
@@ -228,35 +271,46 @@ func newEcho(mgr rpaas.RpaasManager) *echo.Echo {
 	e.POST("/resources/:instance/route", updateRoute)
 	e.POST("/resources/:instance/purge", cachePurge)
 
-	handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var useTty bool
-		if tty := r.FormValue("tty"); tty == "true" {
-			useTty = true
-		}
-		if r.URL == nil {
-			w.Write([]byte("missing URL"))
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
+	// handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+	// 	// err := r.ParseForm()
+	// 	// if err != nil {
+	// 	// 	fmt.Printf("error: %#v\n\n", err)
+	// 	// 	w.WriteHeader(http.StatusInternalServerError)
+	// 	// 	w.Write([]byte(err.Error()))
+	// 	// }
 
-		instanceName := getInstance(r.URL.Path)
-		err := mgr.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
-			Stdin:          nil,
-			Stdout:         w,
-			Stderr:         w,
-			Tty:            useTty,
-			Command:        []string{"uptime"},
-			TerminalWidth:  r.FormValue("w"),
-			TerminalHeight: r.FormValue("r"),
-		})
-		if err != nil {
-			fmt.Printf("error: %#v\n\n", err)
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-		}
-	})
-	h2s := &http2.Server{}
-	e.Any("/resources/:instance/exec", echo.WrapHandler(h2c.NewHandler(handler, h2s)))
+	// 	// var useTty bool
+	// 	// if tty := r.FormValue("tty"); tty == "true" {
+	// 	// 	useTty = true
+	// 	// }
+	// 	if r.URL == nil {
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		w.Write([]byte("missing URL"))
+	// 		return
+	// 	}
+	// 	instanceName := getInstance(r.URL.Path)
+
+	// 	if f, ok := w.(http.Flusher); ok {
+	// 		w.WriteHeader(200)
+	// 		f.Flush()
+	// 	}
+	// 	err := mgr.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
+	// 		Stdin:   nil,
+	// 		Stdout:  w,
+	// 		Stderr:  w,
+	// 		Tty:     true,
+	// 		Command: []string{"ls"},
+	// 		// TerminalWidth:  r.FormValue("width"),
+	// 		// TerminalHeight: r.FormValue("height"),
+	// 	})
+	// 	if err != nil {
+	// 		fmt.Printf("error: %s\n\n", err.Error())
+	// 		w.WriteHeader(http.StatusInternalServerError)
+	// 		w.Write([]byte(err.Error()))
+	// 	}
+	// })
+	// h2s := &http2.Server{}
+	// e.Any("/resources/:instance/exec", echo.WrapHandler(handler))
 
 	return e
 }

@@ -112,7 +112,6 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 	m.restConfig.ContentConfig.GroupVersion = &gv
 	m.restConfig.ContentConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
 	m.restConfig.APIPath = "/api"
-	//  fmt.Printf("restconf: %s\n\n", m.restConfig.APIPath)
 	restCli, err := rest.RESTClientFor(m.restConfig)
 	if err != nil {
 		return err
@@ -141,9 +140,10 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 			}
 		}
 	}
-	// if chosenPod.ObjectMeta.Name == "" {
-	// 	return errors.New("No pod available")
-	// }
+	// checking for nil value
+	if chosenPod.ObjectMeta.Name == "" {
+		return errors.New("No pod available")
+	}
 	chosenName := chosenPod.Spec.Containers[0].Name
 
 	req := restCli.Post().
@@ -164,8 +164,6 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 	if err != nil {
 		return err
 	}
-
-	fmt.Printf("URL: %s\n\n", req.URL())
 
 	return executor.Stream(remotecommand.StreamOptions{
 		Stdin:  args.Stdin,

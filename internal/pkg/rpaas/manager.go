@@ -177,10 +177,10 @@ type ExecArgs struct {
 	Stdin          io.ReadCloser
 	Stdout         io.Writer
 	Stderr         io.Writer
-	Command        []string
-	Tty            bool
-	TerminalWidth  string `json:"width"`
-	TerminalHeight string `json:"height"`
+	Command        []string `json:"command"`
+	Tty            bool     `json:"tty"`
+	TerminalWidth  string   `json:"width"`
+	TerminalHeight string   `json:"height"`
 }
 
 type RpaasManager interface {
