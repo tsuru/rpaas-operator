@@ -6,6 +6,7 @@ package rpaasinstance
 
 import (
 	"context"
+	"encoding/base64"
 	"fmt"
 	"testing"
 	"time"
@@ -974,6 +975,8 @@ func newRpaasFlavor() *v1alpha1.RpaasFlavor {
 
 func newScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
+	corev1.SchemeBuilder.AddToScheme(scheme)
+	batchv1beta1.SchemeBuilder.AddToScheme(scheme)
 	autoscalingv2beta2.SchemeBuilder.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
 	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
@@ -1609,6 +1612,201 @@ func TestDurationToSchedule(t *testing.T) {
 		t.Run(fmt.Sprintf("%s == %q", tt.input, tt.want), func(t *testing.T) {
 			have := durationToSchedule(tt.input)
 			assert.Equal(t, tt.want, have)
+		})
+	}
+}
+
+func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
+	tests := []struct {
+		name     string
+		instance *v1alpha1.RpaasInstance
+		objects  []runtime.Object
+		assert   func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob)
+	}{
+		{
+			name: "when no TLS session resumption is enabled",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "default",
+				},
+			},
+		},
+		{
+			name: "Session Tickets: default key length + default interval for tickets rotation",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+						SessionTicket: &v1alpha1.TLSSessionTicket{},
+					},
+				},
+			},
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+				require.NoError(t, err)
+				assert.NotNil(t, gotSecret)
+
+				expectedKeyLength := 48
+
+				currentTicket, ok := gotSecret.Data[currentSessionTicketLabelKey]
+				require.True(t, ok)
+				require.NotEmpty(t, currentTicket)
+				require.Len(t, currentTicket, base64.StdEncoding.EncodedLen(expectedKeyLength))
+
+				previousTicket, ok := gotSecret.Data[previousSessionTicketLabelKey]
+				require.True(t, ok)
+				require.NotEmpty(t, previousTicket)
+				require.Len(t, previousTicket, base64.StdEncoding.EncodedLen(expectedKeyLength))
+
+				assert.NotEqual(t, currentTicket, previousTicket)
+
+				require.NotNil(t, gotCronJob)
+				assert.Equal(t, "*/60 * * * *", gotCronJob.Spec.Schedule)
+				assert.Equal(t, corev1.PodTemplateSpec{
+					ObjectMeta: metav1.ObjectMeta{
+						Annotations: map[string]string{
+							rotateTLSSessionTicketsScriptFilename: rotateTLSSessionTicketsScript,
+						},
+					},
+					Spec: corev1.PodSpec{
+						ServiceAccountName: rotateTLSSessionTicketsServiceAccountName,
+						RestartPolicy:      corev1.RestartPolicyNever,
+						Containers: []corev1.Container{
+							{
+								Name:    "session-ticket-rotator",
+								Image:   defaultRotateTLSSessionTicketsImage,
+								Command: []string{"/bin/bash"},
+								Args:    []string{rotateTLSSessionTicketsScriptPath},
+								Env: []corev1.EnvVar{
+									{
+										Name:  "SECRET_NAME",
+										Value: gotSecret.Name,
+									},
+									{
+										Name:  "SECRET_NAMESPACE",
+										Value: gotSecret.Namespace,
+									},
+									{
+										Name:  "SESSION_TICKET_KEY_LENGTH",
+										Value: fmt.Sprint(expectedKeyLength),
+									},
+									{
+										Name:  "CURRENT_SESSION_TICKET_NAME",
+										Value: currentSessionTicketLabelKey,
+									},
+									{
+										Name:  "PREVIOUS_SESSION_TICKET_NAME",
+										Value: previousSessionTicketLabelKey,
+									},
+								},
+								VolumeMounts: []corev1.VolumeMount{
+									{
+										Name:      rotateTLSSessionTicketsVolumeName,
+										MountPath: rotateTLSSessionTicketsScriptPath,
+										SubPath:   rotateTLSSessionTicketsScriptFilename,
+									},
+								},
+							},
+						},
+						Volumes: []corev1.Volume{
+							{
+								Name: rotateTLSSessionTicketsVolumeName,
+								VolumeSource: corev1.VolumeSource{
+									DownwardAPI: &corev1.DownwardAPIVolumeSource{
+										Items: []corev1.DownwardAPIVolumeFile{
+											{
+												Path: rotateTLSSessionTicketsScriptFilename,
+												FieldRef: &corev1.ObjectFieldSelector{
+													FieldPath: fmt.Sprintf("metadata.annotations['%s']", rotateTLSSessionTicketsScriptFilename),
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				}, gotCronJob.Spec.JobTemplate.Spec.Template)
+			},
+		},
+		{
+			name: "Session Ticket: update key length and rotatation interval",
+			objects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-session-tickets",
+						Namespace: "default",
+					},
+				},
+				&batchv1beta1.CronJob{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-session-tickets",
+						Namespace: "default",
+					},
+				},
+			},
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+						SessionTicket: &v1alpha1.TLSSessionTicket{
+							KeyRotationInterval: 24 * time.Hour,
+							KeyLength:           v1alpha1.SessionTicketKeyLength80,
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+				require.NoError(t, err)
+				require.NotNil(t, gotSecret)
+				require.NotNil(t, gotCronJob)
+
+				assert.Equal(t, "*/1440 * * * *", gotCronJob.Spec.Schedule)
+				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEY_LENGTH", Value: "80"})
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resources := []runtime.Object{tt.instance}
+			if tt.objects != nil {
+				resources = append(resources, tt.objects...)
+			}
+
+			scheme := newScheme()
+			r := &ReconcileRpaasInstance{
+				client: fake.NewFakeClientWithScheme(scheme, resources...),
+				scheme: scheme,
+			}
+
+			err := r.reconcileTLSSessionResumption(context.TODO(), tt.instance)
+			if tt.assert == nil {
+				require.NoError(t, err)
+				return
+			}
+
+			var secret corev1.Secret
+			secretName := types.NamespacedName{
+				Name:      tt.instance.Name + sessionTicketsSecretSuffix,
+				Namespace: tt.instance.Namespace,
+			}
+			r.client.Get(context.TODO(), secretName, &secret)
+
+			var cronJob batchv1beta1.CronJob
+			cronJobName := types.NamespacedName{
+				Name:      tt.instance.Name + sessionTicketsCronJobSuffix,
+				Namespace: tt.instance.Namespace,
+			}
+			r.client.Get(context.TODO(), cronJobName, &cronJob)
+
+			tt.assert(t, err, &secret, &cronJob)
 		})
 	}
 }
