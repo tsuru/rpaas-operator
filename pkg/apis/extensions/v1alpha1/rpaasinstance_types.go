@@ -5,8 +5,6 @@
 package v1alpha1
 
 import (
-	"time"
-
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -178,7 +176,7 @@ type TLSSessionResumptionMode struct {
 const (
 	// DefaultSessionTicketKeyRotationInteval holds the default time interval to
 	// rotate the session tickets: 1 hour.
-	DefaultSessionTicketKeyRotationInteval = time.Hour
+	DefaultSessionTicketKeyRotationInteval uint32 = 60
 )
 
 type SessionTicketKeyLength uint16
@@ -195,13 +193,13 @@ const (
 )
 
 type TLSSessionTicket struct {
-	// KeyRotationInterval defines the time inverval wich the key rotation occurs.
-	// Defaults to a hour.
+	// KeyRotationInterval defines the time interval, in minutes, that a
+	// key rotation job should occurs. Defaults to 60 minutes (an hour).
 	// +optional
-	KeyRotationInterval time.Duration `json:"keyRotationInterval,omitempty"`
+	KeyRotationInterval uint32 `json:"keyRotationInterval,omitempty"`
 
-	// KeyLength defines the length used to generate session tickets.
-	// Defaults to 48 bytes.
+	// KeyLength defines the bytes length for a session tickets. Should be either
+	// 48 or 80 bytes. Defaults to 48 bytes.
 	// +optional
 	KeyLength SessionTicketKeyLength `json:"keyLength,omitempty"`
 }

@@ -15,7 +15,6 @@ import (
 	"sort"
 	"strings"
 	"text/template"
-	"time"
 
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
@@ -548,7 +547,7 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 			Labels: labelsForRpaasInstance(instance),
 		},
 		Spec: batchv1beta1.CronJobSpec{
-			Schedule: durationToSchedule(rotationInterval),
+			Schedule: minutesIntervalToSchedule(rotationInterval),
 			JobTemplate: batchv1beta1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
@@ -1278,15 +1277,13 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 	}
 }
 
-func durationToSchedule(d time.Duration) string {
-	one := float64(1)
-
-	minutes := d.Truncate(time.Minute).Minutes()
-	if minutes < one {
-		minutes = one
+func minutesIntervalToSchedule(minutes uint32) string {
+	oneMinute := uint32(1)
+	if minutes <= oneMinute {
+		minutes = oneMinute
 	}
 
-	return fmt.Sprintf("*/%.0f * * * *", minutes)
+	return fmt.Sprintf("*/%d * * * *", minutes)
 }
 
 func interpolateCacheSnapshotPodCmdTemplate(podCmd string, plan *v1alpha1.RpaasPlan) string {
