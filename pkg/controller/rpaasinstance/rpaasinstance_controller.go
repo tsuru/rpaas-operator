@@ -518,6 +518,11 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 	}
 
 	image := defaultCacheSnapshotCronImage
+	if instance.Spec.TLSSessionResumption != nil &&
+		instance.Spec.TLSSessionResumption.SessionTicket != nil &&
+		instance.Spec.TLSSessionResumption.SessionTicket.Image != "" {
+		image = instance.Spec.TLSSessionResumption.SessionTicket.Image
+	}
 
 	var secretName string
 	if secret != nil {

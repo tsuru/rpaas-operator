@@ -202,6 +202,12 @@ type TLSSessionTicket struct {
 	// 48 or 80 bytes. Defaults to 48 bytes.
 	// +optional
 	KeyLength SessionTicketKeyLength `json:"keyLength,omitempty"`
+
+	// Image is the container image name used to execute the session ticket
+	// rotation job. It requires either "bash", "base64", "openssl" and "kubectl"
+	// programs be installed into. Defaults to "bitnami/kubectl:latest".
+	// +optional
+	Image string `json:"image,omitempty"`
 }
 
 func init() {

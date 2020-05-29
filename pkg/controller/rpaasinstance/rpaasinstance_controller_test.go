@@ -1628,7 +1628,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 			},
 		},
 		{
-			name: "Session Tickets: default key length + default interval for tickets rotation",
+			name: "Session Tickets: default container image + default key length + default rotation interval",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -1753,6 +1753,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 						SessionTicket: &v1alpha1.TLSSessionTicket{
 							KeyRotationInterval: uint32(60 * 24), // a day
 							KeyLength:           v1alpha1.SessionTicketKeyLength80,
+							Image:               "my.custom.image:tag",
 						},
 					},
 				},
@@ -1763,6 +1764,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				require.NotNil(t, gotCronJob)
 
 				assert.Equal(t, "*/1440 * * * *", gotCronJob.Spec.Schedule)
+				assert.Equal(t, "my.custom.image:tag", gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEY_LENGTH", Value: "80"})
 			},
 		},
