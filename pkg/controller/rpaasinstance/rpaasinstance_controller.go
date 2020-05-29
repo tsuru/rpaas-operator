@@ -458,39 +458,49 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 	}
 	err = r.client.Get(ctx, secretName, secret)
 	if err != nil && k8sErrors.IsNotFound(err) {
-		err = r.client.Create(ctx, secret)
+		return secret, r.client.Create(ctx, secret)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
+	shouldRemove := instance.Spec.TLSSessionResumption == nil || instance.Spec.TLSSessionResumption.SessionTicket == nil
+	if shouldRemove {
+		return nil, r.client.Delete(ctx, secret)
+	}
+
 	return secret, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance, secret *corev1.Secret) error {
-	cronJob := newCronJobForSessionTickets(instance, secret)
+	newCronJob := newCronJobForSessionTickets(instance, secret)
 
 	var cj batchv1beta1.CronJob
 	cjName := types.NamespacedName{
-		Name:      cronJob.Name,
-		Namespace: cronJob.Namespace,
+		Name:      newCronJob.Name,
+		Namespace: newCronJob.Namespace,
 	}
 	err := r.client.Get(ctx, cjName, &cj)
 	if err != nil && k8sErrors.IsNotFound(err) {
-		return r.client.Create(ctx, cronJob)
+		return r.client.Create(ctx, newCronJob)
 	}
 
 	if err != nil {
 		return err
 	}
 
-	if reflect.DeepEqual(cronJob.Spec, cj.Spec) {
+	shouldRemove := instance.Spec.TLSSessionResumption == nil || instance.Spec.TLSSessionResumption.SessionTicket == nil
+	if shouldRemove {
+		return r.client.Delete(ctx, &cj)
+	}
+
+	if reflect.DeepEqual(newCronJob.Spec, cj.Spec) {
 		return nil
 	}
 
-	cronJob.ResourceVersion = cj.ResourceVersion
-	return r.client.Update(ctx, cronJob)
+	newCronJob.ResourceVersion = cj.ResourceVersion
+	return r.client.Update(ctx, newCronJob)
 }
 
 func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev1.Secret) *batchv1beta1.CronJob {
@@ -509,6 +519,16 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 	}
 
 	image := defaultCacheSnapshotCronImage
+
+	var secretName string
+	if secret != nil {
+		secretName = secret.Name
+	}
+
+	var secretNamespace string
+	if secret != nil {
+		secretNamespace = secret.Namespace
+	}
 
 	return &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
@@ -553,11 +573,11 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 									Env: []corev1.EnvVar{
 										{
 											Name:  "SECRET_NAME",
-											Value: secret.Name,
+											Value: secretName,
 										},
 										{
 											Name:  "SECRET_NAMESPACE",
-											Value: secret.Namespace,
+											Value: secretNamespace,
 										},
 										{
 											Name:  "SESSION_TICKET_KEY_LENGTH",

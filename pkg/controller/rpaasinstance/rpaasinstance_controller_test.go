@@ -1771,6 +1771,37 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEY_LENGTH", Value: "80"})
 			},
 		},
+		{
+			name: "when session ticket is disabled, should remove Secret and CronJob objects",
+			objects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-session-tickets",
+						Namespace: "default",
+					},
+				},
+				&batchv1beta1.CronJob{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-session-tickets",
+						Namespace: "default",
+					},
+				},
+			},
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{},
+				},
+			},
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+				require.NoError(t, err)
+				assert.Empty(t, gotSecret.Name)
+				assert.Empty(t, gotCronJob.Name)
+			},
+		},
 	}
 
 	for _, tt := range tests {
