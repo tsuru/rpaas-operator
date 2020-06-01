@@ -93,6 +93,9 @@ ${POD_CMD}
 
 	defaultRotateTLSSessionTicketsImage = "bitnami/kubectl:latest"
 
+	sessionTicketsVolumeName      = "tls-session-tickets"
+	sessionTicketsVolumeMountPath = "/etc/nginx/tickets"
+
 	rotateTLSSessionTicketsServiceAccountName = "rpaas-session-tickets-rotator"
 	rotateTLSSessionTicketsVolumeName         = "tls-session-tickets-script"
 	rotateTLSSessionTicketsScriptDir          = "/var/run/rpaasv2"
@@ -315,7 +318,6 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	}
 
 	nginx := newNginx(instance, plan, configMap)
-
 	if err = r.reconcileNginx(ctx, nginx); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -464,7 +466,7 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 		return nil, err
 	}
 
-	shouldRemove := instance.Spec.TLSSessionResumption == nil || instance.Spec.TLSSessionResumption.SessionTicket == nil
+	shouldRemove := !isTLSSessionTicketEnabled(instance)
 	if shouldRemove {
 		return nil, r.client.Delete(ctx, secret)
 	}
@@ -489,7 +491,7 @@ func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.C
 		return err
 	}
 
-	shouldRemove := instance.Spec.TLSSessionResumption == nil || instance.Spec.TLSSessionResumption.SessionTicket == nil
+	shouldRemove := !isTLSSessionTicketEnabled(instance)
 	if shouldRemove {
 		return r.client.Delete(ctx, &cj)
 	}
@@ -503,24 +505,20 @@ func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.C
 }
 
 func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev1.Secret) *batchv1beta1.CronJob {
+	enabled := isTLSSessionTicketEnabled(instance)
+
 	keyLength := v1alpha1.DefaultSessionTicketKeyLength
-	if instance.Spec.TLSSessionResumption != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
+	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
 		keyLength = instance.Spec.TLSSessionResumption.SessionTicket.KeyLength
 	}
 
 	rotationInterval := v1alpha1.DefaultSessionTicketKeyRotationInteval
-	if instance.Spec.TLSSessionResumption != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval != 0 {
+	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval != 0 {
 		rotationInterval = instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval
 	}
 
 	image := defaultCacheSnapshotCronImage
-	if instance.Spec.TLSSessionResumption != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket.Image != "" {
+	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.Image != "" {
 		image = instance.Spec.TLSSessionResumption.SessionTicket.Image
 	}
 
@@ -654,7 +652,7 @@ func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Se
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s%s", instance.Name, sessionTicketsSecretSuffix),
+			Name:      secretNameForTLSSessionTickets(instance),
 			Namespace: instance.Namespace,
 			Labels:    labelsForRpaasInstance(instance),
 			OwnerReferences: []metav1.OwnerReference{
@@ -670,6 +668,14 @@ func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Se
 			previousSessionTicketLabelKey: key2,
 		},
 	}, nil
+}
+
+func isTLSSessionTicketEnabled(instance *v1alpha1.RpaasInstance) bool {
+	return instance.Spec.TLSSessionResumption != nil && instance.Spec.TLSSessionResumption.SessionTicket != nil
+}
+
+func secretNameForTLSSessionTickets(instance *v1alpha1.RpaasInstance) string {
+	return fmt.Sprintf("%s%s", instance.Name, sessionTicketsSecretSuffix)
 }
 
 func generateSessionTicket(keyLength v1alpha1.SessionTicketKeyLength) ([]byte, error) {
@@ -1096,6 +1102,23 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			PodTemplate:     instance.Spec.PodTemplate,
 			Lifecycle:       instance.Spec.Lifecycle,
 		},
+	}
+
+	if isTLSSessionTicketEnabled(instance) {
+		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
+			Name: sessionTicketsVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretNameForTLSSessionTickets(instance),
+				},
+			},
+		})
+
+		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, corev1.VolumeMount{
+			Name:      sessionTicketsVolumeName,
+			MountPath: sessionTicketsVolumeMountPath,
+			ReadOnly:  true,
+		})
 	}
 
 	if !plan.Spec.Config.CacheSnapshotEnabled {
