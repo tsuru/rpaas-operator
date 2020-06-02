@@ -1,17 +1,10 @@
 local _M = {}
 
 --
--- Magic numbers
---
-local magic_session_ticket_file = '/etc/nginx/tickets/current.key'
-local magic_retain_keys = 2      -- retain the last #keys on ssl context
-local magic_resync_interval =  5 -- in seconds
-
---
 -- Session ticket reloader package
 --
 
-local ffi       = require("ffi")
+local ffi       = require('ffi')
 local C         = ffi.C
 local ffi_str   = ffi.string
 
@@ -194,6 +187,8 @@ function _M:start_worker(opts)
   end
 
   ngx.log(ngx.DEBUG, 'running session_ticket_reloader worker')
+
+  ngx.log(ngx.DEBUG, 'Ticket file: ', opts.ticket_file)
 
   assert(not init(opts), 'failed to initilize module configuration')
 
