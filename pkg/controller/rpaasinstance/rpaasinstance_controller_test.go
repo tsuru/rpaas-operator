@@ -6,7 +6,6 @@ package rpaasinstance
 
 import (
 	"context"
-	"encoding/base64"
 	"fmt"
 	"testing"
 
@@ -1646,17 +1645,10 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 
 				expectedKeyLength := 48
 
-				currentTicket, ok := gotSecret.Data[currentSessionTicketLabelKey]
+				currentTicket, ok := gotSecret.Data["ticket.0.key"]
 				require.True(t, ok)
 				require.NotEmpty(t, currentTicket)
-				require.Len(t, currentTicket, base64.StdEncoding.EncodedLen(expectedKeyLength))
-
-				previousTicket, ok := gotSecret.Data[previousSessionTicketLabelKey]
-				require.True(t, ok)
-				require.NotEmpty(t, previousTicket)
-				require.Len(t, previousTicket, base64.StdEncoding.EncodedLen(expectedKeyLength))
-
-				assert.NotEqual(t, currentTicket, previousTicket)
+				require.Len(t, currentTicket, expectedKeyLength)
 
 				require.NotNil(t, gotCronJob)
 				assert.Equal(t, "*/60 * * * *", gotCronJob.Spec.Schedule)
@@ -1689,12 +1681,8 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 										Value: fmt.Sprint(expectedKeyLength),
 									},
 									{
-										Name:  "CURRENT_SESSION_TICKET_NAME",
-										Value: currentSessionTicketLabelKey,
-									},
-									{
-										Name:  "PREVIOUS_SESSION_TICKET_NAME",
-										Value: previousSessionTicketLabelKey,
+										Name:  "SESSION_TICKET_KEYS",
+										Value: "1",
 									},
 								},
 								VolumeMounts: []corev1.VolumeMount{

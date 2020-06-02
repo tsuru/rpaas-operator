@@ -9,7 +9,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"encoding/base64"
 	"fmt"
 	"reflect"
 	"sort"
@@ -109,11 +108,10 @@ OPENSSL=${OPENSSL:-openssl}
 BASE64=${BASE64:-base64}
 
 SESSION_TICKET_KEY_LENGTH=${SESSION_TICKET_KEY_LENGTH:?missing session ticket key length}
+SESSION_TICKET_KEYS=${SESSION_TICKET_KEYS:?missing number of session ticket keys}
+
 SECRET_NAME=${SECRET_NAME:?missing Secret's name}
 SECRET_NAMESPACE=${SECRET_NAMESPACE:?missing Secret's namespace}
-
-CURRENT_SESSION_TICKET_NAME=${CURRENT_SESSION_TICKET_NAME:?missing current session ticket name (e.g. "current.key")}
-PREVIOUS_SESSION_TICKET_NAME=${PREVIOUS_SESSION_TICKET_NAME:?missing previous session ticket name (e.g. "previous.key")}
 
 function validate_key_length() {
   case ${SESSION_TICKET_KEY_LENGTH} in
@@ -132,16 +130,17 @@ function generate_key() {
 function json_merge_patch_payload() {
   local key=${1}
 
+  local others=''
+  for (( i = ${SESSION_TICKET_KEYS} - 1; i >= 1; i-- )) do
+    others+=$(printf '{"op": "copy", "from": "/data/ticket.%d.key", "path": "/data/ticket.%d.key"},\n' $(( ${i} - 1 )) ${i})
+  done
+
   cat <<-EOL
 [
-  {
-    "op": "copy",
-    "from": "/data/${CURRENT_SESSION_TICKET_NAME}",
-    "path": "/data/${PREVIOUS_SESSION_TICKET_NAME}"
-  },
+  ${others}
   {
     "op": "replace",
-    "path": "/data/${CURRENT_SESSION_TICKET_NAME}",
+    "path": "/data/ticket.0.key",
     "value": "${key}"
   }
 ]
@@ -298,6 +297,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	configMap := newConfigMap(instance, rendered)
 	err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
@@ -586,12 +586,8 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 											Value: fmt.Sprint(keyLength),
 										},
 										{
-											Name:  "CURRENT_SESSION_TICKET_NAME",
-											Value: currentSessionTicketLabelKey,
-										},
-										{
-											Name:  "PREVIOUS_SESSION_TICKET_NAME",
-											Value: previousSessionTicketLabelKey,
+											Name:  "SESSION_TICKET_KEYS",
+											Value: fmt.Sprint(tlsSessionTicketKeys(instance)),
 										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
@@ -630,20 +626,18 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 
 func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
 	keyLength := v1alpha1.DefaultSessionTicketKeyLength
-	if instance.Spec.TLSSessionResumption != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket != nil &&
-		instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
+	if isTLSSessionTicketEnabled(instance) && instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
 		keyLength = instance.Spec.TLSSessionResumption.SessionTicket.KeyLength
 	}
 
-	key1, err := generateSessionTicket(keyLength)
-	if err != nil {
-		return nil, err
-	}
+	data := make(map[string][]byte)
+	for i := 0; i < tlsSessionTicketKeys(instance); i++ {
+		key, err := generateSessionTicket(keyLength)
+		if err != nil {
+			return nil, err
+		}
 
-	key2, err := generateSessionTicket(keyLength)
-	if err != nil {
-		return nil, err
+		data[fmt.Sprintf("ticket.%d.key", i)] = key
 	}
 
 	return &corev1.Secret{
@@ -663,15 +657,20 @@ func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Se
 				}),
 			},
 		},
-		Data: map[string][]byte{
-			currentSessionTicketLabelKey:  key1,
-			previousSessionTicketLabelKey: key2,
-		},
+		Data: data,
 	}, nil
 }
 
 func isTLSSessionTicketEnabled(instance *v1alpha1.RpaasInstance) bool {
 	return instance.Spec.TLSSessionResumption != nil && instance.Spec.TLSSessionResumption.SessionTicket != nil
+}
+
+func tlsSessionTicketKeys(instance *v1alpha1.RpaasInstance) int {
+	var nkeys int
+	if isTLSSessionTicketEnabled(instance) {
+		nkeys = int(instance.Spec.TLSSessionResumption.SessionTicket.KeepLastKeys)
+	}
+	return nkeys + 1
 }
 
 func secretNameForTLSSessionTickets(instance *v1alpha1.RpaasInstance) string {
@@ -684,15 +683,7 @@ func generateSessionTicket(keyLength v1alpha1.SessionTicketKeyLength) ([]byte, e
 	if err != nil {
 		return nil, err
 	}
-
-	return base64Encode(buffer), nil
-}
-
-func base64Encode(src []byte) []byte {
-	encoding := base64.StdEncoding
-	dst := make([]byte, encoding.EncodedLen(len(src)))
-	encoding.Encode(dst, src)
-	return dst
+	return buffer, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {

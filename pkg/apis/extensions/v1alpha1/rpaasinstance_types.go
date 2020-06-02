@@ -193,6 +193,11 @@ const (
 )
 
 type TLSSessionTicket struct {
+	// KeepLastKeys defines how many session tickets should be kept. Default to
+	//zero which means no old keys is kept.
+	// +optional
+	KeepLastKeys uint32 `json:"keepLastKeys,omitempty"`
+
 	// KeyRotationInterval defines the time interval, in minutes, that a
 	// key rotation job should occurs. Defaults to 60 minutes (an hour).
 	// +optional

@@ -156,24 +156,40 @@ func k8sQuantityToNginx(quantity *resource.Quantity) string {
 	return strconv.Itoa(int(bytesN))
 }
 
+func tlsSessionTicketKeys(instance *v1alpha1.RpaasInstance) int {
+	var nkeys int
+
+	if instance != nil &&
+		instance.Spec.TLSSessionResumption != nil &&
+		instance.Spec.TLSSessionResumption.SessionTicket != nil {
+		nkeys = int(instance.Spec.TLSSessionResumption.SessionTicket.KeepLastKeys)
+	}
+
+	return nkeys + 1
+}
+
 var templateFuncs = template.FuncMap(map[string]interface{}{
-	"boolValue":          v1alpha1.BoolValue,
-	"buildLocationKey":   buildLocationKey,
-	"hasRootPath":        hasRootPath,
-	"toLower":            strings.ToLower,
-	"toUpper":            strings.ToUpper,
-	"managePort":         managePort,
-	"httpPort":           httpPort,
-	"httpsPort":          httpsPort,
-	"purgeLocationMatch": purgeLocationMatch,
-	"vtsLocationMatch":   vtsLocationMatch,
-	"contains":           strings.Contains,
-	"hasPrefix":          strings.HasPrefix,
-	"hasSuffix":          strings.HasSuffix,
-	"k8sQuantityToNginx": k8sQuantityToNginx,
-	"uint32Mult":         func(a, b uint32) uint32 { return a * b },
-	"defaultSessionTicketKeyRotationInterval": func() uint32 {
-		return v1alpha1.DefaultSessionTicketKeyRotationInteval
+	"boolValue":            v1alpha1.BoolValue,
+	"buildLocationKey":     buildLocationKey,
+	"hasRootPath":          hasRootPath,
+	"toLower":              strings.ToLower,
+	"toUpper":              strings.ToUpper,
+	"managePort":           managePort,
+	"httpPort":             httpPort,
+	"httpsPort":            httpsPort,
+	"purgeLocationMatch":   purgeLocationMatch,
+	"vtsLocationMatch":     vtsLocationMatch,
+	"contains":             strings.Contains,
+	"hasPrefix":            strings.HasPrefix,
+	"hasSuffix":            strings.HasSuffix,
+	"k8sQuantityToNginx":   k8sQuantityToNginx,
+	"tlsSessionTicketKeys": tlsSessionTicketKeys,
+	"iterate": func(n int) []int {
+		v := make([]int, n)
+		for i := 0; i < n; i++ {
+			v[i] = i
+		}
+		return v
 	},
 })
 
@@ -218,7 +234,7 @@ http {
 
     {{- if not (boolValue $config.SyslogEnabled) }}
     access_log /dev/stdout combined;
-		error_log  /dev/stderr;
+    error_log  /dev/stderr;
     {{- else }}
     access_log syslog:server={{ $config.SyslogServerAddress }}
         {{- with $config.SyslogFacility }},facility={{ . }}{{ end }}
@@ -254,16 +270,10 @@ http {
     ssl_session_cache off;
 
     ssl_session_tickets    on;
-    ssl_session_ticket_key tickets/current.key;
-    ssl_session_ticket_key tickets/previous.key;
 
-    {{- /* a valid TLS session could take 2x the key rotation interval (in minutes) to be invalid. */ -}}
-    {{- $sessionTimeout := (uint32Mult 2 defaultSessionTicketKeyRotationInterval) }}
-    {{- with .KeyRotationInterval }}
-    {{- $sessionTimeout := (uint32Mult 2 .) }}
+    {{- range $index, $_ := (iterate (tlsSessionTicketKeys $instance)) }}
+    ssl_session_ticket_key tickets/ticket.{{ $index }}.key;
     {{- end }}
-
-    ssl_session_timeout {{ printf "%dm"  $sessionTimeout }};
     {{- end }}
     {{- end }}
 
@@ -308,12 +318,10 @@ http {
         {{- if and $instance.Spec.TLSSessionResumption }}
         {{- with $instance.Spec.TLSSessionResumption.SessionTicket }}
         local session_ticket_reloader = require('tsuru.rpaasv2.tls.session_ticket_reloader')
-
-        local opts = {
-            ticket_file = '/etc/nginx/tickets/current.key',
-        }
-
-        session_ticket_reloader:start_worker(opts)
+        session_ticket_reloader:start_worker({
+            ticket_file      = '/etc/nginx/tickets/ticket.0.key',
+            retain_last_keys = {{ tlsSessionTicketKeys $instance }},
+        })
         {{- end }}
         {{- end }}
 
