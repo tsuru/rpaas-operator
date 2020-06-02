@@ -1641,7 +1641,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 			},
 			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
 				require.NoError(t, err)
-				assert.NotNil(t, gotSecret)
+				require.NotNil(t, gotSecret)
 
 				expectedKeyLength := 48
 
@@ -1739,6 +1739,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				Spec: v1alpha1.RpaasInstanceSpec{
 					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
 						SessionTicket: &v1alpha1.TLSSessionTicket{
+							KeepLastKeys:        uint32(3),
 							KeyRotationInterval: uint32(60 * 24), // a day
 							KeyLength:           v1alpha1.SessionTicketKeyLength80,
 							Image:               "my.custom.image:tag",
@@ -1751,9 +1752,16 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				require.NotNil(t, gotSecret)
 				require.NotNil(t, gotCronJob)
 
+				expectedKeyLength := 80
+				assert.Len(t, gotSecret.Data, 4)
+				for i := 0; i < 4; i++ {
+					assert.Len(t, gotSecret.Data[fmt.Sprintf("ticket.%d.key", i)], expectedKeyLength)
+				}
+
 				assert.Equal(t, "*/1440 * * * *", gotCronJob.Spec.Schedule)
 				assert.Equal(t, "my.custom.image:tag", gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEY_LENGTH", Value: "80"})
+				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEYS", Value: "4"})
 			},
 		},
 		{
@@ -1785,6 +1793,44 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				require.NoError(t, err)
 				assert.Empty(t, gotSecret.Name)
 				assert.Empty(t, gotCronJob.Name)
+			},
+		},
+		{
+			name: "when decreasing the number of keys",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+						SessionTicket: &v1alpha1.TLSSessionTicket{
+							KeepLastKeys: uint32(1),
+						},
+					},
+				},
+			},
+			objects: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-session-tickets",
+						Namespace: "default",
+					},
+					Data: map[string][]byte{
+						"ticket.0.key": []byte{'h', 'e', 'l', 'l', 'o'},
+						"ticket.1.key": []byte{'w', 'o', 'r', 'd', '!'},
+						"ticket.2.key": []byte{'f', 'o', 'o'},
+						"ticket.3.key": []byte{'b', 'a', 'r'},
+					},
+				},
+			},
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+				require.NoError(t, err)
+
+				expectedKeys := 2
+				assert.Len(t, gotSecret.Data, expectedKeys)
+				assert.Equal(t, gotSecret.Data["ticket.0.key"], []byte{'h', 'e', 'l', 'l', 'o'})
+				assert.Equal(t, gotSecret.Data["ticket.1.key"], []byte{'w', 'o', 'r', 'd', '!'})
 			},
 		},
 	}

@@ -448,30 +448,50 @@ func (r *ReconcileRpaasInstance) reconcileTLSSessionResumption(ctx context.Conte
 }
 
 func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
-	secret, err := newSecretForTLSSessionTickets(instance)
+	newSecret, err := newSecretForTLSSessionTickets(instance)
 	if err != nil {
 		return nil, err
 	}
 
+	var secret corev1.Secret
 	secretName := types.NamespacedName{
-		Name:      secret.Name,
-		Namespace: secret.Namespace,
+		Name:      newSecret.Name,
+		Namespace: newSecret.Namespace,
 	}
-	err = r.client.Get(ctx, secretName, secret)
+	err = r.client.Get(ctx, secretName, &secret)
 	if err != nil && k8sErrors.IsNotFound(err) {
-		return secret, r.client.Create(ctx, secret)
+		return newSecret, r.client.Create(ctx, newSecret)
 	}
 
 	if err != nil {
 		return nil, err
 	}
 
-	shouldRemove := !isTLSSessionTicketEnabled(instance)
-	if shouldRemove {
-		return nil, r.client.Delete(ctx, secret)
+	if !isTLSSessionTicketEnabled(instance) {
+		return nil, r.client.Delete(ctx, &secret)
 	}
 
-	return secret, nil
+	newData := make(map[string][]byte)
+	for k, v := range newSecret.Data {
+		if vv, found := secret.Data[k]; found {
+			newData[k] = vv
+			continue
+		}
+		newData[k] = v
+	}
+
+	for k, v := range secret.Data {
+		if _, found := newSecret.Data[k]; found {
+			newData[k] = v
+		}
+	}
+
+	if !reflect.DeepEqual(newData, secret.Data) {
+		secret.Data = newData
+		return &secret, r.client.Update(ctx, &secret)
+	}
+
+	return &secret, nil
 }
 
 func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance, secret *corev1.Secret) error {
