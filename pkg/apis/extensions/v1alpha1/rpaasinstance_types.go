@@ -81,9 +81,10 @@ type RpaasInstanceSpec struct {
 	Lifecycle *nginxv1alpha1.NginxLifecycle `json:"lifecycle,omitempty"`
 
 	// TLSSessionResumption configures the instance to support session resumption
-	// using either session tickets or session ID (in the future).
+	// using either session tickets or session ID (in the future). Defaults to
+	// disabled.
 	// +optional
-	TLSSessionResumption *TLSSessionResumptionMode `json:"tlsSessionResumption,omitempty"`
+	TLSSessionResumption *TLSSessionResumption `json:"tlsSessionResumption,omitempty"`
 }
 
 type Bind struct {
@@ -167,8 +168,8 @@ type RpaasInstanceAutoscaleSpec struct {
 	TargetMemoryUtilizationPercentage *int32 `json:"targetMemoryUtilizationPercentage,omitempty"`
 }
 
-type TLSSessionResumptionMode struct {
-	// SessionTicket configures the session ticket working.
+type TLSSessionResumption struct {
+	// SessionTicket defines the parameters to set the TLS session tickets.
 	// +optional
 	SessionTicket *TLSSessionTicket `json:"sessionTicket,omitempty"`
 }
@@ -193,8 +194,9 @@ const (
 )
 
 type TLSSessionTicket struct {
-	// KeepLastKeys defines how many session tickets should be kept. Default to
-	//zero which means no old keys is kept.
+	// KeepLastKeys defines how many session ticket encryption keys should be
+	// kept in addition to the current one. Zero means no old encryption keys.
+	// Defaults to zero.
 	// +optional
 	KeepLastKeys uint32 `json:"keepLastKeys,omitempty"`
 
@@ -203,8 +205,8 @@ type TLSSessionTicket struct {
 	// +optional
 	KeyRotationInterval uint32 `json:"keyRotationInterval,omitempty"`
 
-	// KeyLength defines the bytes length for a session tickets. Should be either
-	// 48 or 80 bytes. Defaults to 48 bytes.
+	// KeyLength defines the length of bytes for a session tickets. Should be
+	// either 48 or 80 bytes. Defaults to 48 bytes.
 	// +optional
 	KeyLength SessionTicketKeyLength `json:"keyLength,omitempty"`
 

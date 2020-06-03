@@ -1634,7 +1634,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumption{
 						SessionTicket: &v1alpha1.TLSSessionTicket{},
 					},
 				},
@@ -1737,7 +1737,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumption{
 						SessionTicket: &v1alpha1.TLSSessionTicket{
 							KeepLastKeys:        uint32(3),
 							KeyRotationInterval: uint32(60 * 24), // a day
@@ -1786,7 +1786,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{},
+					TLSSessionResumption: &v1alpha1.TLSSessionResumption{},
 				},
 			},
 			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
@@ -1803,7 +1803,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					Namespace: "default",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumption{
 						SessionTicket: &v1alpha1.TLSSessionTicket{
 							KeepLastKeys: uint32(1),
 						},

@@ -457,7 +457,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+						TLSSessionResumption: &v1alpha1.TLSSessionResumption{
 							SessionTicket: &v1alpha1.TLSSessionTicket{},
 						},
 					},
@@ -483,7 +483,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						TLSSessionResumption: &v1alpha1.TLSSessionResumptionMode{
+						TLSSessionResumption: &v1alpha1.TLSSessionResumption{
 							SessionTicket: &v1alpha1.TLSSessionTicket{
 								KeepLastKeys:        uint32(5),
 								KeyRotationInterval: uint32(60 * 24), // daily
