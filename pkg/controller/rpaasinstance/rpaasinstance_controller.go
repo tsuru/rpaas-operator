@@ -448,6 +448,8 @@ func (r *ReconcileRpaasInstance) reconcileTLSSessionResumption(ctx context.Conte
 }
 
 func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
+	enabled := isTLSSessionTicketEnabled(instance)
+
 	newSecret, err := newSecretForTLSSessionTickets(instance)
 	if err != nil {
 		return nil, err
@@ -460,6 +462,10 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 	}
 	err = r.client.Get(ctx, secretName, &secret)
 	if err != nil && k8sErrors.IsNotFound(err) {
+		if !enabled {
+			return nil, nil
+		}
+
 		return newSecret, r.client.Create(ctx, newSecret)
 	}
 
@@ -467,7 +473,7 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 		return nil, err
 	}
 
-	if !isTLSSessionTicketEnabled(instance) {
+	if !enabled {
 		return nil, r.client.Delete(ctx, &secret)
 	}
 
@@ -495,6 +501,8 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 }
 
 func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance, secret *corev1.Secret) error {
+	enabled := isTLSSessionTicketEnabled(instance)
+
 	newCronJob := newCronJobForSessionTickets(instance, secret)
 
 	var cj batchv1beta1.CronJob
@@ -504,6 +512,10 @@ func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.C
 	}
 	err := r.client.Get(ctx, cjName, &cj)
 	if err != nil && k8sErrors.IsNotFound(err) {
+		if !enabled {
+			return nil
+		}
+
 		return r.client.Create(ctx, newCronJob)
 	}
 
@@ -511,8 +523,7 @@ func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.C
 		return err
 	}
 
-	shouldRemove := !isTLSSessionTicketEnabled(instance)
-	if shouldRemove {
+	if !enabled {
 		return r.client.Delete(ctx, &cj)
 	}
 
