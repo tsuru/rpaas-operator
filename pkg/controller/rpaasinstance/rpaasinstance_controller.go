@@ -476,21 +476,7 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 		return r.client.Delete(ctx, &secret)
 	}
 
-	newData := make(map[string][]byte)
-	for k, v := range newSecret.Data {
-		if vv, found := secret.Data[k]; found {
-			newData[k] = vv
-			continue
-		}
-		newData[k] = v
-	}
-
-	for k, v := range secret.Data {
-		if _, found := newSecret.Data[k]; found {
-			newData[k] = v
-		}
-	}
-
+	newData := newSessionTicketData(secret.Data, newSecret.Data)
 	if !reflect.DeepEqual(newData, secret.Data) {
 		secret.Data = newData
 		return r.client.Update(ctx, &secret)
@@ -704,6 +690,25 @@ func generateSessionTicket(keyLength v1alpha1.SessionTicketKeyLength) ([]byte, e
 		return nil, err
 	}
 	return buffer, nil
+}
+
+func newSessionTicketData(old, new map[string][]byte) map[string][]byte {
+	newest := make(map[string][]byte)
+	for k, v := range new {
+		if vv, found := old[k]; found {
+			newest[k] = vv
+			continue
+		}
+		newest[k] = v
+	}
+
+	for k, v := range old {
+		if _, found := new[k]; found {
+			newest[k] = v
+		}
+	}
+
+	return newest
 }
 
 func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
