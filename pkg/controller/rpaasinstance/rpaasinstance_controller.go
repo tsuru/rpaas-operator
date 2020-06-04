@@ -60,9 +60,6 @@ const (
 
 	sessionTicketsSecretSuffix  = "-session-tickets"
 	sessionTicketsCronJobSuffix = "-session-tickets"
-
-	currentSessionTicketLabelKey  = "current.key"
-	previousSessionTicketLabelKey = "previous.key"
 )
 
 var (
