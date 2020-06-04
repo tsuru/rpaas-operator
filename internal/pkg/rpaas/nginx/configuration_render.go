@@ -336,11 +336,11 @@ http {
     init_worker_by_lua_block {
         {{- if tlsSessionTicketEnabled $instance }}
         {{- with $instance.Spec.TLSSessionResumption.SessionTicket }}
-        local session_ticket_reloader = require('tsuru.rpaasv2.tls.session_ticket_reloader')
-        session_ticket_reloader:start_worker({
+        local rpaasv2_session_ticket_reloader = require('tsuru.rpaasv2.tls.session_ticket_reloader'):new({
             ticket_file      = '/etc/nginx/tickets/ticket.0.key',
             retain_last_keys = {{ tlsSessionTicketKeys $instance }},
         })
+        rpaasv2_session_ticket_reloader:start_worker()
         {{- end }}
         {{- end }}
 

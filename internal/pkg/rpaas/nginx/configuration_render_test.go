@@ -468,12 +468,12 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `ssl_session_tickets\s+on;`, result)
 				assert.Regexp(t, `ssl_session_ticket_key\s+tickets/ticket.0.key;`, result)
 				assert.Regexp(t, `ssl_session_timeout\s+60m;`, result)
-				assert.Regexp(t, `init_worker_by_lua_block {\n*
-\s+local session_ticket_reloader = require\('tsuru.rpaasv2.tls.session_ticket_reloader'\)
-\s+session_ticket_reloader:start_worker\(\{
-\s+ticket_file\s+= '\/etc\/nginx\/tickets\/ticket.0.key',
-\s+retain_last_keys\s+= 1,
+				assert.Regexp(t, `init_worker_by_lua_block \{\n*
+\s+local rpaasv2_session_ticket_reloader = require\('tsuru.rpaasv2.tls.session_ticket_reloader'\):new\(\{
+\s+ticket_file      = '/etc/nginx/tickets/ticket.0.key',
+\s+retain_last_keys = 1,
 \s+\}\)
+\s+rpaasv2_session_ticket_reloader:start_worker\(\)
 \s+\}`, result)
 			},
 		},
@@ -502,12 +502,12 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `ssl_session_ticket_key\s+tickets/ticket.4.key;`, result)
 				assert.Regexp(t, `ssl_session_ticket_key\s+tickets/ticket.5.key;`, result)
 				assert.Regexp(t, `ssl_session_timeout\s+8640m;`, result)
-				assert.Regexp(t, `init_worker_by_lua_block {\n*
-\s+local session_ticket_reloader = require\('tsuru.rpaasv2.tls.session_ticket_reloader'\)
-\s+session_ticket_reloader:start_worker\(\{
-\s+ticket_file\s+= '\/etc\/nginx\/tickets\/ticket.0.key',
-\s+retain_last_keys\s+= 6,
+				assert.Regexp(t, `init_worker_by_lua_block \{\n*
+\s+local rpaasv2_session_ticket_reloader = require\('tsuru.rpaasv2.tls.session_ticket_reloader'\):new\(\{
+\s+ticket_file      = '/etc/nginx/tickets/ticket.0.key',
+\s+retain_last_keys = 6,
 \s+\}\)
+\s+rpaasv2_session_ticket_reloader:start_worker\(\)
 \s+\}`, result)
 			},
 		},
