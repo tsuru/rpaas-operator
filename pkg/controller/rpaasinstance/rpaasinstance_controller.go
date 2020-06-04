@@ -439,20 +439,19 @@ func (r *ReconcileRpaasInstance) listDefaultFlavors(ctx context.Context, instanc
 }
 
 func (r *ReconcileRpaasInstance) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	secret, err := r.reconcileSecretForSessionTickets(ctx, instance)
-	if err != nil {
+	if err := r.reconcileSecretForSessionTickets(ctx, instance); err != nil {
 		return err
 	}
 
-	return r.reconcileCronJobForSessionTickets(ctx, instance, secret)
+	return r.reconcileCronJobForSessionTickets(ctx, instance)
 }
 
-func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
+func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	newSecret, err := newSecretForTLSSessionTickets(instance)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	var secret corev1.Secret
@@ -463,18 +462,18 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 	err = r.client.Get(ctx, secretName, &secret)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		if !enabled {
-			return nil, nil
+			return nil
 		}
 
-		return newSecret, r.client.Create(ctx, newSecret)
+		return r.client.Create(ctx, newSecret)
 	}
 
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	if !enabled {
-		return nil, r.client.Delete(ctx, &secret)
+		return r.client.Delete(ctx, &secret)
 	}
 
 	newData := make(map[string][]byte)
@@ -494,16 +493,16 @@ func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Co
 
 	if !reflect.DeepEqual(newData, secret.Data) {
 		secret.Data = newData
-		return &secret, r.client.Update(ctx, &secret)
+		return r.client.Update(ctx, &secret)
 	}
 
-	return &secret, nil
+	return nil
 }
 
-func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance, secret *corev1.Secret) error {
+func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	enabled := isTLSSessionTicketEnabled(instance)
 
-	newCronJob := newCronJobForSessionTickets(instance, secret)
+	newCronJob := newCronJobForSessionTickets(instance)
 
 	var cj batchv1beta1.CronJob
 	cjName := types.NamespacedName{
@@ -535,7 +534,7 @@ func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.C
 	return r.client.Update(ctx, newCronJob)
 }
 
-func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev1.Secret) *batchv1beta1.CronJob {
+func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1.CronJob {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	keyLength := v1alpha1.DefaultSessionTicketKeyLength
@@ -551,16 +550,6 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 	image := defaultCacheSnapshotCronImage
 	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.Image != "" {
 		image = instance.Spec.TLSSessionResumption.SessionTicket.Image
-	}
-
-	var secretName string
-	if secret != nil {
-		secretName = secret.Name
-	}
-
-	var secretNamespace string
-	if secret != nil {
-		secretNamespace = secret.Namespace
 	}
 
 	return &batchv1beta1.CronJob{
@@ -606,11 +595,11 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance, secret *corev
 									Env: []corev1.EnvVar{
 										{
 											Name:  "SECRET_NAME",
-											Value: secretName,
+											Value: secretNameForTLSSessionTickets(instance),
 										},
 										{
 											Name:  "SECRET_NAMESPACE",
-											Value: secretNamespace,
+											Value: instance.Namespace,
 										},
 										{
 											Name:  "SESSION_TICKET_KEY_LENGTH",
