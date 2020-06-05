@@ -1,5 +1,5 @@
 package = "tsuru-rpaasv2"
-version = "0.9.0"
+version = "0.9.0-1"
 source = {
    url = "git://github.com/tsuru/rpaas-operator.git",
    tag = "v0.9.0"
