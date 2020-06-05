@@ -7,7 +7,7 @@ source = {
 description = {
    summary = "Lua helpers to extend Nginx (OpenResty or just ngx_lua) features on RPaaS v2.",
    homepage = "https://github.com/tsuru/rpaas-operator",
-   license = "3-clause BSD"
+   license = "3-clause BSD",
    maintainer = "Tsuru <tsuru@g.globo>"
 }
 build = {
