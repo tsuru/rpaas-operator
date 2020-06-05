@@ -7,6 +7,7 @@ package rpaasinstance
 import (
 	"bytes"
 	"context"
+	"crypto/rand"
 	"crypto/sha256"
 	"fmt"
 	"reflect"
@@ -56,6 +57,9 @@ const (
 
 	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_SNAPSHOT_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_SNAPSHOT_MOUNTPOINT}"
 	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx ${CACHE_PATH}"
+
+	sessionTicketsSecretSuffix  = "-session-tickets"
+	sessionTicketsCronJobSuffix = "-session-tickets"
 )
 
 var (
@@ -82,6 +86,79 @@ mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx;
 mkdir -p ${CACHE_PATH}/nginx_tmp;
 ${POD_CMD}
 `}
+
+	defaultRotateTLSSessionTicketsImage = "bitnami/kubectl:latest"
+
+	sessionTicketsVolumeName      = "tls-session-tickets"
+	sessionTicketsVolumeMountPath = "/etc/nginx/tickets"
+
+	rotateTLSSessionTicketsServiceAccountName = "rpaas-session-tickets-rotator"
+	rotateTLSSessionTicketsVolumeName         = "tls-session-tickets-script"
+	rotateTLSSessionTicketsScriptDir          = "/var/run/rpaasv2"
+	rotateTLSSessionTicketsScriptFilename     = "tls_session_tickets_rotate.sh"
+	rotateTLSSessionTicketsScriptPath         = fmt.Sprintf("%s/%s", rotateTLSSessionTicketsScriptDir, rotateTLSSessionTicketsScriptFilename)
+	rotateTLSSessionTicketsScript             = `#!/bin/bash
+set -euf -o pipefail
+
+KUBECTL=${KUBECTL:-kubectl}
+OPENSSL=${OPENSSL:-openssl}
+BASE64=${BASE64:-base64}
+
+SESSION_TICKET_KEY_LENGTH=${SESSION_TICKET_KEY_LENGTH:?missing session ticket key length}
+SESSION_TICKET_KEYS=${SESSION_TICKET_KEYS:?missing number of session ticket keys}
+
+SECRET_NAME=${SECRET_NAME:?missing Secret's name}
+SECRET_NAMESPACE=${SECRET_NAMESPACE:?missing Secret's namespace}
+
+function validate_key_length() {
+  case ${SESSION_TICKET_KEY_LENGTH} in
+    48|80)
+      ;;
+    *)
+      echo "Nginx only has support to tickets with either 48 or 80 bytes, got ${SESSION_TICKET_KEY_LENGTH} bytes." &> /dev/stderr
+      exit 1
+  esac
+}
+
+function generate_key() {
+  base64 -w0 <(${OPENSSL} rand ${SESSION_TICKET_KEY_LENGTH})
+}
+
+function json_merge_patch_payload() {
+  local key=${1}
+
+  local others=''
+  for (( i = ${SESSION_TICKET_KEYS} - 1; i >= 1; i-- )) do
+    others+=$(printf '{"op": "copy", "from": "/data/ticket.%d.key", "path": "/data/ticket.%d.key"},\n' $(( ${i} - 1 )) ${i})
+  done
+
+  cat <<-EOL
+[
+  ${others}
+  {
+    "op": "replace",
+    "path": "/data/ticket.0.key",
+    "value": "${key}"
+  }
+]
+EOL
+}
+
+function rotate_session_tickets() {
+  local key=${1}
+
+  ${KUBECTL} patch secrets ${SECRET_NAME} --namespace ${SECRET_NAMESPACE} --type=json \
+    --patch="$(json_merge_patch_payload ${key})"
+}
+
+function main() {
+  echo "Starting rotation of TLS session tickets within Secret (${SECRET_NAMESPACE}/${SECRET_NAME})..."
+  rotate_session_tickets $(generate_key)
+  echo "TLS session tickets successfully updated."
+}
+
+main $@
+`
 )
 
 var log = logf.Log.WithName("controller_rpaasinstance")
@@ -217,6 +294,7 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
 	configMap := newConfigMap(instance, rendered)
 	err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
@@ -232,8 +310,11 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
-	nginx := newNginx(instance, plan, configMap)
+	if err = r.reconcileTLSSessionResumption(ctx, instance); err != nil {
+		return reconcile.Result{}, err
+	}
 
+	nginx := newNginx(instance, plan, configMap)
 	if err = r.reconcileNginx(ctx, nginx); err != nil {
 		return reconcile.Result{}, err
 	}
@@ -352,6 +433,279 @@ func (r *ReconcileRpaasInstance) listDefaultFlavors(ctx context.Context, instanc
 	}
 	sort.SliceStable(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 	return result, nil
+}
+
+func (r *ReconcileRpaasInstance) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	if err := r.reconcileSecretForSessionTickets(ctx, instance); err != nil {
+		return err
+	}
+
+	return r.reconcileCronJobForSessionTickets(ctx, instance)
+}
+
+func (r *ReconcileRpaasInstance) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	enabled := isTLSSessionTicketEnabled(instance)
+
+	newSecret, err := newSecretForTLSSessionTickets(instance)
+	if err != nil {
+		return err
+	}
+
+	var secret corev1.Secret
+	secretName := types.NamespacedName{
+		Name:      newSecret.Name,
+		Namespace: newSecret.Namespace,
+	}
+	err = r.client.Get(ctx, secretName, &secret)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		if !enabled {
+			return nil
+		}
+
+		return r.client.Create(ctx, newSecret)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if !enabled {
+		return r.client.Delete(ctx, &secret)
+	}
+
+	newData := newSessionTicketData(secret.Data, newSecret.Data)
+	if !reflect.DeepEqual(newData, secret.Data) {
+		secret.Data = newData
+		return r.client.Update(ctx, &secret)
+	}
+
+	return nil
+}
+
+func (r *ReconcileRpaasInstance) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	enabled := isTLSSessionTicketEnabled(instance)
+
+	newCronJob := newCronJobForSessionTickets(instance)
+
+	var cj batchv1beta1.CronJob
+	cjName := types.NamespacedName{
+		Name:      newCronJob.Name,
+		Namespace: newCronJob.Namespace,
+	}
+	err := r.client.Get(ctx, cjName, &cj)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		if !enabled {
+			return nil
+		}
+
+		return r.client.Create(ctx, newCronJob)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if !enabled {
+		return r.client.Delete(ctx, &cj)
+	}
+
+	if reflect.DeepEqual(newCronJob.Spec, cj.Spec) {
+		return nil
+	}
+
+	newCronJob.ResourceVersion = cj.ResourceVersion
+	return r.client.Update(ctx, newCronJob)
+}
+
+func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1.CronJob {
+	enabled := isTLSSessionTicketEnabled(instance)
+
+	keyLength := v1alpha1.DefaultSessionTicketKeyLength
+	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
+		keyLength = instance.Spec.TLSSessionResumption.SessionTicket.KeyLength
+	}
+
+	rotationInterval := v1alpha1.DefaultSessionTicketKeyRotationInteval
+	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval != 0 {
+		rotationInterval = instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval
+	}
+
+	image := defaultCacheSnapshotCronImage
+	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.Image != "" {
+		image = instance.Spec.TLSSessionResumption.SessionTicket.Image
+	}
+
+	return &batchv1beta1.CronJob{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "batch/v1beta1",
+			Kind:       "CronJob",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      fmt.Sprintf("%s%s", instance.Name, sessionTicketsCronJobSuffix),
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Labels: labelsForRpaasInstance(instance),
+		},
+		Spec: batchv1beta1.CronJobSpec{
+			Schedule: minutesIntervalToSchedule(rotationInterval),
+			JobTemplate: batchv1beta1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Annotations: map[string]string{},
+					Labels:      labelsForRpaasInstance(instance),
+				},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								rotateTLSSessionTicketsScriptFilename: rotateTLSSessionTicketsScript,
+							},
+						},
+						Spec: corev1.PodSpec{
+							ServiceAccountName: rotateTLSSessionTicketsServiceAccountName,
+							RestartPolicy:      corev1.RestartPolicyNever,
+							Containers: []corev1.Container{
+								{
+									Name:    "session-ticket-rotator",
+									Image:   image,
+									Command: []string{"/bin/bash"},
+									Args:    []string{rotateTLSSessionTicketsScriptPath},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "SECRET_NAME",
+											Value: secretNameForTLSSessionTickets(instance),
+										},
+										{
+											Name:  "SECRET_NAMESPACE",
+											Value: instance.Namespace,
+										},
+										{
+											Name:  "SESSION_TICKET_KEY_LENGTH",
+											Value: fmt.Sprint(keyLength),
+										},
+										{
+											Name:  "SESSION_TICKET_KEYS",
+											Value: fmt.Sprint(tlsSessionTicketKeys(instance)),
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      rotateTLSSessionTicketsVolumeName,
+											MountPath: rotateTLSSessionTicketsScriptPath,
+											SubPath:   rotateTLSSessionTicketsScriptFilename,
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: rotateTLSSessionTicketsVolumeName,
+									VolumeSource: corev1.VolumeSource{
+										DownwardAPI: &corev1.DownwardAPIVolumeSource{
+											Items: []corev1.DownwardAPIVolumeFile{
+												{
+													Path: rotateTLSSessionTicketsScriptFilename,
+													FieldRef: &corev1.ObjectFieldSelector{
+														FieldPath: fmt.Sprintf("metadata.annotations['%s']", rotateTLSSessionTicketsScriptFilename),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+}
+
+func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
+	keyLength := v1alpha1.DefaultSessionTicketKeyLength
+	if isTLSSessionTicketEnabled(instance) && instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
+		keyLength = instance.Spec.TLSSessionResumption.SessionTicket.KeyLength
+	}
+
+	data := make(map[string][]byte)
+	for i := 0; i < tlsSessionTicketKeys(instance); i++ {
+		key, err := generateSessionTicket(keyLength)
+		if err != nil {
+			return nil, err
+		}
+
+		data[fmt.Sprintf("ticket.%d.key", i)] = key
+	}
+
+	return &corev1.Secret{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "v1",
+			Kind:       "Secret",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      secretNameForTLSSessionTickets(instance),
+			Namespace: instance.Namespace,
+			Labels:    labelsForRpaasInstance(instance),
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.SchemeGroupVersion.Group,
+					Version: v1alpha1.SchemeGroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+		},
+		Data: data,
+	}, nil
+}
+
+func isTLSSessionTicketEnabled(instance *v1alpha1.RpaasInstance) bool {
+	return instance.Spec.TLSSessionResumption != nil && instance.Spec.TLSSessionResumption.SessionTicket != nil
+}
+
+func tlsSessionTicketKeys(instance *v1alpha1.RpaasInstance) int {
+	var nkeys int
+	if isTLSSessionTicketEnabled(instance) {
+		nkeys = int(instance.Spec.TLSSessionResumption.SessionTicket.KeepLastKeys)
+	}
+	return nkeys + 1
+}
+
+func secretNameForTLSSessionTickets(instance *v1alpha1.RpaasInstance) string {
+	return fmt.Sprintf("%s%s", instance.Name, sessionTicketsSecretSuffix)
+}
+
+func generateSessionTicket(keyLength v1alpha1.SessionTicketKeyLength) ([]byte, error) {
+	buffer := make([]byte, int(keyLength))
+	_, err := rand.Read(buffer)
+	if err != nil {
+		return nil, err
+	}
+	return buffer, nil
+}
+
+func newSessionTicketData(old, new map[string][]byte) map[string][]byte {
+	newest := make(map[string][]byte)
+	for k, v := range new {
+		if vv, found := old[k]; found {
+			newest[k] = vv
+			continue
+		}
+		newest[k] = v
+	}
+
+	for k, v := range old {
+		if _, found := new[k]; found {
+			newest[k] = v
+		}
+	}
+
+	return newest
 }
 
 func (r *ReconcileRpaasInstance) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
@@ -763,6 +1117,23 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		},
 	}
 
+	if isTLSSessionTicketEnabled(instance) {
+		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
+			Name: sessionTicketsVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretNameForTLSSessionTickets(instance),
+				},
+			},
+		})
+
+		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, corev1.VolumeMount{
+			Name:      sessionTicketsVolumeName,
+			MountPath: sessionTicketsVolumeMountPath,
+			ReadOnly:  true,
+		})
+	}
+
 	if !plan.Spec.Config.CacheSnapshotEnabled {
 		return n
 	}
@@ -945,6 +1316,15 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 			},
 		},
 	}
+}
+
+func minutesIntervalToSchedule(minutes uint32) string {
+	oneMinute := uint32(1)
+	if minutes <= oneMinute {
+		minutes = oneMinute
+	}
+
+	return fmt.Sprintf("*/%d * * * *", minutes)
 }
 
 func interpolateCacheSnapshotPodCmdTemplate(podCmd string, plan *v1alpha1.RpaasPlan) string {

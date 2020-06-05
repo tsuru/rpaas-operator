@@ -79,6 +79,12 @@ type RpaasInstanceSpec struct {
 	// some event happens to nginx container.
 	// +optional
 	Lifecycle *nginxv1alpha1.NginxLifecycle `json:"lifecycle,omitempty"`
+
+	// TLSSessionResumption configures the instance to support session resumption
+	// using either session tickets or session ID (in the future). Defaults to
+	// disabled.
+	// +optional
+	TLSSessionResumption *TLSSessionResumption `json:"tlsSessionResumption,omitempty"`
 }
 
 type Bind struct {
@@ -160,6 +166,55 @@ type RpaasInstanceAutoscaleSpec struct {
 	// int32(80) equals to 80%.
 	// +optional
 	TargetMemoryUtilizationPercentage *int32 `json:"targetMemoryUtilizationPercentage,omitempty"`
+}
+
+type TLSSessionResumption struct {
+	// SessionTicket defines the parameters to set the TLS session tickets.
+	// +optional
+	SessionTicket *TLSSessionTicket `json:"sessionTicket,omitempty"`
+}
+
+const (
+	// DefaultSessionTicketKeyRotationInteval holds the default time interval to
+	// rotate the session tickets: 1 hour.
+	DefaultSessionTicketKeyRotationInteval uint32 = 60
+)
+
+type SessionTicketKeyLength uint16
+
+const (
+	// SessionTicketKeyLength48 represents 48 bytes of session ticket key length.
+	SessionTicketKeyLength48 = SessionTicketKeyLength(48)
+
+	// SessionTicketKeyLength80 represents 80 bytes of session ticket key length.
+	SessionTicketKeyLength80 = SessionTicketKeyLength(80)
+
+	// DefaultSessionTicketKeyLength holds the default session ticket key length.
+	DefaultSessionTicketKeyLength = SessionTicketKeyLength48
+)
+
+type TLSSessionTicket struct {
+	// KeepLastKeys defines how many session ticket encryption keys should be
+	// kept in addition to the current one. Zero means no old encryption keys.
+	// Defaults to zero.
+	// +optional
+	KeepLastKeys uint32 `json:"keepLastKeys,omitempty"`
+
+	// KeyRotationInterval defines the time interval, in minutes, that a
+	// key rotation job should occurs. Defaults to 60 minutes (an hour).
+	// +optional
+	KeyRotationInterval uint32 `json:"keyRotationInterval,omitempty"`
+
+	// KeyLength defines the length of bytes for a session tickets. Should be
+	// either 48 or 80 bytes. Defaults to 48 bytes.
+	// +optional
+	KeyLength SessionTicketKeyLength `json:"keyLength,omitempty"`
+
+	// Image is the container image name used to execute the session ticket
+	// rotation job. It requires either "bash", "base64", "openssl" and "kubectl"
+	// programs be installed into. Defaults to "bitnami/kubectl:latest".
+	// +optional
+	Image string `json:"image,omitempty"`
 }
 
 func init() {

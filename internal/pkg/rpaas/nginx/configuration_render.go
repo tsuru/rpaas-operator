@@ -156,21 +156,57 @@ func k8sQuantityToNginx(quantity *resource.Quantity) string {
 	return strconv.Itoa(int(bytesN))
 }
 
+func tlsSessionTicketEnabled(instance *v1alpha1.RpaasInstance) bool {
+	return instance != nil &&
+		instance.Spec.TLSSessionResumption != nil &&
+		instance.Spec.TLSSessionResumption.SessionTicket != nil
+}
+
+func tlsSessionTicketKeys(instance *v1alpha1.RpaasInstance) int {
+	if !tlsSessionTicketEnabled(instance) {
+		return 0
+	}
+
+	return int(instance.Spec.TLSSessionResumption.SessionTicket.KeepLastKeys) + 1
+}
+
+func tlsSessionTicketTimeout(instance *v1alpha1.RpaasInstance) int {
+	nkeys := tlsSessionTicketKeys(instance)
+
+	keyRotationInterval := v1alpha1.DefaultSessionTicketKeyRotationInteval
+	if tlsSessionTicketEnabled(instance) &&
+		instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval != uint32(0) {
+		keyRotationInterval = instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval
+	}
+
+	return nkeys * int(keyRotationInterval)
+}
+
 var templateFuncs = template.FuncMap(map[string]interface{}{
-	"boolValue":          v1alpha1.BoolValue,
-	"buildLocationKey":   buildLocationKey,
-	"hasRootPath":        hasRootPath,
-	"toLower":            strings.ToLower,
-	"toUpper":            strings.ToUpper,
-	"managePort":         managePort,
-	"httpPort":           httpPort,
-	"httpsPort":          httpsPort,
-	"purgeLocationMatch": purgeLocationMatch,
-	"vtsLocationMatch":   vtsLocationMatch,
-	"contains":           strings.Contains,
-	"hasPrefix":          strings.HasPrefix,
-	"hasSuffix":          strings.HasSuffix,
-	"k8sQuantityToNginx": k8sQuantityToNginx,
+	"boolValue":               v1alpha1.BoolValue,
+	"buildLocationKey":        buildLocationKey,
+	"hasRootPath":             hasRootPath,
+	"toLower":                 strings.ToLower,
+	"toUpper":                 strings.ToUpper,
+	"managePort":              managePort,
+	"httpPort":                httpPort,
+	"httpsPort":               httpsPort,
+	"purgeLocationMatch":      purgeLocationMatch,
+	"vtsLocationMatch":        vtsLocationMatch,
+	"contains":                strings.Contains,
+	"hasPrefix":               strings.HasPrefix,
+	"hasSuffix":               strings.HasSuffix,
+	"k8sQuantityToNginx":      k8sQuantityToNginx,
+	"tlsSessionTicketEnabled": tlsSessionTicketEnabled,
+	"tlsSessionTicketKeys":    tlsSessionTicketKeys,
+	"tlsSessionTicketTimeout": tlsSessionTicketTimeout,
+	"iterate": func(n int) []int {
+		v := make([]int, n)
+		for i := 0; i < n; i++ {
+			v[i] = i
+		}
+		return v
+	},
 })
 
 var defaultMainTemplate = template.Must(template.New("main").
@@ -245,6 +281,21 @@ http {
     {{- end }}
     {{- end}}
 
+    {{- if tlsSessionTicketEnabled $instance }}
+    {{- with $instance.Spec.TLSSessionResumption.SessionTicket }}{{ "\n" }}
+    ssl_session_cache off;
+
+    ssl_session_tickets    on;
+    {{- range $index, $_ := (iterate (tlsSessionTicketKeys $instance)) }}
+    ssl_session_ticket_key tickets/ticket.{{ $index }}.key;
+    {{- end }}
+
+    {{- with (tlsSessionTicketTimeout $instance) }}
+    ssl_session_timeout {{ . }}m;
+    {{- end }}
+    {{- end }}
+    {{- end }}
+
     {{- range $index, $bind := $instance.Spec.Binds }}
 
       {{- if eq $index 0 }}
@@ -283,6 +334,16 @@ http {
     }
 
     init_worker_by_lua_block {
+        {{- if tlsSessionTicketEnabled $instance }}
+        {{- with $instance.Spec.TLSSessionResumption.SessionTicket }}
+        local rpaasv2_session_ticket_reloader = require('tsuru.rpaasv2.tls.session_ticket_reloader'):new({
+            ticket_file      = '/etc/nginx/tickets/ticket.0.key',
+            retain_last_keys = {{ tlsSessionTicketKeys $instance }},
+        })
+        rpaasv2_session_ticket_reloader:start_worker()
+        {{- end }}
+        {{- end }}
+
         {{- template "lua-worker" . }}
     }
 
