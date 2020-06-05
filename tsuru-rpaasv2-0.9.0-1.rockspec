@@ -10,6 +10,10 @@ description = {
    license = "3-clause BSD",
    maintainer = "Tsuru <tsuru@g.globo>"
 }
+dependencies = {
+   "lua >= 5.1",
+   "inotify ~> 0.5",
+}
 build = {
    type = "builtin",
    modules = {
