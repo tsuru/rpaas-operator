@@ -5,6 +5,7 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"fmt"
 	"net/http"
@@ -67,44 +68,63 @@ func New(manager rpaas.RpaasManager) (*api, error) {
 	return a, nil
 }
 
-func (a *api) startServer() error {
-	conf := config.Get()
-	if conf.TLSCertificate != "" && conf.TLSKey != "" {
-		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
+type commandReader struct {
+	body   io.Reader
+	writer io.Writer
+}
+
+func (c *commandReader) Write(arr []byte) (int, error) {
+	defer fmt.Printf("writer called: %v\n", string(arr))
+	return c.writer.Write(arr)
+}
+
+func (c *commandReader) Read(arr []byte) (int, error) {
+	reader := bufio.NewReader(c.body)
+	line, err := reader.ReadBytes('\n')
+	if err != nil {
+		return 0, err
 	}
-	// return a.e.Start(a.Address)
+
+	return copy(arr, line), nil
+}
+
+func setupExecRoute(a *api) error {
 	h2s := &http2.Server{}
 	mux := http.NewServeMux()
 	mux.Handle("/exec", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// err := r.ParseForm()
-		// if err != nil {
-		// 	fmt.Printf("error: %#v\n\n", err)
-		// 	w.WriteHeader(http.StatusInternalServerError)
-		// 	w.Write([]byte(err.Error()))
-		// }
-
-		// var useTty bool
-		// if tty := r.FormValue("tty"); tty == "true" {
-		// 	useTty = true
-		// }
+		var useTty bool
+		if tty := r.FormValue("tty"); tty == "true" {
+			useTty = true
+		}
 		if r.URL == nil {
 			w.WriteHeader(http.StatusInternalServerError)
 			w.Write([]byte("missing URL"))
 			return
 		}
 		instanceName := r.FormValue("instance")
-		if f, ok := w.(http.Flusher); ok {
-			w.WriteHeader(200)
-			f.Flush()
+
+		if err := r.ParseForm(); err != nil {
+			fmt.Printf("error: %s\n\n", err.Error())
+			w.WriteHeader(http.StatusInternalServerError)
+			w.Write([]byte(err.Error()))
+		}
+
+		fmt.Printf("Debug:\trequest uri: %s\n", r.URL.RequestURI())
+		fmt.Printf("Debug:\ttty=%v\tcommand=%v\n", useTty, r.Form["command"])
+
+		var buffer io.ReadWriter
+		buffer = &commandReader{
+			body:   r.Body,
+			writer: w,
 		}
 		err := a.rpaasManager.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
-			Stdin:   nil,
-			Stdout:  w,
-			Stderr:  w,
-			Tty:     true,
-			Command: []string{"ls"},
-			// TerminalWidth:  r.FormValue("width"),
-			// TerminalHeight: r.FormValue("height"),
+			Stdin:          buffer,
+			Stdout:         buffer,
+			Stderr:         buffer,
+			Tty:            useTty,
+			Command:        r.Form["command"],
+			TerminalWidth:  r.FormValue("width"),
+			TerminalHeight: r.FormValue("height"),
 		})
 		if err != nil {
 			fmt.Printf("error: %s\n\n", err.Error())
@@ -114,7 +134,18 @@ func (a *api) startServer() error {
 	}))
 	mux.Handle("/", a.e)
 	a.e.Server.Handler = h2c.NewHandler(mux, h2s)
-	// a.e.Server.Handler = h2c.NewHandler(a.e, h2s)
+	return nil
+}
+
+func (a *api) startServer() error {
+	conf := config.Get()
+	if conf.TLSCertificate != "" && conf.TLSKey != "" {
+		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
+	}
+	// return a.e.Start(a.Address)
+	if err := setupExecRoute(a); err != nil {
+		return err
+	}
 	a.e.Server.Addr = a.Address
 	return a.e.Server.ListenAndServe()
 }
@@ -190,12 +221,6 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-// func getInstance(urlPath string) string {
-// 	re := regexp.MustCompile(`.*\/resources\/(.*)\/`)
-// 	s := re.FindStringSubmatch(urlPath)
-// 	return s[1]
-// }
-
 func newEcho(mgr rpaas.RpaasManager) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
@@ -270,47 +295,6 @@ func newEcho(mgr rpaas.RpaasManager) *echo.Echo {
 	e.GET("/resources/:instance/route", getRoutes)
 	e.POST("/resources/:instance/route", updateRoute)
 	e.POST("/resources/:instance/purge", cachePurge)
-
-	// handler := http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-	// 	// err := r.ParseForm()
-	// 	// if err != nil {
-	// 	// 	fmt.Printf("error: %#v\n\n", err)
-	// 	// 	w.WriteHeader(http.StatusInternalServerError)
-	// 	// 	w.Write([]byte(err.Error()))
-	// 	// }
-
-	// 	// var useTty bool
-	// 	// if tty := r.FormValue("tty"); tty == "true" {
-	// 	// 	useTty = true
-	// 	// }
-	// 	if r.URL == nil {
-	// 		w.WriteHeader(http.StatusInternalServerError)
-	// 		w.Write([]byte("missing URL"))
-	// 		return
-	// 	}
-	// 	instanceName := getInstance(r.URL.Path)
-
-	// 	if f, ok := w.(http.Flusher); ok {
-	// 		w.WriteHeader(200)
-	// 		f.Flush()
-	// 	}
-	// 	err := mgr.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
-	// 		Stdin:   nil,
-	// 		Stdout:  w,
-	// 		Stderr:  w,
-	// 		Tty:     true,
-	// 		Command: []string{"ls"},
-	// 		// TerminalWidth:  r.FormValue("width"),
-	// 		// TerminalHeight: r.FormValue("height"),
-	// 	})
-	// 	if err != nil {
-	// 		fmt.Printf("error: %s\n\n", err.Error())
-	// 		w.WriteHeader(http.StatusInternalServerError)
-	// 		w.Write([]byte(err.Error()))
-	// 	}
-	// })
-	// h2s := &http2.Server{}
-	// e.Any("/resources/:instance/exec", echo.WrapHandler(handler))
 
 	return e
 }

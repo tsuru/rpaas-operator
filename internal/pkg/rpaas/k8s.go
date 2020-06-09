@@ -146,6 +146,7 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 	}
 	chosenName := chosenPod.Spec.Containers[0].Name
 
+	fmt.Printf("Debug Manager: commands = %v\n", args.Command)
 	req := restCli.Post().
 		Resource("pods").
 		Name(chosenPod.Name).

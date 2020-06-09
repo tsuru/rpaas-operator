@@ -174,7 +174,7 @@ type AutoscaleHandler interface {
 }
 
 type ExecArgs struct {
-	Stdin          io.ReadCloser
+	Stdin          io.Reader
 	Stdout         io.Writer
 	Stderr         io.Writer
 	Command        []string `json:"command"`

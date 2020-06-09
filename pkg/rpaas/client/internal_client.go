@@ -610,14 +610,13 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 	case "Exec":
 		args := data.(ExecArgs)
 		v := url.Values{}
-		//hardcoded sh
-		v.Set("command", "sh")
+		for _, command := range args.Command {
+			v.Add("command", command)
+		}
 		v.Set("tty", strconv.FormatBool(args.Tty))
 		v.Set("instance", args.Instance)
 		pathName := fmt.Sprintf("/exec?%s", v.Encode())
 		req, err = c.newRequest("POST", pathName, args.Reader, args.Instance)
-		// req.Header.Set("upgrade", "h2c")
-		// req.Header.Set("http2-settings", "AAMAAABkAAQCAAAAAAIAAAAA")
 
 	case "Scale":
 		args := data.(ScaleArgs)
