@@ -63,13 +63,14 @@ var (
 		"/bin/bash",
 		"-c",
 		`pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
+		echo "${SERVICE_NAME}-${INSTANCE_NAME}-snapshot-cronjob: ${pods}"
 for pod in ${pods[@]}; do
 	kubectl -n ${SERVICE_NAME} exec ${pod} -- ${POD_CMD};
 	if [[ $? == 0 ]]; then
 		exit 0;
 	fi
 done
-echo "No pods found";
+echo "${SERVICE_NAME}-${INSTANCE_NAME}-snapshot-cronjob: No pods found";
 exit 1
 `}
 
