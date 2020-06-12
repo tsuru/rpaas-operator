@@ -5,7 +5,6 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"net/http"
@@ -23,8 +22,6 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 type api struct {
@@ -68,84 +65,16 @@ func New(manager rpaas.RpaasManager) (*api, error) {
 	return a, nil
 }
 
-type commandReader struct {
-	body   io.Reader
-	writer io.Writer
-}
-
-func (c *commandReader) Write(arr []byte) (int, error) {
-	defer fmt.Printf("writer called: %v\n", string(arr))
-	return c.writer.Write(arr)
-}
-
-func (c *commandReader) Read(arr []byte) (int, error) {
-	reader := bufio.NewReader(c.body)
-	line, err := reader.ReadBytes('\n')
-	if err != nil {
-		return 0, err
-	}
-
-	return copy(arr, line), nil
-}
-
-func setupExecRoute(a *api) error {
-	h2s := &http2.Server{}
-	mux := http.NewServeMux()
-	mux.Handle("/exec", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var useTty bool
-		if tty := r.FormValue("tty"); tty == "true" {
-			useTty = true
-		}
-		if r.URL == nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("missing URL"))
-			return
-		}
-		instanceName := r.FormValue("instance")
-
-		if err := r.ParseForm(); err != nil {
-			fmt.Printf("error: %s\n\n", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-		}
-
-		fmt.Printf("Debug:\trequest uri: %s\n", r.URL.RequestURI())
-		fmt.Printf("Debug:\ttty=%v\tcommand=%v\n", useTty, r.Form["command"])
-
-		var buffer io.ReadWriter
-		buffer = &commandReader{
-			body:   r.Body,
-			writer: w,
-		}
-		err := a.rpaasManager.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
-			Stdin:          buffer,
-			Stdout:         buffer,
-			Stderr:         buffer,
-			Tty:            useTty,
-			Command:        r.Form["command"],
-			TerminalWidth:  r.FormValue("width"),
-			TerminalHeight: r.FormValue("height"),
-		})
-		if err != nil {
-			fmt.Printf("error: %s\n\n", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-		}
-	}))
-	mux.Handle("/", a.e)
-	a.e.Server.Handler = h2c.NewHandler(mux, h2s)
-	return nil
-}
-
 func (a *api) startServer() error {
 	conf := config.Get()
 	if conf.TLSCertificate != "" && conf.TLSKey != "" {
 		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
 	}
-	// return a.e.Start(a.Address)
+
 	if err := setupExecRoute(a); err != nil {
 		return err
 	}
+
 	a.e.Server.Addr = a.Address
 	return a.e.Server.ListenAndServe()
 }
