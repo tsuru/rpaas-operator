@@ -472,6 +472,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+local rpaasv2_session_ticket_reloader = require\('tsuru.rpaasv2.tls.session_ticket_reloader'\):new\(\{
 \s+ticket_file      = '/etc/nginx/tickets/ticket.0.key',
 \s+retain_last_keys = 1,
+\s+sync_interval    = 1,
 \s+\}\)
 \s+rpaasv2_session_ticket_reloader:start_worker\(\)
 \s+\}`, result)
@@ -506,6 +507,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+local rpaasv2_session_ticket_reloader = require\('tsuru.rpaasv2.tls.session_ticket_reloader'\):new\(\{
 \s+ticket_file      = '/etc/nginx/tickets/ticket.0.key',
 \s+retain_last_keys = 6,
+\s+sync_interval    = 1,
 \s+\}\)
 \s+rpaasv2_session_ticket_reloader:start_worker\(\)
 \s+\}`, result)

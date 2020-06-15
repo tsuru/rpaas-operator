@@ -1684,6 +1684,10 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 										Name:  "SESSION_TICKET_KEYS",
 										Value: "1",
 									},
+									{
+										Name:  "NGINX_LABEL_SELECTOR",
+										Value: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance",
+									},
 								},
 								VolumeMounts: []corev1.VolumeMount{
 									{
@@ -1762,6 +1766,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				assert.Equal(t, "my.custom.image:tag", gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Image)
 				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEY_LENGTH", Value: "80"})
 				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEYS", Value: "4"})
+				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "NGINX_LABEL_SELECTOR", Value: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance"})
 			},
 		},
 		{

@@ -96,3 +96,10 @@ rules:
   verbs:
   - get
   - patch
+- apiGroups: [""]
+  resources:
+  - pods
+  verbs:
+  - get
+  - list
+  - patch

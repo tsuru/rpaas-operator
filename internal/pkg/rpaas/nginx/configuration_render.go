@@ -339,6 +339,7 @@ http {
         local rpaasv2_session_ticket_reloader = require('tsuru.rpaasv2.tls.session_ticket_reloader'):new({
             ticket_file      = '/etc/nginx/tickets/ticket.0.key',
             retain_last_keys = {{ tlsSessionTicketKeys $instance }},
+            sync_interval    = 1,
         })
         rpaasv2_session_ticket_reloader:start_worker()
         {{- end }}

@@ -18,6 +18,7 @@ import (
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
@@ -31,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -151,10 +153,22 @@ function rotate_session_tickets() {
     --patch="$(json_merge_patch_payload ${key})"
 }
 
+function update_nginx_pods() {
+  local selector=${1}
+
+  ${KUBECTL} annotate pods --overwrite --namespace ${SECRET_NAMESPACE} --selector ${selector} \
+    rpaas.extensions.tsuru.io/last-session-ticket-key-rotation="$(date +'%Y-%m-%dT%H:%M:%SZ')"
+}
+
 function main() {
   echo "Starting rotation of TLS session tickets within Secret (${SECRET_NAMESPACE}/${SECRET_NAME})..."
   rotate_session_tickets $(generate_key)
   echo "TLS session tickets successfully updated."
+
+  if [[ -n ${NGINX_LABEL_SELECTOR} ]]; then
+    echo "Updating Nginx pods with selector (${NGINX_LABEL_SELECTOR})..."
+    update_nginx_pods ${NGINX_LABEL_SELECTOR}
+  fi
 }
 
 main $@
@@ -591,6 +605,10 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 										{
 											Name:  "SESSION_TICKET_KEYS",
 											Value: fmt.Sprint(tlsSessionTicketKeys(instance)),
+										},
+										{
+											Name:  "NGINX_LABEL_SELECTOR",
+											Value: k8slabels.FormatLabels(nginxk8s.LabelsForNginx(instance.Name)),
 										},
 									},
 									VolumeMounts: []corev1.VolumeMount{
