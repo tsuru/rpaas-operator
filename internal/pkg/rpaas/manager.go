@@ -200,6 +200,12 @@ func getFlavors(params map[string]interface{}, tags []string) (flavors []string)
 		return legacyGetFlavors(tags)
 	}
 
+	flavorsString, ok := p.(string)
+	if ok {
+		flavors = strings.Split(flavorsString, ",")
+		return
+	}
+
 	flavorsParams, ok := p.(map[string]interface{})
 	if !ok {
 		return

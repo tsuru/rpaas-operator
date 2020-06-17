@@ -5,16 +5,24 @@
 package api
 
 import (
+	"bytes"
 	"fmt"
+	"io"
+	"io/ioutil"
 	"net/http"
 	"strings"
 
+	"github.com/ajg/form"
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
 func serviceCreate(c echo.Context) error {
-	var args rpaas.CreateArgs
+	args := rpaas.CreateArgs{
+		// NOTE: using a different decoder for Parameters since the `r.PostForm()`
+		// method does not understand the format used by github.com/ajf.form.
+		Parameters: decodeFormParameters(c.Request()),
+	}
 	if err := c.Bind(&args); err != nil {
 		return err
 	}
@@ -49,7 +57,11 @@ func serviceDelete(c echo.Context) error {
 }
 
 func serviceUpdate(c echo.Context) error {
-	var args rpaas.UpdateInstanceArgs
+	args := rpaas.UpdateInstanceArgs{
+		// NOTE: using a different decoder for Parameters since the `r.PostForm()`
+		// method does not understand the format used by github.com/ajf.form.
+		Parameters: decodeFormParameters(c.Request()),
+	}
 	if err := c.Bind(&args); err != nil {
 		return err
 	}
@@ -190,4 +202,30 @@ func serviceStatus(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusNoContent)
+}
+
+func decodeFormParameters(r *http.Request) map[string]interface{} {
+	if r == nil {
+		return nil
+	}
+
+	body := r.Body
+	defer body.Close()
+
+	var buffer bytes.Buffer
+	reader := io.TeeReader(body, &buffer)
+
+	var obj struct {
+		Parameters map[string]interface{} `form:"parameters"`
+	}
+	newFormDecoder(reader).Decode(&obj)
+	r.Body = ioutil.NopCloser(&buffer)
+	return obj.Parameters
+}
+
+func newFormDecoder(r io.Reader) *form.Decoder {
+	decoder := form.NewDecoder(r)
+	decoder.IgnoreCase(true)
+	decoder.IgnoreUnknownKeys(true)
+	return decoder
 }

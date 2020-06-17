@@ -44,7 +44,7 @@ func Test_serviceCreate(t *testing.T) {
 		},
 		{
 			name:         "passing all create parameters on body",
-			requestBody:  "name=my-instance&description=some%20description&plan=my-plan&team=my-team&tags.0=tsuru&tags.1=rpaas&parameters.flavors.0=orange&parameters.flavors.1=strawberry&parameters.flavors.2=blueberry",
+			requestBody:  "name=my-instance&description=some%20description&plan=my-plan&team=my-team&tags=tsuru&tags=rpaas&parameters.flavors=orange,strawberry,blueberry",
 			expectedCode: http.StatusCreated,
 			manager: &fake.RpaasManager{
 				FakeCreateInstance: func(args rpaas.CreateArgs) error {
@@ -55,11 +55,7 @@ func Test_serviceCreate(t *testing.T) {
 						Team:        "my-team",
 						Tags:        []string{"tsuru", "rpaas"},
 						Parameters: map[string]interface{}{
-							"flavors": map[string]interface{}{
-								"0": "orange",
-								"1": "strawberry",
-								"2": "blueberry",
-							},
+							"flavors": "orange,strawberry,blueberry",
 						},
 					}
 					assert.Equal(t, expected, args)
@@ -152,7 +148,7 @@ func Test_serviceUpdate(t *testing.T) {
 		{
 			name:         "passing all update parameters on body",
 			instance:     "other-instance",
-			requestBody:  "description=some%20description&plan=huge&team=team-one&tags.0=tag1&tags.1=tag2&parameters.flavors.0=orange&parameters.flavors.1=mango",
+			requestBody:  "description=some%20description&plan=huge&team=team-one&tags=tag1&tags=tag2&parameters.flavors=orange,mango",
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
 				FakeUpdateInstance: func(instanceName string, args rpaas.UpdateInstanceArgs) error {
@@ -163,10 +159,7 @@ func Test_serviceUpdate(t *testing.T) {
 						Tags:        []string{"tag1", "tag2"},
 						Team:        "team-one",
 						Parameters: map[string]interface{}{
-							"flavors": map[string]interface{}{
-								"0": "orange",
-								"1": "mango",
-							},
+							"flavors": "orange,mango",
 						},
 					}, args)
 					assert.Equal(t, []string{"orange", "mango"}, args.Flavors())
