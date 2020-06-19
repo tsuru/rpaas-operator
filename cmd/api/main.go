@@ -10,36 +10,24 @@ import (
 	"github.com/google/gops/agent"
 	"github.com/tsuru/rpaas-operator/api"
 	"github.com/tsuru/rpaas-operator/config"
-	"github.com/tsuru/rpaas-operator/pkg/apis"
 )
 
-func startup() error {
+func main() {
+	if err := config.Init(); err != nil {
+		log.Fatalf("could not initialize RPaaS configurations: %v", err)
+	}
+
 	if err := agent.Listen(agent.Options{}); err != nil {
-		return err
+		log.Fatalf("could not initialize gops agent: %v", err)
 	}
 	defer agent.Close()
 
-	err := config.Init()
+	a, err := api.New(nil)
 	if err != nil {
-		return err
+		log.Fatalf("could not create RPaaS API: %v", err)
 	}
-	manager, err := apis.NewManager()
-	if err != nil {
-		return err
-	}
-	a, err := api.New(manager)
-	if err != nil {
-		return err
-	}
-	if err = a.Start(); err != nil {
-		return err
-	}
-	return nil
-}
 
-func main() {
-	err := startup()
-	if err != nil {
-		log.Fatalf("unable to initialize application: %+v", err)
+	if err := a.Start(); err != nil {
+		log.Fatalf("could not start the RPaaS API server: %v", err)
 	}
 }

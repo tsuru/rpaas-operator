@@ -1319,8 +1319,7 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 		t.Run(testCase.instance, func(t *testing.T) {
 			fakeCli := fake.NewFakeClientWithScheme(newScheme(), resources...)
 			manager := &k8sRpaasManager{
-				nonCachedCli: fakeCli,
-				cli:          fakeCli,
+				cli: fakeCli,
 			}
 			_, podMap, err := manager.GetInstanceStatus(context.Background(), testCase.instance)
 			testCase.assertion(t, podMap, err)
@@ -1813,7 +1812,6 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 			fakeCli := fake.NewFakeClientWithScheme(scheme, resources...)
 			manager := &k8sRpaasManager{
 				cli:          fakeCli,
-				nonCachedCli: fakeCli,
 				cacheManager: tt.cacheManager,
 			}
 			count, err := manager.PurgeCache(context.Background(), tt.instance, tt.args)
@@ -3959,8 +3957,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			fakeCli := fake.NewFakeClientWithScheme(newScheme(), resources...)
 			manager := &k8sRpaasManager{
-				cli:          fakeCli,
-				nonCachedCli: fakeCli,
+				cli: fakeCli,
 			}
 			got, err := manager.GetInstanceInfo(context.Background(), tt.instance)
 			require.NoError(t, err)

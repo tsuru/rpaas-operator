@@ -14,11 +14,14 @@ import (
 	"syscall"
 	"time"
 
+	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
+
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"github.com/tsuru/rpaas-operator/pkg/apis"
 )
 
 type api struct {
@@ -33,34 +36,29 @@ type api struct {
 	// gracefully shutting down. Defaults to `30 * time.Second`.
 	ShutdownTimeout time.Duration
 
-	started      bool
-	e            *echo.Echo
-	mgr          manager.Manager
-	rpaasManager rpaas.RpaasManager
-	shutdown     chan struct{}
+	started  bool
+	e        *echo.Echo
+	shutdown chan struct{}
 }
 
 // New creates an api instance.
-func New(mgr manager.Manager) (*api, error) {
-	var rm rpaas.RpaasManager
-	if mgr != nil {
-		var err error
-		rm, err = rpaas.NewK8S(mgr)
+func New(manager rpaas.RpaasManager) (*api, error) {
+	if manager == nil {
+		k8sClient, err := newKubernetesClient()
 		if err != nil {
 			return nil, err
 		}
+
+		manager = rpaas.NewK8S(k8sClient)
 	}
-	a := &api{
+
+	return &api{
 		Address:         `:9999`,
 		TLSAddress:      `:9993`,
 		ShutdownTimeout: 30 * time.Second,
-		e:               newEcho(),
-		mgr:             mgr,
+		e:               newEcho(manager),
 		shutdown:        make(chan struct{}),
-		rpaasManager:    rm,
-	}
-	a.e.Use(a.rpaasManagerInjector())
-	return a, nil
+	}, nil
 }
 
 func (a *api) startServer() error {
@@ -77,7 +75,6 @@ func (a *api) Start() error {
 	a.started = true
 	a.Unlock()
 	go a.handleSignals()
-	go a.mgr.Start(a.shutdown)
 	if err := a.startServer(); err != http.ErrServerClosed {
 		fmt.Printf("problem to start the webserver: %+v", err)
 		return err
@@ -102,10 +99,6 @@ func (a *api) Stop() error {
 	return a.e.Shutdown(ctx)
 }
 
-func (a *api) Handler() http.Handler {
-	return a.e
-}
-
 func (a *api) handleSignals() {
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
@@ -113,15 +106,6 @@ func (a *api) handleSignals() {
 	case <-quit:
 		a.Stop()
 	case <-a.shutdown:
-	}
-}
-
-func (a *api) rpaasManagerInjector() echo.MiddlewareFunc {
-	return func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(ctx echo.Context) error {
-			setManager(ctx, a.rpaasManager)
-			return next(ctx)
-		}
 	}
 }
 
@@ -156,7 +140,7 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func newEcho() *echo.Echo {
+func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -176,6 +160,12 @@ func newEcho() *echo.Echo {
 		Realm: "Restricted",
 	}))
 	e.Use(errorMiddleware)
+	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
+		return func(ctx echo.Context) error {
+			setManager(ctx, manager)
+			return next(ctx)
+		}
+	})
 
 	e.GET("/healthcheck", healthcheck)
 	e.POST("/resources", serviceCreate)
@@ -219,4 +209,23 @@ func newEcho() *echo.Echo {
 	e.POST("/resources/:instance/purge", cachePurge)
 
 	return e
+}
+
+func newKubernetesClient() (sigsk8sclient.Client, error) {
+	cfg, err := sigsk8sconfig.GetConfig()
+	if err != nil {
+		return nil, err
+	}
+
+	scheme, err := apis.NewScheme()
+	if err != nil {
+		return nil, err
+	}
+
+	c, err := sigsk8sclient.New(cfg, sigsk8sclient.Options{Scheme: scheme})
+	if err != nil {
+		return nil, err
+	}
+
+	return c, nil
 }

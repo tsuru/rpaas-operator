@@ -46,10 +46,9 @@ func newMultipartFormBody(name string, files ...multipartFile) (string, error) {
 }
 
 func newTestingServer(t *testing.T, m rpaas.RpaasManager) *httptest.Server {
-	webApi, err := New(nil)
+	webApi, err := New(m)
 	require.NoError(t, err)
-	webApi.rpaasManager = m
-	return httptest.NewServer(webApi.Handler())
+	return httptest.NewServer(webApi.e)
 }
 
 func bodyContent(rsp *http.Response) string {

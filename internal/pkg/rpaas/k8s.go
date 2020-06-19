@@ -37,7 +37,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -50,24 +49,15 @@ const (
 var _ RpaasManager = &k8sRpaasManager{}
 
 type k8sRpaasManager struct {
-	nonCachedCli client.Client
 	cli          client.Client
 	cacheManager CacheManager
 }
 
-func NewK8S(mgr manager.Manager) (RpaasManager, error) {
-	nonCachedCli, err := client.New(mgr.GetConfig(), client.Options{
-		Scheme: mgr.GetScheme(),
-		Mapper: mgr.GetRESTMapper(),
-	})
-	if err != nil {
-		return nil, err
-	}
+func NewK8S(k8sClient client.Client) RpaasManager {
 	return &k8sRpaasManager{
-		nonCachedCli: nonCachedCli,
-		cli:          mgr.GetClient(),
+		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
-	}, nil
+	}
 }
 
 func (m *k8sRpaasManager) DeleteInstance(ctx context.Context, name string) error {
@@ -1225,7 +1215,7 @@ func (m *k8sRpaasManager) eventsForPod(ctx context.Context, pod *corev1.Pod) ([]
 		Namespace: pod.Namespace,
 	}
 	var eventList corev1.EventList
-	if err := m.nonCachedCli.List(ctx, &eventList, listOpts); err != nil {
+	if err := m.cli.List(ctx, &eventList, listOpts); err != nil {
 		return nil, err
 	}
 

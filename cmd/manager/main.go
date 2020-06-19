@@ -113,12 +113,6 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Indexing required fields
-	if err = apis.AddFieldIndexes(mgr.GetFieldIndexer()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
 	// Register Scheme for Nginx
 	if err = nginxApis.AddToScheme(mgr.GetScheme()); err != nil {
 		log.Error(err, "")

@@ -28,12 +28,6 @@ func Test_deleteRoute(t *testing.T) {
 		manager      rpaas.RpaasManager
 	}{
 		{
-			name:         "when manager is not set",
-			instance:     "my-instance",
-			expectedCode: http.StatusInternalServerError,
-			manager:      nil,
-		},
-		{
 			name:         "when delete route is successful",
 			instance:     "my-instance",
 			requestBody:  "path=/my/custom/path",
@@ -106,12 +100,6 @@ func Test_getRoutes(t *testing.T) {
 		expectedRoutes []rpaas.Route
 		manager        rpaas.RpaasManager
 	}{
-		{
-			name:         "when manager is not set",
-			instance:     "my-instance",
-			expectedCode: http.StatusInternalServerError,
-			manager:      nil,
-		},
 		{
 			name:           "when instance has no routes",
 			instance:       "my-instance",
@@ -197,12 +185,6 @@ func Test_updateRoute(t *testing.T) {
 		expectedBody string
 		manager      rpaas.RpaasManager
 	}{
-		{
-			name:         "when manager is not set",
-			instance:     "my-instance",
-			expectedCode: http.StatusInternalServerError,
-			manager:      nil,
-		},
 		{
 			name:         "when update route retunrs no error",
 			instance:     "my-instance",
