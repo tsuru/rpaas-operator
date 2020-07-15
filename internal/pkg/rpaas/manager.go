@@ -98,6 +98,10 @@ func (args CreateArgs) IP() string {
 	return getIP(args.Parameters, args.Tags)
 }
 
+func (args CreateArgs) LoadBalancerName() string {
+	return getLoadBalancerName(args.Parameters)
+}
+
 func (args CreateArgs) PlanOverride() string {
 	return getPlanOverride(args.Parameters, args.Tags)
 }
@@ -116,6 +120,10 @@ func (args UpdateInstanceArgs) Flavors() []string {
 
 func (args UpdateInstanceArgs) IP() string {
 	return getIP(args.Parameters, args.Tags)
+}
+
+func (args UpdateInstanceArgs) LoadBalancerName() string {
+	return getLoadBalancerName(args.Parameters)
 }
 
 func (args UpdateInstanceArgs) PlanOverride() string {
@@ -278,6 +286,18 @@ func legacyGetPlanOverride(tags []string) string {
 	}
 
 	return values[0]
+}
+
+func getLoadBalancerName(params map[string]interface{}) string {
+	p, found := params["lb-name"]
+	if !found {
+		return ""
+	}
+
+	if lbName, ok := p.(string); ok {
+		return lbName
+	}
+	return ""
 }
 
 func extractTagValues(prefixes, tags []string) []string {
