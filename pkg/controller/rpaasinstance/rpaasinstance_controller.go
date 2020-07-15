@@ -374,12 +374,6 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 		return nil, err
 	}
 
-	for _, defaultFlavor := range defaultFlavors {
-		if err := mergeInstanceWithFlavor(instance, defaultFlavor); err != nil {
-			return nil, err
-		}
-	}
-
 	for _, flavorName := range instance.Spec.Flavors {
 		flavorObjectKey := types.NamespacedName{
 			Name:      flavorName,
@@ -403,6 +397,12 @@ func (r *ReconcileRpaasInstance) mergeInstanceWithFlavors(ctx context.Context, i
 			return nil, err
 		}
 
+	}
+
+	for _, defaultFlavor := range defaultFlavors {
+		if err := mergeInstanceWithFlavor(instance, defaultFlavor); err != nil {
+			return nil, err
+		}
 	}
 
 	return instance, nil

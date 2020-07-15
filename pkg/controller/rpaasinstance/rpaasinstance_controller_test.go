@@ -344,10 +344,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 							"flavored-service-annotation":  "v1",
 						},
 						Labels: map[string]string{
+							"flavored-service-label":  "v1",
 							"default-service-label":   "default",
 							"some-instance-label-key": "label1",
 							"conflict-label":          "instance value",
-							"flavored-service-label":  "default",
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
@@ -394,7 +394,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 							"default-service-label":   "default",
 							"some-instance-label-key": "label1",
 							"conflict-label":          "instance value",
-							"flavored-service-label":  "default",
+							"flavored-service-label":  "v1",
 							"mango-service-label":     "mango",
 						},
 					},
@@ -406,7 +406,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						},
 						Labels: map[string]string{
 							"flavored-pod-label": "v1",
-							"mango-pod-label":    "not-a-mango",
+							"mango-pod-label":    "mango",
 							"default-pod-label":  "default",
 						},
 						HostNetwork: true,
