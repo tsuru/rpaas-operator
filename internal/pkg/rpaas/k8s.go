@@ -45,7 +45,6 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -63,20 +62,11 @@ type k8sRpaasManager struct {
 	restConfig   *rest.Config
 }
 
-func NewK8S(mgr manager.Manager) (RpaasManager, error) {
-	mgrConfig := mgr.GetConfig()
-	nonCachedCli, err := client.New(mgrConfig, client.Options{
-		Scheme: mgr.GetScheme(),
-		Mapper: mgr.GetRESTMapper(),
-	})
-	if err != nil {
-		return nil, err
-	}
+func NewK8S(k8sClient client.Client) RpaasManager {
 	return &k8sRpaasManager{
 		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
-		restConfig:   mgrConfig,
-	}, nil
+	}
 }
 
 func keepAliveSpdyExecutor(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
