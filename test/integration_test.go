@@ -220,7 +220,7 @@ func Test_RpaasApi(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "2m", "-n", namespaceName)
+		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "5m", "-n", namespaceName)
 		require.NoError(t, err)
 
 		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
@@ -290,9 +290,9 @@ func Test_RpaasApi(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "2m", "-n", namespaceName)
+		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "5m", "-n", namespaceName)
 		require.NoError(t, err)
-		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=echo-server", "pod", "--timeout", "2m", "-n", namespaceName)
+		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=echo-server", "pod", "--timeout", "5m", "-n", namespaceName)
 		require.NoError(t, err)
 
 		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
