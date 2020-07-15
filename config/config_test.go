@@ -166,6 +166,18 @@ team-affinity:
 				},
 			},
 		},
+		{
+			config: `
+loadbalancer-name-label-key: my.cloudprovider.example.com/lb-name
+`,
+			expected: RpaasConfig{
+				ServiceName:              "rpaasv2",
+				SyncInterval:             5 * time.Minute,
+				PortRangeMin:             20000,
+				PortRangeMax:             30000,
+				LoadBalancerNameLabelKey: "my.cloudprovider.example.com/lb-name",
+			},
+		},
 	}
 
 	for _, tt := range tests {
