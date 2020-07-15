@@ -29,16 +29,17 @@ const (
 )
 
 type RpaasConfig struct {
-	ServiceName     string                     `json:"service-name"`
-	APIUsername     string                     `json:"api-username"`
-	APIPassword     string                     `json:"api-password"`
-	TLSCertificate  string                     `json:"tls-certificate"`
-	TLSKey          string                     `json:"tls-key"`
-	DefaultAffinity *corev1.Affinity           `json:"default-affinity"`
-	TeamAffinity    map[string]corev1.Affinity `json:"team-affinity"`
-	SyncInterval    time.Duration              `json:"sync-interval"`
-	PortRangeMin    int32                      `json:"port-range-min"`
-	PortRangeMax    int32                      `json:"port-range-max"`
+	ServiceName              string                     `json:"service-name"`
+	APIUsername              string                     `json:"api-username"`
+	APIPassword              string                     `json:"api-password"`
+	TLSCertificate           string                     `json:"tls-certificate"`
+	TLSKey                   string                     `json:"tls-key"`
+	DefaultAffinity          *corev1.Affinity           `json:"default-affinity"`
+	TeamAffinity             map[string]corev1.Affinity `json:"team-affinity"`
+	SyncInterval             time.Duration              `json:"sync-interval"`
+	PortRangeMin             int32                      `json:"port-range-min"`
+	PortRangeMax             int32                      `json:"port-range-max"`
+	LoadBalancerNameLabelKey string                     `json:"loadbalancer-name-label-key"`
 }
 
 var rpaasConfig struct {
