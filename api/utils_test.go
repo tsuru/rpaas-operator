@@ -15,6 +15,7 @@ import (
 
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 )
 
 const boundary = "XXXXXXXXXXXX"
@@ -46,6 +47,9 @@ func newMultipartFormBody(name string, files ...multipartFile) (string, error) {
 }
 
 func newTestingServer(t *testing.T, m rpaas.RpaasManager) *httptest.Server {
+	if m == nil {
+		m = &fake.RpaasManager{}
+	}
 	webApi, err := New(m)
 	require.NoError(t, err)
 	return httptest.NewServer(webApi.e)
