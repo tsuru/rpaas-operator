@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/imdario/mergo"
+	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
@@ -3965,4 +3966,113 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			assert.Equal(t, tt.expected, *got)
 		})
 	}
+}
+
+func Test_k8sRpaasManager_GetPlans(t *testing.T) {
+	cfg := config.Get()
+	defer func() { config.Set(cfg) }()
+	config.Set(config.RpaasConfig{
+		LoadBalancerNameLabelKey: "cloudprovider.example/loadbalancer-name",
+	})
+
+	resources := []runtime.Object{
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default",
+				Namespace: defaultNamespace,
+			},
+			Spec: v1alpha1.RpaasPlanSpec{
+				Default:     true,
+				Description: "Some description about \"default\"",
+			},
+		},
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "plan-b",
+				Namespace: defaultNamespace,
+			},
+			Spec: v1alpha1.RpaasPlanSpec{
+				Description: "awesome description about plan-b",
+			},
+		},
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "system",
+				Namespace: defaultNamespace,
+			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				Default: true,
+			},
+		},
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "flavor-a",
+				Namespace: defaultNamespace,
+			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				Description: "description about flavor-a",
+			},
+		},
+	}
+
+	manager := &k8sRpaasManager{
+		cli: fake.NewFakeClientWithScheme(newScheme(), resources...),
+	}
+	plans, err := manager.GetPlans(context.TODO())
+	require.NoError(t, err)
+
+	p := map[string]interface{}{
+		"$id":     "https://example.com/schema.json",
+		"$schema": "https://json-schema.org/draft-07/schema#",
+		"type":    "object",
+		"properties": map[string]interface{}{
+			"flavors": map[string]interface{}{
+				"type": "array",
+				"items": map[string]interface{}{
+					"$ref": "#/definitions/flavor",
+				},
+				"description": "Provides a self-contained set of features that can be enabled on this plan.\n\nSupported flavors:\n\t- name: flavor-a\n\t  description: description about flavor-a",
+				"enum":        []string{"flavor-a"},
+			},
+			"ip": map[string]interface{}{
+				"type":        "string",
+				"description": "IP address that will be assigned to load balancer.\nExamples:\n\tip=192.168.15.10",
+			},
+			"plan-override": map[string]interface{}{
+				"type":        "object",
+				"description": "Allows an instance to change its plan parameters to specific ones.\nExamples:\n\tplan-override={\"config\": {\"cacheEnabled\": false}}\n\tplan-override={\"image\": \"tsuru/nginx:latest\"}",
+			},
+			"lb-name": map[string]interface{}{
+				"type": "string",
+				"description": `Custom domain address (e.g. following RFC 1035) assingned to instance's load balancer.
+Example:
+    lb-name=my-instance.internal.subdomain.example`,
+			},
+		},
+		"definitions": map[string]interface{}{
+			"flavor": map[string]interface{}{
+				"type": "string",
+			},
+		},
+	}
+	schemas := &osb.Schemas{
+		ServiceInstance: &osb.ServiceInstanceSchema{
+			Create: &osb.InputParametersSchema{Parameters: p},
+			Update: &osb.InputParametersSchema{Parameters: p},
+		},
+	}
+
+	expected := []Plan{
+		{
+			Name:        "default",
+			Description: "Some description about \"default\"",
+			Schemas:     schemas,
+		},
+		{
+			Name:        "plan-b",
+			Description: "awesome description about plan-b",
+			Schemas:     schemas,
+		},
+	}
+	assert.Equal(t, expected, plans)
 }
