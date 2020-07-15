@@ -105,6 +105,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	instance.SetTeamOwner(args.Team)
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
+	setLoadBalancerName(instance, args.LoadBalancerName())
 
 	if err = setPlanTemplate(instance, args.PlanOverride()); err != nil {
 		return err
@@ -138,6 +139,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	instance.SetTeamOwner(args.Team)
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
+	setLoadBalancerName(instance, args.LoadBalancerName())
 
 	if err := setPlanTemplate(instance, args.PlanOverride()); err != nil {
 		return err
@@ -1399,6 +1401,23 @@ func setTags(instance *v1alpha1.RpaasInstance, tags []string) {
 	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
 		labelKey("tags"): strings.Join(tags, ","),
 	})
+}
+
+func setLoadBalancerName(instance *v1alpha1.RpaasInstance, lbName string) {
+	if lbName == "" {
+		return
+	}
+	lbNameLabelKey := config.Get().LoadBalancerNameLabelKey
+	if lbNameLabelKey == "" {
+		return
+	}
+	if instance.Spec.Service == nil {
+		instance.Spec.Service = &nginxv1alpha1.NginxService{}
+	}
+	if instance.Spec.Service.Annotations == nil {
+		instance.Spec.Service.Annotations = make(map[string]string)
+	}
+	instance.Spec.Service.Annotations[lbNameLabelKey] = lbName
 }
 
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
