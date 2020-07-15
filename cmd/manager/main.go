@@ -25,10 +25,8 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
-	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	rpaasConfig "github.com/tsuru/rpaas-operator/config"
 	rpaasOperatorVersion "github.com/tsuru/rpaas-operator/version"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
@@ -92,41 +90,22 @@ func main() {
 		os.Exit(1)
 	}
 
-	syncInteval := rpaasConfig.Get().SyncInterval
-
-	// Create a new Cmd to provide shared dependencies and start components
-	mgr, err := manager.New(cfg, manager.Options{
-		SyncPeriod:         &syncInteval,
-		MapperProvider:     restmapper.NewDynamicRESTMapper,
-		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
-	})
+	scheme, err := apis.NewScheme()
 	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
 
-	log.Info("Registering Components.")
+	syncInterval := rpaasConfig.Get().SyncInterval
 
-	// Setup Scheme for all resources
-	if err = apis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Indexing required fields
-	if err = apis.AddFieldIndexes(mgr.GetFieldIndexer()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Register Scheme for Nginx
-	if err = nginxApis.AddToScheme(mgr.GetScheme()); err != nil {
-		log.Error(err, "")
-		os.Exit(1)
-	}
-
-	// Register scheme for HPA
-	if err = autoscalingv2beta2.AddToScheme(mgr.GetScheme()); err != nil {
+	// Create a new Cmd to provide shared dependencies and start components
+	mgr, err := manager.New(cfg, manager.Options{
+		Scheme:             scheme,
+		SyncPeriod:         &syncInterval,
+		MapperProvider:     restmapper.NewDynamicRESTMapper,
+		MetricsBindAddress: fmt.Sprintf("%s:%d", metricsHost, metricsPort),
+	})
+	if err != nil {
 		log.Error(err, "")
 		os.Exit(1)
 	}
