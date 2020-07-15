@@ -4031,22 +4031,24 @@ func Test_k8sRpaasManager_GetPlans(t *testing.T) {
 				"items": map[string]interface{}{
 					"$ref": "#/definitions/flavor",
 				},
-				"description": "Provides a self-contained set of features that can be enabled on this plan.\n\nSupported flavors:\n\t- name: flavor-a\n\t  description: description about flavor-a",
-				"enum":        []string{"flavor-a"},
+				"description": `Provides a self-contained set of features that can be enabled on this plan. Example: flavors=flavor-a,flavor-b.
+  supported flavors:
+    - name: flavor-a
+      description: description about flavor-a
+`,
+				"enum": []string{"flavor-a"},
 			},
 			"ip": map[string]interface{}{
 				"type":        "string",
-				"description": "IP address that will be assigned to load balancer.\nExamples:\n\tip=192.168.15.10",
+				"description": "IP address that will be assigned to load balancer. Example: ip=192.168.15.10.\n",
 			},
 			"plan-override": map[string]interface{}{
 				"type":        "object",
-				"description": "Allows an instance to change its plan parameters to specific ones.\nExamples:\n\tplan-override={\"config\": {\"cacheEnabled\": false}}\n\tplan-override={\"image\": \"tsuru/nginx:latest\"}",
+				"description": "Allows an instance to change its plan parameters to specific ones. Examples: plan-override={\"config\": {\"cacheEnabled\": false}}; plan-override={\"image\": \"tsuru/nginx:latest\"}.\n",
 			},
 			"lb-name": map[string]interface{}{
-				"type": "string",
-				"description": `Custom domain address (e.g. following RFC 1035) assingned to instance's load balancer.
-Example:
-    lb-name=my-instance.internal.subdomain.example`,
+				"type":        "string",
+				"description": "Custom domain address (e.g. following RFC 1035) assingned to instance's load balancer. Example: lb-name=my-instance.internal.subdomain.example.\n",
 			},
 		},
 		"definitions": map[string]interface{}{
