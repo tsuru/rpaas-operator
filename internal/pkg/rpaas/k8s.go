@@ -1690,20 +1690,18 @@ func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
 		},
 		"ip": map[string]interface{}{
 			"type":        "string",
-			"description": "IP address that will be assigned to load balancer.\nExamples:\n\tip=192.168.15.10",
+			"description": "IP address that will be assigned to load balancer. Example: ip=192.168.15.10.\n",
 		},
 		"plan-override": map[string]interface{}{
 			"type":        "object",
-			"description": "Allows an instance to change its plan parameters to specific ones.\nExamples:\n\tplan-override={\"config\": {\"cacheEnabled\": false}}\n\tplan-override={\"image\": \"tsuru/nginx:latest\"}",
+			"description": "Allows an instance to change its plan parameters to specific ones. Examples: plan-override={\"config\": {\"cacheEnabled\": false}}; plan-override={\"image\": \"tsuru/nginx:latest\"}.\n",
 		},
 	}
 
 	if config.Get().LoadBalancerNameLabelKey != "" {
 		planParameters["lb-name"] = map[string]interface{}{
-			"type": "string",
-			"description": `Custom domain address (e.g. following RFC 1035) assingned to instance's load balancer.
-Example:
-    lb-name=my-instance.internal.subdomain.example`,
+			"type":        "string",
+			"description": "Custom domain address (e.g. following RFC 1035) assingned to instance's load balancer. Example: lb-name=my-instance.internal.subdomain.example.\n",
 		}
 	}
 
@@ -1722,20 +1720,20 @@ Example:
 
 func formatFlavorsDescription(flavors []Flavor) string {
 	var sb strings.Builder
-	sb.WriteString("Provides a self-contained set of features that can be enabled on this plan.\n")
+	sb.WriteString("Provides a self-contained set of features that can be enabled on this plan. Example: flavors=flavor-a,flavor-b.\n")
 
 	if len(flavors) == 0 {
 		return sb.String()
 	}
 
-	sb.WriteString("\n")
-	sb.WriteString("Supported flavors:")
+	sb.WriteString("  supported flavors:")
 	for _, f := range flavors {
 		sb.WriteString("\n")
-		sb.WriteString(fmt.Sprintf("\t- name: %s\n", f.Name))
-		sb.WriteString(fmt.Sprintf("\t  description: %s", f.Description))
+		sb.WriteString(fmt.Sprintf("    - name: %s\n", f.Name))
+		sb.WriteString(fmt.Sprintf("      description: %s", f.Description))
 	}
 
+	sb.WriteString("\n")
 	return sb.String()
 }
 
