@@ -1679,28 +1679,39 @@ func (m *k8sRpaasManager) getErrorsForPod(ctx context.Context, pod *corev1.Pod) 
 }
 
 func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
-	return map[string]interface{}{
-		"$id":     "https://example.com/schema.json",
-		"$schema": "https://json-schema.org/draft-07/schema#",
-		"type":    "object",
-		"properties": map[string]interface{}{
-			"flavors": map[string]interface{}{
-				"type": "array",
-				"items": map[string]interface{}{
-					"$ref": "#/definitions/flavor",
-				},
-				"description": formatFlavorsDescription(flavors),
-				"enum":        flavorNames(flavors),
+	planParameters := map[string]interface{}{
+		"flavors": map[string]interface{}{
+			"type": "array",
+			"items": map[string]interface{}{
+				"$ref": "#/definitions/flavor",
 			},
-			"ip": map[string]interface{}{
-				"type":        "string",
-				"description": "IP address that will be assigned to load balancer.\nExamples:\n\tip=192.168.15.10",
-			},
-			"plan-override": map[string]interface{}{
-				"type":        "object",
-				"description": "Allows an instance to change its plan parameters to specific ones.\nExamples:\n\tplan-override={\"config\": {\"cacheEnabled\": false}}\n\tplan-override={\"image\": \"tsuru/nginx:latest\"}",
-			},
+			"description": formatFlavorsDescription(flavors),
+			"enum":        flavorNames(flavors),
 		},
+		"ip": map[string]interface{}{
+			"type":        "string",
+			"description": "IP address that will be assigned to load balancer.\nExamples:\n\tip=192.168.15.10",
+		},
+		"plan-override": map[string]interface{}{
+			"type":        "object",
+			"description": "Allows an instance to change its plan parameters to specific ones.\nExamples:\n\tplan-override={\"config\": {\"cacheEnabled\": false}}\n\tplan-override={\"image\": \"tsuru/nginx:latest\"}",
+		},
+	}
+
+	if config.Get().LoadBalancerNameLabelKey != "" {
+		planParameters["lb-name"] = map[string]interface{}{
+			"type": "string",
+			"description": `Custom domain address (e.g. following RFC 1035) assingned to instance's load balancer.
+Example:
+    lb-name=my-instance.internal.subdomain.example`,
+		}
+	}
+
+	return map[string]interface{}{
+		"$id":        "https://example.com/schema.json",
+		"$schema":    "https://json-schema.org/draft-07/schema#",
+		"type":       "object",
+		"properties": planParameters,
 		"definitions": map[string]interface{}{
 			"flavor": map[string]interface{}{
 				"type": "string",
