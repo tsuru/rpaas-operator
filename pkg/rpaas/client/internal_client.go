@@ -615,6 +615,8 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		}
 		v.Set("tty", strconv.FormatBool(args.Tty))
 		v.Set("instance", args.Instance)
+		v.Set("width", args.TerminalWidth)
+		v.Set("height", args.TerminalHeight)
 		pathName := fmt.Sprintf("/exec?%s", v.Encode())
 		req, err = c.newRequest("POST", pathName, args.Reader, args.Instance)
 

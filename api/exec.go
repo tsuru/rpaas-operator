@@ -1,7 +1,6 @@
 package api
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
@@ -27,13 +26,7 @@ func (c *cmdReadWrite) Write(arr []byte) (int, error) {
 }
 
 func (c *cmdReadWrite) Read(arr []byte) (int, error) {
-	reader := bufio.NewReader(c.body)
-	line, err := reader.ReadBytes('\n')
-	if err != nil {
-		return 0, err
-	}
-
-	return copy(arr, line), nil
+	return c.body.Read(arr)
 }
 
 func setupExecRoute(a *api) error {
@@ -57,8 +50,7 @@ func setupExecRoute(a *api) error {
 			w.Write([]byte(err.Error()))
 		}
 
-		var buffer io.ReadWriter
-		buffer = &cmdReadWrite{
+		buffer := &cmdReadWrite{
 			body:   r.Body,
 			writer: w,
 		}

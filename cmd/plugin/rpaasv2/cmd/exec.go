@@ -1,15 +1,14 @@
 package cmd
 
 import (
-	"bufio"
-	"fmt"
 	"io"
-	"io/ioutil"
 	"log"
 	"os"
+	"strconv"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
+	"golang.org/x/crypto/ssh/terminal"
 )
 
 func NewCmdExec() *cli.Command {
@@ -43,20 +42,6 @@ func NewCmdExec() *cli.Command {
 	}
 }
 
-type bodyReader struct {
-	body io.Reader
-}
-
-func (b *bodyReader) Read(arr []byte) (int, error) {
-	reader := bufio.NewReader(b.body)
-	line, err := reader.ReadBytes('\n')
-	if err != nil {
-		return 0, err
-	}
-
-	return copy(arr, line), nil
-}
-
 func runExec(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
@@ -74,23 +59,29 @@ func runExec(c *cli.Context) error {
 	if c.String("command") != "" {
 		execArgs.Command = append(execArgs.Command, c.String("command"))
 	}
+
+	fd := int(os.Stdin.Fd())
+	var width, height int
+	if terminal.IsTerminal(fd) {
+		width, height, _ = terminal.GetSize(fd)
+		oldState, terminalErr := terminal.MakeRaw(fd)
+		if terminalErr != nil {
+			return err
+		}
+		defer terminal.Restore(fd, oldState)
+	}
+	execArgs.TerminalHeight = strconv.Itoa(height)
+	execArgs.TerminalWidth = strconv.Itoa(width)
+
 	resp, err := client.Exec(c.Context, execArgs)
 	if err != nil {
 		return err
 	}
 
-	bodyReader := &bodyReader{
-		body: resp.Body,
+	_, err = io.Copy(os.Stdout, resp.Body)
+	if err != nil {
+		log.Fatal(err)
 	}
-
-	go func() {
-		// _, err = io.Copy(os.Stdout, bodyReader)
-		bb, err := ioutil.ReadAll(bodyReader)
-		fmt.Printf("%s\n", string(bb))
-		if err != nil {
-			log.Fatal(err)
-		}
-	}()
 
 	return nil
 }

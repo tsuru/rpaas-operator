@@ -20,6 +20,7 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
+	"strconv"
 	"strings"
 	"time"
 
@@ -166,6 +167,14 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		return err
 	}
 
+	tWidth, err := strconv.Atoi(args.TerminalWidth)
+	if err != nil {
+		return err
+	}
+	tHeight, err := strconv.Atoi(args.TerminalWidth)
+	if err != nil {
+		return err
+	}
 	return executor.Stream(remotecommand.StreamOptions{
 		Stdin:  args.Stdin,
 		Stdout: args.Stdout,
@@ -173,8 +182,8 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		Tty:    args.Tty,
 		TerminalSizeQueue: &fixedSizeQueue{
 			sz: &remotecommand.TerminalSize{
-				Width:  uint16(100),
-				Height: uint16(80),
+				Width:  uint16(tWidth),
+				Height: uint16(tHeight),
 			}},
 	})
 }
