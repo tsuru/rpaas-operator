@@ -9,7 +9,7 @@ require (
 	github.com/go-openapi/spec v0.19.2
 	github.com/google/gops v0.3.6
 	github.com/imdario/mergo v0.3.8
-	github.com/labstack/echo/v4 v4.1.11
+	github.com/labstack/echo/v4 v4.1.16
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/operator-framework/operator-sdk v0.13.0
@@ -22,7 +22,9 @@ require (
 	github.com/tsuru/nginx-operator v0.5.5
 	github.com/urfave/cli/v2 v2.0.0
 	github.com/willf/bitset v1.1.10
-	golang.org/x/net v0.0.0-20190812203447-cdfb69ac37fc
+	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible
