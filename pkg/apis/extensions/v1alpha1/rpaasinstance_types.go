@@ -68,7 +68,7 @@ type RpaasInstanceSpec struct {
 	// when combined with HostNetwork config to avoid conflicts between
 	// multiple nginx instances.
 	// +optional
-	AllocateContainerPorts bool `json:"allocateContainerPorts,omitempty"`
+	AllocateContainerPorts *bool `json:"allocateContainerPorts,omitempty"`
 
 	// Autoscale holds the infos used to configure the HorizontalPodAutoscaler
 	// for this instance.

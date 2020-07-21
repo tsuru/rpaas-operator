@@ -148,6 +148,43 @@ func Test_mergePlans(t *testing.T) {
 	}
 }
 
+func Test_mergeInstance(t *testing.T) {
+	tests := []struct {
+		base     v1alpha1.RpaasInstanceSpec
+		override v1alpha1.RpaasInstanceSpec
+		expected v1alpha1.RpaasInstanceSpec
+	}{
+		{},
+		{
+			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
+			override: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
+			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
+		},
+		{
+			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
+			override: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
+			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
+		},
+		{
+			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
+			override: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
+			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
+		},
+		{
+			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
+			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			merged, err := mergeInstance(tt.base, tt.override)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, merged)
+		})
+	}
+}
+
 func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance1"
@@ -200,6 +237,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
+	instance5 := newEmptyRpaasInstance()
+	instance5.Name = "instance5"
+	instance5.Spec.Flavors = []string{"banana"}
+
 	mintFlavor := newRpaasFlavor()
 	mintFlavor.Name = "mint"
 	mintFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
@@ -246,10 +287,17 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
+	bananaFlavor := newRpaasFlavor()
+	bananaFlavor.Name = "banana"
+	bananaFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		AllocateContainerPorts: v1alpha1.Bool(false),
+	}
+
 	defaultFlavor := newRpaasFlavor()
 	defaultFlavor.Name = "default"
 	defaultFlavor.Spec.Default = true
 	defaultFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		AllocateContainerPorts: v1alpha1.Bool(true),
 		Service: &nginxv1alpha1.NginxService{
 			Annotations: map[string]string{
 				"default-service-annotation": "default",
@@ -270,7 +318,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, mintFlavor, mangoFlavor, defaultFlavor}
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor}
 
 	tests := []struct {
 		name      string
@@ -290,7 +338,8 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance1.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanName: "my-plan",
+					PlanName:               "my-plan",
+					AllocateContainerPorts: v1alpha1.Bool(true),
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation": "default",
@@ -325,8 +374,9 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance2.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors:  []string{"mint"},
-					PlanName: "my-plan",
+					Flavors:                []string{"mint"},
+					PlanName:               "my-plan",
+					AllocateContainerPorts: v1alpha1.Bool(true),
 					Lifecycle: &nginxv1alpha1.NginxLifecycle{
 						PostStart: &nginxv1alpha1.NginxLifecycleHandler{
 							Exec: &corev1.ExecAction{
@@ -381,8 +431,9 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance3.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors:  []string{"mint", "mango"},
-					PlanName: "my-plan",
+					Flavors:                []string{"mint", "mango"},
+					PlanName:               "my-plan",
+					AllocateContainerPorts: v1alpha1.Bool(true),
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation":   "default",
@@ -434,11 +485,49 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanName: "my-plan",
+					PlanName:               "my-plan",
+					AllocateContainerPorts: v1alpha1.Bool(true),
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
 							"default-service-annotation":   "default",
 							"some-instance-annotation-key": "my custom value: my-service-name/my-instance-name/instance4",
+						},
+						Labels: map[string]string{
+							"default-service-label":  "default",
+							"flavored-service-label": "default",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Annotations: map[string]string{
+							"default-pod-annotation": "default",
+						},
+						Labels: map[string]string{
+							"mango-pod-label":   "not-a-mango",
+							"default-pod-label": "default",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "when default flavor has container port allocations enabled but flavor turn off it",
+			objectKey: types.NamespacedName{Name: instance5.Name, Namespace: instance5.Namespace},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance5.Name,
+					Namespace: instance5.Namespace,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName:               "my-plan",
+					Flavors:                []string{"banana"},
+					AllocateContainerPorts: v1alpha1.Bool(false),
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"default-service-annotation": "default",
 						},
 						Labels: map[string]string{
 							"default-service-label":  "default",
@@ -1018,7 +1107,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 					UID:       "1337",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AllocateContainerPorts: true,
+					AllocateContainerPorts: v1alpha1.Bool(true),
 				},
 				Status: v1alpha1.RpaasInstanceStatus{},
 			},
@@ -1056,7 +1145,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 					UID:       "1337",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AllocateContainerPorts: true,
+					AllocateContainerPorts: v1alpha1.Bool(true),
 				},
 				Status: v1alpha1.RpaasInstanceStatus{},
 			},
@@ -1144,7 +1233,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 					UID:       "1337",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AllocateContainerPorts: true,
+					AllocateContainerPorts: v1alpha1.Bool(true),
 				},
 				Status: v1alpha1.RpaasInstanceStatus{},
 			},
@@ -1301,7 +1390,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 					UID:       "1234",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AllocateContainerPorts: true,
+					AllocateContainerPorts: v1alpha1.Bool(true),
 				},
 				Status: v1alpha1.RpaasInstanceStatus{},
 			},
@@ -1313,7 +1402,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 						UID:       "1337",
 					},
 					Spec: v1alpha1.RpaasInstanceSpec{
-						AllocateContainerPorts: true,
+						AllocateContainerPorts: v1alpha1.Bool(true),
 					},
 				},
 				&v1alpha1.RpaasPortAllocation{
@@ -1396,7 +1485,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 					UID:       "1234",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AllocateContainerPorts: true,
+					AllocateContainerPorts: v1alpha1.Bool(true),
 				},
 				Status: v1alpha1.RpaasInstanceStatus{},
 			},
@@ -1408,7 +1497,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 						UID:       "1337",
 					},
 					Spec: v1alpha1.RpaasInstanceSpec{
-						AllocateContainerPorts: true,
+						AllocateContainerPorts: v1alpha1.Bool(true),
 					},
 				},
 				&v1alpha1.RpaasPortAllocation{

@@ -1496,7 +1496,7 @@ func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *e
 	highestPortUsed := portMin - 1
 
 	// Loop through all allocated ports and remove ports from removed Nginx
-	// resources or from resources that have AllocateContainerPorts==false.
+	// resources or from resources that have AllocateContainerPorts==false (or nil).
 	for _, port := range allocation.Spec.Ports {
 		if port.Port > highestPortUsed {
 			highestPortUsed = port.Port
@@ -1513,7 +1513,7 @@ func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *e
 			return nil, err
 		}
 		if portBelongsTo(port, instance) {
-			if !instance.Spec.AllocateContainerPorts {
+			if !v1alpha1.BoolValue(instance.Spec.AllocateContainerPorts) {
 				continue
 			}
 			instancePorts = append(instancePorts, int(port.Port))
@@ -1526,7 +1526,7 @@ func (r *ReconcileRpaasInstance) reconcilePorts(ctx context.Context, instance *e
 
 	// If we should allocate ports and none are allocated yet we have to look
 	// for available ports and allocate them.
-	if instance != nil && instance.Spec.AllocateContainerPorts {
+	if instance != nil && v1alpha1.BoolValue(instance.Spec.AllocateContainerPorts) {
 		for port := highestPortUsed + 1; port != highestPortUsed; port++ {
 			if len(instancePorts) >= portCount {
 				break
