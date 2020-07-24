@@ -4,6 +4,8 @@
 
 package v1alpha1
 
+import "github.com/tsuru/rpaas-operator/config"
+
 const (
 	teamOwnerLabel = "rpaas.extensions.tsuru.io/team-owner"
 )
@@ -17,6 +19,21 @@ func (i *RpaasInstance) SetTeamOwner(team string) {
 
 func (i *RpaasInstance) TeamOwner() string {
 	return i.Labels[teamOwnerLabel]
+}
+
+func (i *RpaasInstance) SetTeamAffinity() {
+	if i.Spec.PodTemplate.Affinity != nil {
+		return
+	}
+	team := i.TeamOwner()
+	conf := config.Get()
+	if conf.TeamAffinity != nil {
+		if teamAffinity, ok := conf.TeamAffinity[team]; ok {
+			i.Spec.PodTemplate.Affinity = &teamAffinity
+			return
+		}
+	}
+	i.Spec.PodTemplate.Affinity = conf.DefaultAffinity
 }
 
 func mergeMap(a, b map[string]string) map[string]string {

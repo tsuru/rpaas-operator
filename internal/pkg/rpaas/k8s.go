@@ -95,7 +95,6 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 			Labels:      instance.Labels,
 		},
 		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-			Affinity:    getAffinity(args.Team),
 			Annotations: instance.Annotations,
 			Labels:      instance.Labels,
 		},
@@ -1327,17 +1326,6 @@ func newRpaasInstance(name string) *v1alpha1.RpaasInstance {
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{},
 	}
-}
-
-func getAffinity(team string) *corev1.Affinity {
-	conf := config.Get()
-	if conf.TeamAffinity != nil {
-		if teamAffinity, ok := conf.TeamAffinity[team]; ok {
-			return &teamAffinity
-		}
-	}
-
-	return conf.DefaultAffinity
 }
 
 func mergeMap(a, b map[string]string) map[string]string {

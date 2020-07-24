@@ -279,6 +279,10 @@ func (r *ReconcileRpaasInstance) Reconcile(request reconcile.Request) (reconcile
 		}
 	}
 
+	if instance.Spec.PodTemplate.Affinity != nil {
+		instance.SetTeamAffinity()
+	}
+
 	ports, err := r.reconcilePorts(ctx, instance, 3)
 	if err != nil {
 		return reconcile.Result{}, err
