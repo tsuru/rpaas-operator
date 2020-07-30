@@ -14,7 +14,7 @@ import (
 func main() {
 	app := cmd.NewDefaultApp()
 
-	if err := app.Run([]string{"rpaasv2", "exec", "-i", "my-instance", "--tty"}); err != nil {
+	if err := app.Run(os.Args); err != nil {
 		fmt.Fprintln(app.ErrWriter, err)
 		os.Exit(1)
 	}

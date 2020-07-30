@@ -99,13 +99,12 @@ func setupClient(c *cli.Context) error {
 }
 
 func newClient(c *cli.Context) (rpaasclient.Client, error) {
-	// tsuruTarget := c.String("tsuru-target")
-	// tsuruToken := c.String("tsuru-token")
-	// tsuruService := c.String("tsuru-service")
+	tsuruTarget := c.String("tsuru-target")
+	tsuruToken := c.String("tsuru-token")
+	tsuruService := c.String("tsuru-service")
 
-	// opts := rpaasclient.ClientOptions{Timeout: c.Duration("timeout")}
-	// client, err := rpaasclient.NewClientThroughTsuruWithOptions(tsuruTarget, tsuruToken, tsuruService, opts)
-	client, err := rpaasclient.NewClient("http://localhost:9999", "", "")
+	opts := rpaasclient.ClientOptions{Timeout: c.Duration("timeout")}
+	client, err := rpaasclient.NewClientThroughTsuruWithOptions(tsuruTarget, tsuruToken, tsuruService, opts)
 	if err != nil {
 		return nil, err
 	}
