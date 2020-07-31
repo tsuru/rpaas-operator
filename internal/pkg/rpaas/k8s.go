@@ -38,14 +38,12 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/runtime/serializer"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/manager"
 )
 
 const (
@@ -63,20 +61,12 @@ type k8sRpaasManager struct {
 	restConfig   *rest.Config
 }
 
-func NewK8S(mgr manager.Manager) (RpaasManager, error) {
-	mgrConfig := mgr.GetConfig()
-	nonCachedCli, err := client.New(mgrConfig, client.Options{
-		Scheme: mgr.GetScheme(),
-		Mapper: mgr.GetRESTMapper(),
-	})
-	if err != nil {
-		return nil, err
-	}
+func NewK8S(cfg *rest.Config, k8sClient client.Client) RpaasManager {
 	return &k8sRpaasManager{
 		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
-		restConfig:   mgrConfig,
-	}, nil
+		restConfig:   cfg,
+	}
 }
 
 func keepAliveSpdyExecutor(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
@@ -106,30 +96,21 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
-	gv, err := schema.ParseGroupVersion("/v1")
-	if err != nil {
-		return err
-	}
-	m.restConfig.ContentConfig.GroupVersion = &gv
-	m.restConfig.ContentConfig.NegotiatedSerializer = serializer.WithoutConversionCodecFactory{CodecFactory: scheme.Codecs}
-	m.restConfig.APIPath = "/api"
-	restCli, err := rest.RESTClientFor(m.restConfig)
-	if err != nil {
-		return err
-	}
-
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
+
 	nginx, err := m.getNginx(ctx, instance)
 	if err != nil {
 		return err
 	}
+
 	pods, err := m.getPods(ctx, nginx)
 	if err != nil {
 		return err
 	}
+
 	var chosenPod corev1.Pod
 	for _, pod := range pods {
 		for _, c := range pod.Status.Conditions {
@@ -147,20 +128,26 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 	}
 	chosenName := chosenPod.Spec.Containers[0].Name
 
+	restClient, err := rest.RESTClientFor(m.restConfig)
+	if err != nil {
+		return err
+	}
+
 	fmt.Printf("Debug Manager: commands = %v\n", args.Command)
-	req := restCli.Post().
+	req := restClient.
+		Post().
 		Resource("pods").
 		Name(chosenPod.Name).
 		Namespace(chosenPod.Namespace).
-		SubResource("exec")
-	req.VersionedParams(&corev1.PodExecOptions{
-		Container: chosenName,
-		Command:   args.Command,
-		Stdin:     args.Stdin != nil,
-		Stdout:    true,
-		Stderr:    true,
-		TTY:       args.Tty,
-	}, scheme.ParameterCodec)
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: chosenName,
+			Command:   args.Command,
+			Stdin:     args.Stdin != nil,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       args.Tty,
+		}, scheme.ParameterCodec)
 
 	executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
 	if err != nil {
@@ -171,10 +158,12 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 	if err != nil {
 		return err
 	}
+
 	tHeight, err := strconv.Atoi(args.TerminalWidth)
 	if err != nil {
 		return err
 	}
+
 	return executor.Stream(remotecommand.StreamOptions{
 		Stdin:  args.Stdin,
 		Stdout: args.Stdout,

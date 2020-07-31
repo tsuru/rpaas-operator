@@ -1,14 +1,15 @@
+// Copyright 2020 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package api
 
 import (
-	"context"
-	"fmt"
 	"io"
 	"net/http"
 
+	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	"golang.org/x/net/http2"
-	"golang.org/x/net/http2/h2c"
 )
 
 type cmdReadWrite struct {
@@ -29,46 +30,29 @@ func (c *cmdReadWrite) Read(arr []byte) (int, error) {
 	return c.body.Read(arr)
 }
 
-func setupExecRoute(a *api) error {
-	h2s := &http2.Server{}
-	mux := http.NewServeMux()
-	mux.Handle("/exec", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		var useTty bool
-		if tty := r.FormValue("tty"); tty == "true" {
-			useTty = true
-		}
-		if r.URL == nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte("missing URL"))
-			return
-		}
-		instanceName := r.FormValue("instance")
+func exec(c echo.Context) error {
+	manager, err := getManager(c)
+	if err != nil {
+		return err
+	}
 
-		if err := r.ParseForm(); err != nil {
-			fmt.Printf("error: %s\n\n", err.Error())
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-		}
+	var args rpaas.ExecArgs
+	if err := c.Bind(&args); err != nil {
+		return err
+	}
 
-		buffer := &cmdReadWrite{
-			body:   r.Body,
-			writer: w,
-		}
-		err := a.rpaasManager.Exec(context.TODO(), instanceName, rpaas.ExecArgs{
-			Stdin:          buffer,
-			Stdout:         buffer,
-			Stderr:         buffer,
-			Tty:            useTty,
-			Command:        r.Form["command"],
-			TerminalWidth:  r.FormValue("width"),
-			TerminalHeight: r.FormValue("height"),
-		})
-		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
-			w.Write([]byte(err.Error()))
-		}
-	}))
-	mux.Handle("/", a.e)
-	a.e.Server.Handler = h2c.NewHandler(mux, h2s)
-	return nil
+	buffer := &cmdReadWrite{
+		body:   c.Request().Body,
+		writer: c.Response().Writer,
+	}
+
+	return manager.Exec(c.Request().Context(), c.Param("instance"), rpaas.ExecArgs{
+		Tty:            args.Tty,
+		Command:        args.Command,
+		TerminalWidth:  args.TerminalWidth,
+		TerminalHeight: args.TerminalHeight,
+		Stdin:          buffer,
+		Stdout:         buffer,
+		Stderr:         buffer,
+	})
 }

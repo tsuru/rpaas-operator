@@ -174,13 +174,14 @@ type AutoscaleHandler interface {
 }
 
 type ExecArgs struct {
-	Stdin          io.Reader
-	Stdout         io.Writer
-	Stderr         io.Writer
-	Command        []string `json:"command"`
-	Tty            bool     `json:"tty"`
-	TerminalWidth  string   `json:"width"`
-	TerminalHeight string   `json:"height"`
+	Command        []string `form:"command" json:"command"`
+	Tty            bool     `form:"tty" json:"tty"`
+	TerminalWidth  string   `form:"width" json:"width"`
+	TerminalHeight string   `form:"height" json:"height"`
+
+	Stdin  io.Reader `form:"-" json:"-"`
+	Stdout io.Writer `form:"-" json:"-"`
+	Stderr io.Writer `form:"-" json:"-"`
 }
 
 type RpaasManager interface {

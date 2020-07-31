@@ -599,7 +599,7 @@ func (c *client) Exec(ctx context.Context, args ExecArgs) (*http.Response, error
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return resp, ErrUnexpectedStatusCode
+		return resp, ErrUnexpectedStatusCode(resp.Status)
 	}
 
 	return resp, nil

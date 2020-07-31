@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/client-go/rest"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
+	"golang.org/x/net/http2"
 )
 
 type api struct {
@@ -44,25 +46,21 @@ type api struct {
 // New creates an api instance.
 func New(manager rpaas.RpaasManager) (*api, error) {
 	if manager == nil {
-		k8sClient, err := newKubernetesClient()
+		cfg, k8sClient, err := newKubernetesClient()
 		if err != nil {
 			return nil, err
 		}
 
-		manager = rpaas.NewK8S(k8sClient)
+		manager = rpaas.NewK8S(cfg, k8sClient)
 	}
 
 	return &api{
 		Address:         `:9999`,
 		TLSAddress:      `:9993`,
 		ShutdownTimeout: 30 * time.Second,
-		e:               newEcho(rm),
-		mgr:             mgr,
+		e:               newEcho(manager),
 		shutdown:        make(chan struct{}),
-		rpaasManager:    rm,
-	}
-	// a.e.Use(a.rpaasManagerInjector())
-	return a, nil
+	}, nil
 }
 
 func (a *api) startServer() error {
@@ -71,12 +69,7 @@ func (a *api) startServer() error {
 		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
 	}
 
-	if err := setupExecRoute(a); err != nil {
-		return err
-	}
-
-	a.e.Server.Addr = a.Address
-	return a.e.Server.ListenAndServe()
+	return a.e.StartH2CServer(a.Address, &http2.Server{})
 }
 
 // Start runs the web server.
@@ -150,19 +143,12 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func newEcho(mgr rpaas.RpaasManager) *echo.Echo {
+func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
-	e.Use(
-		func(next echo.HandlerFunc) echo.HandlerFunc {
-			return func(ctx echo.Context) error {
-				setManager(ctx, mgr)
-				return next(ctx)
-			}
-		})
 	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
 		Skipper: func(c echo.Context) bool {
 			conf := config.Get()
@@ -224,25 +210,26 @@ func newEcho(mgr rpaas.RpaasManager) *echo.Echo {
 	e.GET("/resources/:instance/route", getRoutes)
 	e.POST("/resources/:instance/route", updateRoute)
 	e.POST("/resources/:instance/purge", cachePurge)
+	e.POST("/resources/:instance/exec", exec)
 
 	return e
 }
 
-func newKubernetesClient() (sigsk8sclient.Client, error) {
+func newKubernetesClient() (*rest.Config, sigsk8sclient.Client, error) {
 	cfg, err := sigsk8sconfig.GetConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	scheme, err := apis.NewScheme()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	c, err := sigsk8sclient.New(cfg, sigsk8sclient.Options{Scheme: scheme})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return c, nil
+	return cfg, c, nil
 }
