@@ -20,7 +20,6 @@ import (
 	"reflect"
 	"regexp"
 	"sort"
-	"strconv"
 	"strings"
 	"time"
 
@@ -106,47 +105,41 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		return err
 	}
 
-	pods, err := m.getPods(ctx, nginx)
-	if err != nil {
-		return err
-	}
+	if args.Pod == "" {
+		podsInfo, nerr := m.getPodStatuses(ctx, nginx)
+		if nerr != nil {
+			return err
+		}
 
-	var chosenPod corev1.Pod
-	for _, pod := range pods {
-		for _, c := range pod.Status.Conditions {
-			if c.Type == "Ready" {
-				if c.Status == "True" {
-					chosenPod = pod
-					break
-				}
+		for _, ps := range podsInfo {
+			if strings.EqualFold(ps.Status, "Running") {
+				args.Pod = ps.Name
 			}
 		}
 	}
-	// checking for nil value
-	if chosenPod.ObjectMeta.Name == "" {
-		return errors.New("No pod available")
+
+	if args.Container == "" {
+		args.Container = "nginx"
 	}
-	chosenName := chosenPod.Spec.Containers[0].Name
 
 	restClient, err := rest.RESTClientFor(m.restConfig)
 	if err != nil {
 		return err
 	}
 
-	fmt.Printf("Debug Manager: commands = %v\n", args.Command)
 	req := restClient.
 		Post().
 		Resource("pods").
-		Name(chosenPod.Name).
-		Namespace(chosenPod.Namespace).
+		Name(args.Pod).
+		Namespace(instance.Namespace).
 		SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{
-			Container: chosenName,
+			Container: args.Container,
 			Command:   args.Command,
 			Stdin:     args.Stdin != nil,
 			Stdout:    true,
 			Stderr:    true,
-			TTY:       args.Tty,
+			TTY:       args.TTY,
 		}, scheme.ParameterCodec)
 
 	executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
@@ -154,26 +147,22 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		return err
 	}
 
-	tWidth, err := strconv.Atoi(args.TerminalWidth)
-	if err != nil {
-		return err
-	}
-
-	tHeight, err := strconv.Atoi(args.TerminalWidth)
-	if err != nil {
-		return err
+	var tsq remotecommand.TerminalSizeQueue
+	if args.TerminalWidth != uint16(0) && args.TerminalHeight != uint16(0) {
+		tsq = &fixedSizeQueue{
+			sz: &remotecommand.TerminalSize{
+				Width:  uint16(args.TerminalWidth),
+				Height: uint16(args.TerminalHeight),
+			},
+		}
 	}
 
 	return executor.Stream(remotecommand.StreamOptions{
-		Stdin:  args.Stdin,
-		Stdout: args.Stdout,
-		Stderr: args.Stderr,
-		Tty:    args.Tty,
-		TerminalSizeQueue: &fixedSizeQueue{
-			sz: &remotecommand.TerminalSize{
-				Width:  uint16(tWidth),
-				Height: uint16(tHeight),
-			}},
+		Stdin:             args.Stdin,
+		Stdout:            args.Stdout,
+		Stderr:            args.Stderr,
+		Tty:               args.TTY,
+		TerminalSizeQueue: tsq,
 	})
 }
 

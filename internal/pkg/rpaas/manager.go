@@ -174,14 +174,17 @@ type AutoscaleHandler interface {
 }
 
 type ExecArgs struct {
-	Command        []string `form:"command" json:"command"`
-	Tty            bool     `form:"tty" json:"tty"`
-	TerminalWidth  string   `form:"width" json:"width"`
-	TerminalHeight string   `form:"height" json:"height"`
+	Command        []string
+	Pod            string
+	Container      string
+	TerminalWidth  uint16
+	TerminalHeight uint16
+	TTY            bool
+	Interactive    bool
 
-	Stdin  io.Reader `form:"-" json:"-"`
-	Stdout io.Writer `form:"-" json:"-"`
-	Stderr io.Writer `form:"-" json:"-"`
+	Stdin  io.Reader
+	Stdout io.Writer
+	Stderr io.Writer
 }
 
 type RpaasManager interface {

@@ -59,7 +59,7 @@ func Test_Exec(t *testing.T) {
 		{
 			name: "upgrading to WebSocket via HTTP/1.1",
 			request: func(t *testing.T, serverURL string) {
-				uri := fmt.Sprintf("ws://%s/resources/my-instance/exec?ws=true&command=bash&tty=true&width=80&height=24", strings.TrimPrefix(serverURL, "http://"))
+				uri := fmt.Sprintf("ws://%s/resources/my-instance/exec?ws=true&interactive=true&command=bash&tty=true&width=80&height=24", strings.TrimPrefix(serverURL, "http://"))
 				conn, _, err := websocket.DefaultDialer.Dial(uri, nil)
 				require.NoError(t, err)
 				defer conn.Close()
@@ -84,9 +84,9 @@ func Test_Exec(t *testing.T) {
 					called = true
 					assert.Equal(t, instance, "my-instance")
 					assert.Equal(t, args.Command, []string{"bash"})
-					assert.Equal(t, args.Tty, true)
-					assert.Equal(t, args.TerminalWidth, "80")
-					assert.Equal(t, args.TerminalHeight, "24")
+					assert.Equal(t, args.TTY, true)
+					assert.Equal(t, args.TerminalWidth, uint16(80))
+					assert.Equal(t, args.TerminalHeight, uint16(24))
 					assert.NotNil(t, args.Stdin)
 					assert.NotNil(t, args.Stderr)
 					assert.NotNil(t, args.Stdout)
@@ -112,7 +112,7 @@ func Test_Exec(t *testing.T) {
 			name: "using HTTP/2 directly (h2c)",
 			request: func(t *testing.T, serverURL string) {
 				pr, pw := io.Pipe()
-				uri := fmt.Sprintf("%s/resources/my-instance/exec?ws=false&command=/bin/sh&tty=true&width=124&height=80", serverURL)
+				uri := fmt.Sprintf("%s/resources/my-instance/exec?ws=false&interactive=true&command=/bin/sh&tty=true&width=124&height=80", serverURL)
 				request, err := http.NewRequest("POST", uri, pr)
 				require.NoError(t, err)
 
@@ -141,9 +141,9 @@ func Test_Exec(t *testing.T) {
 					called = true
 					assert.Equal(t, instance, "my-instance")
 					assert.Equal(t, args.Command, []string{"/bin/sh"})
-					assert.Equal(t, args.Tty, true)
-					assert.Equal(t, args.TerminalWidth, "124")
-					assert.Equal(t, args.TerminalHeight, "80")
+					assert.Equal(t, args.TTY, true)
+					assert.Equal(t, args.TerminalWidth, uint16(124))
+					assert.Equal(t, args.TerminalHeight, uint16(80))
 					assert.NotNil(t, args.Stdin)
 					assert.NotNil(t, args.Stderr)
 					assert.NotNil(t, args.Stdout)

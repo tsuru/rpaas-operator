@@ -91,7 +91,7 @@ func wsExec(c echo.Context) error {
 
 	wsRW := &wsReadWriter{conn}
 	args := extractExecArgs(c.QueryParams())
-	if args.Tty {
+	if args.Interactive {
 		args.Stdin = wsRW
 	}
 	args.Stdout = wsRW
@@ -145,7 +145,7 @@ func http2Exec(c echo.Context) error {
 
 	buffer := &http2Writer{c.Response().Writer}
 	args := extractExecArgs(c.QueryParams())
-	if args.Tty {
+	if args.Interactive {
 		args.Stdin = c.Request().Body
 	}
 	args.Stdout, args.Stderr = buffer, buffer
@@ -162,10 +162,16 @@ func execCommandOnInstance(c echo.Context, args rpaas.ExecArgs) error {
 
 func extractExecArgs(r url.Values) rpaas.ExecArgs {
 	tty, _ := strconv.ParseBool(r.Get("tty"))
+	interactive, _ := strconv.ParseBool(r.Get("interactive"))
+	width, _ := strconv.ParseUint(r.Get("width"), 10, 16)
+	height, _ := strconv.ParseUint(r.Get("height"), 10, 16)
 	return rpaas.ExecArgs{
 		Command:        r["command"],
-		Tty:            tty,
-		TerminalWidth:  r.Get("width"),
-		TerminalHeight: r.Get("height"),
+		Pod:            r.Get("pod"),
+		Container:      r.Get("container"),
+		TTY:            tty,
+		Interactive:    interactive,
+		TerminalWidth:  uint16(width),
+		TerminalHeight: uint16(height),
 	}
 }
