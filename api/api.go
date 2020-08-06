@@ -51,7 +51,10 @@ func New(manager rpaas.RpaasManager) (*api, error) {
 			return nil, err
 		}
 
-		manager = rpaas.NewK8S(cfg, k8sClient)
+		manager, err = rpaas.NewK8S(cfg, k8sClient)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &api{

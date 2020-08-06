@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
@@ -58,14 +59,27 @@ type k8sRpaasManager struct {
 	cli          client.Client
 	cacheManager CacheManager
 	restConfig   *rest.Config
+	kcs          *kubernetes.Clientset
 }
 
-func NewK8S(cfg *rest.Config, k8sClient client.Client) RpaasManager {
-	return &k8sRpaasManager{
+func NewK8S(cfg *rest.Config, k8sClient client.Client) (RpaasManager, error) {
+	m := &k8sRpaasManager{
 		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
 		restConfig:   cfg,
 	}
+
+	if cfg == nil {
+		return m, nil
+	}
+
+	kcs, err := kubernetes.NewForConfig(m.restConfig)
+	if err != nil {
+		return nil, err
+	}
+	m.kcs = kcs
+
+	return m, nil
 }
 
 func keepAliveSpdyExecutor(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
@@ -122,12 +136,9 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		args.Container = "nginx"
 	}
 
-	restClient, err := rest.RESTClientFor(m.restConfig)
-	if err != nil {
-		return err
-	}
-
-	req := restClient.
+	req := m.kcs.
+		CoreV1().
+		RESTClient().
 		Post().
 		Resource("pods").
 		Name(args.Pod).
