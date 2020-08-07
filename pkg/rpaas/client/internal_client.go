@@ -7,13 +7,12 @@ package client
 import (
 	"bytes"
 	"context"
-	"crypto/tls"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
 	"mime/multipart"
-	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -21,8 +20,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
-	"golang.org/x/net/http2"
 )
 
 var (
@@ -67,14 +66,7 @@ func NewClientWithOptions(address, user, password string, opts ClientOptions) (C
 		rpaasUser:     user,
 		rpaasPassword: password,
 		client:        newHTTPClient(opts),
-		http2Client: &http.Client{
-			Transport: &http2.Transport{
-				AllowHTTP: true,
-				DialTLS: func(network, addr string, cfg *tls.Config) (net.Conn, error) {
-					return net.Dial(network, addr)
-				},
-			},
-		},
+		ws:            websocket.DefaultDialer,
 	}, nil
 }
 
@@ -109,6 +101,7 @@ func NewClientThroughTsuruWithOptions(target, token, service string, opts Client
 		tsuruService: service,
 		throughTsuru: true,
 		client:       newHTTPClient(opts),
+		ws:           websocket.DefaultDialer,
 	}, nil
 }
 
@@ -128,8 +121,8 @@ type client struct {
 	tsuruService string
 	throughTsuru bool
 
-	http2Client *http.Client
-	client      *http.Client
+	client *http.Client
+	ws     *websocket.Dialer
 }
 
 var _ Client = &client{}
@@ -587,39 +580,53 @@ func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) 
 	return resp, nil
 }
 
-func (c *client) Exec(ctx context.Context, args ExecArgs) (*http.Response, error) {
-	request, err := c.buildRequest("Exec", args)
+func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *http.Response, error) {
+	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/exec", args.Instance), args.Instance)
+	u, err := url.Parse(serverAddress)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	resp, err := c.http2Client.Do(request.WithContext(ctx))
+	if u.Scheme == "https" {
+		u.Scheme = "wss"
+	} else {
+		u.Scheme = "ws"
+	}
+
+	qs := u.Query()
+	qs.Set("ws", "true")
+	qs["command"] = args.Command
+	qs.Set("pod", args.Pod)
+	qs.Set("container", args.Container)
+	qs.Set("interactive", strconv.FormatBool(args.Interactive))
+	qs.Set("tty", strconv.FormatBool(args.TTY))
+	qs.Set("width", strconv.FormatInt(int64(args.TerminalWidth), 10))
+	qs.Set("height", strconv.FormatInt(int64(args.TerminalHeight), 10))
+
+	u.RawQuery = qs.Encode()
+
+	conn, resp, err := c.ws.DialContext(ctx, u.String(), c.baseAuthHeader(nil))
 	if err != nil {
-		return resp, err
+		return nil, resp, err
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		return resp, ErrUnexpectedStatusCode(resp.Status)
+	if args.In != nil {
+		go io.Copy(&wsWriter{conn}, args.In)
 	}
 
-	return resp, nil
+	return conn, resp, nil
+}
+
+type wsWriter struct {
+	*websocket.Conn
+}
+
+func (w *wsWriter) Write(p []byte) (int, error) {
+	return len(p), w.Conn.WriteMessage(websocket.BinaryMessage, p)
 }
 
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
-	case "Exec":
-		args := data.(ExecArgs)
-		v := url.Values{}
-		for _, command := range args.Command {
-			v.Add("command", command)
-		}
-		v.Set("tty", strconv.FormatBool(args.Tty))
-		v.Set("instance", args.Instance)
-		v.Set("width", args.TerminalWidth)
-		v.Set("height", args.TerminalHeight)
-		pathName := fmt.Sprintf("/exec?%s", v.Encode())
-		req, err = c.newRequest("POST", pathName, args.Reader, args.Instance)
-
 	case "Scale":
 		args := data.(ScaleArgs)
 		pathName := fmt.Sprintf("/resources/%s/scale", args.Instance)
@@ -779,16 +786,23 @@ func (c *client) newRequest(method, pathName string, body io.Reader, instance st
 		return nil, err
 	}
 
-	if c.throughTsuru {
-		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.tsuruToken))
-		return request, nil
-	}
-
-	if c.rpaasUser != "" && c.rpaasPassword != "" {
-		request.SetBasicAuth(c.rpaasUser, c.rpaasPassword)
-	}
+	c.baseAuthHeader(request.Header)
 
 	return request, nil
+}
+
+func (c *client) baseAuthHeader(h http.Header) http.Header {
+	if h == nil {
+		h = http.Header{}
+	}
+
+	if c.throughTsuru {
+		h.Set("Authorization", fmt.Sprintf("Bearer %s", c.tsuruToken))
+	} else if c.rpaasUser != "" && c.rpaasPassword != "" {
+		h.Set("Authorization", fmt.Sprintf("Basic %s", basicAuth(c.rpaasUser, c.rpaasPassword)))
+	}
+
+	return h
 }
 
 func (c *client) do(ctx context.Context, request *http.Request) (*http.Response, error) {
@@ -811,4 +825,9 @@ func unmarshalBody(resp *http.Response, dst interface{}) error {
 
 	defer resp.Body.Close()
 	return json.Unmarshal(body, dst)
+}
+
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }

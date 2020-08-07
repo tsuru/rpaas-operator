@@ -42,7 +42,7 @@ func (r *wsReadWriter) Read(p []byte) (int, error) {
 		return 0, err
 	}
 
-	if messageType != websocket.TextMessage {
+	if messageType != websocket.TextMessage && messageType != websocket.BinaryMessage {
 		return 0, nil
 	}
 
@@ -58,19 +58,23 @@ func wsExec(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	defer conn.Close()
 
 	cfg := config.Get()
+	defer func() {
+		code, message := websocket.CloseNormalClosure, ""
+		if err != nil {
+			code, message = websocket.CloseInternalServerErr, err.Error()
+		}
 
-	quit := make(chan bool, 1)
+		nerr := conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, message), time.Now().Add(cfg.WebSocketWriteWait))
+		if nerr != nil {
+			c.Logger().Errorf("failed to write the close message to peer %s: %v", conn.RemoteAddr(), nerr)
+			conn.Close()
+		}
+	}()
+
+	quit := make(chan bool)
 	defer close(quit)
-
-	conn.SetReadDeadline(time.Now().Add(cfg.WebSocketMaxIdleTime))
-
-	conn.SetCloseHandler(func(code int, text string) error {
-		quit <- true
-		return conn.WriteControl(websocket.CloseMessage, websocket.FormatCloseMessage(code, ""), time.Now().Add(cfg.WebSocketWriteWait))
-	})
 
 	go func() {
 		for {
@@ -84,6 +88,7 @@ func wsExec(c echo.Context) error {
 		}
 	}()
 
+	conn.SetReadDeadline(time.Now().Add(cfg.WebSocketMaxIdleTime))
 	conn.SetPongHandler(func(s string) error {
 		conn.SetReadDeadline(time.Now().Add(cfg.WebSocketMaxIdleTime))
 		return nil
@@ -96,7 +101,14 @@ func wsExec(c echo.Context) error {
 	}
 	args.Stdout = wsRW
 	args.Stderr = wsRW
-	return execCommandOnInstance(c, args)
+
+	err = execCommandOnInstance(c, args)
+
+	// NOTE: avoiding to return error since the connection has already been
+	// hijacked by websocket at this point.
+	//
+	// See: https://github.com/labstack/echo/issues/268
+	return nil
 }
 
 func checkOrigin(r *http.Request) bool {

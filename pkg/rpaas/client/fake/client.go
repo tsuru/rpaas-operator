@@ -8,6 +8,7 @@ import (
 	"context"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
@@ -27,7 +28,7 @@ type FakeClient struct {
 	FakeGetAutoscale      func(args client.GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
 	FakeUpdateAutoscale   func(args client.UpdateAutoscaleArgs) (*http.Response, error)
 	FakeRemoveAutoscale   func(args client.RemoveAutoscaleArgs) (*http.Response, error)
-	FakeExec              func(ctx context.Context, args client.ExecArgs) (*http.Response, error)
+	FakeExec              func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, *http.Response, error)
 }
 
 var _ client.Client = &FakeClient{}
@@ -144,10 +145,10 @@ func (f *FakeClient) UpdateRoute(ctx context.Context, args client.UpdateRouteArg
 	return nil, nil
 }
 
-func (f *FakeClient) Exec(ctx context.Context, args client.ExecArgs) (*http.Response, error) {
+func (f *FakeClient) Exec(ctx context.Context, args client.ExecArgs) (*websocket.Conn, *http.Response, error) {
 	if f.FakeExec != nil {
 		return f.FakeExec(ctx, args)
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }

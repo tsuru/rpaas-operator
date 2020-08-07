@@ -16,6 +16,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -59,6 +60,7 @@ func TestNewClientThroughTsuruWithOptions(t *testing.T) {
 				tsuruService: "rpaasv2",
 				throughTsuru: true,
 				client:       &http.Client{},
+				ws:           websocket.DefaultDialer,
 			},
 		},
 		{
@@ -75,6 +77,7 @@ func TestNewClientThroughTsuruWithOptions(t *testing.T) {
 				client: &http.Client{
 					Timeout: 5 * time.Second,
 				},
+				ws: websocket.DefaultDialer,
 			},
 			setUp: func(t *testing.T) {
 				require.NoError(t, os.Setenv("TSURU_TARGET", "https://tsuru.example.com"))
@@ -96,6 +99,7 @@ func TestNewClientThroughTsuruWithOptions(t *testing.T) {
 				tsuruService: "rpaasv2",
 				throughTsuru: true,
 				client:       &http.Client{},
+				ws:           websocket.DefaultDialer,
 			},
 			setUp: func(t *testing.T) {
 				require.NoError(t, os.Setenv("TSURU_TARGET", "https://other.tsuru.example.com"))

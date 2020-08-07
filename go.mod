@@ -23,7 +23,6 @@ require (
 	github.com/tsuru/nginx-operator v0.5.5
 	github.com/urfave/cli/v2 v2.0.0
 	github.com/willf/bitset v1.1.10
-	golang.org/x/crypto v0.0.0-20200221231518-2aa609cf4a9d
 	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
 	gopkg.in/yaml.v2 v2.3.0 // indirect
 	k8s.io/api v0.0.0

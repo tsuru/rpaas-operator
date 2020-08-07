@@ -5,20 +5,20 @@
 package cmd
 
 import (
-	"io"
-	"log"
+	"fmt"
 	"os"
-	"strconv"
 
+	"github.com/gorilla/websocket"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
-	"golang.org/x/crypto/ssh/terminal"
+	"k8s.io/kubectl/pkg/util/term"
 )
 
 func NewCmdExec() *cli.Command {
 	return &cli.Command{
-		Name:  "exec",
-		Usage: "Runs a shell inside a rpaasv2 instance or just a single command",
+		Name:      "exec",
+		Usage:     "Run a command in an instance",
+		ArgsUsage: "[-p POD] [-c CONTAINER] [--] COMMAND [args...]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -32,13 +32,24 @@ func NewCmdExec() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:    "command",
+				Name:    "pod",
+				Aliases: []string{"p"},
+				Usage:   "pod name - if omitted, the first pod will be chosen",
+			},
+			&cli.StringFlag{
+				Name:    "container",
 				Aliases: []string{"c"},
-				Usage:   "command that is supposed to be executed",
+				Usage:   "container name - if omitted, the \"nginx\" container will be chosen",
 			},
 			&cli.BoolFlag{
-				Name:  "tty",
-				Usage: "attaches input/output environment",
+				Name:    "interactive",
+				Aliases: []string{"I", "stdin"},
+				Usage:   "pass STDIN to container",
+			},
+			&cli.BoolFlag{
+				Name:    "tty",
+				Aliases: []string{"t"},
+				Usage:   "allocate a pseudo-TTY",
 			},
 		},
 		Before: setupClient,
@@ -52,40 +63,62 @@ func runExec(c *cli.Context) error {
 		return err
 	}
 
-	execArgs := rpaasclient.ExecArgs{
-		Instance: c.String("instance"),
-		Tty:      c.Bool("tty"),
-		Reader:   os.Stdin,
-	}
-	if c.Bool("tty") {
-		execArgs.Command = []string{"sh"}
-	}
-	if c.String("command") != "" {
-		execArgs.Command = append(execArgs.Command, c.String("command"))
+	args := rpaasclient.ExecArgs{
+		Command:     c.Args().Slice(),
+		Instance:    c.String("instance"),
+		Pod:         c.String("pod"),
+		Container:   c.String("container"),
+		Interactive: c.Bool("interactive"),
+		TTY:         c.Bool("tty"),
 	}
 
-	fd := int(os.Stdin.Fd())
-	var width, height int
-	if terminal.IsTerminal(fd) {
-		width, height, _ = terminal.GetSize(fd)
-		oldState, terminalErr := terminal.MakeRaw(fd)
-		if terminalErr != nil {
+	if args.Interactive {
+		args.In = os.Stdin
+	}
+
+	tty := &term.TTY{
+		In:  args.In,
+		Out: c.App.Writer,
+		Raw: args.TTY,
+	}
+	return tty.Safe(func() error {
+		conn, _, err := client.Exec(c.Context, args)
+		if err != nil {
 			return err
 		}
-		defer terminal.Restore(fd, oldState)
-	}
-	execArgs.TerminalHeight = strconv.Itoa(height)
-	execArgs.TerminalWidth = strconv.Itoa(width)
+		defer conn.Close()
 
-	resp, err := client.Exec(c.Context, execArgs)
-	if err != nil {
+		done := make(chan error, 1)
+		go func() {
+			defer close(done)
+			for {
+				mtype, message, err := conn.ReadMessage()
+				if err != nil {
+					closeErr, ok := err.(*websocket.CloseError)
+					if !ok {
+						done <- fmt.Errorf("ERROR: receveid an unexpected error while reading messages: %w", err)
+						return
+					}
+
+					switch closeErr.Code {
+					case websocket.CloseNormalClosure:
+					case websocket.CloseInternalServerErr:
+						done <- fmt.Errorf("ERROR: the command may not be executed as expected - reason: %s", closeErr.Text)
+					default:
+						done <- fmt.Errorf("ERROR: unexpected close error: %s", closeErr.Error())
+					}
+
+					return
+				}
+
+				switch mtype {
+				case websocket.TextMessage, websocket.BinaryMessage:
+					c.App.Writer.Write(message)
+				}
+			}
+		}()
+		err = <-done
+		conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
 		return err
-	}
-
-	_, err = io.Copy(os.Stdout, resp.Body)
-	if err != nil {
-		log.Fatal(err)
-	}
-
-	return nil
+	})
 }

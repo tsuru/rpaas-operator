@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -81,12 +82,15 @@ type RemoveAutoscaleArgs struct {
 }
 
 type ExecArgs struct {
-	Instance       string
+	In             io.Reader
 	Command        []string
-	Tty            bool
-	TerminalWidth  string
-	TerminalHeight string
-	Reader         io.Reader
+	Instance       string
+	Pod            string
+	Container      string
+	TerminalWidth  uint16
+	TerminalHeight uint16
+	Interactive    bool
+	TTY            bool
 }
 
 type Client interface {
@@ -104,5 +108,5 @@ type Client interface {
 	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error)
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error)
-	Exec(ctx context.Context, args ExecArgs) (*http.Response, error)
+	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *http.Response, error)
 }
