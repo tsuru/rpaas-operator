@@ -36,6 +36,7 @@ var (
 	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%%")
 	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: memory usage can't be lower than 1%%")
 	ErrMissingValues            = fmt.Errorf("rpaasv2: values can't be all empty")
+	ErrMissingExecCommand       = fmt.Errorf("rpaasv2: command cannot be empty")
 )
 
 type ErrUnexpectedStatusCode string
@@ -580,7 +581,23 @@ func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) 
 	return resp, nil
 }
 
+func (args ExecArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if len(args.Command) == 0 {
+		return ErrMissingExecCommand
+	}
+
+	return nil
+}
+
 func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, err
+	}
+
 	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/exec", args.Instance), args.Instance)
 	u, err := url.Parse(serverAddress)
 	if err != nil {
