@@ -63,13 +63,20 @@ func runExec(c *cli.Context) error {
 		return err
 	}
 
+	var width, height uint16
+	if ts := term.GetSize(os.Stdin.Fd()); ts != nil {
+		width, height = ts.Width, ts.Height
+	}
+
 	args := rpaasclient.ExecArgs{
-		Command:     c.Args().Slice(),
-		Instance:    c.String("instance"),
-		Pod:         c.String("pod"),
-		Container:   c.String("container"),
-		Interactive: c.Bool("interactive"),
-		TTY:         c.Bool("tty"),
+		Command:        c.Args().Slice(),
+		Instance:       c.String("instance"),
+		Pod:            c.String("pod"),
+		Container:      c.String("container"),
+		Interactive:    c.Bool("interactive"),
+		TTY:            c.Bool("tty"),
+		TerminalWidth:  width,
+		TerminalHeight: height,
 	}
 
 	if args.Interactive {
@@ -92,9 +99,9 @@ func runExec(c *cli.Context) error {
 		go func() {
 			defer close(done)
 			for {
-				mtype, message, err := conn.ReadMessage()
-				if err != nil {
-					closeErr, ok := err.(*websocket.CloseError)
+				mtype, message, nerr := conn.ReadMessage()
+				if nerr != nil {
+					closeErr, ok := nerr.(*websocket.CloseError)
 					if !ok {
 						done <- fmt.Errorf("ERROR: receveid an unexpected error while reading messages: %w", err)
 						return
