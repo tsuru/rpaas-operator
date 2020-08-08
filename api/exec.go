@@ -63,6 +63,9 @@ func wsExec(c echo.Context) error {
 	defer func() {
 		code, message := websocket.CloseNormalClosure, ""
 		if err != nil {
+			// NOTE: logging the error here since we have no guarantees that
+			// client is going to receive it.
+			c.Logger().Errorf("failed to run the remote command: %v", err)
 			code, message = websocket.CloseInternalServerErr, err.Error()
 		}
 
