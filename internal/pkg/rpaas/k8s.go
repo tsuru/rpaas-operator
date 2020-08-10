@@ -39,6 +39,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
@@ -1225,6 +1226,10 @@ func convertPrivateKeyToPem(key crypto.PrivateKey) ([]byte, error) {
 func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) error {
 	if args.Name == "" {
 		return ValidationError{Msg: "name is required"}
+	}
+
+	if len(args.Name) > 30 {
+		return ValidationError{Msg: "instance name cannot length up than 30 chars"}
 	}
 
 	if args.Team == "" {
