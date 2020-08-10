@@ -119,16 +119,28 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		return err
 	}
 
-	if args.Pod == "" {
-		podsInfo, nerr := m.getPodStatuses(ctx, nginx)
-		if nerr != nil {
-			return err
-		}
+	podsInfo, err := m.getPodStatuses(ctx, nginx)
+	if err != nil {
+		return err
+	}
 
+	if args.Pod == "" {
 		for _, ps := range podsInfo {
 			if strings.EqualFold(ps.Status, "Running") {
 				args.Pod = ps.Name
 			}
+		}
+	} else {
+		var podFound bool
+		for _, ps := range podsInfo {
+			if ps.Name == args.Pod {
+				podFound = true
+				break
+			}
+		}
+
+		if !podFound {
+			return fmt.Errorf("no such pod %s in instance %s", args.Pod, instanceName)
 		}
 	}
 
