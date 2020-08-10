@@ -1966,3 +1966,26 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 		})
 	}
 }
+
+func Test_nameForCronJob(t *testing.T) {
+	tests := []struct {
+		cronJobName string
+		expected    string
+	}{
+		{
+			cronJobName: "my-instance-some-suffix",
+			expected:    "my-instance-some-suffix",
+		},
+		{
+			cronJobName: "some-great-great-great-instance-name-just-another-longer-enough-suffix-too",
+			expected:    "some-great-great-great-instance-name-just-a6df1c7316",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			got := nameForCronJob(tt.cronJobName)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}

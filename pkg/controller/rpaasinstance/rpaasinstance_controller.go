@@ -555,7 +555,7 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 			Kind:       "CronJob",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s%s", instance.Name, sessionTicketsCronJobSuffix),
+			Name:      nameForCronJob(fmt.Sprintf("%s%s", instance.Name, sessionTicketsCronJobSuffix)),
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
@@ -852,7 +852,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheSnapshot(ctx context.Context, ins
 
 func (r *ReconcileRpaasInstance) reconcileCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	foundCronJob := &batchv1beta1.CronJob{}
-	cronName := instance.Name + cacheSnapshotCronJobSuffix
+	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
 	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
@@ -872,7 +872,7 @@ func (r *ReconcileRpaasInstance) reconcileCacheSnapshotCronJob(ctx context.Conte
 }
 
 func (r *ReconcileRpaasInstance) destroyCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	cronName := instance.Name + cacheSnapshotCronJobSuffix
+	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
 	cronJob := &batchv1beta1.CronJob{}
 
 	err := r.client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
@@ -886,6 +886,7 @@ func (r *ReconcileRpaasInstance) destroyCacheSnapshotCronJob(ctx context.Context
 	logrus.Infof("deleting cronjob %s", cronName)
 	return r.client.Delete(ctx, cronJob)
 }
+
 func (r *ReconcileRpaasInstance) reconcileCacheSnapshotVolume(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
 	pvcName := instance.Name + cacheSnapshotVolumeSuffix
 
@@ -1265,7 +1266,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 }
 
 func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
-	cronName := instance.Name + cacheSnapshotCronJobSuffix
+	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
 
 	schedule := defaultCacheSnapshotSchedule
 	if plan.Spec.Config.CacheSnapshotSync.Schedule != "" {
@@ -1574,4 +1575,15 @@ func labelsForRpaasInstance(instance *extensionsv1alpha1.RpaasInstance) map[stri
 		"rpaas.extensions.tsuru.io/instance-name": instance.Name,
 		"rpaas.extensions.tsuru.io/plan-name":     instance.Spec.PlanName,
 	}
+}
+
+func nameForCronJob(name string) string {
+	const cronjobMaxChars = 52
+
+	if len(name) <= cronjobMaxChars {
+		return name
+	}
+
+	digest := util.SHA256(name)[:10]
+	return name[:cronjobMaxChars-len(digest)] + digest
 }
