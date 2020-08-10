@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"k8s.io/client-go/rest"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
@@ -22,6 +23,7 @@ import (
 	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
+	"golang.org/x/net/http2"
 )
 
 type api struct {
@@ -44,12 +46,15 @@ type api struct {
 // New creates an api instance.
 func New(manager rpaas.RpaasManager) (*api, error) {
 	if manager == nil {
-		k8sClient, err := newKubernetesClient()
+		cfg, k8sClient, err := newKubernetesClient()
 		if err != nil {
 			return nil, err
 		}
 
-		manager = rpaas.NewK8S(k8sClient)
+		manager, err = rpaas.NewK8S(cfg, k8sClient)
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	return &api{
@@ -66,7 +71,8 @@ func (a *api) startServer() error {
 	if conf.TLSCertificate != "" && conf.TLSKey != "" {
 		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
 	}
-	return a.e.Start(a.Address)
+
+	return a.e.StartH2CServer(a.Address, &http2.Server{})
 }
 
 // Start runs the web server.
@@ -207,25 +213,26 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e.GET("/resources/:instance/route", getRoutes)
 	e.POST("/resources/:instance/route", updateRoute)
 	e.POST("/resources/:instance/purge", cachePurge)
+	e.Any("/resources/:instance/exec", exec)
 
 	return e
 }
 
-func newKubernetesClient() (sigsk8sclient.Client, error) {
+func newKubernetesClient() (*rest.Config, sigsk8sclient.Client, error) {
 	cfg, err := sigsk8sconfig.GetConfig()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	scheme, err := apis.NewScheme()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	c, err := sigsk8sclient.New(cfg, sigsk8sclient.Options{Scheme: scheme})
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	return c, nil
+	return cfg, c, nil
 }

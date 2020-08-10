@@ -15,6 +15,8 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"net"
+	"net/url"
 	"reflect"
 	"regexp"
 	"sort"
@@ -36,6 +38,11 @@ import (
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/remotecommand"
+	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -51,13 +58,135 @@ var _ RpaasManager = &k8sRpaasManager{}
 type k8sRpaasManager struct {
 	cli          client.Client
 	cacheManager CacheManager
+	restConfig   *rest.Config
+	kcs          *kubernetes.Clientset
 }
 
-func NewK8S(k8sClient client.Client) RpaasManager {
-	return &k8sRpaasManager{
+func NewK8S(cfg *rest.Config, k8sClient client.Client) (RpaasManager, error) {
+	m := &k8sRpaasManager{
 		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
+		restConfig:   cfg,
 	}
+
+	if cfg == nil {
+		return m, nil
+	}
+
+	kcs, err := kubernetes.NewForConfig(m.restConfig)
+	if err != nil {
+		return nil, err
+	}
+	m.kcs = kcs
+
+	return m, nil
+}
+
+func keepAliveSpdyExecutor(config *rest.Config, method string, url *url.URL) (remotecommand.Executor, error) {
+	tlsConfig, err := rest.TLSConfigFor(config)
+	if err != nil {
+		return nil, err
+	}
+	upgradeRoundTripper := spdy.NewSpdyRoundTripper(tlsConfig, true, false)
+	upgradeRoundTripper.Dialer = &net.Dialer{
+		Timeout:   30 * time.Second,
+		KeepAlive: 10 * time.Second,
+	}
+	wrapper, err := rest.HTTPWrappersForConfig(config, upgradeRoundTripper)
+	if err != nil {
+		return nil, err
+	}
+	return remotecommand.NewSPDYExecutorForTransports(wrapper, upgradeRoundTripper, method, url)
+}
+
+type fixedSizeQueue struct {
+	sz *remotecommand.TerminalSize
+}
+
+func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
+	defer func() { q.sz = nil }()
+	return q.sz
+}
+
+func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil {
+		return err
+	}
+
+	podsInfo, err := m.getPodStatuses(ctx, nginx)
+	if err != nil {
+		return err
+	}
+
+	if args.Pod == "" {
+		for _, ps := range podsInfo {
+			if strings.EqualFold(ps.Status, "Running") {
+				args.Pod = ps.Name
+			}
+		}
+	} else {
+		var podFound bool
+		for _, ps := range podsInfo {
+			if ps.Name == args.Pod {
+				podFound = true
+				break
+			}
+		}
+
+		if !podFound {
+			return fmt.Errorf("no such pod %s in instance %s", args.Pod, instanceName)
+		}
+	}
+
+	if args.Container == "" {
+		args.Container = "nginx"
+	}
+
+	req := m.kcs.
+		CoreV1().
+		RESTClient().
+		Post().
+		Resource("pods").
+		Name(args.Pod).
+		Namespace(instance.Namespace).
+		SubResource("exec").
+		VersionedParams(&corev1.PodExecOptions{
+			Container: args.Container,
+			Command:   args.Command,
+			Stdin:     args.Stdin != nil,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       args.TTY,
+		}, scheme.ParameterCodec)
+
+	executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+
+	var tsq remotecommand.TerminalSizeQueue
+	if args.TerminalWidth != uint16(0) && args.TerminalHeight != uint16(0) {
+		tsq = &fixedSizeQueue{
+			sz: &remotecommand.TerminalSize{
+				Width:  uint16(args.TerminalWidth),
+				Height: uint16(args.TerminalHeight),
+			},
+		}
+	}
+
+	return executor.Stream(remotecommand.StreamOptions{
+		Stdin:             args.Stdin,
+		Stdout:            args.Stdout,
+		Stderr:            args.Stderr,
+		Tty:               args.TTY,
+		TerminalSizeQueue: tsq,
+	})
 }
 
 func (m *k8sRpaasManager) DeleteInstance(ctx context.Context, name string) error {

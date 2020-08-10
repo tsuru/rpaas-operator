@@ -8,8 +8,9 @@ require (
 	github.com/fsnotify/fsnotify v1.4.7
 	github.com/go-openapi/spec v0.19.2
 	github.com/google/gops v0.3.6
+	github.com/gorilla/websocket v1.4.2
 	github.com/imdario/mergo v0.3.8
-	github.com/labstack/echo/v4 v4.1.11
+	github.com/labstack/echo/v4 v4.1.16
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/operator-framework/operator-sdk v0.13.0
@@ -22,10 +23,13 @@ require (
 	github.com/tsuru/nginx-operator v0.5.5
 	github.com/urfave/cli/v2 v2.0.0
 	github.com/willf/bitset v1.1.10
+	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
+	gopkg.in/yaml.v2 v2.3.0 // indirect
 	k8s.io/api v0.0.0
 	k8s.io/apimachinery v0.0.0
 	k8s.io/client-go v12.0.0+incompatible
 	k8s.io/kube-openapi v0.0.0-20190918143330-0270cf2f1c1d
+	k8s.io/kubectl v0.0.0
 	sigs.k8s.io/controller-runtime v0.4.0
 )
 

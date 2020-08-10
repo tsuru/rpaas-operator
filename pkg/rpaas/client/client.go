@@ -6,8 +6,10 @@ package client
 
 import (
 	"context"
+	"io"
 	"net/http"
 
+	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -79,6 +81,18 @@ type RemoveAutoscaleArgs struct {
 	Instance string
 }
 
+type ExecArgs struct {
+	In             io.Reader
+	Command        []string
+	Instance       string
+	Pod            string
+	Container      string
+	TerminalWidth  uint16
+	TerminalHeight uint16
+	Interactive    bool
+	TTY            bool
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
@@ -94,4 +108,5 @@ type Client interface {
 	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error)
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error)
+	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *http.Response, error)
 }

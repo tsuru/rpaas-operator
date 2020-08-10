@@ -256,6 +256,9 @@ kubectl_port_forward_pid=${!}
 
 sleep 10s
 
+make build/plugin/rpaasv2
+
+RPAAS_PLUGIN_BIN=$(pwd)/build/_output/bin/rpaasv2            \
 RPAAS_API_ADDRESS="http://127.0.0.1:${local_rpaas_api_port}" \
 RPAAS_OPERATOR_INTEGRATION=1                                 \
 go test -test.v ./...

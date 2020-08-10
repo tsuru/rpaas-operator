@@ -33,8 +33,21 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 		NewCmdRoutes(),
 		NewCmdInfo(),
 		NewCmdAutoscale(),
+		NewCmdExec(),
 	}
 	app.Flags = []cli.Flag{
+		&cli.StringFlag{
+			Name:  "rpaas-url",
+			Usage: "URL to RPaaS server",
+		},
+		&cli.StringFlag{
+			Name:  "rpaas-user",
+			Usage: "user name to authenticate on RPaaS server directly",
+		},
+		&cli.StringFlag{
+			Name:  "rpaas-password",
+			Usage: "password of user to authenticate on RPaaS server directly",
+		},
 		&cli.StringFlag{
 			Name:    "tsuru-target",
 			Usage:   "address of Tsuru server",
@@ -98,15 +111,10 @@ func setupClient(c *cli.Context) error {
 }
 
 func newClient(c *cli.Context) (rpaasclient.Client, error) {
-	tsuruTarget := c.String("tsuru-target")
-	tsuruToken := c.String("tsuru-token")
-	tsuruService := c.String("tsuru-service")
-
 	opts := rpaasclient.ClientOptions{Timeout: c.Duration("timeout")}
-	client, err := rpaasclient.NewClientThroughTsuruWithOptions(tsuruTarget, tsuruToken, tsuruService, opts)
-	if err != nil {
-		return nil, err
+	if rpaasURL := c.String("rpaas-url"); rpaasURL != "" {
+		return rpaasclient.NewClientWithOptions(rpaasURL, c.String("rpaas-user"), c.String("rpaas-password"), opts)
 	}
 
-	return client, nil
+	return rpaasclient.NewClientThroughTsuruWithOptions(c.String("tsuru-target"), c.String("tsuru-token"), c.String("tsuru-service"), opts)
 }

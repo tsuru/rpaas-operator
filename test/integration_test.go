@@ -11,6 +11,7 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"os/exec"
 	"strconv"
 	"testing"
 	"time"
@@ -143,6 +144,7 @@ func Test_RpaasOperator(t *testing.T) {
 
 func Test_RpaasApi(t *testing.T) {
 	apiAddress := os.Getenv("RPAAS_API_ADDRESS")
+	rpaasv2Bin := os.Getenv("RPAAS_PLUGIN_BIN")
 
 	if apiAddress == "" {
 		t.Skip("Skipping RPaaS API integration test due the RPAAS_API_ADDRESS env var isn't defined")
@@ -488,6 +490,24 @@ func Test_RpaasApi(t *testing.T) {
 		configList, err = getConfigList(instanceName, namespaceName)
 		require.NoError(t, err)
 		assert.Equal(t, expectedConfigSize, len(configList.Items))
+	})
+
+	t.Run("exec an remote command in instance", func(t *testing.T) {
+		instanceName := "my-instance-" + strconv.Itoa(rand.Int())
+		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		planName := "basic"
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		cmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "echo", "WORKING")
+		out, err := cmd.CombinedOutput()
+		require.NoError(t, err, fmt.Sprintf("exec was not successful. Returned output: %s", string(out)))
+		assert.Contains(t, string(out), "WORKING\n")
 	})
 }
 

@@ -7,6 +7,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -19,6 +20,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -34,6 +36,7 @@ var (
 	ErrInvalidCPUUsage          = fmt.Errorf("rpaasv2: CPU usage can't be lower than 1%%")
 	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: memory usage can't be lower than 1%%")
 	ErrMissingValues            = fmt.Errorf("rpaasv2: values can't be all empty")
+	ErrMissingExecCommand       = fmt.Errorf("rpaasv2: command cannot be empty")
 )
 
 type ErrUnexpectedStatusCode string
@@ -64,6 +67,7 @@ func NewClientWithOptions(address, user, password string, opts ClientOptions) (C
 		rpaasUser:     user,
 		rpaasPassword: password,
 		client:        newHTTPClient(opts),
+		ws:            websocket.DefaultDialer,
 	}, nil
 }
 
@@ -98,6 +102,7 @@ func NewClientThroughTsuruWithOptions(target, token, service string, opts Client
 		tsuruService: service,
 		throughTsuru: true,
 		client:       newHTTPClient(opts),
+		ws:           websocket.DefaultDialer,
 	}, nil
 }
 
@@ -118,6 +123,7 @@ type client struct {
 	throughTsuru bool
 
 	client *http.Client
+	ws     *websocket.Dialer
 }
 
 var _ Client = &client{}
@@ -575,6 +581,67 @@ func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) 
 	return resp, nil
 }
 
+func (args ExecArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if len(args.Command) == 0 {
+		return ErrMissingExecCommand
+	}
+
+	return nil
+}
+
+func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *http.Response, error) {
+	if err := args.Validate(); err != nil {
+		return nil, nil, err
+	}
+
+	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/exec", args.Instance), args.Instance)
+	u, err := url.Parse(serverAddress)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	if u.Scheme == "https" {
+		u.Scheme = "wss"
+	} else {
+		u.Scheme = "ws"
+	}
+
+	qs := u.Query()
+	qs.Set("ws", "true")
+	qs["command"] = args.Command
+	qs.Set("pod", args.Pod)
+	qs.Set("container", args.Container)
+	qs.Set("interactive", strconv.FormatBool(args.Interactive))
+	qs.Set("tty", strconv.FormatBool(args.TTY))
+	qs.Set("width", strconv.FormatInt(int64(args.TerminalWidth), 10))
+	qs.Set("height", strconv.FormatInt(int64(args.TerminalHeight), 10))
+
+	u.RawQuery = qs.Encode()
+
+	conn, resp, err := c.ws.DialContext(ctx, u.String(), c.baseAuthHeader(nil))
+	if err != nil {
+		return nil, resp, err
+	}
+
+	if args.In != nil {
+		go io.Copy(&wsWriter{conn}, args.In)
+	}
+
+	return conn, resp, nil
+}
+
+type wsWriter struct {
+	*websocket.Conn
+}
+
+func (w *wsWriter) Write(p []byte) (int, error) {
+	return len(p), w.Conn.WriteMessage(websocket.BinaryMessage, p)
+}
+
 func (c *client) buildRequest(operation string, data interface{}) (req *http.Request, err error) {
 	switch operation {
 	case "Scale":
@@ -736,16 +803,23 @@ func (c *client) newRequest(method, pathName string, body io.Reader, instance st
 		return nil, err
 	}
 
-	if c.throughTsuru {
-		request.Header.Set("Authorization", fmt.Sprintf("Bearer %s", c.tsuruToken))
-		return request, nil
-	}
-
-	if c.rpaasUser != "" && c.rpaasPassword != "" {
-		request.SetBasicAuth(c.rpaasUser, c.rpaasPassword)
-	}
+	c.baseAuthHeader(request.Header)
 
 	return request, nil
+}
+
+func (c *client) baseAuthHeader(h http.Header) http.Header {
+	if h == nil {
+		h = http.Header{}
+	}
+
+	if c.throughTsuru {
+		h.Set("Authorization", fmt.Sprintf("Bearer %s", c.tsuruToken))
+	} else if c.rpaasUser != "" && c.rpaasPassword != "" {
+		h.Set("Authorization", fmt.Sprintf("Basic %s", basicAuth(c.rpaasUser, c.rpaasPassword)))
+	}
+
+	return h
 }
 
 func (c *client) do(ctx context.Context, request *http.Request) (*http.Response, error) {
@@ -768,4 +842,9 @@ func unmarshalBody(resp *http.Response, dst interface{}) error {
 
 	defer resp.Body.Close()
 	return json.Unmarshal(body, dst)
+}
+
+func basicAuth(username, password string) string {
+	auth := username + ":" + password
+	return base64.StdEncoding.EncodeToString([]byte(auth))
 }
