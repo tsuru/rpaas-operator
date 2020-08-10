@@ -173,8 +173,8 @@ func Test_RpaasApi(t *testing.T) {
 	}()
 
 	t.Run("creating and deleting an instance", func(t *testing.T) {
-		instanceName := "my-instance" + strconv.Itoa(rand.Int())
-		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
 		planName := "basic"
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
@@ -204,8 +204,8 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("bind and unbind with a local application", func(t *testing.T) {
-		instanceName := "my-instance" + strconv.Itoa(rand.Int())
-		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
 		planName := "basic"
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
@@ -268,8 +268,8 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("multiple binds with a local application", func(t *testing.T) {
-		instanceName := "my-instance" + strconv.Itoa(rand.Int())
-		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
 		planName := "basic"
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
@@ -359,8 +359,8 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("adding and deleting routes", func(t *testing.T) {
-		instanceName := "my-instance-with-custom-routes"
-		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
 		planName := "basic"
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
@@ -447,8 +447,8 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("limits the number of configs to 10 by default", func(t *testing.T) {
-		instanceName := "my-instance" + strconv.Itoa(rand.Int())
-		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
 		planName := "basic"
 		blockName := "server"
 
@@ -493,8 +493,8 @@ func Test_RpaasApi(t *testing.T) {
 	})
 
 	t.Run("exec an remote command in instance", func(t *testing.T) {
-		instanceName := "my-instance-" + strconv.Itoa(rand.Int())
-		teamName := "team-one-" + strconv.Itoa(rand.Int())
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
 		planName := "basic"
 
 		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
@@ -556,4 +556,9 @@ func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*ngi
 			return nginx, nil
 		}
 	}
+}
+
+func generateRandomName(prefix string) string {
+	n := rand.Int() / 100000
+	return fmt.Sprintf("%s-%d", prefix, n)
 }
