@@ -1232,6 +1232,10 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 		return ValidationError{Msg: "instance name cannot length up than 30 chars"}
 	}
 
+	if errs := validation.IsDNS1123Label(args.Name); len(errs) > 0 {
+		return ValidationError{Msg: fmt.Sprintf("instance name is not valid: %s", strings.Join(errs, ": "))}
+	}
+
 	if args.Team == "" {
 		return ValidationError{Msg: "team name is required"}
 	}

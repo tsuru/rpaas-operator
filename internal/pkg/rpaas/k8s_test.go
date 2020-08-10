@@ -2803,6 +2803,11 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			expectedError: `instance name cannot length up than 30 chars`,
 		},
 		{
+			name:          "name is not a valid DNS label name to Kubernetes",
+			args:          CreateArgs{Name: `¯\_(ツ)_/¯`},
+			expectedError: `instance name is not valid: a DNS-1123 label must consist of lower case alphanumeric characters or '-', and must start and end with an alphanumeric character (e.g. 'my-name',  or '123-abc', regex used for validation is '[a-z0-9]([-a-z0-9]*[a-z0-9])?')`,
+		},
+		{
 			name:          "without team",
 			args:          CreateArgs{Name: "r1"},
 			expectedError: `team name is required`,
@@ -3136,14 +3141,14 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
 			err := manager.CreateInstance(context.Background(), tt.args)
 			if tt.expectedError != "" {
-				require.Error(t, err)
-				assert.Regexp(t, tt.expectedError, err.Error())
-			} else {
-				require.NoError(t, err)
-				result, err := manager.GetInstance(context.Background(), tt.args.Name)
-				require.NoError(t, err)
-				assert.Equal(t, &tt.expected, result)
+				assert.EqualError(t, err, tt.expectedError)
+				return
 			}
+
+			require.NoError(t, err)
+			result, err := manager.GetInstance(context.Background(), tt.args.Name)
+			require.NoError(t, err)
+			assert.Equal(t, &tt.expected, result)
 		})
 	}
 }
