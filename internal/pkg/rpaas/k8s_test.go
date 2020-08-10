@@ -2798,6 +2798,11 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			expectedError: `name is required`,
 		},
 		{
+			name:          "name with length greater than 30 chars",
+			args:          CreateArgs{Name: "some-awesome-great-instance-name"},
+			expectedError: `instance name cannot length up than 30 chars`,
+		},
+		{
 			name:          "without team",
 			args:          CreateArgs{Name: "r1"},
 			expectedError: `team name is required`,
