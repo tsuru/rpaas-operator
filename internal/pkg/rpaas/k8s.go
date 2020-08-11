@@ -1571,6 +1571,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Replicas:    instance.Spec.Replicas,
 		Plan:        instance.Spec.PlanName,
 		Binds:       instance.Spec.Binds,
+		Flavors:     instance.Spec.Flavors,
 	}
 
 	autoscale := instance.Spec.Autoscale

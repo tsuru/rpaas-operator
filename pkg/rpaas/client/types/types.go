@@ -95,4 +95,5 @@ type InstanceInfo struct {
 	Description string            `json:"description,omitempty"`
 	Tags        []string          `json:"tags,omitempty"`
 	Pods        []Pod             `json:"pods,omitempty"`
+	Flavors     []string          `json:"flavors,omitempty"`
 }

@@ -101,6 +101,7 @@ func TestInfo(t *testing.T) {
 						Team:        "some-team",
 						Description: "some description",
 						Tags:        []string{"tag1", "tag2", "tag3"},
+						Flavors:     []string{"flavor1", "flavor2", "flavor-N"},
 						Autoscale: &clientTypes.Autoscale{
 							MaxReplicas: int32Ptr(5),
 							MinReplicas: int32Ptr(2),
@@ -251,6 +252,7 @@ Description: some description
 Tags: tag1, tag2, tag3
 Team owner: some-team
 Plan: basic
+Flavors: flavor1, flavor2, flavor-N
 
 Pods: 3
 +------------------------------+---------------+--------------------------------+-------+---------+----------+-----+

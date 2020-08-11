@@ -3666,6 +3666,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		"rpaas.extensions.tsuru.io/team-owner":  "tsuru",
 	}
 	instance1.Spec.PlanName = "huge"
+	instance1.Spec.Flavors = []string{"mango", "milk"}
 
 	instance2 := instance1.DeepCopy()
 	instance2.Name = "instance2"
@@ -3905,6 +3906,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
+				Flavors:     []string{"mango", "milk"},
 			},
 		},
 		{
@@ -3915,6 +3917,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
+				Flavors:     []string{"mango", "milk"},
 				Replicas:    pointerToInt(3),
 				Autoscale: &clientTypes.Autoscale{
 					MaxReplicas: pointerToInt(100),
@@ -3931,6 +3934,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
+				Flavors:     []string{"mango", "milk"},
 				Blocks: []clientTypes.Block{
 					{
 						Name:    "http",
@@ -3966,6 +3970,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
+				Flavors:     []string{"mango", "milk"},
 				Addresses: []clientTypes.InstanceAddress{
 					{
 						IP:       "192.168.10.10",

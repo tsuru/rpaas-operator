@@ -67,6 +67,7 @@ Description: {{ .Description }}
 Tags: {{ joinStrings .Tags ", " }}
 Team owner: {{ .Team }}
 Plan: {{ .Plan }}
+Flavors: {{ joinStrings .Flavors ", " }}
 
 Pods: {{ .Replicas }}
 {{- with .Pods }}
