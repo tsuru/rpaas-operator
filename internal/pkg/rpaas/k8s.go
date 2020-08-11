@@ -603,6 +603,10 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 	}
 
 	name = certificateName(name)
+	if errs := validation.IsConfigMapKey(name); len(errs) > 0 {
+		return ValidationError{Msg: fmt.Sprintf("certificate name is not valid: %s", strings.Join(errs, ": "))}
+	}
+
 	newCertificateField := fmt.Sprintf("%s.crt", name)
 	newKeyField := fmt.Sprintf("%s.key", name)
 

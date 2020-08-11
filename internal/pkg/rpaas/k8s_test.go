@@ -902,6 +902,15 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				assert.Equal(t, &ConflictError{Msg: "certificate \"default\" already is deployed"}, err)
 			},
 		},
+		{
+			name:            "invalid certificate name",
+			instanceName:    "my-instance",
+			certificate:     ecdsaCertificate,
+			certificateName: `../not@valid.config_map~key`,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.EqualError(t, err, `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`)
+			},
+		},
 	}
 
 	for _, tt := range testCases {
