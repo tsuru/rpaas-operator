@@ -29,24 +29,25 @@ const (
 )
 
 type RpaasConfig struct {
-	ServiceName               string                     `json:"service-name"`
-	APIUsername               string                     `json:"api-username"`
-	APIPassword               string                     `json:"api-password"`
-	TLSCertificate            string                     `json:"tls-certificate"`
-	TLSKey                    string                     `json:"tls-key"`
-	DefaultAffinity           *corev1.Affinity           `json:"default-affinity"`
-	TeamAffinity              map[string]corev1.Affinity `json:"team-affinity"`
-	SyncInterval              time.Duration              `json:"sync-interval"`
-	PortRangeMin              int32                      `json:"port-range-min"`
-	PortRangeMax              int32                      `json:"port-range-max"`
-	LoadBalancerNameLabelKey  string                     `json:"loadbalancer-name-label-key"`
-	WebSocketHandshakeTimeout time.Duration              `json:"websocket-handshake-timeout"`
-	WebSocketReadBufferSize   int                        `json:"websocket-read-buffer-size"`
-	WebSocketWriteBufferSize  int                        `json:"websocket-write-buffer-size"`
-	WebSocketPingInterval     time.Duration              `json:"websocket-ping-interval"`
-	WebSocketMaxIdleTime      time.Duration              `json:"websocket-max-idle-time"`
-	WebSocketWriteWait        time.Duration              `json:"websocket-write-wait"`
-	WebSocketAllowedOrigins   []string                   `json:"websocket-allowed-origins"`
+	ServiceName                          string                     `json:"service-name"`
+	APIUsername                          string                     `json:"api-username"`
+	APIPassword                          string                     `json:"api-password"`
+	TLSCertificate                       string                     `json:"tls-certificate"`
+	TLSKey                               string                     `json:"tls-key"`
+	DefaultAffinity                      *corev1.Affinity           `json:"default-affinity"`
+	TeamAffinity                         map[string]corev1.Affinity `json:"team-affinity"`
+	SyncInterval                         time.Duration              `json:"sync-interval"`
+	PortRangeMin                         int32                      `json:"port-range-min"`
+	PortRangeMax                         int32                      `json:"port-range-max"`
+	LoadBalancerNameLabelKey             string                     `json:"loadbalancer-name-label-key"`
+	WebSocketHandshakeTimeout            time.Duration              `json:"websocket-handshake-timeout"`
+	WebSocketReadBufferSize              int                        `json:"websocket-read-buffer-size"`
+	WebSocketWriteBufferSize             int                        `json:"websocket-write-buffer-size"`
+	WebSocketPingInterval                time.Duration              `json:"websocket-ping-interval"`
+	WebSocketMaxIdleTime                 time.Duration              `json:"websocket-max-idle-time"`
+	WebSocketWriteWait                   time.Duration              `json:"websocket-write-wait"`
+	WebSocketAllowedOrigins              []string                   `json:"websocket-allowed-origins"`
+	SuppressPrivateKeyOnCertificatesList bool                       `json:"suppress-private-key-on-certificates-list"`
 }
 
 var rpaasConfig struct {

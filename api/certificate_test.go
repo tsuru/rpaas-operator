@@ -16,6 +16,7 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 )
@@ -230,6 +231,7 @@ func Test_GetCertificates(t *testing.T) {
 		instance     string
 		expectedCode int
 		expectedBody string
+		config       *config.RpaasConfig
 	}{
 		{
 			name:         "when the instance does not exist",
@@ -266,10 +268,33 @@ func Test_GetCertificates(t *testing.T) {
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: "{\"message\":\"Internal Server Error\"}",
 		},
+		{
+			name:     "when suppressing private key is enabled",
+			instance: "my-instance",
+			config: &config.RpaasConfig{
+				SuppressPrivateKeyOnCertificatesList: true,
+			},
+			manager: &fake.RpaasManager{
+				FakeGetCertificates: func(instance string) ([]rpaas.CertificateData, error) {
+					return []rpaas.CertificateData{
+						{
+							Name:        "my-example.com",
+							Certificate: "X509 certificate",
+							Key:         "PEM ENCODED KEY",
+						},
+					}, nil
+				},
+			},
+			expectedCode: http.StatusOK,
+			expectedBody: "[{\"name\":\"my-example.com\",\"certificate\":\"X509 certificate\",\"key\":\"*** private ***\"}]",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			if tt.config != nil {
+				config.Set(*tt.config)
+			}
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
 			path := fmt.Sprintf("%s/resources/%s/certificate", srv.URL, tt.instance)
@@ -281,5 +306,4 @@ func Test_GetCertificates(t *testing.T) {
 			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
 		})
 	}
-
 }

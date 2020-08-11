@@ -10,6 +10,7 @@ import (
 	"net/http"
 
 	"github.com/labstack/echo/v4"
+	"github.com/tsuru/rpaas-operator/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
@@ -68,9 +69,7 @@ func getCertificates(c echo.Context) error {
 		return err
 	}
 
-	instance := c.Param("instance")
-
-	certList, err := manager.GetCertificates(c.Request().Context(), instance)
+	certList, err := manager.GetCertificates(c.Request().Context(), c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -79,6 +78,11 @@ func getCertificates(c echo.Context) error {
 		certList = make([]rpaas.CertificateData, 0)
 	}
 
-	return c.JSON(http.StatusOK, certList)
+	if config.Get().SuppressPrivateKeyOnCertificatesList {
+		for i := range certList {
+			certList[i].Key = "*** private ***"
+		}
+	}
 
+	return c.JSON(http.StatusOK, certList)
 }
