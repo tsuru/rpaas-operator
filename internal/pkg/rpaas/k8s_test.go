@@ -4150,3 +4150,22 @@ func Test_k8sRpaasManager_GetPlans(t *testing.T) {
 	}
 	assert.Equal(t, expected, plans)
 }
+
+func Test_certificateName(t *testing.T) {
+	tests := []struct {
+		name     string
+		expected string
+	}{
+		{expected: "default"},
+		{name: "default", expected: "default"},
+		{name: "*.example.com", expected: "example.com"},
+		{name: ".example.com", expected: "example.com"},
+		{name: "MY-dom4in.EXAMPLE.COM", expected: "my-dom4in.example.com"},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			assert.Equal(t, tt.expected, certificateName(tt.name))
+		})
+	}
+}

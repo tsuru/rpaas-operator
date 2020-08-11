@@ -527,9 +527,6 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 	if err != nil {
 		return err
 	}
-	if name == "" {
-		name = v1alpha1.CertificateNameDefault
-	}
 
 	if instance.Spec.Certificates == nil {
 		return &NotFoundError{Msg: fmt.Sprintf("no certificate bound to instance %q", instanceName)}
@@ -544,6 +541,7 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		return err
 	}
 
+	name = certificateName(name)
 	if index, found := searchCertificate(instance.Spec.Certificates.Items, name); found {
 		items := instance.Spec.Certificates.Items
 		item := items[index]
@@ -581,10 +579,6 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return err
 	}
 
-	if name == "" {
-		name = v1alpha1.CertificateNameDefault
-	}
-
 	var oldSecret corev1.Secret
 	if instance.Spec.Certificates != nil && instance.Spec.Certificates.SecretName != "" {
 		err = m.cli.Get(ctx, types.NamespacedName{
@@ -608,6 +602,7 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return err
 	}
 
+	name = certificateName(name)
 	newCertificateField := fmt.Sprintf("%s.crt", name)
 	newKeyField := fmt.Sprintf("%s.key", name)
 
@@ -1900,4 +1895,12 @@ func flavorNames(flavors []Flavor) (names []string) {
 	}
 
 	return
+}
+
+func certificateName(name string) string {
+	if name == "" {
+		return v1alpha1.CertificateNameDefault
+	}
+
+	return strings.ToLower(strings.TrimLeft(name, `*.`))
 }
