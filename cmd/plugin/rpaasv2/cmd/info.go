@@ -51,14 +51,15 @@ func NewCmdInfo() *cli.Command {
 
 var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 	Funcs(template.FuncMap{
-		"joinStrings":     strings.Join,
-		"formatBlocks":    writeInfoBlocksOnTableFormat,
-		"formatRoutes":    writeInfoRoutesOnTableFormat,
-		"formatAddresses": writeAddressesOnTableFormat,
-		"formatBinds":     writeBindsOnTableFormat,
-		"formatAutoscale": writeAutoscaleOnTableFormat,
-		"formatPods":      writePodsOnTableFormat,
-		"formatPodErrors": writePodErrorsOnTableFormat,
+		"joinStrings":        strings.Join,
+		"formatBlocks":       writeInfoBlocksOnTableFormat,
+		"formatRoutes":       writeInfoRoutesOnTableFormat,
+		"formatAddresses":    writeAddressesOnTableFormat,
+		"formatBinds":        writeBindsOnTableFormat,
+		"formatAutoscale":    writeAutoscaleOnTableFormat,
+		"formatPods":         writePodsOnTableFormat,
+		"formatPodErrors":    writePodErrorsOnTableFormat,
+		"formatCertificates": writeCertificatesOnTableFormat,
 	}).
 	Parse(`
 {{- $instance := . -}}
@@ -88,6 +89,11 @@ Binds:
 {{- with .Addresses }}
 Addresses:
 {{ formatAddresses . }}
+{{- end }}
+
+{{- with .Certificates }}
+Certificates:
+{{ formatCertificates . }}
 {{- end }}
 
 {{- with .Blocks }}
@@ -223,6 +229,16 @@ func writeInfoOnJSONFormat(w io.Writer, payload *clientTypes.InstanceInfo) error
 
 	fmt.Fprintln(w, string(message))
 	return nil
+}
+
+func writeCertificatesOnTableFormat(c []clientTypes.CertificateInfo) string {
+	var b bytes.Buffer
+	writeCertificatesInfoOnTableFormat(&b, c)
+	return b.String()
+}
+
+func formatTime(t time.Time) string {
+	return t.UTC().Format(time.RFC3339)
 }
 
 func translateTimestampSince(timestamp time.Time) string {

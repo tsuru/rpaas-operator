@@ -6,9 +6,13 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
+	"strings"
 
+	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
 )
 
@@ -91,4 +95,35 @@ func runUpdateCertificate(c *cli.Context) error {
 
 	fmt.Fprintf(c.App.Writer, "certificate %q updated in %s\n", args.Name, formatInstanceName(c))
 	return nil
+}
+
+func writeCertificatesInfoOnTableFormat(w io.Writer, certs []clientTypes.CertificateInfo) {
+	var data [][]string
+	for _, c := range certs {
+		data = append(data, []string{c.Name, formatPublicKeyInfo(c), formatCertificateValidity(c), strings.Join(c.DNSNames, "\n")})
+	}
+
+	table := tablewriter.NewWriter(w)
+	table.SetHeader([]string{"Name", "Public Key Info", "Validity", "DNS names"})
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER})
+	table.SetRowLine(true)
+	table.SetAutoWrapText(false)
+	table.AppendBulk(data)
+	table.Render()
+}
+
+func formatPublicKeyInfo(c clientTypes.CertificateInfo) (pkInfo string) {
+	if c.PublicKeyAlgorithm != "" {
+		pkInfo += fmt.Sprintf("Algorithm\n%s\n\n", c.PublicKeyAlgorithm)
+	}
+
+	if c.PublicKeyBitSize > 0 {
+		pkInfo += fmt.Sprintf("Key size (in bits)\n%d", c.PublicKeyBitSize)
+	}
+
+	return
+}
+
+func formatCertificateValidity(c clientTypes.CertificateInfo) string {
+	return fmt.Sprintf("Not before\n%s\n\nNot after\n%s", formatTime(c.ValidFrom), formatTime(c.ValidUntil))
 }

@@ -244,6 +244,24 @@ func TestInfo(t *testing.T) {
 								},
 							},
 						},
+						Certificates: []clientTypes.CertificateInfo{
+							{
+								Name:               "default",
+								DNSNames:           []string{"my-instance.test", "my-instance.example.com", ".my-instance.example.com", "*.my-instance.example.com"},
+								ValidFrom:          time.Date(2020, time.August, 11, 19, 0, 0, 0, time.UTC),
+								ValidUntil:         time.Date(2020, time.August, 11, 19, 0, 0, 0, time.UTC),
+								PublicKeyAlgorithm: "RSA",
+								PublicKeyBitSize:   4096,
+							},
+							{
+								Name:               "default.ecdsa",
+								DNSNames:           []string{"another-domain.example.com"},
+								ValidFrom:          time.Date(2000, time.August, 00, 00, 0, 0, 0, time.UTC),
+								ValidUntil:         time.Date(2050, time.August, 00, 00, 0, 0, 0, time.UTC),
+								PublicKeyAlgorithm: "ECDSA",
+								PublicKeyBitSize:   384,
+							},
+						},
 					}, nil, nil
 				},
 			},
@@ -335,6 +353,23 @@ Addresses:
 +------------+---------+
 | some-host2 | 0.0.0.1 |
 +------------+---------+
+
+Certificates:
++---------------+--------------------+----------------------+----------------------------+
+|     NAME      |  PUBLIC KEY INFO   |       VALIDITY       |         DNS NAMES          |
++---------------+--------------------+----------------------+----------------------------+
+| default       |     Algorithm      |      Not before      |      my-instance.test      |
+|               |        RSA         | 2020-08-11T19:00:00Z |  my-instance.example.com   |
+|               |                    |                      |  .my-instance.example.com  |
+|               | Key size (in bits) |      Not after       | *.my-instance.example.com  |
+|               |        4096        | 2020-08-11T19:00:00Z |                            |
++---------------+--------------------+----------------------+----------------------------+
+| default.ecdsa |     Algorithm      |      Not before      | another-domain.example.com |
+|               |       ECDSA        | 2000-07-31T00:00:00Z |                            |
+|               |                    |                      |                            |
+|               | Key size (in bits) |      Not after       |                            |
+|               |        384         | 2050-07-31T00:00:00Z |                            |
++---------------+--------------------+----------------------+----------------------------+
 
 Blocks:
 +---------+---------------------------------------+
