@@ -1610,6 +1610,11 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		})
 	}
 
+	info.Certificates, err = m.getCertificatesInfo(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+
 	nginx, err := m.getNginx(ctx, instance)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		return info, nil
@@ -1781,6 +1786,37 @@ func (m *k8sRpaasManager) newPodStatus(ctx context.Context, pod *corev1.Pod) (cl
 	}, nil
 }
 
+func (m *k8sRpaasManager) getCertificatesInfo(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]clientTypes.CertificateInfo, error) {
+	certs, err := m.GetCertificates(ctx, instance.Name)
+	if err != nil {
+		return nil, err
+	}
+
+	var certsInfo []clientTypes.CertificateInfo
+	for _, cert := range certs {
+		c, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.Key))
+		if err != nil {
+			return nil, err
+		}
+
+		leaf, err := x509.ParseCertificate(c.Certificate[0])
+		if err != nil {
+			return nil, err
+		}
+
+		certsInfo = append(certsInfo, clientTypes.CertificateInfo{
+			Name:               cert.Name,
+			DNSNames:           leaf.DNSNames,
+			ValidFrom:          leaf.NotBefore,
+			ValidUntil:         leaf.NotAfter,
+			PublicKeyAlgorithm: leaf.PublicKeyAlgorithm.String(),
+			PublicKeyBitSize:   publicKeySize(leaf.PublicKey),
+		})
+	}
+
+	return certsInfo, nil
+}
+
 func getPortsForPod(pod *corev1.Pod) []clientTypes.PodPort {
 	var ports []clientTypes.PodPort
 	for _, container := range pod.Spec.Containers {
@@ -1908,4 +1944,14 @@ func certificateName(name string) string {
 	}
 
 	return strings.ToLower(strings.TrimLeft(name, `*.`))
+}
+
+func publicKeySize(publicKey interface{}) (keySize int) {
+	switch pk := publicKey.(type) {
+	case *rsa.PublicKey:
+		keySize = pk.Size() * 8 // convert bytes to bits
+	case *ecdsa.PublicKey:
+		keySize = pk.Params().BitSize
+	}
+	return
 }

@@ -82,18 +82,28 @@ type Pod struct {
 	Ready     bool       `json:"ready"`
 }
 
+type CertificateInfo struct {
+	Name               string
+	ValidFrom          time.Time
+	ValidUntil         time.Time
+	DNSNames           []string
+	PublicKeyAlgorithm string
+	PublicKeyBitSize   int
+}
+
 type InstanceInfo struct {
-	Addresses   []InstanceAddress `json:"addresses,omitempty"`
-	Replicas    *int32            `json:"replicas,omitempty"`
-	Plan        string            `json:"plan,omitempty"`
-	Blocks      []Block           `json:"blocks,omitempty"`
-	Routes      []Route           `json:"routes,omitempty"`
-	Autoscale   *Autoscale        `json:"autoscale,omitempty"`
-	Binds       []v1alpha1.Bind   `json:"binds,omitempty"`
-	Team        string            `json:"team,omitempty"`
-	Name        string            `json:"name,omitempty"`
-	Description string            `json:"description,omitempty"`
-	Tags        []string          `json:"tags,omitempty"`
-	Pods        []Pod             `json:"pods,omitempty"`
-	Flavors     []string          `json:"flavors,omitempty"`
+	Addresses    []InstanceAddress `json:"addresses,omitempty"`
+	Replicas     *int32            `json:"replicas,omitempty"`
+	Plan         string            `json:"plan,omitempty"`
+	Blocks       []Block           `json:"blocks,omitempty"`
+	Routes       []Route           `json:"routes,omitempty"`
+	Autoscale    *Autoscale        `json:"autoscale,omitempty"`
+	Binds        []v1alpha1.Bind   `json:"binds,omitempty"`
+	Team         string            `json:"team,omitempty"`
+	Name         string            `json:"name,omitempty"`
+	Description  string            `json:"description,omitempty"`
+	Tags         []string          `json:"tags,omitempty"`
+	Pods         []Pod             `json:"pods,omitempty"`
+	Flavors      []string          `json:"flavors,omitempty"`
+	Certificates []CertificateInfo `json:"certificates,omitempty"`
 }

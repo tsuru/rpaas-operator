@@ -27,6 +27,51 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+var (
+	rsaCertificateInPEM = `-----BEGIN CERTIFICATE-----
+MIIBkDCCATqgAwIBAgIRAMSjo93UEsGj+o2eIlzWNy4wDQYJKoZIhvcNAQELBQAw
+EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0yMDA4MTIyMDI3NDZaFw0yMTA4MTIyMDI3
+NDZaMBIxEDAOBgNVBAoTB0FjbWUgQ28wXDANBgkqhkiG9w0BAQEFAANLADBIAkEA
+s3dnWuieG330c2eykPY+J0V4QA9HhdBu3v9lthl98suovwyu0OT5+1Z08a7jzvg4
+uXMndqvAtsTziyAIParbGQIDAQABo2swaTAOBgNVHQ8BAf8EBAMCBaAwEwYDVR0l
+BAwwCgYIKwYBBQUHAwEwDAYDVR0TAQH/BAIwADA0BgNVHREELTArgglsb2NhbGhv
+c3SCC2V4YW1wbGUuY29tghFhbm90aGVyLW5hbWUudGVzdDANBgkqhkiG9w0BAQsF
+AANBACs5SDH+/F69gHCA9u0pecSu4m3X4rbsaIh8JtsKEcu5ZZds/sneQCmPNMdX
+fbMpGtSYnl7faM2998SQyZdRG3Y=
+-----END CERTIFICATE-----
+`
+
+	rsaPrivateKeyInPEM = `-----BEGIN PRIVATE KEY-----
+MIIBVQIBADANBgkqhkiG9w0BAQEFAASCAT8wggE7AgEAAkEAs3dnWuieG330c2ey
+kPY+J0V4QA9HhdBu3v9lthl98suovwyu0OT5+1Z08a7jzvg4uXMndqvAtsTziyAI
+ParbGQIDAQABAkBsFECeMvDkxZnt1klnm6Qaqm+cxJbiM4BRs6VhYUDEcnbG8avN
+MmpVklT8XF05q6TnKBu7hYdtp8LGUzESPBbxAiEAw0hWWzJTzvQnPY9m6n83sr2B
+qxha+CMiwlKqW8EBkNcCIQDrRCsWbB2PVO//YIIUnlWCXBAvoBQAQpYgAWQ3dydF
+jwIgM/dsA5jA9LHEP32JxZ1VFRuZBg7VJnMzLMMS0pfp8sECIQDR82qUPvV+NKlc
+eE59gfMDO49CQRO4S7PXagZ6LP5B5wIhAKIa9I9OkA1O8PJEXg2lfYHRnHOvZAqH
+0NTbXH+sPIfT
+-----END PRIVATE KEY-----
+`
+
+	ecdsaCertificateInPEM = `-----BEGIN CERTIFICATE-----
+MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
+EjEQMA4GA1UEChMHQWNtZSBDbzBZMBMGByqGSM49AgEGCCqGSM49AwEHA0IABD0d
+7VNhbWvZLWPuj/RtHFjvtJBEwOkhbN/BnnE8rnZR8+sbwnc/KhCk3FhnpHZnQz7B
+5aETbbIgmuvewdjvSBSjYzBhMA4GA1UdDwEB/wQEAwICpDATBgNVHSUEDDAKBggr
+BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
+NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
+Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+6MF9+Yw1Yy0t
+-----END CERTIFICATE-----`
+
+	ecdsaPrivateKeyInPEM = `-----BEGIN EC PRIVATE KEY-----
+MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+-----END EC PRIVATE KEY-----`
+)
+
 type fakeCacheManager struct {
 	purgeCacheFunc func(host, path string, port int32, preservePath bool) error
 }
@@ -3704,6 +3749,20 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			ForceHTTPS:  true,
 		},
 	}
+	instance3.Spec.Certificates = &nginxv1alpha1.TLSSecret{
+		Items: []nginxv1alpha1.TLSSecretItem{
+			{CertificateField: "default.crt", KeyField: "default.key"},
+			{CertificateField: "instance3.example.com.crt", KeyField: "instance3.example.com.key"},
+		},
+	}
+
+	s1 := newSecretForCertificates(*instance3, map[string][]byte{
+		"default.crt":               []byte(rsaCertificateInPEM),
+		"default.key":               []byte(rsaPrivateKeyInPEM),
+		"instance3.example.com.crt": []byte(ecdsaCertificateInPEM),
+		"instance3.example.com.key": []byte(ecdsaPrivateKeyInPEM),
+	})
+	instance3.Spec.Certificates.SecretName = s1.Name
 
 	instance4 := instance1.DeepCopy()
 	instance4.Name = "instance4"
@@ -3892,7 +3951,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		Message:        "Back-off restarting failed container",
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4, pod1, pod2, event1, event2, event3}
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4, pod1, pod2, event1, event2, event3, s1}
 
 	testCases := []struct {
 		instance string
@@ -3958,6 +4017,24 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Path:        "/custom/path/3",
 						Destination: "app3.tsuru.example.com",
 						HTTPSOnly:   true,
+					},
+				},
+				Certificates: []clientTypes.CertificateInfo{
+					{
+						Name:               "default",
+						ValidFrom:          time.Date(2020, time.August, 12, 20, 27, 46, 0, time.UTC),
+						ValidUntil:         time.Date(2021, time.August, 12, 20, 27, 46, 0, time.UTC),
+						DNSNames:           []string{"localhost", "example.com", "another-name.test"},
+						PublicKeyAlgorithm: "RSA",
+						PublicKeyBitSize:   512,
+					},
+					{
+						Name:               "instance3.example.com",
+						ValidFrom:          time.Date(2017, time.October, 20, 19, 43, 6, 0, time.UTC),
+						ValidUntil:         time.Date(2018, time.October, 20, 19, 43, 6, 0, time.UTC),
+						DNSNames:           []string{"localhost:5453", "127.0.0.1:5453"},
+						PublicKeyAlgorithm: "ECDSA",
+						PublicKeyBitSize:   256,
 					},
 				},
 			},
