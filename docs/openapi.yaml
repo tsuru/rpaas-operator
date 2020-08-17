@@ -160,6 +160,25 @@ paths:
             text/plain:
               example: failed to create instance on storage
 
+  /resources/{instance}/status:
+    get:
+      summary: Whether instance is running or not
+      description: This endpoint is part of Tsuru Service API.
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      responses:
+        '202':
+          description: Instance is pending (partially provisioned)
+        '204':
+          description: Instance is up and running
+
   /resources/{instance}/info:
     get:
       summary: Get a summary informations about an instance
