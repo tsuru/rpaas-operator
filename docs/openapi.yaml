@@ -21,6 +21,24 @@ security:
 - basicAuth: []
 
 paths:
+  /healthcheck:
+    get:
+      summary: Check the API healthiness
+      operationId: Healthcheck
+      security: []
+      tags:
+      - rpaas
+      responses:
+        '200':
+          description: OK
+          content:
+            text/plain:
+              schema:
+                type: string
+                example: WORKING
+        default:
+          description: Not OK
+
   /resources/{instance}/info:
     get:
       summary: Get a summary informations about an instance
