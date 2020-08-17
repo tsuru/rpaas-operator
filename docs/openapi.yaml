@@ -1,0 +1,249 @@
+openapi: 3.0.0
+
+info:
+  title: Reverse Proxy as a Service
+  description: |-
+    The presented API definition (formally called as RPaaS v2 API) is a superset of [Tsuru Service API] and the [legacy RPaaS][RPaaS v1 API] (aka RPaaS v1).
+    
+    Source code: [github.com/tsuru/rpaas-operator](https://github.com/tsuru/rpaas-operator.git)
+  
+    [Tsuru Service API]: https://app.swaggerhub.com/apis/tsuru/tsuru-service_api/1.0.0
+    [RPaaS v1 API]: https://raw.githubusercontent.com/tsuru/rpaas/master/rpaas/api.py
+  contact:
+    name: Tsuru
+    email: tsuru@g.globo
+  version: v2
+  license:
+    name: BSD-3-Clause License
+    url: https://raw.githubusercontent.com/tsuru/rpaas-operator/master/LICENSE
+
+security:
+- basicAuth: []
+
+paths:
+  /resources/{instance}/info:
+    get:
+      summary: Get a summary informations about an instance
+      description: This endpoint is exclusive for RPaaS v2 API.
+      operationId: GetInstanceInfo
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceInfo'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unknonw error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: an unknown error
+
+components:
+  securitySchemes:
+    basicAuth:
+      type: http
+      scheme: basic
+      
+  schemas:
+    Autoscale:
+      type: object
+      properties:
+        minReplicas:
+          type: number
+          example: 3
+        maxReplicas:
+          type: number
+          example: 100
+        cpu:
+          type: number
+          example: 95
+          minimum: 0
+          maximum: 100
+        memory:
+          type: number
+          example: 99
+          minimum: 0
+          maximum: 100
+  
+    Block:
+      type: object
+      properties:
+        block_name:
+          type: string
+          enum:
+          - root
+          - http
+          - server
+          - lua-server
+          - lua-worker
+          example: root
+        content:
+          type: string
+          example: |-
+            # Some custom Nginx conf snippet which will be injected into root/main context.
+            # See more at https://nginx.org/en/docs/ngx_core_module.html
+            load_module /path/to/my/module.so;
+  
+    CertificateInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: default
+        dnsNames:
+          type: array
+          items:
+            type: string
+          example:
+          - my-instance.example.com
+          - my-instance.test
+        publicKeyAlgorithm:
+          type: string
+          enum:
+          - ECDSA
+          - RSA
+          example: RSA
+        publicKeyBitSize:
+          type: number
+          example: 4096
+        validFrom:
+          type: string
+          format: date-time
+          example: '2020-08-20T00:00:00Z'
+        validUntil:
+          type: string
+          format: date-time
+          example: '2020-08-20T00:00:00Z'
+
+    Error:
+      type: object
+      properties:
+        Msg:
+          type: string
+          example: instance "my-instance" not found
+
+    InstanceInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: my-instance
+        description:
+          type: string
+          example: Awesome description about my-instance.
+        team:
+          type: string
+          example: team-one
+        tags:
+          type: array
+          items:
+            type: string
+          example:
+          - tag1
+          - tag2
+        plan:
+          type: string
+          example: small
+        flavors:
+          type: array
+          items:
+            type: string
+          example:
+          - coffe
+          - milk
+          - chocolate
+        replicas:
+          type: number
+          example: 42
+        autoscale:
+          $ref: '#/components/schemas/Autoscale'
+        pods:
+          type: array
+          items:
+            $ref: '#/components/schemas/PodInfo'
+        certificates:
+          type: array
+          items:
+            $ref: '#/components/schemas/CertificateInfo'
+        blocks:
+          type: array
+          items:
+            $ref: '#/components/schemas/Block'
+        routes:
+          type: array
+          items:
+            $ref: '#/components/schemas/Route'
+  
+    PodInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: my-instance-abcdef-12345
+        ip:
+          type: string
+          example: 172.16.10.10
+        host:
+          type: string
+          example: 10.10.10.10
+        ports:
+          type: array
+          items:
+            $ref: '#/components/schemas/PodPortInfo'
+        createdAt:
+          type: string
+          format: date-time
+          example: '2020-08-20T00:00:00Z'
+
+    PodPortInfo:
+      type: object
+      properties:
+        name:
+          type: string
+          example: http
+        hostPort:
+          type: number
+          example: 20001
+        containerPort:
+          type: number
+          example: 20001
+        protocol:
+          type: string
+          example: TCP
+        hostIP:
+          type: string
+          example: 0.0.0.0
+
+    Route:
+      type: object
+      properties:
+        path:
+          type: string
+          example: /checkout/cart
+        destination:
+          type: string
+          example: checkout.apps.tsuru.example.com
+        https_only:
+          type: boolean
+          example: true
+        content:
+          type: string
+          example: ""
