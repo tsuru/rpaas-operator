@@ -27,7 +27,7 @@ func scale(c echo.Context) error {
 	if err = manager.Scale(c.Request().Context(), c.Param("instance"), data.Quantity); err != nil {
 		return err
 	}
-	return c.NoContent(http.StatusCreated)
+	return c.NoContent(http.StatusOK)
 }
 
 func getFormFileContent(c echo.Context, key string) ([]byte, error) {
