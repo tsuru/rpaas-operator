@@ -39,6 +39,38 @@ paths:
         default:
           description: Not OK
 
+  /resources:
+    post:
+      summary: Create an instance
+      operationId: CreateInstance
+      tags:
+      - rpaas
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CreateInstance'
+      responses:
+        '201':
+          description: Created
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '409':
+          description: Instance already exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: An unknown error
+          content:
+            text/plain:
+              example: failed to create instance on storage
+
   /resources/{instance}/info:
     get:
       summary: Get a summary informations about an instance
@@ -150,6 +182,56 @@ components:
           type: string
           format: date-time
           example: '2020-08-20T00:00:00Z'
+
+    CreateInstance:
+      type: object
+      required:
+      - name
+      - plan
+      - team
+      properties:
+        name:
+          type: string
+          example: my-instance
+          pattern: '^[a-z0-9]([-a-z0-9]*[a-z0-9])?$'
+          minLength: 1
+          maxLength: 30
+        plan:
+          type: string
+          example: small
+        team:
+          type: string
+          example: team-one
+        description:
+          type: string
+          example: Awesome description about an instance.
+        tags:
+          type: array
+          items:
+            type: string
+            example:
+            - tag1
+            - tagN
+        parameters:
+          type: object
+          description: |-
+            This object must be encoded like [github.com/ajg/form](https://github.com/ajg/form) does. Example:
+            ```
+            parameters.flavors=chocolate,milk&parameters.ip=169.254.254.100
+            ```
+          properties:
+            flavors:
+              type: string
+              example: chocolate,milk
+            ip:
+              type: string
+              example: 169.254.254.100
+            plan-override:
+              type: string
+              example: '{"image": "my.registry.test/nginx:v1.18.0"}'
+            lb-name:
+              type: string
+              example: my-instance.custom.example.com
 
     Error:
       type: object
