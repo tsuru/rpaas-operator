@@ -195,6 +195,65 @@ paths:
                 type: string
               example: an unknown error
 
+  /resources/plans:
+    get:
+      summary: List supported plans
+      description: This endpoint is part of Tsuru Service API.
+      operationId: ListPlans
+      tags:
+      - rpaas
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+        default:
+          description: An unknown error
+          content:
+            text/plain:
+              example: failed to get plans from storage
+
+  /resources/{instance}/plans:
+    get:
+      summary: List supported plans by instance
+      description: This endpoint is part of legacy RPaaS API.
+      operationId: ListPlansByInstance
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Error'
+        default:
+          description: An unknown error
+          content:
+            text/plain:
+              example: failed to get plans from storage
+
 components:
   securitySchemes:
     basicAuth:
@@ -391,6 +450,59 @@ components:
           items:
             $ref: '#/components/schemas/Route'
   
+    Plan:
+      type: object
+      properties:
+        name:
+          type: string
+          example: small
+        description:
+          type: string
+          example: |-
+            Description about "small" plan:
+            CPUs: 2 + Memory: 1024MB + Disk: SSD M.2 ultra fast
+        schemas:
+          type: object
+          properties:
+            service_instance:
+              type: object
+              properties:
+                create:
+                  type: object
+                  properties:
+                    properties:
+                      type: object
+                update:
+                  type: object
+                  properties:
+                    properties:
+                      type: object
+            service_binding:
+              type: object
+              properties:
+                create:
+                  type: object
+                  properties:
+                    properties:
+                      type: object
+                    response:
+                      type: object
+          example:
+            service_instance:
+              create:
+                '$id': https://example.com/schema.json
+                '$schema': https://json-schema.org/draft-07/schema#
+                type: object
+                properties:
+                  flavors:
+                    type: string
+                  ip:
+                    type: string
+                  plan-override:
+                    type: string
+                  lb-name:
+                    type: string
+
     PodInfo:
       type: object
       properties:
