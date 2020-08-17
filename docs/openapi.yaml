@@ -108,6 +108,37 @@ paths:
               schema:
                 type: string
               example: an unknown error
+    put:
+      summary: Update an instance
+      description: This endpoint is part of Tsuru Service API.
+      operationId: UpdateInstance
+      tags:
+      - rpaas
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/UpdateInstance'
+      responses:
+        '200':
+          description: Updated
+        '400':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: An unknown error
+          content:
+            text/plain:
+              example: failed to create instance on storage
 
   /resources/{instance}/info:
     get:
@@ -395,3 +426,40 @@ components:
         content:
           type: string
           example: ""
+
+    UpdateInstance:
+      type: object
+      properties:
+        team:
+          type: string
+          example: team-one
+        description:
+          type: string
+          example: Awesome description about an instance.
+        tags:
+          type: array
+          items:
+            type: string
+            example:
+            - tag1
+            - tagN
+        parameters:
+          type: object
+          description: |-
+            This object must be encoded like [github.com/ajg/form](https://github.com/ajg/form) does. Example:
+            ```
+            parameters.flavors=chocolate,milk&parameters.ip=169.254.254.100
+            ```
+          properties:
+            flavors:
+              type: string
+              example: chocolate,milk
+            ip:
+              type: string
+              example: 169.254.254.100
+            plan-override:
+              type: string
+              example: '{"image": "my.registry.test/nginx:v1.18.0"}'
+            lb-name:
+              type: string
+              example: my-instance.custom.example.com
