@@ -254,6 +254,71 @@ paths:
             text/plain:
               example: failed to get plans from storage
 
+  /resources/flavors:
+    get:
+      summary: List supported flavors
+      description: |-
+        This endpoint is part of legacy RPaaS API.
+
+        Deprecated in favor of `GET /resources/plans` (see the supported flavors within `schemas` field of `Plan` object).
+      operationId: ListFlavors
+      deprecated: true
+      tags:
+      - rpaas
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Flavor'
+        default:
+          description: An unknown error
+          content:
+            text/plain:
+              example: failed to get flavors from storage
+
+  /resources/{instance}/flavors:
+    get:
+      summary: List flavors by instance
+      description: |-
+        This endpoint is part of legacy RPaaS API.
+
+        Deprecated in favor of `GET /resources/plans` (see the supported flavors within `schemas` field of `Plan` object).
+      operationId: ListFlavorsByInstance
+      deprecated: true
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Flavor'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: An unknown error
+          content:
+            text/plain:
+              example: failed to get flavors from storage
+
 components:
   securitySchemes:
     basicAuth:
@@ -397,6 +462,16 @@ components:
         Msg:
           type: string
           example: instance "my-instance" not found
+
+    Flavor:
+      type: object
+      properties:
+        name:
+          type: string
+          example: chocolate
+        description:
+          type: string
+          example: Awesome description about "chocolate" flavor.
 
     InstanceInfo:
       type: object
