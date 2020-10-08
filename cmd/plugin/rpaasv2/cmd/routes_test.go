@@ -256,6 +256,22 @@ func TestUpdateRoute(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:     "when using a custom NGINX config with @ prefixed file path",
+			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/custom/path", "-c", "@" + configFile.Name()},
+			expected: "Route \"/custom/path\" updated.\n",
+			client: &fake.FakeClient{
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+					expected := rpaasclient.UpdateRouteArgs{
+						Instance: "my-instance",
+						Path:     "/custom/path",
+						Content:  nginxConfig,
+					}
+					assert.Equal(t, expected, args)
+					return nil, nil
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

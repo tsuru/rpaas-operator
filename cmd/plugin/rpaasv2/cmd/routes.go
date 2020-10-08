@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
+	"os"
+	"strings"
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -205,12 +207,9 @@ func runUpdateRoute(c *cli.Context) error {
 		return err
 	}
 
-	var content []byte
-	if contentFile := c.Path("content"); contentFile != "" {
-		content, err = ioutil.ReadFile(contentFile)
-		if err != nil {
-			return err
-		}
+	content, err := fetchContentFile(c)
+	if err != nil {
+		return err
 	}
 
 	args := rpaasclient.UpdateRouteArgs{
@@ -227,4 +226,18 @@ func runUpdateRoute(c *cli.Context) error {
 
 	fmt.Fprintf(c.App.Writer, "Route %q updated.\n", args.Path)
 	return nil
+}
+
+func fetchContentFile(c *cli.Context) ([]byte, error) {
+	contentFile := c.Path("content")
+	if contentFile == "" {
+		return nil, nil
+	}
+	content, err := ioutil.ReadFile(contentFile)
+	if os.IsNotExist(err) &&
+		strings.HasPrefix(contentFile, "@") {
+		return ioutil.ReadFile(strings.TrimPrefix(contentFile, "@"))
+	}
+
+	return content, err
 }
