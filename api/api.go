@@ -213,6 +213,7 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e.GET("/resources/:instance/route", getRoutes)
 	e.POST("/resources/:instance/route", updateRoute)
 	e.POST("/resources/:instance/purge", cachePurge)
+	e.POST("/resources/:instance/purge/bulk", cachePurgeBulk)
 	e.Any("/resources/:instance/exec", exec)
 
 	return e

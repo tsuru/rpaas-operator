@@ -155,6 +155,12 @@ type PurgeCacheArgs struct {
 	PreservePath bool   `json:"preserve_path" form:"preserve_path"`
 }
 
+type PurgeCacheBulkResult struct {
+	Path            string `json:"path"`
+	InstancesPurged int    `json:"instances_purged,omitempty"`
+	Error           string `json:"error,omitempty"`
+}
+
 type Plan struct {
 	Name        string       `json:"name"`
 	Description string       `json:"description"`
