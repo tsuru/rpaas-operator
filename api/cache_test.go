@@ -121,7 +121,7 @@ func Test_cachePurgeBulk(t *testing.T) {
 			description:  "returns 400 when manager returns ValidationError",
 			instanceName: "my-instance",
 			requestBody:  `[{"path":"/index.html","preserve_path":true}]`,
-			expectedCode: http.StatusOK,
+			expectedCode: http.StatusInternalServerError,
 			expectedBody: `[{"path":"/index.html","error":"Some validation failed"}]`,
 			manager: &fake.RpaasManager{
 				FakePurgeCache: func(instanceName string, args rpaas.PurgeCacheArgs) (int, error) {
@@ -133,7 +133,7 @@ func Test_cachePurgeBulk(t *testing.T) {
 			description:  "returns not found when manager returns NotFoundError",
 			instanceName: "my-instance",
 			requestBody:  `[{"path":"/index.html","preserve_path":true}]`,
-			expectedCode: http.StatusOK,
+			expectedCode: http.StatusInternalServerError,
 			expectedBody: `[{"path":"/index.html","error":"Something was not found"}]`,
 			manager: &fake.RpaasManager{
 				FakePurgeCache: func(instanceName string, args rpaas.PurgeCacheArgs) (int, error) {
@@ -145,7 +145,7 @@ func Test_cachePurgeBulk(t *testing.T) {
 			description:  "returns conflict when manager returns ConflictError",
 			instanceName: "my-instance",
 			requestBody:  `[{"path":"/index.html","preserve_path":true}]`,
-			expectedCode: http.StatusOK,
+			expectedCode: http.StatusInternalServerError,
 			expectedBody: `[{"path":"/index.html","error":"Something already exists"}]`,
 			manager: &fake.RpaasManager{
 				FakePurgeCache: func(instanceName string, args rpaas.PurgeCacheArgs) (int, error) {

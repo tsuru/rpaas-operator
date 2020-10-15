@@ -57,11 +57,13 @@ func cachePurgeBulk(c echo.Context) error {
 		return c.String(http.StatusBadRequest, err.Error())
 	}
 
+	status := http.StatusOK
 	var results []rpaas.PurgeCacheBulkResult
 	for _, args := range argsList {
 		var r rpaas.PurgeCacheBulkResult
 		count, err := manager.PurgeCache(c.Request().Context(), name, args)
 		if err != nil {
+			status = http.StatusInternalServerError
 			r = rpaas.PurgeCacheBulkResult{Path: args.Path, Error: err.Error()}
 		} else {
 			r = rpaas.PurgeCacheBulkResult{Path: args.Path, InstancesPurged: count}
@@ -69,5 +71,5 @@ func cachePurgeBulk(c echo.Context) error {
 		results = append(results, r)
 	}
 
-	return c.JSON(http.StatusOK, results)
+	return c.JSON(status, results)
 }
