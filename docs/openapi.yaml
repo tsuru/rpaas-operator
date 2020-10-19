@@ -179,6 +179,83 @@ paths:
         '204':
           description: Instance is up and running
 
+  /resources/{instance}/bind-app:
+    parameters:
+      - name: instance
+        in: path
+        description: Instance name
+        required: true
+        schema:
+          type: string
+
+    post:
+      summary: Binds the app to the rpaas instance
+      description: This endpoint is part of Tsuru Service API.
+      operationId: BindApp
+      tags:
+        - rpaas
+      requestBody:
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BindApp'
+      responses:
+        '201':
+          description: App successfully bound to the rpaas instance
+        '404':
+          description: rpaas instance does not exist
+        '412':
+          description: rpaas instance not ready
+
+    delete:
+      summary: Unbinds the app from the rpaas instance
+      description: This endpoint is part of Tsuru Service API.
+      operationId: UnbindApp
+      tags:
+        - rpaas
+      requestBody:
+        required: true
+        content:
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/BindApp'
+      responses:
+        '200':
+          description: App successfully unbound from rpaas instance
+        '404':
+          description: rpaas instance does not exist
+
+  /resources/{instance}/bind:
+    parameters:
+      - name: instance
+        in: path
+        description: Instance name
+        required: true
+        schema:
+          type: string
+
+      post:
+        operationId: BindInstance
+        deprecated: true
+        summary: Bind Unit
+        description: Not used, just to follow Tsuru Service API spec
+        tags:
+          - rpaas
+        responses:
+          '200':
+            description: Nothing happens
+
+      delete:
+        operationId: UnbindInstance
+        deprecated: true
+        summary: Unbind Unit
+        description: Not used, just to follow Tsuru Service API spec
+        tags:
+          - rpaas
+        responses:
+          '200':
+            description: Nothing happens
+
   /resources/{instance}/info:
     get:
       summary: Get a summary informations about an instance
@@ -374,7 +451,31 @@ components:
           example: 99
           minimum: 0
           maximum: 100
-  
+
+    BindApp:
+      type: object
+      properties:
+        app-name:
+          type: string
+          example: app1
+        app-host:
+          type: string
+          example: app1.tsuru.example.com
+        user:
+          type: string
+        eventid:
+          type: string
+        app-hosts:
+          type: array
+          items:
+            type: string
+            example: app1.tsuru.example.com
+        app-internal-hosts:
+          type: array
+          items:
+            type: string
+            example: localService.namespace
+
     Block:
       type: object
       properties:
