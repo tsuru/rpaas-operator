@@ -181,7 +181,7 @@ paths:
 
   /resources/{instance}/bind-app:
     parameters:
-      - name: name
+      - name: instance
         in: path
         description: Instance name
         required: true
@@ -227,7 +227,7 @@ paths:
 
   /resources/{instance}/bind:
     parameters:
-      - name: name
+      - name: instance
         in: path
         description: Instance name
         required: true
@@ -235,22 +235,26 @@ paths:
           type: string
 
       post:
+        operationId: BindInstance
+        deprecated: true
         summary: Bind Unit
-        description: The service endpoint binds a unit to the service instance
-        tags:
-          - rpaas
-        responses:
-          '201':
-            description: Unit successfully bound to the service instance
-
-      delete:
-        summary: Unbind Unit
-        description: The service endpoint unbinds the unit from the service instance
+        description: Not used, just to follow Tsuru Service API spec
         tags:
           - rpaas
         responses:
           '200':
-            description: Unit successfully unbound from service instance
+            description: Nothing happens
+
+      delete:
+        operationId: UnbindInstance
+        deprecated: true
+        summary: Unbind Unit
+        description: Not used, just to follow Tsuru Service API spec
+        tags:
+          - rpaas
+        responses:
+          '200':
+            description: Nothing happens
 
   /resources/{instance}/info:
     get:
@@ -453,12 +457,24 @@ components:
       properties:
         app-name:
           type: string
+          example: app1
         app-host:
           type: string
+          example: app1.tsuru.example.com
         user:
           type: string
         eventid:
           type: string
+        app-hosts:
+          type: array
+          items:
+            type: string
+            example: app1.tsuru.example.com
+        app-internal-hosts:
+          type: array
+          items:
+            type: string
+            example: localService.namespace
 
     Block:
       type: object
