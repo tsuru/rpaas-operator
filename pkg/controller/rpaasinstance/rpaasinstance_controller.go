@@ -19,10 +19,6 @@ import (
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
-	"github.com/tsuru/rpaas-operator/config"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 	"github.com/willf/bitset"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
@@ -43,6 +39,11 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+
+	"github.com/tsuru/rpaas-operator/internal/config"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
 
 const (

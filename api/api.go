@@ -14,16 +14,16 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
+	"golang.org/x/net/http2"
 	"k8s.io/client-go/rest"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/tsuru/rpaas-operator/config"
+	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
-	"golang.org/x/net/http2"
 )
 
 type api struct {

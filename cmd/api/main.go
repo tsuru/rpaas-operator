@@ -8,8 +8,9 @@ import (
 	"log"
 
 	"github.com/google/gops/agent"
+
 	"github.com/tsuru/rpaas-operator/api"
-	"github.com/tsuru/rpaas-operator/config"
+	"github.com/tsuru/rpaas-operator/internal/config"
 )
 
 func main() {

@@ -14,9 +14,6 @@ import (
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 	"k8s.io/client-go/rest"
 
-	"github.com/tsuru/rpaas-operator/pkg/apis"
-	"github.com/tsuru/rpaas-operator/pkg/controller"
-
 	"github.com/operator-framework/operator-sdk/pkg/k8sutil"
 	kubemetrics "github.com/operator-framework/operator-sdk/pkg/kube-metrics"
 	"github.com/operator-framework/operator-sdk/pkg/leader"
@@ -25,14 +22,17 @@ import (
 	"github.com/operator-framework/operator-sdk/pkg/restmapper"
 	sdkVersion "github.com/operator-framework/operator-sdk/version"
 	"github.com/spf13/pflag"
-	rpaasConfig "github.com/tsuru/rpaas-operator/config"
-	rpaasOperatorVersion "github.com/tsuru/rpaas-operator/version"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client/config"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/manager/signals"
+
+	rpaasConfig "github.com/tsuru/rpaas-operator/internal/config"
+	"github.com/tsuru/rpaas-operator/pkg/apis"
+	"github.com/tsuru/rpaas-operator/pkg/controller"
+	rpaasOperatorVersion "github.com/tsuru/rpaas-operator/version"
 )
 
 // Change below variables to serve metrics on different host or port.

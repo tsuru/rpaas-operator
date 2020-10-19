@@ -11,7 +11,8 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/rpaas-operator/config"
+
+	"github.com/tsuru/rpaas-operator/internal/config"
 )
 
 func Test_healthcheck(t *testing.T) {
