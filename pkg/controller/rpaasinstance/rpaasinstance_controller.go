@@ -17,7 +17,7 @@ import (
 
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 	"github.com/willf/bitset"

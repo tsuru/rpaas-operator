@@ -5,15 +5,12 @@
 package apis
 
 import (
-	nginxApis "github.com/tsuru/nginx-operator/pkg/apis"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
 // AddToSchemes may be used to add all resources defined in the project to a Scheme
-var AddToSchemes = runtime.SchemeBuilder{
-	nginxApis.AddToScheme,
-}
+var AddToSchemes = runtime.SchemeBuilder{}
 
 // AddToScheme adds all Resources to the Scheme
 func AddToScheme(s *runtime.Scheme) error {

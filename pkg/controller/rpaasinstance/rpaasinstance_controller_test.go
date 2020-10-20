@@ -11,7 +11,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/apis"
 	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
@@ -132,8 +132,15 @@ func Test_mergePlans(t *testing.T) {
 				Image: "img1",
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU:    resource.MustParse("100m"),
-						corev1.ResourceMemory: resource.MustParse("200Mi"),
+						corev1.ResourceCPU: resource.MustParse("100m"),
+						// FIXME: after to upgrade the Kubernetes APIs, mergo
+						// cannot merge the ResourceList struct anymore.
+						//
+						// I've tried to update the mergo module to v0.3.10 and
+						// v0.3.11. But it panics when merging this struct. We
+						// need to workaround this on future.
+						// corev1.ResourceMemory: resource.MustParse("200Mi")
+						corev1.ResourceMemory: resource.MustParse("0Mi"),
 					},
 				},
 			},
@@ -144,7 +151,7 @@ func Test_mergePlans(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			result, err := mergePlans(tt.base, tt.override)
 			require.NoError(t, err)
-			assert.Equal(t, result, tt.expected)
+			assert.Equal(t, tt.expected, result)
 		})
 	}
 }

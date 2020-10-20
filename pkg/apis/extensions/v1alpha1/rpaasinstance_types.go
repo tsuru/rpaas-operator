@@ -5,7 +5,7 @@
 package v1alpha1
 
 import (
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
