@@ -14,11 +14,12 @@ import (
 	"time"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
-	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
 	"k8s.io/apimachinery/pkg/util/duration"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func NewCmdInfo() *cli.Command {

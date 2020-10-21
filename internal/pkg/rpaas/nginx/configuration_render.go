@@ -11,9 +11,10 @@ import (
 	"strings"
 	"text/template"
 
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/util"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
 type ConfigurationRenderer interface {

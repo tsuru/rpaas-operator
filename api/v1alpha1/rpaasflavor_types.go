@@ -1,4 +1,4 @@
-// Copyright 2019 tsuru authors. All rights reserved.
+// Copyright 2020 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -9,7 +9,6 @@ import (
 )
 
 // RpaasFlavorSpec defines the desired state of RpaasFlavor
-// +k8s:openapi-gen=true
 type RpaasFlavorSpec struct {
 	// Description provides a human readable description about this flavor.
 	// +optional
@@ -26,7 +25,7 @@ type RpaasFlavorSpec struct {
 	Default bool `json:"default,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // RpaasFlavor is the Schema for the rpaasflavors API
 // +k8s:openapi-gen=true
@@ -37,7 +36,7 @@ type RpaasFlavor struct {
 	Spec RpaasFlavorSpec `json:"spec,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // RpaasFlavorList contains a list of RpaasFlavor
 type RpaasFlavorList struct {

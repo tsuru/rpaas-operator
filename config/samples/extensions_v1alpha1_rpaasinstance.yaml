@@ -1,0 +1,7 @@
+apiVersion: extensions.tsuru.io/v1alpha1
+kind: RpaasInstance
+metadata:
+  name: rpaasinstance-sample
+spec:
+  # Add fields here
+  foo: bar

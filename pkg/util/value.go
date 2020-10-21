@@ -8,15 +8,16 @@ import (
 	"context"
 	"fmt"
 
-	rpaasv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
 // GetValue retrieves the content inside the Value object.
-func GetValue(ctx context.Context, c client.Client, defaultNamespace string, v *rpaasv1alpha1.Value) (string, error) {
+func GetValue(ctx context.Context, c client.Client, defaultNamespace string, v *extensionsv1alpha1.Value) (string, error) {
 	if v == nil {
 		return "", fmt.Errorf("value cannot be nil")
 	}
@@ -28,7 +29,7 @@ func GetValue(ctx context.Context, c client.Client, defaultNamespace string, v *
 	return getValueFromConfigMap(ctx, c, defaultNamespace, v.ValueFrom)
 }
 
-func getValueFromConfigMap(ctx context.Context, c client.Client, namespace string, vs *rpaasv1alpha1.ValueSource) (string, error) {
+func getValueFromConfigMap(ctx context.Context, c client.Client, namespace string, vs *extensionsv1alpha1.ValueSource) (string, error) {
 	if vs == nil || vs.ConfigMapKeyRef == nil {
 		return "", fmt.Errorf("value source is missing")
 	}

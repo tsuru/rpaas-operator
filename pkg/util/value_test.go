@@ -10,12 +10,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	rpaasv1alpha1 "github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
 func TestGetValue(t *testing.T) {
@@ -30,7 +31,7 @@ func TestGetValue(t *testing.T) {
 		name      string
 		resources []runtime.Object
 		namespace string
-		value     *rpaasv1alpha1.Value
+		value     *extensionsv1alpha1.Value
 		assertion func(t *testing.T, v string, err error)
 	}{
 		{
@@ -42,7 +43,7 @@ func TestGetValue(t *testing.T) {
 		},
 		{
 			name: "when value has inline field",
-			value: &rpaasv1alpha1.Value{
+			value: &extensionsv1alpha1.Value{
 				Value: "# My expected string value",
 			},
 			assertion: func(t *testing.T, v string, err error) {
@@ -52,8 +53,8 @@ func TestGetValue(t *testing.T) {
 		},
 		{
 			name: "when value comes from configmap",
-			value: &rpaasv1alpha1.Value{
-				ValueFrom: &rpaasv1alpha1.ValueSource{
+			value: &extensionsv1alpha1.Value{
+				ValueFrom: &extensionsv1alpha1.ValueSource{
 					Namespace: "default",
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
@@ -85,8 +86,8 @@ func TestGetValue(t *testing.T) {
 		},
 		{
 			name: "when configmap not found and value is not optional",
-			value: &rpaasv1alpha1.Value{
-				ValueFrom: &rpaasv1alpha1.ValueSource{
+			value: &extensionsv1alpha1.Value{
+				ValueFrom: &extensionsv1alpha1.ValueSource{
 					Namespace: "default",
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
@@ -119,8 +120,8 @@ func TestGetValue(t *testing.T) {
 					},
 				},
 			},
-			value: &rpaasv1alpha1.Value{
-				ValueFrom: &rpaasv1alpha1.ValueSource{
+			value: &extensionsv1alpha1.Value{
+				ValueFrom: &extensionsv1alpha1.ValueSource{
 					Namespace: "default",
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
@@ -163,8 +164,8 @@ func TestGetValue(t *testing.T) {
 				},
 			},
 			namespace: "another-namespace",
-			value: &rpaasv1alpha1.Value{
-				ValueFrom: &rpaasv1alpha1.ValueSource{
+			value: &extensionsv1alpha1.Value{
+				ValueFrom: &extensionsv1alpha1.ValueSource{
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{
 							Name: "my-configmap",
@@ -196,8 +197,8 @@ func TestGetValue(t *testing.T) {
 				},
 			},
 			namespace: "another-namespace",
-			value: &rpaasv1alpha1.Value{
-				ValueFrom: &rpaasv1alpha1.ValueSource{
+			value: &extensionsv1alpha1.Value{
+				ValueFrom: &extensionsv1alpha1.ValueSource{
 					Namespace: "default",
 					ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
 						LocalObjectReference: corev1.LocalObjectReference{

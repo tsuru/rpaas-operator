@@ -1,4 +1,4 @@
-// Copyright 2019 tsuru authors. All rights reserved.
+// Copyright 2020 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -25,13 +25,9 @@ type NamespacedOwner struct {
 	UID       types.UID `json:"uid,omitempty"`
 }
 
-type RpaasPortAllocationStatus struct {
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // RpaasPortAllocation is the Schema for the Rpaasportallocations API
-// +k8s:openapi-gen=false
 type RpaasPortAllocation struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -39,7 +35,7 @@ type RpaasPortAllocation struct {
 	Spec RpaasPortAllocationSpec `json:"spec,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // NginxList contains a list of Nginx
 type RpaasPortAllocationList struct {

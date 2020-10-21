@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package rpaasinstance
+package controllers
 
 import (
 	"context"
@@ -12,8 +12,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/apis"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -23,9 +21,11 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/config"
 )
 
@@ -559,10 +559,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k8sClient := fake.NewFakeClientWithScheme(newScheme(), resources...)
-			reconciler := &ReconcileRpaasInstance{
-				client: k8sClient,
-				scheme: newScheme(),
-			}
+			reconciler := &RpaasInstanceReconciler{Client: k8sClient}
 			instance, err := reconciler.getRpaasInstance(context.TODO(), tt.objectKey)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, *instance)
@@ -747,9 +744,8 @@ func Test_reconcileHPA(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			k8sClient := fake.NewFakeClientWithScheme(newScheme(), resources...)
-			reconciler := &ReconcileRpaasInstance{
-				client: k8sClient,
-				scheme: newScheme(),
+			reconciler := &RpaasInstanceReconciler{
+				Client: k8sClient,
 			}
 
 			err := reconciler.reconcileHPA(context.TODO(), tt.instance, tt.nginx)
@@ -860,9 +856,8 @@ func Test_reconcileSnapshotVolume(t *testing.T) {
 			corev1.AddToScheme(scheme)
 
 			k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
-			reconciler := &ReconcileRpaasInstance{
-				client: k8sClient,
-				scheme: newScheme(),
+			reconciler := &RpaasInstanceReconciler{
+				Client: k8sClient,
 			}
 			err := reconciler.reconcileCacheSnapshotVolume(ctx, rpaasInstance, &v1alpha1.RpaasPlan{Spec: tt.planSpec})
 			require.NoError(t, err)
@@ -896,9 +891,8 @@ func Test_destroySnapshotVolume(t *testing.T) {
 	corev1.AddToScheme(scheme)
 
 	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
-	reconciler := &ReconcileRpaasInstance{
-		client: k8sClient,
-		scheme: newScheme(),
+	reconciler := &RpaasInstanceReconciler{
+		Client: k8sClient,
 	}
 
 	err := reconciler.destroyCacheSnapshotVolume(ctx, instance1)
@@ -920,9 +914,8 @@ func Test_reconcileCacheSnapshotCronJobCreation(t *testing.T) {
 	batchv1beta1.AddToScheme(scheme)
 
 	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
-	reconciler := &ReconcileRpaasInstance{
-		client: k8sClient,
-		scheme: newScheme(),
+	reconciler := &RpaasInstanceReconciler{
+		Client: k8sClient,
 	}
 
 	plan := &v1alpha1.RpaasPlan{
@@ -972,9 +965,8 @@ func Test_reconcileCacheSnapshotCronJobUpdate(t *testing.T) {
 	batchv1beta1.AddToScheme(scheme)
 
 	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
-	reconciler := &ReconcileRpaasInstance{
-		client: k8sClient,
-		scheme: newScheme(),
+	reconciler := &RpaasInstanceReconciler{
+		Client: k8sClient,
 	}
 
 	plan := &v1alpha1.RpaasPlan{
@@ -1017,9 +1009,8 @@ func Test_destroySnapshotCronJob(t *testing.T) {
 	batchv1beta1.AddToScheme(scheme)
 
 	k8sClient := fake.NewFakeClientWithScheme(scheme, resources...)
-	reconciler := &ReconcileRpaasInstance{
-		client: k8sClient,
-		scheme: newScheme(),
+	reconciler := &RpaasInstanceReconciler{
+		Client: k8sClient,
 	}
 
 	err := reconciler.destroyCacheSnapshotCronJob(ctx, instance1)
@@ -1070,19 +1061,13 @@ func newRpaasFlavor() *v1alpha1.RpaasFlavor {
 
 func newScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
-	corev1.SchemeBuilder.AddToScheme(scheme)
-	batchv1beta1.SchemeBuilder.AddToScheme(scheme)
-	autoscalingv2beta2.SchemeBuilder.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+	clientgoscheme.AddToScheme(scheme)
+	nginxv1alpha1.AddToScheme(scheme)
+	v1alpha1.AddToScheme(scheme)
 	return scheme
 }
 
 func TestReconcileNginx_reconcilePorts(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	apis.AddToScheme(scheme)
-
 	tests := []struct {
 		name      string
 		rpaas     *v1alpha1.RpaasInstance
@@ -1552,13 +1537,12 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 			if tt.objects != nil {
 				resources = append(resources, tt.objects...)
 			}
-			reconciler := &ReconcileRpaasInstance{
-				client: fake.NewFakeClientWithScheme(scheme, resources...),
-				scheme: scheme,
+			reconciler := &RpaasInstanceReconciler{
+				Client: fake.NewFakeClientWithScheme(newScheme(), resources...),
 			}
 			ports, err := reconciler.reconcilePorts(context.Background(), tt.rpaas, 2)
 			var allocation v1alpha1.RpaasPortAllocation
-			allocErr := reconciler.client.Get(context.Background(), types.NamespacedName{
+			allocErr := reconciler.Client.Get(context.Background(), types.NamespacedName{
 				Name: defaultPortAllocationResource,
 			}, &allocation)
 			require.NoError(t, allocErr)
@@ -1615,9 +1599,8 @@ func TestReconcile(t *testing.T) {
 	batchv1.AddToScheme(scheme)
 	batchv1beta1.AddToScheme(scheme)
 	client := fake.NewFakeClientWithScheme(scheme, resources...)
-	reconciler := &ReconcileRpaasInstance{
-		client: client,
-		scheme: scheme,
+	reconciler := &RpaasInstanceReconciler{
+		Client: client,
 	}
 	result, err := reconciler.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
 	require.NoError(t, err)
@@ -1945,9 +1928,8 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 			}
 
 			scheme := newScheme()
-			r := &ReconcileRpaasInstance{
-				client: fake.NewFakeClientWithScheme(scheme, resources...),
-				scheme: scheme,
+			r := &RpaasInstanceReconciler{
+				Client: fake.NewFakeClientWithScheme(scheme, resources...),
 			}
 
 			err := r.reconcileTLSSessionResumption(context.TODO(), tt.instance)
@@ -1961,14 +1943,14 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				Name:      tt.instance.Name + sessionTicketsSecretSuffix,
 				Namespace: tt.instance.Namespace,
 			}
-			r.client.Get(context.TODO(), secretName, &secret)
+			r.Client.Get(context.TODO(), secretName, &secret)
 
 			var cronJob batchv1beta1.CronJob
 			cronJobName := types.NamespacedName{
 				Name:      tt.instance.Name + sessionTicketsCronJobSuffix,
 				Namespace: tt.instance.Namespace,
 			}
-			r.client.Get(context.TODO(), cronJobName, &cronJob)
+			r.Client.Get(context.TODO(), cronJobName, &cronJob)
 
 			tt.assert(t, err, &secret, &cronJob)
 		})

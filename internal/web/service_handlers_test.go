@@ -17,9 +17,9 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 )
 
 func Test_serviceCreate(t *testing.T) {

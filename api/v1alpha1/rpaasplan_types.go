@@ -1,4 +1,4 @@
-// Copyright 2019 tsuru authors. All rights reserved.
+// Copyright 2020 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -11,7 +11,6 @@ import (
 )
 
 // RpaasPlanSpec defines the desired state of RpaasPlan
-// +k8s:openapi-gen=true
 type RpaasPlanSpec struct {
 	// Image is the NGINX container image name. Defaults to Nginx image value.
 	// +optional
@@ -34,10 +33,10 @@ type RpaasPlanSpec struct {
 	Resources corev1.ResourceRequirements `json:"resources,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
+// +kubebuilder:subresource:status
 
 // RpaasPlan is the Schema for the rpaasplans API
-// +k8s:openapi-gen=true
 type RpaasPlan struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
@@ -45,7 +44,7 @@ type RpaasPlan struct {
 	Spec RpaasPlanSpec `json:"spec,omitempty"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:object:root=true
 
 // RpaasPlanList contains a list of RpaasPlan
 type RpaasPlanList struct {
