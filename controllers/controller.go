@@ -1284,6 +1284,7 @@ func (r *RpaasInstanceReconciler) reconcilePorts(ctx context.Context, instance *
 		if !errors.IsNotFound(err) {
 			return nil, err
 		}
+
 		err = r.Client.Create(ctx, &allocation)
 		if err != nil {
 			return nil, err

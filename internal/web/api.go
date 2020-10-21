@@ -16,27 +16,15 @@ import (
 
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"golang.org/x/net/http2"
-	"k8s.io/apimachinery/pkg/runtime"
-	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
-	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
-	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
-
-var scheme = runtime.NewScheme()
-
-func init() {
-	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
-	utilruntime.Must(nginxv1alpha1.AddToScheme(scheme))
-	utilruntime.Must(extensionsv1alpha1.AddToScheme(scheme))
-}
 
 type api struct {
 	sync.Mutex
@@ -237,7 +225,7 @@ func newKubernetesClient() (*rest.Config, sigsk8sclient.Client, error) {
 		return nil, nil, err
 	}
 
-	c, err := sigsk8sclient.New(cfg, sigsk8sclient.Options{Scheme: scheme})
+	c, err := sigsk8sclient.New(cfg, sigsk8sclient.Options{Scheme: extensionsruntime.NewScheme()})
 	if err != nil {
 		return nil, nil, err
 	}
