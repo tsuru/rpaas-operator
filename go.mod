@@ -5,7 +5,6 @@ go 1.13
 require (
 	github.com/ajg/form v1.5.1
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/docker-credential-helpers v0.6.3
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
