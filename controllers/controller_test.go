@@ -132,15 +132,8 @@ func Test_mergePlans(t *testing.T) {
 				Image: "img1",
 				Resources: corev1.ResourceRequirements{
 					Limits: corev1.ResourceList{
-						corev1.ResourceCPU: resource.MustParse("100m"),
-						// FIXME: after to upgrade the Kubernetes APIs, mergo
-						// cannot merge the ResourceList struct anymore.
-						//
-						// I've tried to update the mergo module to v0.3.10 and
-						// v0.3.11. But it panics when merging this struct. We
-						// need to workaround this on future.
-						// corev1.ResourceMemory: resource.MustParse("200Mi")
-						corev1.ResourceMemory: resource.MustParse("0Mi"),
+						corev1.ResourceCPU:    resource.MustParse("100m"),
+						corev1.ResourceMemory: resource.MustParse("200Mi"),
 					},
 				},
 			},

@@ -1227,7 +1227,7 @@ func genericMerge(dst interface{}, overrides ...interface{}) error {
 	transformers := []func(*mergo.Config){
 		mergo.WithOverride,
 		mergo.WithAppendSlice,
-		mergo.WithTransformers(boolPtrTransformer{}),
+		mergo.WithTransformers(rpaasMergoTransformers{}),
 	}
 
 	for _, override := range overrides {
@@ -1239,29 +1239,50 @@ func genericMerge(dst interface{}, overrides ...interface{}) error {
 	return nil
 }
 
-type boolPtrTransformer struct{}
+type rpaasMergoTransformers struct{}
 
-func (_ boolPtrTransformer) Transformer(t reflect.Type) func(reflect.Value, reflect.Value) error {
-	if reflect.TypeOf(v1alpha1.Bool(true)) != t {
-		return nil
-	}
+func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, reflect.Value) error {
+	if reflect.TypeOf(v1alpha1.Bool(true)) == t {
+		return func(dst, src reflect.Value) error {
+			if src.IsNil() {
+				return nil
+			}
 
-	return func(dst, src reflect.Value) error {
-		if src.IsNil() {
+			if dst.Elem().Bool() == src.Elem().Bool() {
+				return nil
+			}
+
+			if !dst.CanSet() {
+				return fmt.Errorf("cannot set value to dst")
+			}
+
+			dst.Set(src)
 			return nil
 		}
+	}
 
-		if dst.Elem().Bool() == src.Elem().Bool() {
+	if reflect.TypeOf(corev1.ResourceList{}) == t {
+		return func(dst, src reflect.Value) error {
+			iter := src.MapRange()
+			for iter.Next() {
+				k := iter.Key()
+				srcValue := iter.Value()
+				dstValue := dst.MapIndex(k)
+
+				if dstValue.IsZero() {
+					continue
+				}
+				if reflect.DeepEqual(srcValue, dstValue) {
+					continue
+				}
+
+				dst.SetMapIndex(k, srcValue)
+			}
 			return nil
 		}
-
-		if !dst.CanSet() {
-			return fmt.Errorf("cannot set value to dst")
-		}
-
-		dst.Set(src)
-		return nil
 	}
+	return nil
+
 }
 
 func portBelongsTo(port extensionsv1alpha1.AllocatedPort, instance *extensionsv1alpha1.RpaasInstance) bool {

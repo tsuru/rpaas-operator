@@ -10,7 +10,7 @@ require (
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/google/gops v0.3.12
 	github.com/gorilla/websocket v1.4.0
-	github.com/imdario/mergo v0.3.9
+	github.com/imdario/mergo v0.3.11
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4
