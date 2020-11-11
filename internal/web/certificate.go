@@ -16,14 +16,15 @@ import (
 )
 
 func deleteCertificate(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
 	instance := c.Param("instance")
 	certName := c.Param("name")
-	err = manager.DeleteCertificate(c.Request().Context(), instance, certName)
+	err = manager.DeleteCertificate(ctx, instance, certName)
 	if err != nil {
 		return err
 	}
@@ -32,6 +33,7 @@ func deleteCertificate(c echo.Context) error {
 }
 
 func updateCertificate(c echo.Context) error {
+	ctx := c.Request().Context()
 	rawCertificate, err := getFormFileContent(c, "cert")
 	if err != nil {
 		if err == http.ErrMissingFile {
@@ -50,13 +52,13 @@ func updateCertificate(c echo.Context) error {
 	if err != nil {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("could not load the given certicate and key: %s", err))
 	}
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 	instance := c.Param("instance")
 	certName := c.FormValue("name")
-	err = manager.UpdateCertificate(c.Request().Context(), instance, certName, certificate)
+	err = manager.UpdateCertificate(ctx, instance, certName, certificate)
 	if err != nil {
 		return err
 	}
@@ -65,12 +67,13 @@ func updateCertificate(c echo.Context) error {
 }
 
 func getCertificates(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	certList, err := manager.GetCertificates(c.Request().Context(), c.Param("instance"))
+	certList, err := manager.GetCertificates(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}

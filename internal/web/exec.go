@@ -169,11 +169,12 @@ func http2Exec(c echo.Context) error {
 }
 
 func execCommandOnInstance(c echo.Context, args rpaas.ExecArgs) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	return manager.Exec(c.Request().Context(), c.Param("instance"), args)
+	return manager.Exec(ctx, c.Param("instance"), args)
 }
 
 func extractExecArgs(r url.Values) rpaas.ExecArgs {

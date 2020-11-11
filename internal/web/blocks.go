@@ -15,12 +15,13 @@ import (
 )
 
 func deleteBlock(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), c.Param("block"))
+	err = manager.DeleteBlock(ctx, c.Param("instance"), c.Param("block"))
 	if err != nil {
 		return err
 	}
@@ -29,12 +30,13 @@ func deleteBlock(c echo.Context) error {
 }
 
 func listBlocks(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	blocks, err := manager.ListBlocks(c.Request().Context(), c.Param("instance"))
+	blocks, err := manager.ListBlocks(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -52,8 +54,8 @@ func updateBlock(c echo.Context) error {
 	if c.Request().ContentLength == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
-
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -63,7 +65,7 @@ func updateBlock(c echo.Context) error {
 		return err
 	}
 
-	err = manager.UpdateBlock(c.Request().Context(), c.Param("instance"), block)
+	err = manager.UpdateBlock(ctx, c.Param("instance"), block)
 	if err != nil {
 		return err
 	}
@@ -72,7 +74,8 @@ func updateBlock(c echo.Context) error {
 }
 
 func deleteLuaBlock(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -82,7 +85,7 @@ func deleteLuaBlock(c echo.Context) error {
 		return err
 	}
 
-	err = manager.DeleteBlock(c.Request().Context(), c.Param("instance"), luaBlockName(luaBlockType))
+	err = manager.DeleteBlock(ctx, c.Param("instance"), luaBlockName(luaBlockType))
 	if err != nil {
 		return err
 	}
@@ -91,12 +94,13 @@ func deleteLuaBlock(c echo.Context) error {
 }
 
 func listLuaBlocks(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	blocks, err := manager.ListBlocks(c.Request().Context(), c.Param("instance"))
+	blocks, err := manager.ListBlocks(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -122,7 +126,8 @@ func listLuaBlocks(c echo.Context) error {
 }
 
 func updateLuaBlock(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -140,7 +145,7 @@ func updateLuaBlock(c echo.Context) error {
 		Content: in.Content,
 	}
 
-	err = manager.UpdateBlock(c.Request().Context(), c.Param("instance"), block)
+	err = manager.UpdateBlock(ctx, c.Param("instance"), block)
 	if err != nil {
 		return err
 	}

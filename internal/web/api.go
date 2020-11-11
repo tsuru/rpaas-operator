@@ -115,14 +115,11 @@ func (a *api) handleSignals() {
 	}
 }
 
-func setManager(c echo.Context, manager rpaas.RpaasManager) {
-	c.Set("manager", manager)
-}
+func getManager(ctx context.Context) (rpaas.RpaasManager, error) {
+	manager := rpaas.RpaasManagerFromContext(ctx)
 
-func getManager(c echo.Context) (rpaas.RpaasManager, error) {
-	manager, ok := c.Get("manager").(rpaas.RpaasManager)
-	if !ok {
-		return nil, fmt.Errorf("invalid manager state: %#v", c.Get("manager"))
+	if manager == nil {
+		return nil, fmt.Errorf("No manager found on request")
 	}
 	return manager, nil
 }
@@ -167,9 +164,12 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	}))
 	e.Use(errorMiddleware)
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
-		return func(ctx echo.Context) error {
-			setManager(ctx, manager)
-			return next(ctx)
+		return func(echoCtx echo.Context) error {
+			req := echoCtx.Request()
+			ctx := rpaas.ContextWithRpaasManager(req.Context(), manager)
+			req = req.WithContext(ctx)
+			echoCtx.SetRequest(req)
+			return next(echoCtx)
 		}
 	})
 

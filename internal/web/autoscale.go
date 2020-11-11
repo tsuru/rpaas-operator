@@ -9,12 +9,13 @@ import (
 )
 
 func getAutoscale(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	autoscale, err := manager.GetAutoscale(c.Request().Context(), c.Param("instance"))
+	autoscale, err := manager.GetAutoscale(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -26,7 +27,8 @@ func getAutoscale(c echo.Context) error {
 	return c.JSON(http.StatusOK, autoscale)
 }
 func createAutoscale(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -36,7 +38,7 @@ func createAutoscale(c echo.Context) error {
 		return err
 	}
 
-	err = manager.CreateAutoscale(c.Request().Context(), c.Param("instance"), &autoscale)
+	err = manager.CreateAutoscale(ctx, c.Param("instance"), &autoscale)
 	if err != nil {
 		return err
 	}
@@ -45,12 +47,12 @@ func createAutoscale(c echo.Context) error {
 }
 
 func updateAutoscale(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	ctx := c.Request().Context()
 	originalAutoscale, err := manager.GetAutoscale(ctx, c.Param("instance"))
 	if err != nil {
 		if serr, ok := err.(rpaas.NotFoundError); ok {
@@ -85,12 +87,13 @@ func updateValueIfNeeded(field **int32, value *int32) {
 }
 
 func removeAutoscale(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = manager.DeleteAutoscale(c.Request().Context(), c.Param("instance"))
+	err = manager.DeleteAutoscale(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}

@@ -16,7 +16,8 @@ import (
 )
 
 func deleteRoute(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -26,7 +27,7 @@ func deleteRoute(c echo.Context) error {
 		return &rpaas.ValidationError{Msg: err.Error()}
 	}
 
-	err = manager.DeleteRoute(c.Request().Context(), c.Param("instance"), path)
+	err = manager.DeleteRoute(ctx, c.Param("instance"), path)
 	if err != nil {
 		return err
 	}
@@ -35,12 +36,13 @@ func deleteRoute(c echo.Context) error {
 }
 
 func getRoutes(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	routes, err := manager.GetRoutes(c.Request().Context(), c.Param("instance"))
+	routes, err := manager.GetRoutes(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -55,7 +57,8 @@ func getRoutes(c echo.Context) error {
 }
 
 func updateRoute(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -65,7 +68,7 @@ func updateRoute(c echo.Context) error {
 		return err
 	}
 
-	err = manager.UpdateRoute(c.Request().Context(), c.Param("instance"), route)
+	err = manager.UpdateRoute(ctx, c.Param("instance"), route)
 	if err != nil {
 		return err
 	}

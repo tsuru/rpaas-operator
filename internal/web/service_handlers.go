@@ -19,6 +19,7 @@ import (
 )
 
 func serviceCreate(c echo.Context) error {
+	ctx := c.Request().Context()
 	args := rpaas.CreateArgs{
 		// NOTE: using a different decoder for Parameters since the `r.PostForm()`
 		// method does not understand the format used by github.com/ajf.form.
@@ -28,12 +29,12 @@ func serviceCreate(c echo.Context) error {
 		return err
 	}
 
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = manager.CreateInstance(c.Request().Context(), args); err != nil {
+	if err = manager.CreateInstance(ctx, args); err != nil {
 		return err
 	}
 
@@ -41,16 +42,17 @@ func serviceCreate(c echo.Context) error {
 }
 
 func serviceDelete(c echo.Context) error {
+	ctx := c.Request().Context()
 	name := c.Param("instance")
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "name is required")
 	}
 
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	err = manager.DeleteInstance(c.Request().Context(), name)
+	err = manager.DeleteInstance(ctx, name)
 	if err != nil {
 		return err
 	}
@@ -58,6 +60,7 @@ func serviceDelete(c echo.Context) error {
 }
 
 func serviceUpdate(c echo.Context) error {
+	ctx := c.Request().Context()
 	args := rpaas.UpdateInstanceArgs{
 		// NOTE: using a different decoder for Parameters since the `r.PostForm()`
 		// method does not understand the format used by github.com/ajf.form.
@@ -67,12 +70,12 @@ func serviceUpdate(c echo.Context) error {
 		return err
 	}
 
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	if err = manager.UpdateInstance(c.Request().Context(), c.Param("instance"), args); err != nil {
+	if err = manager.UpdateInstance(ctx, c.Param("instance"), args); err != nil {
 		return err
 	}
 
@@ -80,12 +83,13 @@ func serviceUpdate(c echo.Context) error {
 }
 
 func servicePlans(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	plans, err := manager.GetPlans(c.Request().Context())
+	plans, err := manager.GetPlans(ctx)
 	if err != nil {
 		return err
 	}
@@ -98,12 +102,13 @@ func servicePlans(c echo.Context) error {
 }
 
 func serviceInfo(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 	instanceName := c.Param("instance")
-	instance, err := manager.GetInstance(c.Request().Context(), instanceName)
+	instance, err := manager.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
@@ -111,7 +116,7 @@ func serviceInfo(c echo.Context) error {
 	if instance.Spec.Replicas != nil {
 		replicas = fmt.Sprintf("%d", *instance.Spec.Replicas)
 	}
-	address, err := manager.GetInstanceAddress(c.Request().Context(), instanceName)
+	address, err := manager.GetInstanceAddress(ctx, instanceName)
 	if err != nil {
 		return err
 	}
@@ -140,11 +145,12 @@ func serviceInfo(c echo.Context) error {
 }
 
 func serviceBindApp(c echo.Context) error {
+	ctx := c.Request().Context()
 	if c.Request().ContentLength == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
 
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -154,7 +160,7 @@ func serviceBindApp(c echo.Context) error {
 		return err
 	}
 
-	if err = manager.BindApp(c.Request().Context(), c.Param("instance"), args); err != nil {
+	if err = manager.BindApp(ctx, c.Param("instance"), args); err != nil {
 		return err
 	}
 
@@ -162,7 +168,8 @@ func serviceBindApp(c echo.Context) error {
 }
 
 func serviceUnbindApp(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -172,7 +179,7 @@ func serviceUnbindApp(c echo.Context) error {
 		return err
 	}
 
-	if err = manager.UnbindApp(c.Request().Context(), c.Param("instance"), appName); err != nil {
+	if err = manager.UnbindApp(ctx, c.Param("instance"), appName); err != nil {
 		return err
 	}
 
@@ -188,12 +195,13 @@ func serviceUnbindUnit(c echo.Context) error {
 }
 
 func serviceStatus(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	address, err := manager.GetInstanceAddress(c.Request().Context(), c.Param("instance"))
+	address, err := manager.GetInstanceAddress(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}

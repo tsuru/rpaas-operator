@@ -17,11 +17,12 @@ import (
 )
 
 func listExtraFiles(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	files, err := manager.GetExtraFiles(c.Request().Context(), c.Param("instance"))
+	files, err := manager.GetExtraFiles(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -33,11 +34,12 @@ func listExtraFiles(c echo.Context) error {
 }
 
 func getExtraFile(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	files, err := manager.GetExtraFiles(c.Request().Context(), c.Param("instance"))
+	files, err := manager.GetExtraFiles(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -58,7 +60,8 @@ func getExtraFile(c echo.Context) error {
 }
 
 func addExtraFiles(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -76,7 +79,7 @@ func addExtraFiles(c echo.Context) error {
 			Message: "files form field is required",
 		}
 	}
-	err = manager.CreateExtraFiles(c.Request().Context(), c.Param("instance"), files...)
+	err = manager.CreateExtraFiles(ctx, c.Param("instance"), files...)
 	if err != nil {
 		return err
 	}
@@ -84,7 +87,8 @@ func addExtraFiles(c echo.Context) error {
 }
 
 func updateExtraFiles(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -102,7 +106,7 @@ func updateExtraFiles(c echo.Context) error {
 			Message: "files form field is required",
 		}
 	}
-	err = manager.UpdateExtraFiles(c.Request().Context(), c.Param("instance"), files...)
+	err = manager.UpdateExtraFiles(ctx, c.Param("instance"), files...)
 	if err != nil {
 		return err
 	}
@@ -110,7 +114,8 @@ func updateExtraFiles(c echo.Context) error {
 }
 
 func deleteExtraFile(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -122,7 +127,7 @@ func deleteExtraFile(c echo.Context) error {
 			Internal: err,
 		}
 	}
-	err = manager.DeleteExtraFiles(c.Request().Context(), c.Param("instance"), filename)
+	err = manager.DeleteExtraFiles(ctx, c.Param("instance"), filename)
 	if err != nil {
 		return err
 	}

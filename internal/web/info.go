@@ -11,12 +11,13 @@ import (
 )
 
 func instanceInfo(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	info, err := manager.GetInstanceInfo(c.Request().Context(), c.Param("instance"))
+	info, err := manager.GetInstanceInfo(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}

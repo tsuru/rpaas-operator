@@ -18,7 +18,7 @@ func cachePurge(c echo.Context) error {
 	if c.Request().ContentLength == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
-
+	ctx := c.Request().Context()
 	var args rpaas.PurgeCacheArgs
 	err := c.Bind(&args)
 	if err != nil {
@@ -28,11 +28,11 @@ func cachePurge(c echo.Context) error {
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "instance is required")
 	}
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	count, err := manager.PurgeCache(c.Request().Context(), name, args)
+	count, err := manager.PurgeCache(ctx, name, args)
 	if err != nil {
 		return err
 	}
@@ -43,12 +43,13 @@ func cachePurgeBulk(c echo.Context) error {
 	if c.Request().ContentLength == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
+	ctx := c.Request().Context()
 
 	name := c.Param("instance")
 	if len(name) == 0 {
 		return c.String(http.StatusBadRequest, "instance is required")
 	}
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
@@ -62,7 +63,7 @@ func cachePurgeBulk(c echo.Context) error {
 	var results []rpaas.PurgeCacheBulkResult
 	for _, args := range argsList {
 		var r rpaas.PurgeCacheBulkResult
-		count, err := manager.PurgeCache(c.Request().Context(), name, args)
+		count, err := manager.PurgeCache(ctx, name, args)
 		if err != nil {
 			status = http.StatusInternalServerError
 			r = rpaas.PurgeCacheBulkResult{Path: args.Path, Error: err.Error()}

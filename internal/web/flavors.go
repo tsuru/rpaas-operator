@@ -13,12 +13,13 @@ import (
 )
 
 func getServiceFlavors(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 
-	flavors, err := manager.GetFlavors(c.Request().Context())
+	flavors, err := manager.GetFlavors(ctx)
 	if err != nil {
 		return err
 	}

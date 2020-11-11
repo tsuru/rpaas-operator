@@ -16,15 +16,16 @@ type scaleParameters struct {
 }
 
 func scale(c echo.Context) error {
+	ctx := c.Request().Context()
 	var data scaleParameters
 	if err := c.Bind(&data); err != nil {
 		return c.String(http.StatusBadRequest, "quantity is either missing or not valid")
 	}
-	manager, err := getManager(c)
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	if err = manager.Scale(c.Request().Context(), c.Param("instance"), data.Quantity); err != nil {
+	if err = manager.Scale(ctx, c.Param("instance"), data.Quantity); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusOK)
@@ -48,12 +49,13 @@ func getFormFileContent(c echo.Context, key string) ([]byte, error) {
 }
 
 func serviceNodeStatus(c echo.Context) error {
-	manager, err := getManager(c)
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
 	instance := c.Param("instance")
-	_, podStatus, err := manager.GetInstanceStatus(c.Request().Context(), instance)
+	_, podStatus, err := manager.GetInstanceStatus(ctx, instance)
 	if err != nil {
 		return err
 	}
