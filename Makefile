@@ -1,56 +1,97 @@
-TAG=latest
-IMAGE_OPERATOR=tsuru/rpaas-operator
-IMAGE_API=tsuru/rpaas-api
-KUBECONFIG ?= ~/.kube/config
 
-git_tag    := $(shell git describe --tags --abbrev=0 2>/dev/null || echo 'untagged')
-git_commit := $(shell git rev-parse HEAD 2>/dev/null | cut -c1-7)
-go_root    := $(shell go env GOROOT)
+# Image URL to use all building/pushing image targets
+IMG ?= controller:latest
+# Produce CRDs that work back to Kubernetes 1.11 (no version conversion)
+CRD_OPTIONS ?= "crd:trivialVersions=true"
 
-RPAAS_OPERATOR_VERSION ?= $(git_tag)/$(git_commit)
-GO_LDFLAGS ?= -X=github.com/tsuru/rpaas-operator/version.Version=$(RPAAS_OPERATOR_VERSION)
+KUBECTL_VALIDATE ?= --validate=false
 
-.PHONY: test test/all test/integration deploy deploy/crds local build push build-api api build/plugin/rpaasv2
+# Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
+ifeq (,$(shell go env GOBIN))
+GOBIN=$(shell go env GOPATH)/bin
+else
+GOBIN=$(shell go env GOBIN)
+endif
 
-test/all: test test/integration
+all: manager
 
-test:
-	go test -race -timeout 30s ./... -cover
+# Run tests
+test: generate fmt vet manifests
+	go test ./... -coverprofile cover.out
 
-test/integration:
-	./scripts/localkube-integration.sh
+# Build manager binary
+manager: generate fmt vet
+	go build -o bin/manager main.go
 
-lint:
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
-	go install ./...
-	golangci-lint run --config ./.golangci.yml ./...
+# Run against the configured Kubernetes cluster in ~/.kube/config
+run: generate fmt vet manifests
+	go run ./main.go
 
-deploy:
-	kubectl apply -R -f deploy/
+# Install CRDs into a cluster
+install: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl apply $(KUBECTL_VALIDATE) -f -
 
-deploy/crds:
-	kubectl apply -f deploy/crds/
+# Uninstall CRDs from a cluster
+uninstall: manifests kustomize
+	$(KUSTOMIZE) build config/crd | kubectl delete -f -
 
-local: deploy/crds
-	operator-sdk up local --go-ldflags $(GO_LDFLAGS)
+# Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+deploy: manifests kustomize
+	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
+	$(KUSTOMIZE) build config/default | kubectl apply $(KUBECTL_VALIDATE) -f -
 
-generate:
-	GOROOT=$(go_root) operator-sdk generate k8s
+# Generate manifests e.g. CRD, RBAC etc.
+manifests: controller-gen
+	$(CONTROLLER_GEN) $(CRD_OPTIONS) rbac:roleName=manager-role webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 
-build: build/plugin/rpaasv2
-	operator-sdk build $(IMAGE_OPERATOR):$(TAG) --go-build-args "-ldflags $(GO_LDFLAGS)"
-	docker build -t $(IMAGE_API):$(TAG) .
+# Run go fmt against code
+fmt:
+	go fmt ./...
 
-build/plugin/rpaasv2:
-	@mkdir -p build/_output/bin/
-	go build -ldflags $(GO_LDFLAGS) -o build/_output/bin/rpaasv2 ./cmd/plugin/rpaasv2
+# Run go vet against code
+vet:
+	go vet ./...
 
-push: build
-	docker push $(IMAGE_OPERATOR):$(TAG)
-	docker push $(IMAGE_API):$(TAG)
+# Generate code
+generate: controller-gen
+	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
-build-api:
-	CGO_ENABLED=0 go build -o rpaas-api ./cmd/api
+# Build the docker image
+docker-build: test
+	docker build . -t ${IMG}
 
-api: deploy/crds
-	go run ./cmd/api
+# Push the docker image
+docker-push:
+	docker push ${IMG}
+
+# find or download controller-gen
+# download controller-gen if necessary
+controller-gen:
+ifeq (, $(shell which controller-gen))
+	@{ \
+	set -e ;\
+	CONTROLLER_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$CONTROLLER_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/controller-tools/cmd/controller-gen@v0.3.0 ;\
+	rm -rf $$CONTROLLER_GEN_TMP_DIR ;\
+	}
+CONTROLLER_GEN=$(GOBIN)/controller-gen
+else
+CONTROLLER_GEN=$(shell which controller-gen)
+endif
+
+kustomize:
+ifeq (, $(shell which kustomize))
+	@{ \
+	set -e ;\
+	KUSTOMIZE_GEN_TMP_DIR=$$(mktemp -d) ;\
+	cd $$KUSTOMIZE_GEN_TMP_DIR ;\
+	go mod init tmp ;\
+	go get sigs.k8s.io/kustomize/kustomize/v3@v3.5.4 ;\
+	rm -rf $$KUSTOMIZE_GEN_TMP_DIR ;\
+	}
+KUSTOMIZE=$(GOBIN)/kustomize
+else
+KUSTOMIZE=$(shell which kustomize)
+endif

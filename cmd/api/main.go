@@ -8,8 +8,9 @@ import (
 	"log"
 
 	"github.com/google/gops/agent"
-	"github.com/tsuru/rpaas-operator/api"
-	"github.com/tsuru/rpaas-operator/config"
+
+	"github.com/tsuru/rpaas-operator/internal/config"
+	"github.com/tsuru/rpaas-operator/internal/web"
 )
 
 func main() {
@@ -22,7 +23,7 @@ func main() {
 	}
 	defer agent.Close()
 
-	a, err := api.New(nil)
+	a, err := web.New(nil)
 	if err != nil {
 		log.Fatalf("could not create RPaaS API: %v", err)
 	}

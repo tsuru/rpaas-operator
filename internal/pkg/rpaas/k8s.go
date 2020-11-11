@@ -24,13 +24,7 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
-	osb "github.com/pmorie/go-open-service-broker-client/v2"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
-	"github.com/tsuru/rpaas-operator/config"
-	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
-	"github.com/tsuru/rpaas-operator/pkg/util"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -45,6 +39,13 @@ import (
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	osb "sigs.k8s.io/go-open-service-broker-client/v2"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/config"
+	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
+	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
 const (
@@ -88,7 +89,7 @@ func keepAliveSpdyExecutor(config *rest.Config, method string, url *url.URL) (re
 	if err != nil {
 		return nil, err
 	}
-	upgradeRoundTripper := spdy.NewSpdyRoundTripper(tlsConfig, true, false)
+	upgradeRoundTripper := spdy.NewRoundTripper(tlsConfig, true, false)
 	upgradeRoundTripper.Dialer = &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 10 * time.Second,
@@ -1096,8 +1097,8 @@ func (m *k8sRpaasManager) createExtraFiles(ctx context.Context, instance v1alpha
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
-					Group:   v1alpha1.SchemeGroupVersion.Group,
-					Version: v1alpha1.SchemeGroupVersion.Version,
+					Group:   v1alpha1.GroupVersion.Group,
+					Version: v1alpha1.GroupVersion.Version,
 					Kind:    "RpaasInstance",
 				}),
 			},
@@ -1379,8 +1380,8 @@ func newSecretForCertificates(instance v1alpha1.RpaasInstance, data map[string][
 			Namespace: instance.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
-					Group:   v1alpha1.SchemeGroupVersion.Group,
-					Version: v1alpha1.SchemeGroupVersion.Version,
+					Group:   v1alpha1.GroupVersion.Group,
+					Version: v1alpha1.GroupVersion.Version,
 					Kind:    "RpaasInstance",
 				}),
 			},

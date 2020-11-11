@@ -11,20 +11,21 @@ import (
 	"time"
 
 	"github.com/imdario/mergo"
-	osb "github.com/pmorie/go-open-service-broker-client/v2"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
-	"github.com/tsuru/rpaas-operator/config"
-	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
-	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	osb "sigs.k8s.io/go-open-service-broker-client/v2"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/config"
+	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 var (

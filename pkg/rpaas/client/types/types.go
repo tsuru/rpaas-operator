@@ -8,8 +8,9 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
 type Block struct {

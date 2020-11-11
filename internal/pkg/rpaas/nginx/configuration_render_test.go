@@ -9,10 +9,11 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
 func TestRpaasConfigurationRenderer_Render(t *testing.T) {

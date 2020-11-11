@@ -14,9 +14,10 @@ import (
 	"sort"
 	"strings"
 
-	osb "github.com/pmorie/go-open-service-broker-client/v2"
-	nginxv1alpha1 "github.com/tsuru/nginx-operator/pkg/apis/nginx/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/apis/extensions/v1alpha1"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
+	osb "sigs.k8s.io/go-open-service-broker-client/v2"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 

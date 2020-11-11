@@ -1,0 +1,20 @@
+domain: tsuru.io
+layout: go.kubebuilder.io/v2
+projectName: rpaas-operator
+repo: github.com/tsuru/rpaas-operator
+resources:
+- group: extensions
+  kind: RpaasInstance
+  version: v1alpha1
+- group: extensions
+  kind: RpaasPlan
+  version: v1alpha1
+- group: extensions
+  kind: RpaasFlavor
+  version: v1alpha1
+- group: extensions
+  kind: RpaasPortAllocation
+  version: v1alpha1
+version: 3-alpha
+plugins:
+  go.sdk.operatorframework.io/v2-alpha: {}
