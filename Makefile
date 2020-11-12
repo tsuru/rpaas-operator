@@ -64,6 +64,9 @@ docker-build: test
 docker-push:
 	docker push ${IMG}
 
+build-api:
+	CGO_ENABLED=0 go build -o rpaas-api ./cmd/api
+
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
