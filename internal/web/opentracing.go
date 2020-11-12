@@ -25,7 +25,9 @@ func init() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	cfg.ServiceName = "rpaas-api"
+	if cfg.ServiceName == "" {
+		return
+	}
 
 	tracer, _, err := cfg.NewTracer(
 		jaegerConfig.Injector(opentracing.HTTPHeaders, zipkinPropagator),

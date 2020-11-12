@@ -154,6 +154,7 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 	e.Use(metricsMiddleware)
+	e.Use(OpenTracingMiddleware)
 	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
 		Skipper: func(c echo.Context) bool {
 			conf := config.Get()
