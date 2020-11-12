@@ -25,6 +25,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/pkg/observability"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
@@ -231,6 +232,8 @@ func newKubernetesClient() (*rest.Config, sigsk8sclient.Client, error) {
 	if err != nil {
 		return nil, nil, err
 	}
+
+	cfg.WrapTransport = observability.OpentracingTransport
 
 	c, err := sigsk8sclient.New(cfg, sigsk8sclient.Options{Scheme: extensionsruntime.NewScheme()})
 	if err != nil {
