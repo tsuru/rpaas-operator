@@ -6,6 +6,7 @@ require (
 	github.com/ajg/form v1.5.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.4.9
+	github.com/globocom/echo-prometheus v0.1.2
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/google/gops v0.3.12
@@ -15,6 +16,7 @@ require (
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4
 	github.com/pkg/errors v0.9.1
+	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.4.0

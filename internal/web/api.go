@@ -14,8 +14,10 @@ import (
 	"syscall"
 	"time"
 
+	echoPrometheus "github.com/globocom/echo-prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/http2"
 	"k8s.io/client-go/rest"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
@@ -25,6 +27,8 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
+
+var metricsMiddleware = echoPrometheus.MetricsMiddleware()
 
 type api struct {
 	sync.Mutex
@@ -149,6 +153,7 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
+	e.Use(metricsMiddleware)
 	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
 		Skipper: func(c echo.Context) bool {
 			conf := config.Get()
@@ -173,6 +178,7 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 		}
 	})
 
+	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/healthcheck", healthcheck)
 	e.POST("/resources", serviceCreate)
 	e.GET("/resources/flavors", getServiceFlavors)
