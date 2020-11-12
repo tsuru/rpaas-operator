@@ -3,6 +3,7 @@ module github.com/tsuru/rpaas-operator
 go 1.13
 
 require (
+	github.com/HdrHistogram/hdrhistogram-go v1.0.0 // indirect
 	github.com/ajg/form v1.5.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/fsnotify/fsnotify v1.4.9
@@ -10,18 +11,21 @@ require (
 	github.com/go-logr/logr v0.2.1
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/google/gops v0.3.12
-	github.com/gorilla/websocket v1.4.0
+	github.com/gorilla/websocket v1.4.2
 	github.com/imdario/mergo v0.3.11
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4
+	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.7.1
 	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/pflag v1.0.5
-	github.com/spf13/viper v1.4.0
-	github.com/stretchr/testify v1.4.0
+	github.com/spf13/viper v1.7.1
+	github.com/stretchr/testify v1.6.1
 	github.com/tsuru/nginx-operator v0.6.0
+	github.com/uber/jaeger-client-go v2.25.0+incompatible
+	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	github.com/urfave/cli/v2 v2.0.0
 	github.com/willf/bitset v1.1.11
 	go.uber.org/multierr v1.6.0 // indirect
