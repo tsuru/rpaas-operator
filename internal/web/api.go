@@ -140,6 +140,38 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 func newEcho(targetFactory target.Factory) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
+	e.HTTPErrorHandler = func(err error, c echo.Context) {
+		var (
+			code = http.StatusInternalServerError
+			msg  interface{}
+		)
+
+		if he, ok := err.(*echo.HTTPError); ok {
+			code = he.Code
+			msg = he.Message
+			if he.Internal != nil {
+				msg = fmt.Sprintf("%v, %v", err, he.Internal)
+			}
+		} else {
+			msg = err.Error()
+		}
+		if _, ok := msg.(string); ok {
+			msg = echo.Map{"message": msg}
+		}
+
+		e.Logger.Error(err)
+
+		if !c.Response().Committed {
+			if c.Request().Method == http.MethodHead {
+				err = c.NoContent(code)
+			} else {
+				err = c.JSON(code, msg)
+			}
+			if err != nil {
+				e.Logger.Error(err)
+			}
+		}
+	}
 
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())

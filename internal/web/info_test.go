@@ -95,7 +95,7 @@ func Test_instanceInfo(t *testing.T) {
 				},
 			},
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "{\"message\":\"Internal Server Error\"}",
+			expectedBody: "{\"message\":\"error while setting address\"}",
 		},
 	}
 	for _, tt := range tests {
