@@ -19,14 +19,10 @@ import (
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"golang.org/x/net/http2"
-	"k8s.io/client-go/rest"
-	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
-	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	"github.com/tsuru/rpaas-operator/pkg/observability"
-	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
+	"github.com/tsuru/rpaas-operator/internal/web/target"
 )
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
@@ -49,24 +45,17 @@ type api struct {
 }
 
 // New creates an api instance.
-func New(manager rpaas.RpaasManager) (*api, error) {
-	if manager == nil {
-		cfg, k8sClient, err := newKubernetesClient()
-		if err != nil {
-			return nil, err
-		}
+func NewWithManager(manager rpaas.RpaasManager) (*api, error) {
+	localTargetFatory := target.NewLocalFactory(manager)
+	return NewWithTargetFactory(localTargetFatory)
+}
 
-		manager, err = rpaas.NewK8S(cfg, k8sClient)
-		if err != nil {
-			return nil, err
-		}
-	}
-
+func NewWithTargetFactory(targetFactory target.Factory) (*api, error) {
 	return &api{
 		Address:         `:9999`,
 		TLSAddress:      `:9993`,
 		ShutdownTimeout: 30 * time.Second,
-		e:               newEcho(manager),
+		e:               newEcho(targetFactory),
 		shutdown:        make(chan struct{}),
 	}, nil
 }
@@ -148,7 +137,7 @@ func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 	}
 }
 
-func newEcho(manager rpaas.RpaasManager) *echo.Echo {
+func newEcho(targetFactory target.Factory) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
 
@@ -173,6 +162,10 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e.Use(func(next echo.HandlerFunc) echo.HandlerFunc {
 		return func(echoCtx echo.Context) error {
 			req := echoCtx.Request()
+			manager, err := targetFactory.Manager(req.Context(), req.Header)
+			if err != nil {
+				return err
+			}
 			ctx := rpaas.ContextWithRpaasManager(req.Context(), manager)
 			req = req.WithContext(ctx)
 			echoCtx.SetRequest(req)
@@ -225,20 +218,4 @@ func newEcho(manager rpaas.RpaasManager) *echo.Echo {
 	e.Any("/resources/:instance/exec", exec)
 
 	return e
-}
-
-func newKubernetesClient() (*rest.Config, sigsk8sclient.Client, error) {
-	cfg, err := sigsk8sconfig.GetConfig()
-	if err != nil {
-		return nil, nil, err
-	}
-
-	cfg.WrapTransport = observability.OpentracingTransport
-
-	c, err := sigsk8sclient.New(cfg, sigsk8sclient.Options{Scheme: extensionsruntime.NewScheme()})
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return cfg, c, nil
 }

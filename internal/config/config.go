@@ -48,6 +48,15 @@ type RpaasConfig struct {
 	WebSocketWriteWait                   time.Duration              `json:"websocket-write-wait"`
 	WebSocketAllowedOrigins              []string                   `json:"websocket-allowed-origins"`
 	SuppressPrivateKeyOnCertificatesList bool                       `json:"suppress-private-key-on-certificates-list"`
+	MultiCluster                         bool                       `json:"multi-cluster"`
+	Clusters                             []ClusterConfig            `json:"clusters"`
+}
+
+type ClusterConfig struct {
+	Name    string `json:"name"`
+	Default bool   `json:"default"`
+	Address string `json:"address"`
+	Token   string `json:"token"`
 }
 
 var rpaasConfig struct {

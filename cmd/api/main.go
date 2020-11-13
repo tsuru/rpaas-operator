@@ -11,6 +11,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/web"
+	"github.com/tsuru/rpaas-operator/internal/web/target"
 )
 
 func main() {
@@ -23,7 +24,18 @@ func main() {
 	}
 	defer agent.Close()
 
-	a, err := web.New(nil)
+	cfg := config.Get()
+
+	var targetFactory target.Factory
+	var err error
+	if cfg.MultiCluster {
+		targetFactory = target.NewMultiClustersFactory(cfg.Clusters)
+	} else {
+		targetFactory, err = target.NewKubeConfigFactory()
+		log.Fatalf("could not initialize cluster target: %v", err)
+	}
+
+	a, err := web.NewWithTargetFactory(targetFactory)
 	if err != nil {
 		log.Fatalf("could not create RPaaS API: %v", err)
 	}
