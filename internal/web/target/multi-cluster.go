@@ -2,7 +2,6 @@ package target
 
 import (
 	"context"
-	"errors"
 	"net/http"
 
 	"github.com/opentracing/opentracing-go"
@@ -15,6 +14,8 @@ import (
 )
 
 var _ Factory = &multiClusterFactory{}
+
+var ErrNoClusterProvided = &rpaas.ValidationError{Msg: "No cluster address provided"}
 
 type multiClusterFactory struct {
 	clusters []config.ClusterConfig
@@ -29,7 +30,7 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 	address := headers.Get("X-Tsuru-Cluster-Addresses")
 
 	if address == "" {
-		return nil, errors.New("No cluster address provided")
+		return nil, ErrNoClusterProvided
 	}
 
 	span := opentracing.SpanFromContext(ctx)
