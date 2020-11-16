@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/internal/config"
 )
 
@@ -30,6 +31,7 @@ func TestMultiClusterToken(t *testing.T) {
 
 func TestMultiClusterTokenFile(t *testing.T) {
 	tmpfile, err := ioutil.TempFile("", "example")
+	require.NoError(t, err)
 	target := NewMultiClustersFactory([]config.ClusterConfig{
 		{
 			Name:      "my-cluster",
@@ -57,6 +59,7 @@ func TestMultiClusterTokenFile(t *testing.T) {
 
 func TestMultiClusterNoToken(t *testing.T) {
 	tmpfile, err := ioutil.TempFile("", "example")
+	require.NoError(t, err)
 	target := NewMultiClustersFactory([]config.ClusterConfig{
 		{
 			Name:      "my-cluster",
