@@ -1071,6 +1071,48 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 			},
 		},
 		{
+			name: "when the Service is LoadBalancer type and already has an external Hostname, but it's not have an IP",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				return []runtime.Object{
+					instance,
+					&nginxv1alpha1.Nginx{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name,
+							Namespace: instance.Namespace,
+						},
+						Status: nginxv1alpha1.NginxStatus{
+							Services: []nginxv1alpha1.ServiceStatus{
+								{Name: instance.Name + "-service"},
+							},
+						},
+					},
+					&corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name + "-service",
+							Namespace: instance.Namespace,
+						},
+						Spec: corev1.ServiceSpec{
+							Type:      corev1.ServiceTypeLoadBalancer,
+							ClusterIP: "10.1.1.9",
+						},
+						Status: corev1.ServiceStatus{
+							LoadBalancer: corev1.LoadBalancerStatus{
+								Ingress: []corev1.LoadBalancerIngress{
+									{Hostname: "my-lb.my-provider.io"},
+								},
+							},
+						},
+					},
+				}
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, address string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, address, "my-lb.my-provider.io")
+			},
+		},
+		{
 			name: "when the Service is LoadBalancer type with no external IP provided, should returns an empty address",
 			resources: func() []runtime.Object {
 				instance := newEmptyRpaasInstance()

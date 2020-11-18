@@ -671,6 +671,10 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 		return "", nil
 	}
 
+	if addresses[0].IP == "" {
+		return addresses[0].Hostname, nil
+	}
+
 	return addresses[0].IP, nil
 }
 
