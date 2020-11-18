@@ -69,7 +69,7 @@ func runDeleteRoute(c *cli.Context) error {
 		Instance: c.String("instance"),
 		Path:     c.String("path"),
 	}
-	_, err = client.DeleteRoute(c.Context, args)
+	err = client.DeleteRoute(c.Context, args)
 	if err != nil {
 		return err
 	}
@@ -113,7 +113,7 @@ func runListRoutes(c *cli.Context) error {
 	}
 
 	args := rpaasclient.ListRoutesArgs{Instance: c.String("instance")}
-	routes, _, err := client.ListRoutes(c.Context, args)
+	routes, err := client.ListRoutes(c.Context, args)
 	if err != nil {
 		return err
 	}
@@ -219,7 +219,7 @@ func runUpdateRoute(c *cli.Context) error {
 		HTTPSOnly:   c.Bool("https-only"),
 		Content:     string(content),
 	}
-	_, err = client.UpdateRoute(c.Context, args)
+	err = client.UpdateRoute(c.Context, args)
 	if err != nil {
 		return err
 	}

@@ -152,7 +152,7 @@ func TestClientThroughTsuru_Scale(t *testing.T) {
 				Instance: "my-instance",
 				Replicas: int32(777),
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -179,7 +179,7 @@ func TestClientThroughTsuru_Scale(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.Scale(context.TODO(), tt.args)
+			err := client.Scale(context.TODO(), tt.args)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 				return
@@ -244,7 +244,7 @@ func TestClientThroughTsuru_UpdateCertificate(t *testing.T) {
 				Certificate: `my certificate`,
 				Key:         `my key`,
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -256,7 +256,7 @@ func TestClientThroughTsuru_UpdateCertificate(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.UpdateCertificate(context.TODO(), tt.args)
+			err := client.UpdateCertificate(context.TODO(), tt.args)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 				return
@@ -316,7 +316,7 @@ func TestClientThroughTsuru_UpdateBlock(t *testing.T) {
 				Name:     "server",
 				Content:  "Some NGINX snippet",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -328,7 +328,7 @@ func TestClientThroughTsuru_UpdateBlock(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.UpdateBlock(context.TODO(), tt.args)
+			err := client.UpdateBlock(context.TODO(), tt.args)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 				return
@@ -375,7 +375,7 @@ func TestClientThroughTsuru_DeleteBlock(t *testing.T) {
 				Instance: "my-instance",
 				Name:     "server",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -387,7 +387,7 @@ func TestClientThroughTsuru_DeleteBlock(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.DeleteBlock(context.TODO(), tt.args)
+			err := client.DeleteBlock(context.TODO(), tt.args)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 				return
@@ -414,7 +414,7 @@ func TestClientThroughTsuru_ListBlocks(t *testing.T) {
 			args: ListBlocksArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -449,7 +449,7 @@ func TestClientThroughTsuru_ListBlocks(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			blocks, _, err := client.ListBlocks(context.TODO(), tt.args)
+			blocks, err := client.ListBlocks(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -484,7 +484,7 @@ func TestClientThroughTsuru_DeleteRoute(t *testing.T) {
 				Instance: "my-instance",
 				Path:     "/custom/path",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -511,7 +511,7 @@ func TestClientThroughTsuru_DeleteRoute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.DeleteRoute(context.TODO(), tt.args)
+			err := client.DeleteRoute(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -538,7 +538,7 @@ func TestClientThroughTsuru_ListRoutes(t *testing.T) {
 			args: ListRoutesArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -578,7 +578,7 @@ func TestClientThroughTsuru_ListRoutes(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			blocks, _, err := client.ListRoutes(context.TODO(), tt.args)
+			blocks, err := client.ListRoutes(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -619,7 +619,7 @@ func TestClientThroughTsuru_Info(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, _, err := client.Info(context.TODO(), tt.args)
+			_, err := client.Info(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -654,7 +654,7 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 				Path:        "/app",
 				Destination: "app.tsuru.example.com",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -689,7 +689,7 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.UpdateRoute(context.TODO(), tt.args)
+			err := client.UpdateRoute(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -721,7 +721,7 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 				CPU:         int32(27),
 				Memory:      int32(33),
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -807,7 +807,7 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.UpdateAutoscale(context.TODO(), tt.args)
+			err := client.UpdateAutoscale(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -833,7 +833,7 @@ func TestClientThroughTsuru_GetAutoscale(t *testing.T) {
 			args: GetAutoscaleArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -858,7 +858,7 @@ func TestClientThroughTsuru_GetAutoscale(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, _, err := client.GetAutoscale(context.TODO(), tt.args)
+			_, err := client.GetAutoscale(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -884,7 +884,7 @@ func TestClientThroughTsuru_RemoveAutoscale(t *testing.T) {
 			args: RemoveAutoscaleArgs{
 				Instance: "my-instance",
 			},
-			expectedError: "rpaasv2: unexpected status code: 404 Not Found",
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 				fmt.Fprintf(w, "instance not found")
@@ -908,7 +908,7 @@ func TestClientThroughTsuru_RemoveAutoscale(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, err := client.RemoveAutoscale(context.TODO(), tt.args)
+			err := client.RemoveAutoscale(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -977,7 +977,7 @@ func TestClientThroughTsuru_Exec(t *testing.T) {
 			called = false
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			_, _, err := client.Exec(context.TODO(), tt.args)
+			_, err := client.Exec(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

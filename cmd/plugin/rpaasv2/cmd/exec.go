@@ -89,7 +89,7 @@ func runExec(c *cli.Context) error {
 		Raw: args.TTY,
 	}
 	return tty.Safe(func() error {
-		conn, _, err := client.Exec(c.Context, args)
+		conn, err := client.Exec(c.Context, args)
 		if err != nil {
 			return err
 		}

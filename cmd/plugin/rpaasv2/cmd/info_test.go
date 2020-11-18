@@ -7,7 +7,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"testing"
 	"time"
 
@@ -38,9 +37,9 @@ func TestInfo(t *testing.T) {
 			args:          []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
 			expectedError: "not found error",
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, error) {
 					require.Equal(t, args.Instance, "my-instance")
-					return nil, nil, fmt.Errorf("not found error")
+					return nil, fmt.Errorf("not found error")
 				},
 			},
 		},
@@ -48,7 +47,7 @@ func TestInfo(t *testing.T) {
 			name: "when info route is successful",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					return &clientTypes.InstanceInfo{
 						Name: "my-instance",
@@ -263,7 +262,7 @@ func TestInfo(t *testing.T) {
 								PublicKeyBitSize:   384,
 							},
 						},
-					}, nil, nil
+					}, nil
 				},
 			},
 			expected: `Name: my-instance
@@ -394,7 +393,7 @@ Routes:
 			name: "when info route is successful and on json format",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance", "--raw-output"},
 			client: &fake.FakeClient{
-				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, *http.Response, error) {
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, error) {
 					require.Equal(t, args.Instance, "my-instance")
 
 					return &clientTypes.InstanceInfo{
@@ -430,7 +429,7 @@ Routes:
 						Team:        "some team",
 						Description: "some description",
 						Tags:        []string{"tag1", "tag2", "tag3"},
-					}, nil, nil
+					}, nil
 				},
 			},
 			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\"\n\t\t},\n\t\t{\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t]\n}\n",

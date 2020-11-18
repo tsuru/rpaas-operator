@@ -7,7 +7,6 @@ package client
 import (
 	"context"
 	"io"
-	"net/http"
 
 	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -94,19 +93,19 @@ type ExecArgs struct {
 }
 
 type Client interface {
-	GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error)
-	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error)
-	Scale(ctx context.Context, args ScaleArgs) (*http.Response, error)
-	Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, *http.Response, error)
-	UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) (*http.Response, error)
-	UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error)
-	DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error)
-	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.Block, *http.Response, error)
-	DeleteRoute(ctx context.Context, args DeleteRouteArgs) (*http.Response, error)
-	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, *http.Response, error)
-	UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.Response, error)
-	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error)
-	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error)
-	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error)
-	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *http.Response, error)
+	GetPlans(ctx context.Context, instance string) ([]types.Plan, error)
+	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, error)
+	Scale(ctx context.Context, args ScaleArgs) error
+	Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, error)
+	UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) error
+	UpdateBlock(ctx context.Context, args UpdateBlockArgs) error
+	DeleteBlock(ctx context.Context, args DeleteBlockArgs) error
+	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.Block, error)
+	DeleteRoute(ctx context.Context, args DeleteRouteArgs) error
+	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, error)
+	UpdateRoute(ctx context.Context, args UpdateRouteArgs) error
+	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, error)
+	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error
+	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
+	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
 }

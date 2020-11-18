@@ -261,7 +261,7 @@ func runInfo(c *cli.Context) error {
 		Raw:      c.Bool("raw-output"),
 	}
 
-	infoPayload, _, err := client.Info(c.Context, info)
+	infoPayload, err := client.Info(c.Context, info)
 	if err != nil {
 		return err
 	}

@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"testing"
 
@@ -63,7 +62,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			args:          []string{"./rpaasv2", "certificates", "update", "-i", "my-instance", "--name", "my-instance.example.com", "--cert", certFile.Name(), "--key", keyFile.Name()},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeUpdateCertificate: func(args rpaasclient.UpdateCertificateArgs) (*http.Response, error) {
+				FakeUpdateCertificate: func(args rpaasclient.UpdateCertificateArgs) error {
 					expected := rpaasclient.UpdateCertificateArgs{
 						Instance:    "my-instance",
 						Name:        "my-instance.example.com",
@@ -71,7 +70,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 						Key:         keyPem,
 					}
 					assert.Equal(t, expected, args)
-					return nil, fmt.Errorf("some error")
+					return fmt.Errorf("some error")
 				},
 			},
 		},
@@ -79,7 +78,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			name: "when UpdateCertificate returns no error",
 			args: []string{"./rpaasv2", "certificates", "update", "-i", "my-instance", "--name", "my-instance.example.com", "--cert", certFile.Name(), "--key", keyFile.Name()},
 			client: &fake.FakeClient{
-				FakeUpdateCertificate: func(args rpaasclient.UpdateCertificateArgs) (*http.Response, error) {
+				FakeUpdateCertificate: func(args rpaasclient.UpdateCertificateArgs) error {
 					expected := rpaasclient.UpdateCertificateArgs{
 						Instance:    "my-instance",
 						Name:        "my-instance.example.com",
@@ -87,7 +86,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 						Key:         keyPem,
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil
+					return nil
 				},
 			},
 			expected: "certificate \"my-instance.example.com\" updated in my-instance\n",

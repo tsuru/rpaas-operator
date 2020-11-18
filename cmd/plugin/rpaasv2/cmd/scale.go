@@ -50,7 +50,7 @@ func runScale(c *cli.Context) error {
 		Instance: c.String("instance"),
 		Replicas: int32(c.Int("replicas")),
 	}
-	_, err = client.Scale(c.Context, scale)
+	err = client.Scale(c.Context, scale)
 	if err != nil {
 		return err
 	}

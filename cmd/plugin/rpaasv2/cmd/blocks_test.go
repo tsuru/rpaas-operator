@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"testing"
 
@@ -41,14 +40,14 @@ func TestUpdateBlock(t *testing.T) {
 			args:          []string{"./rpaasv2", "blocks", "update", "-i", "my-instance", "--name", "http", "--content", blockFile.Name()},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeUpdateBlock: func(args rpaasclient.UpdateBlockArgs) (*http.Response, error) {
+				FakeUpdateBlock: func(args rpaasclient.UpdateBlockArgs) error {
 					expected := rpaasclient.UpdateBlockArgs{
 						Instance: "my-instance",
 						Name:     "http",
 						Content:  nginxConfig,
 					}
 					assert.Equal(t, expected, args)
-					return nil, fmt.Errorf("some error")
+					return fmt.Errorf("some error")
 				},
 			},
 		},
@@ -57,14 +56,14 @@ func TestUpdateBlock(t *testing.T) {
 			args:     []string{"./rpaasv2", "blocks", "update", "-i", "my-instance", "--name", "server", "--content", blockFile.Name()},
 			expected: "NGINX configuration fragment inserted at \"server\" context\n",
 			client: &fake.FakeClient{
-				FakeUpdateBlock: func(args rpaasclient.UpdateBlockArgs) (*http.Response, error) {
+				FakeUpdateBlock: func(args rpaasclient.UpdateBlockArgs) error {
 					expected := rpaasclient.UpdateBlockArgs{
 						Instance: "my-instance",
 						Name:     "server",
 						Content:  nginxConfig,
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil
+					return nil
 				},
 			},
 		},
@@ -101,13 +100,13 @@ func TestDeleteBlock(t *testing.T) {
 			args:          []string{"./rpaasv2", "blocks", "delete", "-i", "my-instance", "--name", "http"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeDeleteBlock: func(args rpaasclient.DeleteBlockArgs) (*http.Response, error) {
+				FakeDeleteBlock: func(args rpaasclient.DeleteBlockArgs) error {
 					expected := rpaasclient.DeleteBlockArgs{
 						Instance: "my-instance",
 						Name:     "http",
 					}
 					assert.Equal(t, expected, args)
-					return nil, fmt.Errorf("some error")
+					return fmt.Errorf("some error")
 				},
 			},
 		},
@@ -116,13 +115,13 @@ func TestDeleteBlock(t *testing.T) {
 			args:     []string{"./rpaasv2", "blocks", "delete", "-i", "my-instance", "--name", "http"},
 			expected: "NGINX configuration at \"http\" context removed\n",
 			client: &fake.FakeClient{
-				FakeDeleteBlock: func(args rpaasclient.DeleteBlockArgs) (*http.Response, error) {
+				FakeDeleteBlock: func(args rpaasclient.DeleteBlockArgs) error {
 					expected := rpaasclient.DeleteBlockArgs{
 						Instance: "my-instance",
 						Name:     "http",
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil
+					return nil
 				},
 			},
 		},
@@ -159,12 +158,12 @@ func TestListBlocks(t *testing.T) {
 			args:          []string{"./rpaasv2", "blocks", "list", "-i", "my-instance"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, *http.Response, error) {
+				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, error) {
 					expected := rpaasclient.ListBlocksArgs{
 						Instance: "my-instance",
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil, fmt.Errorf("some error")
+					return nil, fmt.Errorf("some error")
 				},
 			},
 		},
@@ -179,7 +178,7 @@ func TestListBlocks(t *testing.T) {
 +---------+-----------------------------+
 `,
 			client: &fake.FakeClient{
-				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, *http.Response, error) {
+				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, error) {
 					expected := rpaasclient.ListBlocksArgs{
 						Instance: "my-instance",
 					}
@@ -187,7 +186,7 @@ func TestListBlocks(t *testing.T) {
 					return []clientTypes.Block{
 						{Name: "http", Content: "# some HTTP configuration"},
 						{Name: "server", Content: "# some server configuration"},
-					}, nil, nil
+					}, nil
 				},
 			},
 		},
@@ -206,7 +205,7 @@ func TestListBlocks(t *testing.T) {
 ]
 `,
 			client: &fake.FakeClient{
-				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, *http.Response, error) {
+				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, error) {
 					expected := rpaasclient.ListBlocksArgs{
 						Instance: "my-instance",
 					}
@@ -214,7 +213,7 @@ func TestListBlocks(t *testing.T) {
 					return []clientTypes.Block{
 						{Name: "http", Content: "# some HTTP configuration"},
 						{Name: "server", Content: "# some server configuration"},
-					}, nil, nil
+					}, nil
 				},
 			},
 		},

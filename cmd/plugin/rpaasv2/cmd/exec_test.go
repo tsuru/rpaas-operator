@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"fmt"
-	"net/http"
 	"os"
 	"testing"
 
@@ -34,14 +33,14 @@ func TestExec(t *testing.T) {
 			name: "with command and arguments",
 			args: []string{"rpaasv2", "exec", "-s", "rpaasv2", "-i", "my-instance", "--", "my-command", "-arg1", "--arg2"},
 			client: &fake.FakeClient{
-				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, *http.Response, error) {
+				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error) {
 					called = true
 					expected := client.ExecArgs{
 						Command:  []string{"my-command", "-arg1", "--arg2"},
 						Instance: "my-instance",
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil, fmt.Errorf("some error")
+					return nil, fmt.Errorf("some error")
 				},
 			},
 			expectedCalled: true,
@@ -51,7 +50,7 @@ func TestExec(t *testing.T) {
 			name: "with all options activated",
 			args: []string{"rpaasv2", "exec", "-s", "rpaasv2", "-i", "my-instance", "--tty", "--interactive", "-p", "pod-1", "-c", "container-1", "--", "my-shell"},
 			client: &fake.FakeClient{
-				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, *http.Response, error) {
+				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error) {
 					called = true
 					expected := client.ExecArgs{
 						In:          os.Stdin,
@@ -63,7 +62,7 @@ func TestExec(t *testing.T) {
 						Interactive: true,
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil, fmt.Errorf("another error")
+					return nil, fmt.Errorf("another error")
 				},
 			},
 			expectedCalled: true,
