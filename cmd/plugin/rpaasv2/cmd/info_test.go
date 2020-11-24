@@ -274,7 +274,7 @@ Flavors: flavor1, flavor2, flavor-N
 
 Pods: 3
 +------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
-|             NAME             |     HOST      |             PORTS              | READY | STATUS  | RESTARTS | AGE |
+| Name                         | Host          | Ports                          | Ready | Status  | Restarts | Age |
 +------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
 | my-instance-75c8bdc6b9-abcde | 169.254.1.100 | http(30000/TCP)                | ✓     | Running |        2 | 12h |
 |                              |               | https(30001/TCP)               |       |         |          |     |
@@ -295,7 +295,7 @@ Pods: 3
 
 Errors:
 +--------------------+------------------------------+----------------------------------------------+
-|        AGE         |             POD              |                   MESSAGE                    |
+| Age                | Pod                          | Message                                      |
 +--------------------+------------------------------+----------------------------------------------+
 | 30m (x20 over 50m) | my-instance-123abc456f-aaaaa | Back-off 5m0s restarting                     |
 |                    |                              | failed container=nginx                       |
@@ -330,7 +330,7 @@ Errors:
 
 Autoscale:
 +----------+--------------------+
-| REPLICAS | TARGET UTILIZATION |
+| Replicas | Target Utilization |
 +----------+--------------------+
 | Max: 5   | CPU: 55%           |
 | Min: 2   | Memory: 77%        |
@@ -338,7 +338,7 @@ Autoscale:
 
 Binds:
 +------------+------------+
-|    APP     |  ADDRESS   |
+| App        | Address    |
 +------------+------------+
 | some-name  | some-host  |
 +------------+------------+
@@ -347,7 +347,7 @@ Binds:
 
 Addresses:
 +------------+---------+--------+
-|  HOSTNAME  |   IP    | STATUS |
+| Hostname   | IP      | Status |
 +------------+---------+--------+
 | some-host  | 0.0.0.0 |        |
 +------------+---------+--------+
@@ -356,7 +356,7 @@ Addresses:
 
 Certificates:
 +---------------+--------------------+----------------------+----------------------------+
-|     NAME      |  PUBLIC KEY INFO   |       VALIDITY       |         DNS NAMES          |
+| Name          | Public Key Info    | Validity             | DNS names                  |
 +---------------+--------------------+----------------------+----------------------------+
 | default       |     Algorithm      |      Not before      |      my-instance.test      |
 |               |        RSA         | 2020-08-11T19:00:00Z |  my-instance.example.com   |
@@ -373,7 +373,7 @@ Certificates:
 
 Blocks:
 +---------+---------------------------------------+
-| CONTEXT |             CONFIGURATION             |
+| Context | Configuration                         |
 +---------+---------------------------------------+
 | http    | # some nginx config at http context   |
 | server  | # some nginx config at server context |
@@ -381,7 +381,7 @@ Blocks:
 
 Routes:
 +------------------+------------------------+--------------+-------------------------+
-|       PATH       |      DESTINATION       | FORCE HTTPS? |      CONFIGURATION      |
+| Path             | Destination            | Force HTTPS? | Configuration           |
 +------------------+------------------------+--------------+-------------------------+
 | /app1            | app1.tsuru.example.com |              |                         |
 | /login/provider1 | app2.tsuru.example.com |      ✓       |                         |

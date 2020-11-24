@@ -135,6 +135,8 @@ func writeRoutesOnTableFormat(w io.Writer, routes []clientTypes.Route) {
 	table := tablewriter.NewWriter(w)
 	table.SetHeader([]string{"Path", "Destination", "Force HTTPS?", "Configuration"})
 	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(data)
 	table.Render()

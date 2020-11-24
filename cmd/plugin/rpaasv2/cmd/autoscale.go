@@ -210,6 +210,8 @@ func writeAutoscale(w io.Writer, autoscale *clientTypes.Autoscale) {
 	}
 	table := tablewriter.NewWriter(w)
 	table.SetHeader([]string{"Replicas", "Target Utilization"})
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(true)
 	table.SetRowLine(false)
 	var max, min, cpuPercentage, memPercentage string

@@ -107,6 +107,8 @@ func writeCertificatesInfoOnTableFormat(w io.Writer, certs []clientTypes.Certifi
 	table.SetHeader([]string{"Name", "Public Key Info", "Validity", "DNS names"})
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER})
 	table.SetRowLine(true)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(false)
 	table.AppendBulk(data)
 	table.Render()

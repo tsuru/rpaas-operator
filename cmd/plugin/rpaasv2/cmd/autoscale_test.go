@@ -50,7 +50,7 @@ func TestGetAutoscale(t *testing.T) {
 				},
 			},
 			expected: `+----------+--------------------+
-| REPLICAS | TARGET UTILIZATION |
+| Replicas | Target Utilization |
 +----------+--------------------+
 | Max: 5   | CPU: 50%           |
 | Min: 2   | Memory: 55%        |

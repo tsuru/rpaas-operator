@@ -100,7 +100,7 @@ func TestListRoutes(t *testing.T) {
 			name: "when listing routes on table format",
 			args: []string{"./rpaasv2", "routes", "list", "-i", "my-instance"},
 			expected: `+--------------+-------------------------------+--------------+-------------------+
-|     PATH     |          DESTINATION          | FORCE HTTPS? |   CONFIGURATION   |
+| Path         | Destination                   | Force HTTPS? | Configuration     |
 +--------------+-------------------------------+--------------+-------------------+
 | /static      | static.apps.tsuru.example.com |              |                   |
 | /login       | login.apps.tsuru.example.com  |      ✓       |                   |

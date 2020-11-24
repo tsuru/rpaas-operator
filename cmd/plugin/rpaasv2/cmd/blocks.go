@@ -193,6 +193,8 @@ func writeBlocksOnTableFormat(w io.Writer, blocks []clientTypes.Block) {
 	table := tablewriter.NewWriter(w)
 	table.SetHeader([]string{"Context", "Configuration"})
 	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.AppendBulk(data)
 	table.Render()
 }

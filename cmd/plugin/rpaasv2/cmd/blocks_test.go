@@ -171,7 +171,7 @@ func TestListBlocks(t *testing.T) {
 			name: "when listing blocks on table format",
 			args: []string{"./rpaasv2", "blocks", "list", "-i", "my-instance"},
 			expected: `+---------+-----------------------------+
-| CONTEXT |        CONFIGURATION        |
+| Context | Configuration               |
 +---------+-----------------------------+
 | http    | # some HTTP configuration   |
 | server  | # some server configuration |

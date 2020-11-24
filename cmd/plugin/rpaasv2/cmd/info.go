@@ -136,6 +136,8 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Name", "Host", "Ports", "Ready", "Status", "Restarts", "Age"})
 	table.SetAutoWrapText(true)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.AppendBulk(data)
 	table.Render()
 
@@ -163,6 +165,8 @@ func writePodErrorsOnTableFormat(pods []clientTypes.Pod) string {
 	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Age", "Pod", "Message"})
 	table.SetAutoWrapText(true)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.AppendBulk(data)
 	table.Render()
 
@@ -185,6 +189,8 @@ func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string 
 	var buffer bytes.Buffer
 	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Hostname", "IP", "Status"})
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetRowLine(true)
 	table.SetAutoWrapText(false)
 	table.SetReflowDuringAutoWrap(false)
@@ -214,6 +220,8 @@ func writeBindsOnTableFormat(binds []v1alpha1.Bind) string {
 	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"App", "Address"})
 	table.SetRowLine(true)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(true)
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(data)
