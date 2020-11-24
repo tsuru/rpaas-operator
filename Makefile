@@ -57,15 +57,18 @@ generate: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 # Build the docker image
-docker-build: test
-	docker build . -t ${IMG}
+docker-build-api: test
+	docker build . -t ${IMG} -f Dockerfile.api
 
 # Push the docker image
-docker-push:
+docker-push-api:
 	docker push ${IMG}
 
 build-api:
 	CGO_ENABLED=0 go build -o rpaas-api ./cmd/api
+
+build-operator:
+	CGO_ENABLED=0 go build -o rpaas-operator .
 
 # find or download controller-gen
 # download controller-gen if necessary

@@ -2,12 +2,12 @@ FROM golang:1.13-alpine AS builder
 COPY . /go/src/github.com/tsuru/rpaas-operator
 WORKDIR /go/src/github.com/tsuru/rpaas-operator
 RUN apk add --update gcc git make musl-dev && \
-    make build-api
+    make build-operator
 
 FROM alpine:3.8
-COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/rpaas-api /bin/rpaas-api
+COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/rpaas-operator /bin/rpaas-operator
 RUN apk update && \
     apk add --no-cache ca-certificates && \
     rm /var/cache/apk/*
 EXPOSE 9999
-CMD ["/bin/rpaas-api"]
+CMD ["/bin/rpaas-operator"]
