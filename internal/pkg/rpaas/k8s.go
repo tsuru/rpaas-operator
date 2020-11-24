@@ -26,6 +26,7 @@ import (
 	"github.com/pkg/errors"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -669,6 +670,10 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 
 	if len(addresses) == 0 {
 		return "", nil
+	}
+
+	if addresses[0].IP == "" {
+		return addresses[0].Hostname, nil
 	}
 
 	return addresses[0].IP, nil
@@ -1347,12 +1352,16 @@ func (m *k8sRpaasManager) podStatus(ctx context.Context, pod *corev1.Pod) (PodSt
 
 func (m *k8sRpaasManager) eventsForPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Event, error) {
 	const podKind = "Pod"
+	return m.eventsForObject(ctx, pod.ObjectMeta.Namespace, podKind, pod.ObjectMeta.Name)
+}
+
+func (m *k8sRpaasManager) eventsForObject(ctx context.Context, namespace, kind, name string) ([]corev1.Event, error) {
 	listOpts := &client.ListOptions{
 		FieldSelector: fields.Set{
-			"involvedObject.kind": podKind,
-			"involvedObject.name": pod.Name,
+			"involvedObject.kind": kind,
+			"involvedObject.name": name,
 		}.AsSelector(),
-		Namespace: pod.Namespace,
+		Namespace: namespace,
 	}
 	var eventList corev1.EventList
 	if err := m.cli.List(ctx, &eventList, listOpts); err != nil {
@@ -1362,12 +1371,16 @@ func (m *k8sRpaasManager) eventsForPod(ctx context.Context, pod *corev1.Pod) ([]
 	// NOTE: re-applying the above filter to work on unit tests as well.
 	events := eventList.Items
 	for i := 0; i < len(events); i++ {
-		if events[i].InvolvedObject.Kind != podKind || events[i].InvolvedObject.Name != pod.Name {
+		if events[i].InvolvedObject.Kind != kind || events[i].InvolvedObject.Name != name {
 			events[i] = events[len(events)-1]
 			events = eventList.Items[:len(events)-1]
 			i--
 		}
 	}
+
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].CreationTimestamp.After(events[j].CreationTimestamp.Time)
+	})
 
 	return events, nil
 }
@@ -1708,23 +1721,81 @@ func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginx
 	for _, svc := range services {
 		switch svc.Spec.Type {
 		case corev1.ServiceTypeLoadBalancer:
-			for _, lbIngress := range svc.Status.LoadBalancer.Ingress {
-				addresses = append(addresses, clientTypes.InstanceAddress{
-					IP:       lbIngress.IP,
-					Hostname: lbIngress.Hostname,
-				})
+			lbAddresses, err := m.loadBalancerInstanceAddresses(ctx, &svc)
+			if err != nil {
+				return nil, err
 			}
-
+			addresses = append(addresses, lbAddresses...)
 		default:
-			addresses = append(addresses, clientTypes.InstanceAddress{IP: svc.Spec.ClusterIP})
+			addresses = append(addresses, clientTypes.InstanceAddress{
+				ServiceName: svc.ObjectMeta.Name,
+				IP:          svc.Spec.ClusterIP,
+			})
 		}
 	}
 
 	sort.SliceStable(addresses, func(i, j int) bool {
-		return addresses[i].IP < addresses[j].IP
+		if addresses[i].IP != addresses[j].IP {
+			return addresses[i].IP < addresses[j].IP
+		}
+
+		return addresses[i].Hostname < addresses[j].Hostname
 	})
 
 	return addresses, nil
+}
+
+func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc *v1.Service) ([]clientTypes.InstanceAddress, error) {
+	var addresses []clientTypes.InstanceAddress
+
+	if isLoadBalancerReady(svc) {
+		status := "ready"
+
+		for _, lbIngress := range svc.Status.LoadBalancer.Ingress {
+			addresses = append(addresses, clientTypes.InstanceAddress{
+				ServiceName: svc.ObjectMeta.Name,
+				IP:          lbIngress.IP,
+				Hostname:    lbIngress.Hostname,
+				Status:      status,
+			})
+		}
+	} else {
+		serviceKind := "Service"
+		events, err := m.eventsForObject(ctx, svc.ObjectMeta.Namespace, serviceKind, svc.ObjectMeta.Name)
+		if err != nil {
+			return nil, err
+		}
+		addresses = append(addresses, clientTypes.InstanceAddress{
+			ServiceName: svc.ObjectMeta.Name,
+			Status:      "pending: " + formatEventsToString(events),
+		})
+	}
+
+	return addresses, nil
+}
+
+func formatEventsToString(events []v1.Event) string {
+	var buf bytes.Buffer
+	reasonMap := map[string]bool{}
+
+	for _, event := range events {
+		if reasonMap[event.Reason] {
+			continue
+		}
+		reasonMap[event.Reason] = true
+
+		fmt.Fprintf(&buf, "%s - %s - %s\n", event.LastTimestamp.UTC().Format(time.RFC3339), event.Type, event.Message)
+	}
+
+	return buf.String()
+}
+
+func isLoadBalancerReady(service *v1.Service) bool {
+	if len(service.Status.LoadBalancer.Ingress) == 0 {
+		return false
+	}
+	// NOTE: aws load-balancers does not have IP
+	return service.Status.LoadBalancer.Ingress[0].IP != "" || service.Status.LoadBalancer.Ingress[0].Hostname != ""
 }
 
 func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]clientTypes.Pod, error) {

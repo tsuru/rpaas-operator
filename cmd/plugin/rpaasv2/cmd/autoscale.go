@@ -87,7 +87,7 @@ func runUpdateAutoscale(c *cli.Context) error {
 		CPU:         int32(c.Int("cpu")),
 		Memory:      int32(c.Int("memory")),
 	}
-	_, err = client.UpdateAutoscale(c.Context, updateArgs)
+	err = client.UpdateAutoscale(c.Context, updateArgs)
 	if err != nil {
 		return err
 	}
@@ -135,7 +135,7 @@ func runGetAutoscale(c *cli.Context) error {
 		Raw:      c.Bool("raw-output"),
 	}
 
-	spec, _, err := client.GetAutoscale(c.Context, args)
+	spec, err := client.GetAutoscale(c.Context, args)
 	if err != nil {
 		return err
 	}
@@ -184,7 +184,7 @@ func runRemoveAutoscale(c *cli.Context) error {
 		Instance: c.String("instance"),
 	}
 
-	_, err = client.RemoveAutoscale(c.Context, args)
+	err = client.RemoveAutoscale(c.Context, args)
 	if err != nil {
 		return err
 	}

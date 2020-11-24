@@ -7,7 +7,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -30,9 +29,9 @@ func TestGetAutoscale(t *testing.T) {
 			args:          []string{"./rpaasv2", "autoscale", "info", "-s", "my-service", "-i", "my-instance"},
 			expectedError: "not found error",
 			client: &fake.FakeClient{
-				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, *http.Response, error) {
+				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, error) {
 					require.Equal(t, args.Instance, "my-instance")
-					return nil, nil, fmt.Errorf("not found error")
+					return nil, fmt.Errorf("not found error")
 				},
 			},
 		},
@@ -40,14 +39,14 @@ func TestGetAutoscale(t *testing.T) {
 			name: "when get autoscale route is successful",
 			args: []string{"./rpaasv2", "autoscale", "info", "-s", "my-service", "-i", "my-instance"},
 			client: &fake.FakeClient{
-				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, *http.Response, error) {
+				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					return &clientTypes.Autoscale{
 						MaxReplicas: int32Ptr(5),
 						MinReplicas: int32Ptr(2),
 						CPU:         int32Ptr(50),
 						Memory:      int32Ptr(55),
-					}, nil, nil
+					}, nil
 				},
 			},
 			expected: `+----------+--------------------+
@@ -62,14 +61,14 @@ func TestGetAutoscale(t *testing.T) {
 			name: "when get autoscale route is successful on JSON format",
 			args: []string{"./rpaasv2", "autoscale", "info", "-s", "my-service", "-i", "my-instance", "--raw"},
 			client: &fake.FakeClient{
-				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, *http.Response, error) {
+				FakeGetAutoscale: func(args client.GetAutoscaleArgs) (*clientTypes.Autoscale, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					return &clientTypes.Autoscale{
 						MaxReplicas: int32Ptr(5),
 						MinReplicas: int32Ptr(2),
 						CPU:         int32Ptr(50),
 						Memory:      int32Ptr(55),
-					}, nil, nil
+					}, nil
 				},
 			},
 			expected: "{\n\t\"minReplicas\": 2,\n\t\"maxReplicas\": 5,\n\t\"cpu\": 50,\n\t\"memory\": 55\n}\n",
@@ -105,9 +104,9 @@ func TestRemoveAutoscale(t *testing.T) {
 			args:          []string{"./rpaasv2", "autoscale", "remove", "-s", "my-service", "-i", "my-instance"},
 			expectedError: "not found error",
 			client: &fake.FakeClient{
-				FakeRemoveAutoscale: func(args client.RemoveAutoscaleArgs) (*http.Response, error) {
+				FakeRemoveAutoscale: func(args client.RemoveAutoscaleArgs) error {
 					require.Equal(t, args.Instance, "my-instance")
-					return nil, fmt.Errorf("not found error")
+					return fmt.Errorf("not found error")
 				},
 			},
 		},
@@ -115,13 +114,9 @@ func TestRemoveAutoscale(t *testing.T) {
 			name: "when remove autoscale route is successful",
 			args: []string{"./rpaasv2", "autoscale", "remove", "-s", "my-service", "-i", "my-instance"},
 			client: &fake.FakeClient{
-				FakeRemoveAutoscale: func(args client.RemoveAutoscaleArgs) (*http.Response, error) {
+				FakeRemoveAutoscale: func(args client.RemoveAutoscaleArgs) error {
 					require.Equal(t, args.Instance, "my-instance")
-					return &http.Response{
-						Status:     "200 OK!",
-						StatusCode: http.StatusOK,
-						Proto:      "HTTP/1.0",
-					}, nil
+					return nil
 				},
 			},
 			expected: "Autoscale of my-service/my-instance successfully removed\n",

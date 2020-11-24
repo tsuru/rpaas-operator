@@ -7,7 +7,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -29,10 +28,10 @@ func TestScale(t *testing.T) {
 			args:          []string{"./rpaasv2", "scale", "-s", "some-service", "-i", "my-instance", "-q", "2"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeScale: func(args client.ScaleArgs) (*http.Response, error) {
+				FakeScale: func(args client.ScaleArgs) error {
 					require.Equal(t, args.Instance, "my-instance")
 					require.Equal(t, args.Replicas, int32(2))
-					return nil, fmt.Errorf("some error")
+					return fmt.Errorf("some error")
 				},
 			},
 		},
@@ -41,10 +40,10 @@ func TestScale(t *testing.T) {
 			args:     []string{"./rpaasv2", "scale", "-s", "some-service", "-i", "my-instance", "-q", "777"},
 			expected: "some-service/my-instance scaled to 777 replica(s)\n",
 			client: &fake.FakeClient{
-				FakeScale: func(args client.ScaleArgs) (*http.Response, error) {
+				FakeScale: func(args client.ScaleArgs) error {
 					require.Equal(t, args.Instance, "my-instance")
 					require.Equal(t, args.Replicas, int32(777))
-					return nil, nil
+					return nil
 				},
 			},
 		},

@@ -79,7 +79,7 @@ func runUpdateBlock(c *cli.Context) error {
 		Name:     c.String("name"),
 		Content:  string(content),
 	}
-	_, err = client.UpdateBlock(c.Context, args)
+	err = client.UpdateBlock(c.Context, args)
 	if err != nil {
 		return err
 	}
@@ -127,7 +127,7 @@ func runDeleteBlock(c *cli.Context) error {
 		Instance: c.String("instance"),
 		Name:     c.String("name"),
 	}
-	_, err = client.DeleteBlock(c.Context, args)
+	err = client.DeleteBlock(c.Context, args)
 	if err != nil {
 		return err
 	}
@@ -171,7 +171,7 @@ func runListBlocks(c *cli.Context) error {
 	}
 
 	args := rpaasclient.ListBlocksArgs{Instance: c.String("instance")}
-	blocks, _, err := client.ListBlocks(c.Context, args)
+	blocks, err := client.ListBlocks(c.Context, args)
 	if err != nil {
 		return err
 	}

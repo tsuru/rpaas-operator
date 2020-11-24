@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io/ioutil"
-	"net/http"
 	"os"
 	"testing"
 
@@ -32,13 +31,13 @@ func TestDeleteRoute(t *testing.T) {
 			args:          []string{"./rpaasv2", "routes", "delete", "-i", "my-instance", "-p", "/my/custom/path"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) (*http.Response, error) {
+				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) error {
 					expected := rpaasclient.DeleteRouteArgs{
 						Instance: "my-instance",
 						Path:     "/my/custom/path",
 					}
 					assert.Equal(t, expected, args)
-					return nil, fmt.Errorf("some error")
+					return fmt.Errorf("some error")
 				},
 			},
 		},
@@ -47,13 +46,13 @@ func TestDeleteRoute(t *testing.T) {
 			args:     []string{"./rpaasv2", "routes", "delete", "-i", "my-instance", "-p", "/my/custom/path"},
 			expected: "Route \"/my/custom/path\" deleted.\n",
 			client: &fake.FakeClient{
-				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) (*http.Response, error) {
+				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) error {
 					expected := rpaasclient.DeleteRouteArgs{
 						Instance: "my-instance",
 						Path:     "/my/custom/path",
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil
+					return nil
 				},
 			},
 		},
@@ -90,10 +89,10 @@ func TestListRoutes(t *testing.T) {
 			args:          []string{"./rpaasv2", "routes", "list", "-i", "my-instance"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, *http.Response, error) {
+				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, error) {
 					expected := rpaasclient.ListRoutesArgs{Instance: "my-instance"}
 					assert.Equal(t, expected, args)
-					return nil, nil, fmt.Errorf("some error")
+					return nil, fmt.Errorf("some error")
 				},
 			},
 		},
@@ -109,7 +108,7 @@ func TestListRoutes(t *testing.T) {
 +--------------+-------------------------------+--------------+-------------------+
 `,
 			client: &fake.FakeClient{
-				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, *http.Response, error) {
+				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, error) {
 					expected := rpaasclient.ListRoutesArgs{Instance: "my-instance"}
 					assert.Equal(t, expected, args)
 					return []clientTypes.Route{
@@ -126,7 +125,7 @@ func TestListRoutes(t *testing.T) {
 							Path:    "/custom/path",
 							Content: "# My NGINX config",
 						},
-					}, nil, nil
+					}, nil
 				},
 			},
 		},
@@ -150,7 +149,7 @@ func TestListRoutes(t *testing.T) {
 ]
 `,
 			client: &fake.FakeClient{
-				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, *http.Response, error) {
+				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, error) {
 					expected := rpaasclient.ListRoutesArgs{Instance: "my-instance"}
 					assert.Equal(t, expected, args)
 					return []clientTypes.Route{
@@ -167,7 +166,7 @@ func TestListRoutes(t *testing.T) {
 							Path:    "/custom/path",
 							Content: "# My NGINX config",
 						},
-					}, nil, nil
+					}, nil
 				},
 			},
 		},
@@ -212,14 +211,14 @@ func TestUpdateRoute(t *testing.T) {
 			args:          []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/app", "-d", "app.tsuru.example.com"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) error {
 					expected := rpaasclient.UpdateRouteArgs{
 						Instance:    "my-instance",
 						Path:        "/app",
 						Destination: "app.tsuru.example.com",
 					}
 					assert.Equal(t, expected, args)
-					return nil, fmt.Errorf("some error")
+					return fmt.Errorf("some error")
 				},
 			},
 		},
@@ -228,7 +227,7 @@ func TestUpdateRoute(t *testing.T) {
 			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/app", "-d", "app.tsuru.example.com", "--https-only"},
 			expected: "Route \"/app\" updated.\n",
 			client: &fake.FakeClient{
-				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) error {
 					expected := rpaasclient.UpdateRouteArgs{
 						Instance:    "my-instance",
 						Path:        "/app",
@@ -236,7 +235,7 @@ func TestUpdateRoute(t *testing.T) {
 						HTTPSOnly:   true,
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil
+					return nil
 				},
 			},
 		},
@@ -245,14 +244,14 @@ func TestUpdateRoute(t *testing.T) {
 			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/custom/path", "-c", configFile.Name()},
 			expected: "Route \"/custom/path\" updated.\n",
 			client: &fake.FakeClient{
-				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) error {
 					expected := rpaasclient.UpdateRouteArgs{
 						Instance: "my-instance",
 						Path:     "/custom/path",
 						Content:  nginxConfig,
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil
+					return nil
 				},
 			},
 		},
@@ -261,14 +260,14 @@ func TestUpdateRoute(t *testing.T) {
 			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/custom/path", "-c", "@" + configFile.Name()},
 			expected: "Route \"/custom/path\" updated.\n",
 			client: &fake.FakeClient{
-				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) (*http.Response, error) {
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) error {
 					expected := rpaasclient.UpdateRouteArgs{
 						Instance: "my-instance",
 						Path:     "/custom/path",
 						Content:  nginxConfig,
 					}
 					assert.Equal(t, expected, args)
-					return nil, nil
+					return nil
 				},
 			},
 		},

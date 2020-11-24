@@ -51,7 +51,7 @@ func newTestingServer(t *testing.T, m rpaas.RpaasManager) *httptest.Server {
 	if m == nil {
 		m = &fake.RpaasManager{}
 	}
-	webApi, err := New(m)
+	webApi, err := NewWithManager(m)
 	require.NoError(t, err)
 	return httptest.NewServer(webApi.e)
 }

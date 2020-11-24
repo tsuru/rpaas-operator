@@ -1029,7 +1029,7 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		assertion func(*testing.T, string, error)
 	}{
 		{
-			name: "when the Service is LoadBalancer type and already has an external IP, should returns the provided extenal IP",
+			name: "when the Service has type LoadBalancer and already has an external IP, should returns the provided extenal IP",
 			resources: func() []runtime.Object {
 				instance := newEmptyRpaasInstance()
 				return []runtime.Object{
@@ -1071,7 +1071,49 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 			},
 		},
 		{
-			name: "when the Service is LoadBalancer type with no external IP provided, should returns an empty address",
+			name: "when the Service has type LoadBalancer and already has an external Hostname, but does not have an IP",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				return []runtime.Object{
+					instance,
+					&nginxv1alpha1.Nginx{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name,
+							Namespace: instance.Namespace,
+						},
+						Status: nginxv1alpha1.NginxStatus{
+							Services: []nginxv1alpha1.ServiceStatus{
+								{Name: instance.Name + "-service"},
+							},
+						},
+					},
+					&corev1.Service{
+						ObjectMeta: metav1.ObjectMeta{
+							Name:      instance.Name + "-service",
+							Namespace: instance.Namespace,
+						},
+						Spec: corev1.ServiceSpec{
+							Type:      corev1.ServiceTypeLoadBalancer,
+							ClusterIP: "10.1.1.9",
+						},
+						Status: corev1.ServiceStatus{
+							LoadBalancer: corev1.LoadBalancerStatus{
+								Ingress: []corev1.LoadBalancerIngress{
+									{Hostname: "my-lb.my-provider.io"},
+								},
+							},
+						},
+					},
+				}
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, address string, err error) {
+				assert.NoError(t, err)
+				assert.Equal(t, address, "my-lb.my-provider.io")
+			},
+		},
+		{
+			name: "when the Service has type LoadBalancer with no external IP provided, should returns an empty address",
 			resources: func() []runtime.Object {
 				instance := newEmptyRpaasInstance()
 				return []runtime.Object{
@@ -3768,6 +3810,21 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 	instance4 := instance1.DeepCopy()
 	instance4.Name = "instance4"
 
+	service3 := &corev1.Service{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance3.Name + "-service",
+			Namespace: instance3.Namespace,
+		},
+		Spec: corev1.ServiceSpec{
+			Type: corev1.ServiceTypeLoadBalancer,
+		},
+		Status: corev1.ServiceStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{},
+			},
+		},
+	}
+
 	service4 := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance4.Name + "-service",
@@ -3784,6 +3841,19 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Hostname: "instance4-service.rpaasv2.tsuru.example.com",
 					},
 				},
+			},
+		},
+	}
+
+	nginx3 := &nginxv1alpha1.Nginx{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance3.Name,
+			Namespace: instance3.Namespace,
+		},
+		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance3",
+			Services: []nginxv1alpha1.ServiceStatus{
+				{Name: service3.Name},
 			},
 		},
 	}
@@ -3952,7 +4022,33 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		Message:        "Back-off restarting failed container",
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, nginx4, service4, pod1, pod2, event1, event2, event3, s1}
+	event4 := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              service3.Name + ".313",
+			Namespace:         service3.Namespace,
+			CreationTimestamp: metav1.NewTime(t0),
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Kind:      "Service",
+			Name:      service3.Name,
+			Namespace: service3.Namespace,
+		},
+		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
+		Count:          16,
+		Type:           corev1.EventTypeWarning,
+		Reason:         "EnsuringLoadBalancer",
+		Message:        "Some error to set up loadbalancer",
+	}
+
+	resources := []runtime.Object{
+		instance1, instance2, instance3, instance4,
+		nginx3, nginx4,
+		service3, service4,
+		pod1, pod2,
+		event1, event2, event3, event4,
+		s1,
+	}
 
 	testCases := []struct {
 		instance string
@@ -4020,6 +4116,12 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						HTTPSOnly:   true,
 					},
 				},
+				Addresses: []clientTypes.InstanceAddress{
+					{
+						ServiceName: "instance3-service",
+						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Some error to set up loadbalancer\n",
+					},
+				},
 				Certificates: []clientTypes.CertificateInfo{
 					{
 						Name:               "default",
@@ -4051,8 +4153,10 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Flavors:     []string{"mango", "milk"},
 				Addresses: []clientTypes.InstanceAddress{
 					{
-						IP:       "192.168.10.10",
-						Hostname: "instance4-service.rpaasv2.tsuru.example.com",
+						ServiceName: "instance4-service",
+						IP:          "192.168.10.10",
+						Hostname:    "instance4-service.rpaasv2.tsuru.example.com",
+						Status:      "ready",
 					},
 				},
 				Pods: []clientTypes.Pod{
@@ -4119,7 +4223,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tt.instance, func(t *testing.T) {
 			fakeCli := fake.NewFakeClientWithScheme(newScheme(), resources...)
 			manager := &k8sRpaasManager{
 				cli: fakeCli,

@@ -267,7 +267,7 @@ func Test_GetCertificates(t *testing.T) {
 			},
 			instance:     "real-instance",
 			expectedCode: http.StatusInternalServerError,
-			expectedBody: "{\"message\":\"Internal Server Error\"}",
+			expectedBody: "{\"message\":\"key data not found\"}",
 		},
 		{
 			name:     "when suppressing private key is enabled",

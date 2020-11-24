@@ -208,7 +208,7 @@ func Test_Exec(t *testing.T) {
 			require.NoError(t, err)
 			defer l.Close()
 
-			webApi, err := New(tt.manager)
+			webApi, err := NewWithManager(tt.manager)
 			require.NoError(t, err)
 			webApi.e.Listener = l
 			go webApi.Start()

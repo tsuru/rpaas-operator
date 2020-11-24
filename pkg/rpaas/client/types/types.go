@@ -44,8 +44,10 @@ type Plan struct {
 }
 
 type InstanceAddress struct {
-	Hostname string `json:"hostname,omitempty"`
-	IP       string `json:"ip,omitempty"`
+	ServiceName string `json:"serviceName"`
+	Hostname    string `json:"hostname,omitempty"`
+	IP          string `json:"ip,omitempty"`
+	Status      string `json:"status"`
 }
 
 type PodPort corev1.ContainerPort

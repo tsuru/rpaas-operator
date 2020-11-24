@@ -88,7 +88,7 @@ func runUpdateCertificate(c *cli.Context) error {
 		Certificate: string(certificate),
 		Key:         string(key),
 	}
-	_, err = client.UpdateCertificate(c.Context, args)
+	err = client.UpdateCertificate(c.Context, args)
 	if err != nil {
 		return err
 	}

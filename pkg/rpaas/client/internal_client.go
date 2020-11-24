@@ -39,10 +39,37 @@ var (
 	ErrMissingExecCommand       = fmt.Errorf("rpaasv2: command cannot be empty")
 )
 
-type ErrUnexpectedStatusCode string
+type ErrUnexpectedStatusCode struct {
+	Status int
+	Body   string
+}
 
-func (statusCode ErrUnexpectedStatusCode) Error() string {
-	return fmt.Sprintf("rpaasv2: unexpected status code: %s", string(statusCode))
+func (e *ErrUnexpectedStatusCode) Error() string {
+	humanStatus := fmt.Sprintf("%d %s", e.Status, http.StatusText(e.Status))
+
+	if e.Body != "" {
+		return fmt.Sprintf("rpaasv2: unexpected status code: %s, detail: %s", humanStatus, e.Body)
+	}
+	return fmt.Sprintf("rpaasv2: unexpected status code: %s", humanStatus)
+}
+
+func newErrUnexpectedStatusCodeFromResponse(r *http.Response) error {
+	body, err := ioutil.ReadAll(r.Body)
+	if err != nil {
+		return err
+	}
+
+	return &ErrUnexpectedStatusCode{Status: r.StatusCode, Body: string(body)}
+}
+
+func isNotFoundError(err error) bool {
+	if httpErr, ok := err.(*ErrUnexpectedStatusCode); ok {
+		if httpErr.Status == http.StatusNotFound {
+			return true
+		}
+	}
+
+	return false
 }
 
 type ClientOptions struct {
@@ -128,12 +155,12 @@ type client struct {
 
 var _ Client = &client{}
 
-func (c *client) GetPlans(ctx context.Context, instance string) ([]types.Plan, *http.Response, error) {
-	return nil, nil, fmt.Errorf("not implemented yet")
+func (c *client) GetPlans(ctx context.Context, instance string) ([]types.Plan, error) {
+	return nil, fmt.Errorf("not implemented yet")
 }
 
-func (c *client) GetFlavors(ctx context.Context, instance string) ([]types.Flavor, *http.Response, error) {
-	return nil, nil, fmt.Errorf("not implemented yet")
+func (c *client) GetFlavors(ctx context.Context, instance string) ([]types.Flavor, error) {
+	return nil, fmt.Errorf("not implemented yet")
 }
 
 func (args ScaleArgs) Validate() error {
@@ -148,26 +175,26 @@ func (args ScaleArgs) Validate() error {
 	return nil
 }
 
-func (c *client) Scale(ctx context.Context, args ScaleArgs) (*http.Response, error) {
+func (c *client) Scale(ctx context.Context, args ScaleArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	request, err := c.buildRequest("Scale", args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return response, err
+		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode(response.Status)
+		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	return response, nil
+	return nil
 }
 
 func (args InfoArgs) Validate() error {
@@ -178,33 +205,33 @@ func (args InfoArgs) Validate() error {
 	return nil
 }
 
-func (c *client) Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, *http.Response, error) {
+func (c *client) Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, error) {
 	if err := args.Validate(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	request, err := c.buildRequest("Info", args)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusOK {
-		return nil, response, ErrUnexpectedStatusCode(response.Status)
+		return nil, newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	defer response.Body.Close()
 	var infoPayload types.InstanceInfo
 	err = json.NewDecoder(response.Body).Decode(&infoPayload)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return &infoPayload, response, nil
+	return &infoPayload, nil
 }
 
 func (args UpdateCertificateArgs) Validate() error {
@@ -223,26 +250,26 @@ func (args UpdateCertificateArgs) Validate() error {
 	return nil
 }
 
-func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) (*http.Response, error) {
+func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	request, err := c.buildRequest("UpdateCertificate", args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return response, err
+		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode(response.Status)
+		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	return response, nil
+	return nil
 }
 
 func (args UpdateBlockArgs) Validate() error {
@@ -261,26 +288,26 @@ func (args UpdateBlockArgs) Validate() error {
 	return nil
 }
 
-func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) (*http.Response, error) {
+func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	request, err := c.buildRequest("UpdateBlock", args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return response, err
+		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode(response.Status)
+		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	return response, nil
+	return nil
 }
 
 func (args DeleteBlockArgs) Validate() error {
@@ -295,26 +322,26 @@ func (args DeleteBlockArgs) Validate() error {
 	return nil
 }
 
-func (c *client) DeleteBlock(ctx context.Context, args DeleteBlockArgs) (*http.Response, error) {
+func (c *client) DeleteBlock(ctx context.Context, args DeleteBlockArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	request, err := c.buildRequest("DeleteBlock", args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return response, err
+		return err
 	}
 
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode(response.Status)
+		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	return response, nil
+	return nil
 }
 
 func (args ListBlocksArgs) Validate() error {
@@ -325,33 +352,34 @@ func (args ListBlocksArgs) Validate() error {
 	return nil
 }
 
-func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.Block, *http.Response, error) {
+func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.Block, error) {
 	if err := args.Validate(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	request, err := c.buildRequest("ListBlocks", args)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return nil, response, err
+		return nil, err
 	}
 
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return nil, response, ErrUnexpectedStatusCode(response.Status)
+		return nil, newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
 	var blockList struct {
 		Blocks []types.Block `json:"blocks"`
 	}
 	if err = unmarshalBody(response, &blockList); err != nil {
-		return nil, response, err
+		return nil, err
 	}
 
-	return blockList.Blocks, response, nil
+	return blockList.Blocks, nil
 }
 
 func (args DeleteRouteArgs) Validate() error {
@@ -366,26 +394,27 @@ func (args DeleteRouteArgs) Validate() error {
 	return nil
 }
 
-func (c *client) DeleteRoute(ctx context.Context, args DeleteRouteArgs) (*http.Response, error) {
+func (c *client) DeleteRoute(ctx context.Context, args DeleteRouteArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	request, err := c.buildRequest("DeleteRoute", args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return response, err
+		return err
 	}
 
+	defer response.Body.Close()
 	if response.StatusCode != http.StatusOK {
-		return response, ErrUnexpectedStatusCode(response.Status)
+		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	return response, nil
+	return nil
 }
 
 func (args ListRoutesArgs) Validate() error {
@@ -396,33 +425,35 @@ func (args ListRoutesArgs) Validate() error {
 	return nil
 }
 
-func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, *http.Response, error) {
+func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, error) {
 	if err := args.Validate(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	request, err := c.buildRequest("ListRoutes", args)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return nil, response, err
+		return nil, err
 	}
 
+	defer response.Body.Close()
+
 	if response.StatusCode != http.StatusOK {
-		return nil, response, ErrUnexpectedStatusCode(response.Status)
+		return nil, newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
 	var routes struct {
 		Routes []types.Route `json:"paths"`
 	}
 	if err = unmarshalBody(response, &routes); err != nil {
-		return nil, response, err
+		return nil, err
 	}
 
-	return routes.Routes, response, nil
+	return routes.Routes, nil
 }
 
 func (args UpdateRouteArgs) Validate() error {
@@ -437,26 +468,28 @@ func (args UpdateRouteArgs) Validate() error {
 	return nil
 }
 
-func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) (*http.Response, error) {
+func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	request, err := c.buildRequest("UpdateRoute", args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	response, err := c.do(ctx, request)
 	if err != nil {
-		return response, err
+		return err
 	}
+
+	defer response.Body.Close()
 
 	if response.StatusCode != http.StatusCreated {
-		return response, ErrUnexpectedStatusCode(response.Status)
+		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	return response, nil
+	return nil
 }
 
 func (args GetAutoscaleArgs) Validate() error {
@@ -467,33 +500,35 @@ func (args GetAutoscaleArgs) Validate() error {
 	return nil
 }
 
-func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, *http.Response, error) {
+func (c *client) GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, error) {
 	if err := args.Validate(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	request, err := c.buildRequest("GetAutoscale", args)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	resp, err := c.do(ctx, request)
 	if err != nil {
-		return nil, resp, err
+		return nil, err
 	}
 
+	defer resp.Body.Close()
+
 	if resp.StatusCode != http.StatusOK {
-		return nil, resp, ErrUnexpectedStatusCode(resp.Status)
+		return nil, newErrUnexpectedStatusCodeFromResponse(resp)
 	}
 
 	defer resp.Body.Close()
 	var spec *types.Autoscale
 	err = json.NewDecoder(resp.Body).Decode(&spec)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
-	return spec, resp, nil
+	return spec, nil
 }
 
 func (args UpdateAutoscaleArgs) Validate() error {
@@ -508,9 +543,9 @@ func (args UpdateAutoscaleArgs) Validate() error {
 }
 
 func (c *client) shouldCreate(ctx context.Context, instance string) (bool, error) {
-	_, resp, err := c.GetAutoscale(ctx, GetAutoscaleArgs{Instance: instance})
+	_, err := c.GetAutoscale(ctx, GetAutoscaleArgs{Instance: instance})
 	if err != nil {
-		if resp.StatusCode == http.StatusNotFound {
+		if isNotFoundError(err) {
 			return true, nil
 		}
 		return false, err
@@ -518,38 +553,38 @@ func (c *client) shouldCreate(ctx context.Context, instance string) (bool, error
 	return false, nil
 }
 
-func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) (*http.Response, error) {
+func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	var request *http.Request
 	shouldCreate, err := c.shouldCreate(ctx, args.Instance)
 	if err != nil {
-		return nil, err
+		return err
 	}
 	if shouldCreate {
 		request, err = c.buildRequest("CreateAutoscale", args)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	} else {
 		request, err = c.buildRequest("UpdateAutoscale", args)
 		if err != nil {
-			return nil, err
+			return err
 		}
 	}
 
 	resp, err := c.do(ctx, request)
 	if err != nil {
-		return resp, err
+		return err
 	}
 
 	if resp.StatusCode != http.StatusCreated {
-		return resp, ErrUnexpectedStatusCode(resp.Status)
+		return newErrUnexpectedStatusCodeFromResponse(resp)
 	}
 
-	return resp, nil
+	return nil
 }
 
 func (args RemoveAutoscaleArgs) Validate() error {
@@ -559,26 +594,26 @@ func (args RemoveAutoscaleArgs) Validate() error {
 	return nil
 }
 
-func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) (*http.Response, error) {
+func (c *client) RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error {
 	if err := args.Validate(); err != nil {
-		return nil, err
+		return err
 	}
 
 	request, err := c.buildRequest("RemoveAutoscale", args)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	resp, err := c.do(ctx, request)
 	if err != nil {
-		return resp, err
+		return err
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		return resp, ErrUnexpectedStatusCode(resp.Status)
+		return newErrUnexpectedStatusCodeFromResponse(resp)
 	}
 
-	return resp, nil
+	return nil
 }
 
 func (args ExecArgs) Validate() error {
@@ -593,15 +628,15 @@ func (args ExecArgs) Validate() error {
 	return nil
 }
 
-func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *http.Response, error) {
+func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error) {
 	if err := args.Validate(); err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/exec", args.Instance), args.Instance)
 	u, err := url.Parse(serverAddress)
 	if err != nil {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if u.Scheme == "https" {
@@ -622,16 +657,16 @@ func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, *htt
 
 	u.RawQuery = qs.Encode()
 
-	conn, resp, err := c.ws.DialContext(ctx, u.String(), c.baseAuthHeader(nil))
+	conn, _, err := c.ws.DialContext(ctx, u.String(), c.baseAuthHeader(nil))
 	if err != nil {
-		return nil, resp, err
+		return nil, err
 	}
 
 	if args.In != nil {
 		go io.Copy(&wsWriter{conn}, args.In)
 	}
 
-	return conn, resp, nil
+	return conn, nil
 }
 
 type wsWriter struct {
