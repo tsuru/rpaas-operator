@@ -180,11 +180,11 @@ func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
 func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string {
 	data := [][]string{}
 	for _, address := range adresses {
-		data = append(data, []string{address.Hostname, address.IP})
+		data = append(data, []string{address.Hostname, address.IP, address.Status})
 	}
 	var buffer bytes.Buffer
 	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Hostname", "IP"})
+	table.SetHeader([]string{"Hostname", "IP", "Status"})
 	table.SetRowLine(true)
 	table.SetAutoWrapText(true)
 	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
