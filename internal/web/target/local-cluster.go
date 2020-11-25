@@ -33,7 +33,7 @@ func NewKubeConfigFactory() (Factory, error) {
 		return nil, err
 	}
 
-	manager, err := rpaas.NewK8S(restConfig, k8sClient)
+	manager, err := rpaas.NewK8S(restConfig, k8sClient, "")
 	if err != nil {
 		return nil, err
 	}

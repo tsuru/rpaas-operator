@@ -78,7 +78,7 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 		return nil, err
 	}
 
-	manager, err = rpaas.NewK8S(kubernetesRestConfig, k8sClient)
+	manager, err = rpaas.NewK8S(kubernetesRestConfig, k8sClient, name)
 	if err != nil {
 		return nil, err
 	}

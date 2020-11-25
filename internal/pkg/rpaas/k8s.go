@@ -63,13 +63,15 @@ type k8sRpaasManager struct {
 	cacheManager CacheManager
 	restConfig   *rest.Config
 	kcs          *kubernetes.Clientset
+	clusterName  string
 }
 
-func NewK8S(cfg *rest.Config, k8sClient client.Client) (RpaasManager, error) {
+func NewK8S(cfg *rest.Config, k8sClient client.Client, clusterName string) (RpaasManager, error) {
 	m := &k8sRpaasManager{
 		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
 		restConfig:   cfg,
+		clusterName:  clusterName,
 	}
 
 	if cfg == nil {
@@ -1579,6 +1581,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 
 	info := &clientTypes.InstanceInfo{
 		Name:        instance.Name,
+		Cluster:     m.clusterName,
 		Description: instance.Annotations[labelKey("description")],
 		Team:        instance.Annotations[labelKey("team-owner")],
 		Tags:        strings.Split(instance.Annotations[labelKey("tags")], ","),

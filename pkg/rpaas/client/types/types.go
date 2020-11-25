@@ -105,6 +105,7 @@ type InstanceInfo struct {
 	Team         string            `json:"team,omitempty"`
 	Name         string            `json:"name,omitempty"`
 	Description  string            `json:"description,omitempty"`
+	Cluster      string            `json:"cluster,omitempty"` // for multi-cluster environments
 	Tags         []string          `json:"tags,omitempty"`
 	Pods         []Pod             `json:"pods,omitempty"`
 	Flavors      []string          `json:"flavors,omitempty"`
