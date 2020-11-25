@@ -1352,14 +1352,14 @@ func (m *k8sRpaasManager) podStatus(ctx context.Context, pod *corev1.Pod) (PodSt
 
 func (m *k8sRpaasManager) eventsForPod(ctx context.Context, pod *corev1.Pod) ([]corev1.Event, error) {
 	const podKind = "Pod"
-	return m.eventsForObject(ctx, pod.ObjectMeta.Namespace, podKind, pod.ObjectMeta.Name)
+	return m.eventsForObject(ctx, pod.ObjectMeta.Namespace, podKind, pod.ObjectMeta.UID)
 }
 
-func (m *k8sRpaasManager) eventsForObject(ctx context.Context, namespace, kind, name string) ([]corev1.Event, error) {
+func (m *k8sRpaasManager) eventsForObject(ctx context.Context, namespace, kind string, uid types.UID) ([]corev1.Event, error) {
 	listOpts := &client.ListOptions{
 		FieldSelector: fields.Set{
 			"involvedObject.kind": kind,
-			"involvedObject.name": name,
+			"involvedObject.uid":  string(uid),
 		}.AsSelector(),
 		Namespace: namespace,
 	}
@@ -1371,7 +1371,7 @@ func (m *k8sRpaasManager) eventsForObject(ctx context.Context, namespace, kind, 
 	// NOTE: re-applying the above filter to work on unit tests as well.
 	events := eventList.Items
 	for i := 0; i < len(events); i++ {
-		if events[i].InvolvedObject.Kind != kind || events[i].InvolvedObject.Name != name {
+		if events[i].InvolvedObject.Kind != kind || events[i].InvolvedObject.UID != uid {
 			events[i] = events[len(events)-1]
 			events = eventList.Items[:len(events)-1]
 			i--
@@ -1761,7 +1761,7 @@ func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc
 		}
 	} else {
 		serviceKind := "Service"
-		events, err := m.eventsForObject(ctx, svc.ObjectMeta.Namespace, serviceKind, svc.ObjectMeta.Name)
+		events, err := m.eventsForObject(ctx, svc.ObjectMeta.Namespace, serviceKind, svc.ObjectMeta.UID)
 		if err != nil {
 			return nil, err
 		}

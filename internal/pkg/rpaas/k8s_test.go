@@ -1288,6 +1288,7 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 				"nginx.tsuru.io/app":           "nginx",
 				"nginx.tsuru.io/resource-name": "my-instance",
 			},
+			UID: types.UID("pod1-uid"),
 		},
 		Status: corev1.PodStatus{
 			PodIP: "10.0.0.1",
@@ -1301,6 +1302,7 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 				"nginx.tsuru.io/app":           "nginx",
 				"nginx.tsuru.io/resource-name": "my-instance",
 			},
+			UID: types.UID("pod2-uid"),
 		},
 		Status: corev1.PodStatus{
 			PodIP: "10.0.0.2",
@@ -1314,6 +1316,7 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 				"nginx.tsuru.io/app":           "nginx",
 				"nginx.tsuru.io/resource-name": "instance5",
 			},
+			UID: types.UID("pod4-uid"),
 		},
 		Status: corev1.PodStatus{
 			PodIP: "10.0.0.9",
@@ -1330,8 +1333,9 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 			Namespace: instance1.Namespace,
 		},
 		InvolvedObject: corev1.ObjectReference{
-			Name: "pod1",
 			Kind: "Pod",
+			UID:  pod1.ObjectMeta.UID,
+			Name: pod1.ObjectMeta.Name,
 		},
 		Source: corev1.EventSource{
 			Component: "c1",
@@ -1344,7 +1348,8 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 			Namespace: instance1.Namespace,
 		},
 		InvolvedObject: corev1.ObjectReference{
-			Name: "pod1",
+			UID:  pod1.ObjectMeta.UID,
+			Name: pod1.ObjectMeta.Name,
 			Kind: "Pod",
 		},
 		Source: corev1.EventSource{
@@ -3814,6 +3819,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance3.Name + "-service",
 			Namespace: instance3.Namespace,
+			UID:       types.UID("service-3-ui3"),
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
@@ -3925,6 +3931,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				"nginx.tsuru.io/resource-name": "instance4",
 			},
 			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
+			UID:               types.UID("pod2-123"),
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
@@ -3978,6 +3985,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Kind:      "Pod",
 			Name:      pod2.Name,
 			Namespace: pod2.Namespace,
+			UID:       pod2.UID,
 		},
 		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
 		LastTimestamp:  metav1.NewTime(t0.Add(-time.Hour)),
@@ -3995,6 +4003,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Kind:      "Pod",
 			Name:      pod2.Name,
 			Namespace: pod2.Namespace,
+			UID:       pod2.UID,
 		},
 		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
 		LastTimestamp:  metav1.NewTime(t0.Add(-time.Minute)),
@@ -4013,6 +4022,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Kind:      "Pod",
 			Name:      pod2.Name,
 			Namespace: pod2.Namespace,
+			UID:       pod2.UID,
 		},
 		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
 		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
@@ -4032,6 +4042,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			Kind:      "Service",
 			Name:      service3.Name,
 			Namespace: service3.Namespace,
+			UID:       service3.UID,
 		},
 		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
 		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
