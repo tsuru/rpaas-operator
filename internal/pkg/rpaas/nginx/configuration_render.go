@@ -145,7 +145,7 @@ func managePort(instance *v1alpha1.RpaasInstance) int32 {
 		}
 	}
 
-	return defaultManagePort
+	return DefaultManagePort
 }
 
 func k8sQuantityToNginx(quantity *resource.Quantity) string {

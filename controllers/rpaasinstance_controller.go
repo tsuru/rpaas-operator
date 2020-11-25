@@ -38,7 +38,7 @@ func (r *RpaasInstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
 	if err != nil && k8serrors.IsNotFound(err) {
-		_, err = r.reconcilePorts(ctx, nil, 0)
+		_, err = r.reconcileDedicatedPorts(ctx, nil, 0)
 		return reconcile.Result{}, err
 	}
 
@@ -63,27 +63,36 @@ func (r *RpaasInstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 	}
 
-	ports, err := r.reconcilePorts(ctx, instance, 3)
+	dedicatedPorts, err := r.reconcileDedicatedPorts(ctx, instance, 3)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if len(ports) == 3 {
-		sort.Ints(ports)
+	if len(dedicatedPorts) == 0 {
+		// nginx-operator will allocate http and https ports by hostNetwork setting
+		instance.Spec.PodTemplate.Ports = []corev1.ContainerPort{
+			{
+				Name:          nginx.PortNameManagement,
+				ContainerPort: nginx.DefaultManagePort,
+				Protocol:      corev1.ProtocolTCP,
+			},
+		}
+	} else if len(dedicatedPorts) == 3 {
+		sort.Ints(dedicatedPorts)
 		instance.Spec.PodTemplate.Ports = []corev1.ContainerPort{
 			{
 				Name:          nginx.PortNameHTTP,
-				ContainerPort: int32(ports[0]),
+				ContainerPort: int32(dedicatedPorts[0]),
 				Protocol:      corev1.ProtocolTCP,
 			},
 			{
 				Name:          nginx.PortNameHTTPS,
-				ContainerPort: int32(ports[1]),
+				ContainerPort: int32(dedicatedPorts[1]),
 				Protocol:      corev1.ProtocolTCP,
 			},
 			{
 				Name:          nginx.PortNameManagement,
-				ContainerPort: int32(ports[2]),
+				ContainerPort: int32(dedicatedPorts[2]),
 				Protocol:      corev1.ProtocolTCP,
 			},
 		}

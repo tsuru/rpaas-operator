@@ -1011,7 +1011,7 @@ func newRpaasFlavor() *v1alpha1.RpaasFlavor {
 	}
 }
 
-func TestReconcileNginx_reconcilePorts(t *testing.T) {
+func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 	tests := []struct {
 		name      string
 		rpaas     *v1alpha1.RpaasInstance
@@ -1488,7 +1488,7 @@ func TestReconcileNginx_reconcilePorts(t *testing.T) {
 				resources = append(resources, tt.objects...)
 			}
 			reconciler := newRpaasInstanceReconciler(resources...)
-			ports, err := reconciler.reconcilePorts(context.Background(), tt.rpaas, 2)
+			ports, err := reconciler.reconcileDedicatedPorts(context.Background(), tt.rpaas, 2)
 			var allocation v1alpha1.RpaasPortAllocation
 			allocErr := reconciler.Client.Get(context.Background(), types.NamespacedName{
 				Name:      defaultPortAllocationResource,
@@ -1557,6 +1557,9 @@ func TestReconcile(t *testing.T) {
 	assert.Equal(t, "cache-snapshot-volume", nginx.Spec.PodTemplate.VolumeMounts[0].Name)
 	assert.Equal(t, "/var/cache/cache-snapshot", nginx.Spec.PodTemplate.VolumeMounts[0].MountPath)
 
+	assert.Equal(t, nginx.Spec.PodTemplate.Ports, []corev1.ContainerPort{
+		{Name: "nginx-metrics", ContainerPort: 8800, Protocol: "TCP"},
+	})
 	assert.Equal(t, resource.MustParse("100M"), *nginx.Spec.Cache.Size)
 
 	initContainer := nginx.Spec.PodTemplate.InitContainers[0]

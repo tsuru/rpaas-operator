@@ -18,7 +18,7 @@ const (
 	PortNameMetrics    = "nginx-metrics"
 	PortNameManagement = PortNameMetrics
 
-	defaultManagePort         = 8800
+	DefaultManagePort         = 8800
 	defaultPurgeTimeout       = time.Duration(1 * time.Second)
 	defaultPurgeLocation      = "/purge"
 	defaultPurgeLocationMatch = "^/purge/(.+)"
@@ -91,7 +91,7 @@ func (m NginxManager) purgeRequest(host, path string, port int32, headers map[st
 
 func (m NginxManager) requestNginx(host, path string, port int32, headers map[string]string) (*http.Response, error) {
 	if port == 0 {
-		port = defaultManagePort
+		port = DefaultManagePort
 	}
 	req, err := http.NewRequest("GET", fmt.Sprintf("http://%s:%d%s", host, port, path), nil)
 	if err != nil {
