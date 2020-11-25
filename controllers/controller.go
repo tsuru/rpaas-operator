@@ -1295,12 +1295,11 @@ func portBelongsTo(port extensionsv1alpha1.AllocatedPort, instance *extensionsv1
 func (r *RpaasInstanceReconciler) reconcileDedicatedPorts(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance, portCount int) ([]int, error) {
 	allocation := extensionsv1alpha1.RpaasPortAllocation{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      defaultPortAllocationResource,
-			Namespace: corev1.NamespaceDefault,
+			Name: defaultPortAllocationResource,
 		},
 	}
 
-	err := r.Client.Get(ctx, types.NamespacedName{Name: allocation.Name, Namespace: allocation.Namespace}, &allocation)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: allocation.Name}, &allocation)
 	if err != nil {
 		if !errors.IsNotFound(err) {
 			return nil, err

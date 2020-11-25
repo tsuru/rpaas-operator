@@ -1096,8 +1096,7 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 				},
 				&v1alpha1.RpaasPortAllocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "default",
-						Namespace: corev1.NamespaceDefault,
+						Name: "default",
 					},
 					Spec: v1alpha1.RpaasPortAllocationSpec{
 						Ports: []v1alpha1.AllocatedPort{
@@ -1178,8 +1177,7 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			objects: []runtime.Object{
 				&v1alpha1.RpaasPortAllocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "default",
-						Namespace: corev1.NamespaceDefault,
+						Name: "default",
 					},
 					Spec: v1alpha1.RpaasPortAllocationSpec{
 						Ports: []v1alpha1.AllocatedPort{
@@ -1242,8 +1240,7 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			objects: []runtime.Object{
 				&v1alpha1.RpaasPortAllocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "default",
-						Namespace: corev1.NamespaceDefault,
+						Name: "default",
 					},
 					Spec: v1alpha1.RpaasPortAllocationSpec{
 						Ports: []v1alpha1.AllocatedPort{
@@ -1287,8 +1284,7 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			objects: []runtime.Object{
 				&v1alpha1.RpaasPortAllocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "default",
-						Namespace: corev1.NamespaceDefault,
+						Name: "default",
 					},
 					Spec: v1alpha1.RpaasPortAllocationSpec{
 						Ports: []v1alpha1.AllocatedPort{
@@ -1348,8 +1344,7 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 				},
 				&v1alpha1.RpaasPortAllocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "default",
-						Namespace: corev1.NamespaceDefault,
+						Name: "default",
 					},
 					Spec: v1alpha1.RpaasPortAllocationSpec{
 						Ports: []v1alpha1.AllocatedPort{
@@ -1444,8 +1439,7 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 				},
 				&v1alpha1.RpaasPortAllocation{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "default",
-						Namespace: corev1.NamespaceDefault,
+						Name: "default",
 					},
 					Spec: v1alpha1.RpaasPortAllocationSpec{
 						Ports: []v1alpha1.AllocatedPort{
@@ -1491,8 +1485,7 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			ports, err := reconciler.reconcileDedicatedPorts(context.Background(), tt.rpaas, 2)
 			var allocation v1alpha1.RpaasPortAllocation
 			allocErr := reconciler.Client.Get(context.Background(), types.NamespacedName{
-				Name:      defaultPortAllocationResource,
-				Namespace: corev1.NamespaceDefault,
+				Name: defaultPortAllocationResource,
 			}, &allocation)
 			require.NoError(t, allocErr)
 			tt.assertion(t, err, ports, allocation.Spec)
