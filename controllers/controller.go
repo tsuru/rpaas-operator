@@ -9,6 +9,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"encoding/base32"
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"sort"
@@ -286,6 +288,9 @@ func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.C
 	}
 
 	if !enabled {
+		if !r.rolloutEnabled(instance) {
+			return nil
+		}
 		return r.Client.Delete(ctx, &secret)
 	}
 
@@ -322,6 +327,9 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 	}
 
 	if !enabled {
+		if !r.rolloutEnabled(instance) {
+			return nil
+		}
 		return r.Client.Delete(ctx, &cj)
 	}
 
@@ -528,10 +536,9 @@ func newSessionTicketData(old, new map[string][]byte) map[string][]byte {
 	return newest
 }
 
-func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	logger := r.Log.WithName("reconcileHPA").
-		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}).
-		WithValues("Nginx", types.NamespacedName{Name: nginx.Name, Namespace: nginx.Namespace})
+		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
 	logger.V(4).Info("Starting reconciliation of HorizontalPodAutoscaler")
 	defer logger.V(4).Info("Finishing reconciliation of HorizontalPodAutoscaler")
@@ -546,7 +553,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 
 		logger.V(4).Info("Creating HorizontalPodAutoscaler resource")
 
-		hpa = newHPA(instance, nginx)
+		hpa = newHPA(instance)
 		if err = r.Client.Create(ctx, &hpa); err != nil {
 			logger.Error(err, "Unable to create the HorizontalPodAutoscaler resource")
 			return err
@@ -563,6 +570,10 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	logger = logger.WithValues("HorizontalPodAutoscaler", types.NamespacedName{Name: hpa.Name, Namespace: hpa.Namespace})
 
 	if instance.Spec.Autoscale == nil {
+		if !r.rolloutEnabled(instance) {
+			return nil
+		}
+
 		logger.V(4).Info("Deleting HorizontalPodAutoscaler resource")
 		if err = r.Client.Delete(ctx, &hpa); err != nil {
 			logger.Error(err, "Unable to delete the HorizontalPodAutoscaler resource")
@@ -572,7 +583,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 		return nil
 	}
 
-	newerHPA := newHPA(instance, nginx)
+	newerHPA := newHPA(instance)
 	if !reflect.DeepEqual(hpa.Spec, newerHPA.Spec) {
 		logger.V(4).Info("Updating the HorizontalPodAustocaler spec")
 
@@ -612,9 +623,17 @@ func (r *RpaasInstanceReconciler) reconcileConfigMap(ctx context.Context, config
 	return err
 }
 
-func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, nginx *nginxv1alpha1.Nginx) error {
+func (r *RpaasInstanceReconciler) getNginx(ctx context.Context, instance *v1alpha1.RpaasInstance) (*nginxv1alpha1.Nginx, error) {
 	found := &nginxv1alpha1.Nginx{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: nginx.ObjectMeta.Name, Namespace: nginx.ObjectMeta.Namespace}, found)
+	err := r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, found)
+	if k8sErrors.IsNotFound(err) {
+		return nil, err
+	}
+	return found, err
+}
+
+func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+	found, err := r.getNginx(ctx, instance)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get nginx CR: %v", err)
@@ -628,12 +647,23 @@ func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, nginx *ngi
 		return nil
 	}
 
+	if !r.rolloutEnabled(instance) {
+		return nil
+	}
+
+	if found.Spec.Replicas != nil && *found.Spec.Replicas > 0 {
+		nginx.Spec.Replicas = found.Spec.Replicas
+	}
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
 	err = r.Client.Update(ctx, nginx)
 	if err != nil {
 		logrus.Errorf("Failed to update nginx CR: %v", err)
 	}
 	return err
+}
+
+func (r *RpaasInstanceReconciler) rolloutEnabled(instance *v1alpha1.RpaasInstance) bool {
+	return r.RolloutNginxEnabled || instance.Spec.RolloutNginx || instance.Spec.RolloutNginxOnce
 }
 
 func (r *RpaasInstanceReconciler) reconcileCacheSnapshot(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
@@ -643,6 +673,10 @@ func (r *RpaasInstanceReconciler) reconcileCacheSnapshot(ctx context.Context, in
 			return err
 		}
 		return r.reconcileCacheSnapshotVolume(ctx, instance, plan)
+	}
+
+	if !r.rolloutEnabled(instance) {
+		return nil
 	}
 
 	err := r.destroyCacheSnapshotCronJob(ctx, instance)
@@ -859,6 +893,17 @@ func (r *RpaasInstanceReconciler) deleteOldConfig(ctx context.Context, instance 
 	sort.Slice(list, func(i, j int) bool {
 		return list[i].ObjectMeta.CreationTimestamp.String() < list[j].ObjectMeta.CreationTimestamp.String()
 	})
+
+	var currentConfig string
+	nginx, err := r.getNginx(ctx, instance)
+	if err == nil && nginx.Spec.Config != nil {
+		currentConfig = nginx.Spec.Config.Name
+	}
+
+	if list[0].Name == currentConfig {
+		return nil
+	}
+
 	if err := r.Client.Delete(ctx, &list[0]); err != nil {
 		return err
 	}
@@ -1003,7 +1048,18 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 	return n
 }
 
-func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
+func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
+	nginx = nginx.DeepCopy()
+	nginx.Spec.Replicas = nil
+	data, err := json.Marshal(nginx.Spec)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(data)
+	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
+}
+
+func newHPA(instance *v1alpha1.RpaasInstance) autoscalingv2beta2.HorizontalPodAutoscaler {
 	var metrics []autoscalingv2beta2.MetricSpec
 
 	if instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
@@ -1058,7 +1114,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
 				APIVersion: "nginx.tsuru.io/v1alpha1",
 				Kind:       "Nginx",
-				Name:       nginx.Name,
+				Name:       instance.Name,
 			},
 			MinReplicas: minReplicas,
 			MaxReplicas: instance.Spec.Autoscale.MaxReplicas,

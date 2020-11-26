@@ -6,27 +6,30 @@ package controllers
 
 import (
 	"context"
+	"fmt"
 	"sort"
 
 	"github.com/go-logr/logr"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
+	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
-
-	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 )
 
 // RpaasInstanceReconciler reconciles a RpaasInstance object
 type RpaasInstanceReconciler struct {
 	client.Client
-	Log    logr.Logger
-	Scheme *runtime.Scheme
+	Log                 logr.Logger
+	Scheme              *runtime.Scheme
+	RolloutNginxEnabled bool
 }
 
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;create;update;patch;delete
@@ -120,12 +123,12 @@ func (r *RpaasInstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		}
 	}
 
-	if err = r.reconcileTLSSessionResumption(ctx, instance); err != nil {
+	nginx := newNginx(instance, plan, configMap)
+	if err = r.reconcileNginx(ctx, instance, nginx); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	nginx := newNginx(instance, plan, configMap)
-	if err = r.reconcileNginx(ctx, nginx); err != nil {
+	if err = r.reconcileTLSSessionResumption(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}
 
@@ -133,11 +136,76 @@ func (r *RpaasInstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcileHPA(ctx, instance, nginx); err != nil {
+	if err = r.reconcileHPA(ctx, instance); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.refreshStatus(ctx, instance, nginx); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.resetRolloutOnce(ctx, instance); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance, newNginx *nginxv1alpha1.Nginx) error {
+	existingNginx, err := r.getNginx(ctx, instance)
+	if err != nil && !k8sErrors.IsNotFound(err) {
+		return err
+	}
+	newHash, err := generateNginxHash(newNginx)
+	if err != nil {
+		return err
+	}
+
+	existingHash, err := generateNginxHash(existingNginx)
+	if err != nil {
+		return err
+	}
+
+	if instance.Status.ObservedGeneration == instance.Generation &&
+		instance.Status.WantedNginxRevisionHash == newHash &&
+		instance.Status.ObservedNginxRevisionHash == existingHash {
+		return nil
+	}
+
+	instance.Status.ObservedGeneration = instance.Generation
+	instance.Status.WantedNginxRevisionHash = newHash
+	instance.Status.ObservedNginxRevisionHash = existingHash
+
+	err = r.Client.Status().Update(ctx, instance)
+	if err != nil {
+		return fmt.Errorf("failed to update rpaas instance status: %v", err)
+	}
+
+	return nil
+}
+
+func (r *RpaasInstanceReconciler) resetRolloutOnce(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance) error {
+	if !instance.Spec.RolloutNginxOnce {
+		return nil
+	}
+
+	var rawInstance extensionsv1alpha1.RpaasInstance
+	if err := r.Client.Get(ctx, types.NamespacedName{
+		Name:      instance.Name,
+		Namespace: instance.Namespace,
+	}, &rawInstance); err != nil {
+		return err
+	}
+	if !rawInstance.Spec.RolloutNginxOnce {
+		return nil
+	}
+
+	rawInstance.Spec.RolloutNginxOnce = false
+	err := r.Client.Update(ctx, &rawInstance)
+	if err != nil {
+		return fmt.Errorf("failed to update rpaas instance rollout once: %v", err)
+	}
+	return nil
 }
 
 func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
@@ -147,5 +215,6 @@ func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&batchv1beta1.CronJob{}).
+		Owns(&nginxv1alpha1.Nginx{}).
 		Complete(r)
 }

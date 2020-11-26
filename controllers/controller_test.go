@@ -623,13 +623,11 @@ func Test_reconcileHPA(t *testing.T) {
 	tests := []struct {
 		name      string
 		instance  *v1alpha1.RpaasInstance
-		nginx     *nginxv1alpha1.Nginx
 		assertion func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler)
 	}{
 		{
 			name:     "when there is HPA resource but autoscale spec is nil",
 			instance: instance2,
-			nginx:    nginx2,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.Error(t, err)
 				assert.True(t, k8sErrors.IsNotFound(err))
@@ -638,7 +636,6 @@ func Test_reconcileHPA(t *testing.T) {
 		{
 			name:     "when there is no HPA resource but autoscale spec is provided",
 			instance: instance1,
-			nginx:    nginx1,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -697,7 +694,6 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				},
 			},
-			nginx: nginx2,
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
@@ -737,7 +733,7 @@ func Test_reconcileHPA(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reconciler := newRpaasInstanceReconciler(resources...)
 
-			err := reconciler.reconcileHPA(context.TODO(), tt.instance, tt.nginx)
+			err := reconciler.reconcileHPA(context.TODO(), tt.instance)
 			require.NoError(t, err)
 
 			hpa := new(autoscalingv2beta2.HorizontalPodAutoscaler)
@@ -1917,8 +1913,9 @@ func Test_nameForCronJob(t *testing.T) {
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
 	scheme := extensionsruntime.NewScheme()
 	return &RpaasInstanceReconciler{
-		Client: fake.NewFakeClientWithScheme(scheme, objs...),
-		Log:    ctrl.Log,
-		Scheme: scheme,
+		Client:              fake.NewFakeClientWithScheme(scheme, objs...),
+		Log:                 ctrl.Log,
+		Scheme:              scheme,
+		RolloutNginxEnabled: true,
 	}
 }

@@ -22,7 +22,9 @@ var setupLog = ctrl.Log.WithName("setup")
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var enableRollout bool
 	flag.StringVar(&metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	flag.BoolVar(&enableRollout, "enable-rollout", true, "Enable automatic rollout of nginx objects on rpaas-instance change.")
 	flag.BoolVar(&enableLeaderElection, "enable-leader-election", false,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
@@ -43,9 +45,10 @@ func main() {
 	}
 
 	if err = (&controllers.RpaasInstanceReconciler{
-		Client: mgr.GetClient(),
-		Log:    ctrl.Log.WithName("controllers").WithName("RpaasInstance"),
-		Scheme: mgr.GetScheme(),
+		Client:              mgr.GetClient(),
+		Log:                 ctrl.Log.WithName("controllers").WithName("RpaasInstance"),
+		Scheme:              mgr.GetScheme(),
+		RolloutNginxEnabled: enableRollout,
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")
 		os.Exit(1)

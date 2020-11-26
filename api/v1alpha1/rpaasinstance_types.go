@@ -84,6 +84,17 @@ type RpaasInstanceSpec struct {
 	// disabled.
 	// +optional
 	TLSSessionResumption *TLSSessionResumption `json:"tlsSessionResumption,omitempty"`
+
+	// RolloutNginxOnce causes a rollout of the nginx object if changes are
+	// detected only once. After updating the nginx object the controller will
+	// set this value to false.
+	// +optional
+	RolloutNginxOnce bool `json:"rolloutNginxOnce,omitempty"`
+
+	// RolloutNginx causes the controller to always update the nginx object
+	// regardless of the default behavior on the controller.
+	// +optional
+	RolloutNginx bool `json:"rolloutNginx,omitempty"`
 }
 
 type Bind struct {
@@ -192,7 +203,19 @@ type TLSSessionTicket struct {
 }
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
-type RpaasInstanceStatus struct{}
+type RpaasInstanceStatus struct {
+	// Revision hash calculated for the current spec.
+	// +optional
+	WantedNginxRevisionHash string `json:"wantedNginxRevisionHash,omitempty"`
+
+	// The revision hash observed by the controller in the nginx object.
+	// +optional
+	ObservedNginxRevisionHash string `json:"observedNginxRevisionHash,omitempty"`
+
+	// The most recent generation observed by the rpaas operator controller.
+	// +optional
+	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+}
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
