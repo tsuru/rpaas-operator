@@ -569,22 +569,8 @@ func Test_reconcileHPA(t *testing.T) {
 		TargetMemoryUtilizationPercentage: int32Ptr(90),
 	}
 
-	nginx1 := &nginxv1alpha1.Nginx{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "nginx.tsuru.io/v1alpha1",
-			Kind:       "Nginx",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance1.Name,
-			Namespace: instance1.Namespace,
-		},
-	}
-
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "instance-2"
-
-	nginx2 := nginx1.DeepCopy()
-	nginx2.Name = "instance-2"
 
 	hpa2 := &autoscalingv2beta2.HorizontalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{
@@ -597,9 +583,9 @@ func Test_reconcileHPA(t *testing.T) {
 		},
 		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
-				APIVersion: "nginx.tsuru.io/v1alpha1",
-				Kind:       "Nginx",
-				Name:       nginx2.Name,
+				APIVersion: "extensions.tsuru.io/v1alpha1",
+				Kind:       "RpaasInstance",
+				Name:       instance2.Name,
 			},
 			MinReplicas: int32Ptr(5),
 			MaxReplicas: int32(100),
@@ -618,7 +604,7 @@ func Test_reconcileHPA(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, nginx1, nginx2, hpa2}
+	resources := []runtime.Object{instance1, instance2, hpa2}
 
 	tests := []struct {
 		name      string
@@ -642,8 +628,8 @@ func Test_reconcileHPA(t *testing.T) {
 				assert.Equal(t, int32(25), got.Spec.MaxReplicas)
 				assert.Equal(t, int32Ptr(4), got.Spec.MinReplicas)
 				assert.Equal(t, autoscalingv2beta2.CrossVersionObjectReference{
-					APIVersion: "nginx.tsuru.io/v1alpha1",
-					Kind:       "Nginx",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
 					Name:       "instance-1",
 				}, got.Spec.ScaleTargetRef)
 				require.Len(t, got.Spec.Metrics, 2)
@@ -700,8 +686,8 @@ func Test_reconcileHPA(t *testing.T) {
 				assert.Equal(t, int32(200), got.Spec.MaxReplicas)
 				assert.Equal(t, int32Ptr(2), got.Spec.MinReplicas)
 				assert.Equal(t, autoscalingv2beta2.CrossVersionObjectReference{
-					APIVersion: "nginx.tsuru.io/v1alpha1",
-					Kind:       "Nginx",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
 					Name:       "instance-2",
 				}, got.Spec.ScaleTargetRef)
 				require.Len(t, got.Spec.Metrics, 2)

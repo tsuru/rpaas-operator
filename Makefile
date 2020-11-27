@@ -53,8 +53,10 @@ vet:
 	go vet ./...
 
 # Generate code
-generate: controller-gen
+generate-cli: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
+
+generate: generate-cli manifests
 
 # Build the docker image
 docker-build-api: test

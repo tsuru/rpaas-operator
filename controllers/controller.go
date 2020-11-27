@@ -570,10 +570,6 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	logger = logger.WithValues("HorizontalPodAutoscaler", types.NamespacedName{Name: hpa.Name, Namespace: hpa.Namespace})
 
 	if instance.Spec.Autoscale == nil {
-		if !r.rolloutEnabled(instance) {
-			return nil
-		}
-
 		logger.V(4).Info("Deleting HorizontalPodAutoscaler resource")
 		if err = r.Client.Delete(ctx, &hpa); err != nil {
 			logger.Error(err, "Unable to delete the HorizontalPodAutoscaler resource")
@@ -647,13 +643,13 @@ func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *
 		return nil
 	}
 
+	// Update only replicas if rollout is not enabled to ensure HPAs work
+	// correctly.
 	if !r.rolloutEnabled(instance) {
-		return nil
+		nginx = found
+		nginx.Spec.Replicas = instance.Spec.Replicas
 	}
 
-	if found.Spec.Replicas != nil && *found.Spec.Replicas > 0 {
-		nginx.Spec.Replicas = found.Spec.Replicas
-	}
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
 	err = r.Client.Update(ctx, nginx)
 	if err != nil {
@@ -1049,6 +1045,9 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 }
 
 func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
+	if nginx == nil {
+		return "", nil
+	}
 	nginx = nginx.DeepCopy()
 	nginx.Spec.Replicas = nil
 	data, err := json.Marshal(nginx.Spec)
@@ -1112,8 +1111,8 @@ func newHPA(instance *v1alpha1.RpaasInstance) autoscalingv2beta2.HorizontalPodAu
 		},
 		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
-				APIVersion: "nginx.tsuru.io/v1alpha1",
-				Kind:       "Nginx",
+				APIVersion: v1alpha1.GroupVersion.String(),
+				Kind:       "RpaasInstance",
 				Name:       instance.Name,
 			},
 			MinReplicas: minReplicas,

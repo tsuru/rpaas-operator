@@ -3991,6 +3991,15 @@ spec:
                     between explicit zero and not specified. Defaults to 1.
                   format: int32
                   type: integer
+                rolloutNginx:
+                  description: RolloutNginx causes the controller to always update
+                    the nginx object regardless of the default behavior on the controller.
+                  type: boolean
+                rolloutNginxOnce:
+                  description: RolloutNginxOnce causes a rollout of the nginx object
+                    if changes are detected only once. After updating the nginx object
+                    the controller will set this value to false.
+                  type: boolean
                 service:
                   description: Service to expose the nginx instance
                   properties:

@@ -26,6 +26,7 @@ type NamespacedOwner struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:scope=Cluster
 
 // RpaasPortAllocation is the Schema for the Rpaasportallocations API
 type RpaasPortAllocation struct {

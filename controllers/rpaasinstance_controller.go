@@ -7,10 +7,12 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"sort"
 
 	"github.com/go-logr/logr"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -166,16 +168,22 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *e
 		return err
 	}
 
-	if instance.Status.ObservedGeneration == instance.Generation &&
-		instance.Status.WantedNginxRevisionHash == newHash &&
-		instance.Status.ObservedNginxRevisionHash == existingHash {
+	newStatus := v1alpha1.RpaasInstanceStatus{
+		ObservedGeneration:        instance.Generation,
+		WantedNginxRevisionHash:   newHash,
+		ObservedNginxRevisionHash: existingHash,
+	}
+
+	if existingNginx != nil {
+		newStatus.CurrentReplicas = existingNginx.Status.CurrentReplicas
+		newStatus.PodSelector = existingNginx.Status.PodSelector
+	}
+
+	if reflect.DeepEqual(instance.Status, newStatus) {
 		return nil
 	}
 
-	instance.Status.ObservedGeneration = instance.Generation
-	instance.Status.WantedNginxRevisionHash = newHash
-	instance.Status.ObservedNginxRevisionHash = existingHash
-
+	instance.Status = newStatus
 	err = r.Client.Status().Update(ctx, instance)
 	if err != nil {
 		return fmt.Errorf("failed to update rpaas instance status: %v", err)

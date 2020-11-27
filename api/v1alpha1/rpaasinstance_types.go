@@ -215,10 +215,17 @@ type RpaasInstanceStatus struct {
 	// The most recent generation observed by the rpaas operator controller.
 	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
+
+	// CurrentReplicas is the last observed number of pods.
+	CurrentReplicas int32 `json:"currentReplicas,omitempty"`
+
+	// PodSelector is the NGINX's pod label selector.
+	PodSelector string `json:"podSelector,omitempty"`
 }
 
 // +kubebuilder:object:root=true
 // +kubebuilder:subresource:status
+// +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.currentReplicas,selectorpath=.status.podSelector
 
 // RpaasInstance is the Schema for the rpaasinstances API
 type RpaasInstance struct {
