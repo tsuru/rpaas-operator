@@ -22,7 +22,7 @@ var setupLog = ctrl.Log.WithName("setup")
 func main() {
 	metricsAddr := flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	enableRollout := flag.Bool("enable-rollout", true, "Enable automatic rollout of nginx objects on rpaas-instance change.")
-	enableLeaderElection := flag.Bool("enable-leader-election", false,
+	enableLeaderElection := flag.Bool("enable-leader-election", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	syncPeriod := flag.Duration("reconcile-sync", time.Minute, "Resync frequency of Nginx resources.")
