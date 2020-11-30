@@ -120,16 +120,19 @@ func TestInfo(t *testing.T) {
 								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
 								Ports: []clientTypes.PodPort{
 									{
-										Name:     "http",
-										HostPort: int32(30000),
+										Name:          "http",
+										HostPort:      int32(30000),
+										ContainerPort: int32(30000),
 									},
 									{
-										Name:     "https",
-										HostPort: int32(30001),
+										Name:          "https",
+										HostPort:      int32(30001),
+										ContainerPort: int32(30001),
 									},
 									{
-										Name:     "nginx-metrics",
-										HostPort: int32(30002),
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: int32(30002),
 									},
 								},
 							},
@@ -137,21 +140,24 @@ func TestInfo(t *testing.T) {
 								Name:      "my-instance-75c8bdc6b9-bcdef",
 								IP:        "169.254.1.101",
 								HostIP:    "169.254.1.101",
-								Ready:     true,
+								Ready:     false,
 								Status:    "Running",
 								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
 								Ports: []clientTypes.PodPort{
 									{
-										Name:     "http",
-										HostPort: int32(30000),
+										Name:          "http",
+										HostPort:      int32(30000),
+										ContainerPort: int32(30000),
 									},
 									{
-										Name:     "https",
-										HostPort: int32(30001),
+										Name:          "https",
+										HostPort:      int32(30001),
+										ContainerPort: int32(30001),
 									},
 									{
-										Name:     "nginx-metrics",
-										HostPort: int32(30002),
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: int32(30002),
 									},
 								},
 							},
@@ -164,16 +170,19 @@ func TestInfo(t *testing.T) {
 								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
 								Ports: []clientTypes.PodPort{
 									{
-										Name:     "http",
-										HostPort: int32(30000),
+										Name:          "http",
+										HostPort:      int32(30000),
+										ContainerPort: int32(30000),
 									},
 									{
-										Name:     "https",
-										HostPort: int32(30001),
+										Name:          "https",
+										HostPort:      int32(30001),
+										ContainerPort: int32(30001),
 									},
 									{
-										Name:     "nginx-metrics",
-										HostPort: int32(30002),
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: int32(30002),
 									},
 								},
 							},
@@ -187,16 +196,19 @@ func TestInfo(t *testing.T) {
 								CreatedAt: time.Now().In(time.UTC).Add(-5 * time.Minute),
 								Ports: []clientTypes.PodPort{
 									{
-										Name:     "http",
-										HostPort: int32(30000),
+										Name:          "http",
+										HostPort:      int32(30000),
+										ContainerPort: int32(30000),
 									},
 									{
-										Name:     "https",
-										HostPort: int32(30001),
+										Name:          "https",
+										HostPort:      int32(30001),
+										ContainerPort: int32(30001),
 									},
 									{
-										Name:     "nginx-metrics",
-										HostPort: int32(30002),
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: int32(30002),
 									},
 								},
 								Errors: []clientTypes.PodError{
@@ -223,16 +235,19 @@ func TestInfo(t *testing.T) {
 								CreatedAt: time.Now().In(time.UTC).Add(-5 * time.Minute),
 								Ports: []clientTypes.PodPort{
 									{
-										Name:     "http",
-										HostPort: int32(30000),
+										Name:          "http",
+										HostPort:      int32(30000),
+										ContainerPort: int32(30000),
 									},
 									{
-										Name:     "https",
-										HostPort: int32(30001),
+										Name:          "https",
+										HostPort:      int32(30001),
+										ContainerPort: int32(30001),
 									},
 									{
-										Name:     "nginx-metrics",
-										HostPort: int32(30002),
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: int32(30002),
 									},
 								},
 								Errors: []clientTypes.PodError{
@@ -275,25 +290,24 @@ Flavors: flavor1, flavor2, flavor-N
 Cluster: my-dedicated-cluster
 
 Pods: 3
-+------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
-| Name                         | Host          | Ports                          | Ready | Status  | Restarts | Age |
-+------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
-| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | http(30000/TCP)                | ✓     | Running |        2 | 12h |
-|                              |               | https(30001/TCP)               |       |         |          |     |
-|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
-| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | http(30000/TCP)                | ✓     | Running |        0 | 12h |
-|                              |               | https(30001/TCP)               |       |         |          |     |
-|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
-| my-instance-75c8bdc6b9-cdefg | 169.254.1.102 | http(30000/TCP)                | ✓     | Running |        0 | 12h |
-|                              |               | https(30001/TCP)               |       |         |          |     |
-|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
-| my-instance-123abc456f-aaaaa | 169.254.10.10 | http(30000/TCP)                |       | Errored |      100 | 5m  |
-|                              |               | https(30001/TCP)               |       |         |          |     |
-|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
-| my-instance-123abc456f-bbbbb | 169.254.10.11 | http(30000/TCP)                |       | Errored |      100 | 5m  |
-|                              |               | https(30001/TCP)               |       |         |          |     |
-|                              |               | nginx-metrics(30002/TCP)       |       |         |          |     |
-+------------------------------+---------------+--------------------------------+-------+---------+----------+-----+
++------------------------------+---------------+---------+----------+-----+
+| Name                         | Host          | Status  | Restarts | Age |
++------------------------------+---------------+---------+----------+-----+
+| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | Ready   |        2 | 12h |
+| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | Running |        0 | 12h |
+| my-instance-75c8bdc6b9-cdefg | 169.254.1.102 | Ready   |        0 | 12h |
+| my-instance-123abc456f-aaaaa | 169.254.10.10 | Errored |      100 | 5m  |
+| my-instance-123abc456f-bbbbb | 169.254.10.11 | Errored |      100 | 5m  |
++------------------------------+---------------+---------+----------+-----+
+
+Ports:
++---------------+----------------+----------+-----------+
+| Name          | Container port | Protocol | Host port |
++---------------+----------------+----------+-----------+
+| http          |          30000 | TCP      |     30000 |
+| https         |          30001 | TCP      |     30001 |
+| nginx-metrics |          30002 | TCP      |     30002 |
++---------------+----------------+----------+-----------+
 
 Errors:
 +--------------------+------------------------------+----------------------------------------------+
@@ -391,6 +405,105 @@ Routes:
 +------------------+------------------------+--------------+-------------------------+
 `,
 		},
+
+		{
+			name: "when pods have different port set",
+			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
+			client: &fake.FakeClient{
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, error) {
+					require.Equal(t, args.Instance, "my-instance")
+					return &clientTypes.InstanceInfo{
+						Name:        "my-instance",
+						Addresses:   []clientTypes.InstanceAddress{},
+						Plan:        "basic",
+						Binds:       []v1alpha1.Bind{},
+						Replicas:    int32Ptr(3),
+						Blocks:      []clientTypes.Block{},
+						Routes:      []types.Route{},
+						Team:        "some-team",
+						Cluster:     "my-dedicated-cluster",
+						Description: "some description",
+						Tags:        []string{"tag1", "tag2", "tag3"},
+						Flavors:     []string{"flavor1", "flavor2", "flavor-N"},
+						Autoscale:   nil,
+						Pods: []clientTypes.Pod{
+							{
+								Name:      "my-instance-75c8bdc6b9-abcde",
+								IP:        "169.254.1.100",
+								HostIP:    "169.254.1.100",
+								Restarts:  int32(2),
+								Ready:     true,
+								Status:    "Running",
+								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:          "http",
+										HostPort:      int32(30000),
+										ContainerPort: int32(30000),
+									},
+									{
+										Name:          "https",
+										HostPort:      int32(30001),
+										ContainerPort: int32(30001),
+									},
+									{
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: int32(30002),
+									},
+								},
+							},
+							{
+								Name:      "my-instance-75c8bdc6b9-bcdef",
+								IP:        "169.254.1.101",
+								HostIP:    "169.254.1.101",
+								Ready:     false,
+								Status:    "Terminating",
+								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:          "http",
+										HostPort:      int32(80),
+										ContainerPort: 8001,
+									},
+									{
+										Name:          "https",
+										HostPort:      int32(443),
+										ContainerPort: 8002,
+									},
+									{
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: 8003,
+									},
+								},
+							},
+						},
+					}, nil
+				},
+			},
+			expected: `Name: my-instance
+Description: some description
+Tags: tag1, tag2, tag3
+Team owner: some-team
+Plan: basic
+Flavors: flavor1, flavor2, flavor-N
+Cluster: my-dedicated-cluster
+
+Pods: 3
++------------------------------+---------------+-------------+----------+-----+--------------------------------+
+| Name                         | Host          | Status      | Restarts | Age | Ports                          |
++------------------------------+---------------+-------------+----------+-----+--------------------------------+
+| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | Ready       |        2 | 12h | http(30000/TCP)                |
+|                              |               |             |          |     | https(30001/TCP)               |
+|                              |               |             |          |     | nginx-metrics(30002/TCP)       |
+| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | Terminating |        0 | 12h | http(80/TCP) https(443/TCP)    |
+|                              |               |             |          |     | nginx-metrics(30002/TCP)       |
++------------------------------+---------------+-------------+----------+-----+--------------------------------+
+
+`,
+		},
+
 		{
 			name: "when info route is successful and on json format",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance", "--raw-output"},
