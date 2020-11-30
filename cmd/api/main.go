@@ -32,7 +32,9 @@ func main() {
 		targetFactory = target.NewMultiClustersFactory(cfg.Clusters)
 	} else {
 		targetFactory, err = target.NewKubeConfigFactory()
-		log.Fatalf("could not initialize cluster target: %v", err)
+		if err != nil {
+			log.Fatalf("could not initialize cluster target: %v", err)
+		}
 	}
 
 	a, err := web.NewWithTargetFactory(targetFactory)
