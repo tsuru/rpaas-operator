@@ -20,7 +20,7 @@ import (
 
 var setupLog = ctrl.Log.WithName("setup")
 
-type opts struct {
+type configOpts struct {
 	metricsAddr             string
 	enableRollout           bool
 	enableLeaderElection    bool
@@ -30,7 +30,7 @@ type opts struct {
 	portRangeMax            int
 }
 
-func (o *opts) bindFlags(fs *flag.FlagSet) {
+func (o *configOpts) bindFlags(fs *flag.FlagSet) {
 	fs.StringVar(&o.metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
 	fs.BoolVar(&o.enableRollout, "enable-rollout", true, "Enable automatic rollout of nginx objects on rpaas-instance change.")
 	fs.BoolVar(&o.enableLeaderElection, "enable-leader-election", true,
@@ -43,7 +43,7 @@ func (o *opts) bindFlags(fs *flag.FlagSet) {
 	fs.IntVar(&o.portRangeMax, "port-range-max", 30000, "Allocated port range end")
 }
 
-func (o *opts) validate() error {
+func (o *configOpts) validate() error {
 	if o.portRangeMin >= o.portRangeMax {
 		return fmt.Errorf("invalid port range, min: %d, max: %d", o.portRangeMin, o.portRangeMax)
 	}
@@ -51,7 +51,7 @@ func (o *opts) validate() error {
 }
 
 func main() {
-	var opts opts
+	var opts configOpts
 	opts.bindFlags(flag.CommandLine)
 
 	zapOpts := zap.Options{}
