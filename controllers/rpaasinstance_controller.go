@@ -32,6 +32,8 @@ type RpaasInstanceReconciler struct {
 	Log                 logr.Logger
 	Scheme              *runtime.Scheme
 	RolloutNginxEnabled bool
+	PortRangeMin        int32
+	PortRangeMax        int32
 }
 
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;create;update;patch;delete

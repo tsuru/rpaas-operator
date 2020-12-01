@@ -998,11 +998,14 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 		name      string
 		rpaas     *v1alpha1.RpaasInstance
 		objects   []runtime.Object
-		config    *config.RpaasConfig
+		portMin   int32
+		portMax   int32
 		assertion func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec)
 	}{
 		{
-			name: "creates empty port allocation",
+			name:    "creates empty port allocation",
+			portMin: 20000,
+			portMax: 30000,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1018,7 +1021,9 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			},
 		},
 		{
-			name: "allocate ports if requested",
+			name:    "allocate ports if requested",
+			portMin: 20000,
+			portMax: 30000,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1056,7 +1061,9 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			},
 		},
 		{
-			name: "skip already allocated when allocating new ports",
+			name:    "skip already allocated when allocating new ports",
+			portMin: 20000,
+			portMax: 30000,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1144,7 +1151,9 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			},
 		},
 		{
-			name: "reuse previous allocations",
+			name:    "reuse previous allocations",
+			portMin: 20000,
+			portMax: 30000,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1209,7 +1218,9 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			},
 		},
 		{
-			name: "remove allocations for removed objects",
+			name:    "remove allocations for removed objects",
+			portMin: 20000,
+			portMax: 30000,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1253,7 +1264,9 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			},
 		},
 		{
-			name: "remove allocations for objects not matching UID",
+			name:    "remove allocations for objects not matching UID",
+			portMin: 20000,
+			portMax: 30000,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1297,11 +1310,9 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			},
 		},
 		{
-			name: "loops around looking for ports",
-			config: &config.RpaasConfig{
-				PortRangeMin: 10,
-				PortRangeMax: 13,
-			},
+			name:    "loops around looking for ports",
+			portMin: 10,
+			portMax: 13,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1392,11 +1403,9 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 			},
 		},
 		{
-			name: "errors if no ports are available",
-			config: &config.RpaasConfig{
-				PortRangeMin: 10,
-				PortRangeMax: 11,
-			},
+			name:    "errors if no ports are available",
+			portMin: 10,
+			portMax: 11,
 			rpaas: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-rpaas",
@@ -1450,20 +1459,76 @@ func TestReconcileNginx_reconcileDedicatedPorts(t *testing.T) {
 				assert.EqualError(t, err, `unable to allocate container ports, wanted 2, allocated 0`)
 			},
 		},
+		{
+			name:    "errors with empty port range",
+			portMin: 0,
+			portMax: 0,
+			rpaas: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-rpaas",
+					Namespace: "default",
+					UID:       "1234",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					AllocateContainerPorts: v1alpha1.Bool(true),
+				},
+				Status: v1alpha1.RpaasInstanceStatus{},
+			},
+			objects: []runtime.Object{
+				&v1alpha1.RpaasInstance{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "other-rpaas",
+						Namespace: "default",
+						UID:       "1337",
+					},
+					Spec: v1alpha1.RpaasInstanceSpec{
+						AllocateContainerPorts: v1alpha1.Bool(true),
+					},
+				},
+				&v1alpha1.RpaasPortAllocation{
+					ObjectMeta: metav1.ObjectMeta{
+						Name: "default",
+					},
+					Spec: v1alpha1.RpaasPortAllocationSpec{
+						Ports: []v1alpha1.AllocatedPort{
+							{
+								Port: 10,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "other-rpaas",
+									UID:       "1337",
+								},
+							},
+							{
+								Port: 11,
+								Owner: v1alpha1.NamespacedOwner{
+									Namespace: "default",
+									RpaasName: "other-rpaas",
+									UID:       "1337",
+								},
+							},
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, err error, ports []int, portAlloc v1alpha1.RpaasPortAllocationSpec) {
+				assert.Nil(t, ports)
+				assert.EqualError(t, err, `unable to allocate container ports, range is invalid: min: 0, max: 0`)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			err := config.Init()
 			require.NoError(t, err)
-			if tt.config != nil {
-				config.Set(*tt.config)
-			}
 			resources := []runtime.Object{tt.rpaas}
 			if tt.objects != nil {
 				resources = append(resources, tt.objects...)
 			}
 			reconciler := newRpaasInstanceReconciler(resources...)
+			reconciler.PortRangeMin = tt.portMin
+			reconciler.PortRangeMax = tt.portMax
 			ports, err := reconciler.reconcileDedicatedPorts(context.Background(), tt.rpaas, 2)
 			var allocation v1alpha1.RpaasPortAllocation
 			allocErr := reconciler.Client.Get(context.Background(), types.NamespacedName{

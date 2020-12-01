@@ -23,9 +23,6 @@ import (
 
 const (
 	keyPrefix = "rpaasv2"
-
-	DefaultPortRangeMin = 20000
-	DefaultPortRangeMax = 30000
 )
 
 type RpaasConfig struct {
@@ -37,8 +34,6 @@ type RpaasConfig struct {
 	DefaultAffinity                      *corev1.Affinity           `json:"default-affinity"`
 	TeamAffinity                         map[string]corev1.Affinity `json:"team-affinity"`
 	SyncInterval                         time.Duration              `json:"sync-interval"`
-	PortRangeMin                         int32                      `json:"port-range-min"`
-	PortRangeMax                         int32                      `json:"port-range-max"`
 	LoadBalancerNameLabelKey             string                     `json:"loadbalancer-name-label-key"`
 	WebSocketHandshakeTimeout            time.Duration              `json:"websocket-handshake-timeout"`
 	WebSocketReadBufferSize              int                        `json:"websocket-read-buffer-size"`
@@ -94,8 +89,6 @@ func Init() error {
 	viper.SetDefault("tls-certificate", "")
 	viper.SetDefault("tls-key", "")
 	viper.SetDefault("sync-interval", 5*time.Minute)
-	viper.SetDefault("port-range-min", DefaultPortRangeMin)
-	viper.SetDefault("port-range-max", DefaultPortRangeMax)
 	viper.SetDefault("websocket-handshake-timeout", 5*time.Second)
 	viper.SetDefault("websocket-read-buffer-size", 1<<10)  // 1 KiB
 	viper.SetDefault("websocket-write-buffer-size", 4<<10) // 4 KiB

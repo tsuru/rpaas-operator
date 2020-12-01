@@ -36,7 +36,6 @@ import (
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 )
@@ -1366,13 +1365,10 @@ func (r *RpaasInstanceReconciler) reconcileDedicatedPorts(ctx context.Context, i
 		}
 	}
 
-	portMin := config.Get().PortRangeMin
-	portMax := config.Get().PortRangeMax
-
 	var newPorts []extensionsv1alpha1.AllocatedPort
 	var usedSet bitset.BitSet
 	var instancePorts []int
-	highestPortUsed := portMin - 1
+	highestPortUsed := r.PortRangeMin - 1
 
 	// Loop through all allocated ports and remove ports from removed Nginx
 	// resources or from resources that have AllocateContainerPorts==false (or nil).
@@ -1406,13 +1402,18 @@ func (r *RpaasInstanceReconciler) reconcileDedicatedPorts(ctx context.Context, i
 	// If we should allocate ports and none are allocated yet we have to look
 	// for available ports and allocate them.
 	if instance != nil && v1alpha1.BoolValue(instance.Spec.AllocateContainerPorts) {
+
+		if r.PortRangeMin >= r.PortRangeMax {
+			return nil, fmt.Errorf("unable to allocate container ports, range is invalid: min: %d, max: %d", r.PortRangeMin, r.PortRangeMax)
+		}
+
 		for port := highestPortUsed + 1; port != highestPortUsed; port++ {
 			if len(instancePorts) >= portCount {
 				break
 			}
 
-			if port > portMax {
-				port = portMin - 1
+			if port > r.PortRangeMax {
+				port = r.PortRangeMin - 1
 				continue
 			}
 

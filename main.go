@@ -6,6 +6,7 @@ package main
 
 import (
 	"flag"
+	"fmt"
 	"os"
 	"time"
 
@@ -19,27 +20,60 @@ import (
 
 var setupLog = ctrl.Log.WithName("setup")
 
-func main() {
-	metricsAddr := flag.String("metrics-addr", ":8080", "The address the metric endpoint binds to.")
-	enableRollout := flag.Bool("enable-rollout", true, "Enable automatic rollout of nginx objects on rpaas-instance change.")
-	enableLeaderElection := flag.Bool("enable-leader-election", true,
+type opts struct {
+	metricsAddr             string
+	enableRollout           bool
+	enableLeaderElection    bool
+	leaderElectionNamespace string
+	syncPeriod              time.Duration
+	portRangeMin            int
+	portRangeMax            int
+}
+
+func (o *opts) bindFlags(fs *flag.FlagSet) {
+	fs.StringVar(&o.metricsAddr, "metrics-addr", ":8080", "The address the metric endpoint binds to.")
+	fs.BoolVar(&o.enableRollout, "enable-rollout", true, "Enable automatic rollout of nginx objects on rpaas-instance change.")
+	fs.BoolVar(&o.enableLeaderElection, "enable-leader-election", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
-	syncPeriod := flag.Duration("reconcile-sync", time.Minute, "Resync frequency of Nginx resources.")
+	fs.StringVar(&o.leaderElectionNamespace, "leader-election-namespace", "",
+		"Namespace where the leader election object will be created.")
+	fs.DurationVar(&o.syncPeriod, "reconcile-sync", time.Minute, "Resync frequency of Nginx resources.")
+	fs.IntVar(&o.portRangeMin, "port-range-min", 20000, "Allocated port range start")
+	fs.IntVar(&o.portRangeMax, "port-range-max", 30000, "Allocated port range end")
+}
 
-	opts := zap.Options{}
-	opts.BindFlags(flag.CommandLine)
+func (o *opts) validate() error {
+	if o.portRangeMin >= o.portRangeMax {
+		return fmt.Errorf("invalid port range, min: %d, max: %d", o.portRangeMin, o.portRangeMax)
+	}
+	return nil
+}
+
+func main() {
+	var opts opts
+	opts.bindFlags(flag.CommandLine)
+
+	zapOpts := zap.Options{}
+	zapOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	err := opts.validate()
+	if err != nil {
+		setupLog.Error(err, "invalid args")
+		os.Exit(1)
+	}
+
+	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
 	mgr, err := ctrl.NewManager(ctrl.GetConfigOrDie(), ctrl.Options{
-		Scheme:             extensionsruntime.NewScheme(),
-		MetricsBindAddress: *metricsAddr,
-		Port:               9443,
-		LeaderElection:     *enableLeaderElection,
-		LeaderElectionID:   "rpaas-operator-lock",
-		SyncPeriod:         syncPeriod,
+		Scheme:                  extensionsruntime.NewScheme(),
+		MetricsBindAddress:      opts.metricsAddr,
+		Port:                    9443,
+		LeaderElection:          opts.enableLeaderElection,
+		LeaderElectionNamespace: opts.leaderElectionNamespace,
+		LeaderElectionID:        "rpaas-operator-lock",
+		SyncPeriod:              &opts.syncPeriod,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -50,7 +84,9 @@ func main() {
 		Client:              mgr.GetClient(),
 		Log:                 ctrl.Log.WithName("controllers").WithName("RpaasInstance"),
 		Scheme:              mgr.GetScheme(),
-		RolloutNginxEnabled: *enableRollout,
+		RolloutNginxEnabled: opts.enableRollout,
+		PortRangeMin:        int32(opts.portRangeMin),
+		PortRangeMax:        int32(opts.portRangeMax),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")
 		os.Exit(1)
