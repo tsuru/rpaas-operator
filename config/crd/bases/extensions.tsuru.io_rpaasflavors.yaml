@@ -4066,8 +4066,6 @@ spec:
                           type: integer
                       type: object
                   type: object
-              required:
-              - planName
               type: object
           type: object
       type: object

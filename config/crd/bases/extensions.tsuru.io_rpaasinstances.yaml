@@ -3916,8 +3916,6 @@ spec:
                       type: integer
                   type: object
               type: object
-          required:
-          - planName
           type: object
         status:
           description: RpaasInstanceStatus defines the observed state of RpaasInstance

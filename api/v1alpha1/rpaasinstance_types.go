@@ -18,6 +18,7 @@ type RpaasInstanceSpec struct {
 	Replicas *int32 `json:"replicas,omitempty"`
 
 	// PlanName is the name of the rpaasplan instance.
+	// +optional
 	PlanName string `json:"planName"`
 
 	// Flavors are references to RpaasFlavors resources. When provided, each flavor
