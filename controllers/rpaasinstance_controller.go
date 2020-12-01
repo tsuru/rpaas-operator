@@ -172,6 +172,7 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *e
 		ObservedGeneration:        instance.Generation,
 		WantedNginxRevisionHash:   newHash,
 		ObservedNginxRevisionHash: existingHash,
+		NginxUpdated:              newHash == existingHash,
 	}
 
 	if existingNginx != nil {

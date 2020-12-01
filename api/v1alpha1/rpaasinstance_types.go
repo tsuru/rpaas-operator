@@ -206,15 +206,16 @@ type TLSSessionTicket struct {
 // RpaasInstanceStatus defines the observed state of RpaasInstance
 type RpaasInstanceStatus struct {
 	// Revision hash calculated for the current spec.
-	// +optional
 	WantedNginxRevisionHash string `json:"wantedNginxRevisionHash,omitempty"`
 
 	// The revision hash observed by the controller in the nginx object.
-	// +optional
 	ObservedNginxRevisionHash string `json:"observedNginxRevisionHash,omitempty"`
 
+	// NginxUpdated is true if the wanted nginx revision hash equals the
+	// observed nginx revision hash.
+	NginxUpdated bool `json:"nginxUpdated"`
+
 	// The most recent generation observed by the rpaas operator controller.
-	// +optional
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
 
 	// CurrentReplicas is the last observed number of pods.
