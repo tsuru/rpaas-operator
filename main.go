@@ -22,12 +22,12 @@ var setupLog = ctrl.Log.WithName("setup")
 
 type configOpts struct {
 	metricsAddr             string
-	enableRollout           bool
-	enableLeaderElection    bool
 	leaderElectionNamespace string
 	syncPeriod              time.Duration
 	portRangeMin            int
 	portRangeMax            int
+	enableRollout           bool
+	enableLeaderElection    bool
 }
 
 func (o *configOpts) bindFlags(fs *flag.FlagSet) {

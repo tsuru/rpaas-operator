@@ -211,9 +211,8 @@ type RpaasInstanceStatus struct {
 	// The revision hash observed by the controller in the nginx object.
 	ObservedNginxRevisionHash string `json:"observedNginxRevisionHash,omitempty"`
 
-	// NginxUpdated is true if the wanted nginx revision hash equals the
-	// observed nginx revision hash.
-	NginxUpdated bool `json:"nginxUpdated"`
+	// PodSelector is the NGINX's pod label selector.
+	PodSelector string `json:"podSelector,omitempty"`
 
 	// The most recent generation observed by the rpaas operator controller.
 	ObservedGeneration int64 `json:"observedGeneration,omitempty"`
@@ -221,8 +220,9 @@ type RpaasInstanceStatus struct {
 	// CurrentReplicas is the last observed number of pods.
 	CurrentReplicas int32 `json:"currentReplicas,omitempty"`
 
-	// PodSelector is the NGINX's pod label selector.
-	PodSelector string `json:"podSelector,omitempty"`
+	// NginxUpdated is true if the wanted nginx revision hash equals the
+	// observed nginx revision hash.
+	NginxUpdated bool `json:"nginxUpdated"`
 }
 
 // +kubebuilder:object:root=true
