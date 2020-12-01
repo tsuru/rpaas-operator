@@ -24,10 +24,12 @@ import (
 	"time"
 
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
@@ -39,6 +41,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
 
@@ -1691,6 +1694,56 @@ func (m *k8sRpaasManager) getPods(ctx context.Context, nginx *nginxv1alpha1.Ngin
 	return podList.Items, nil
 }
 
+func (m *k8sRpaasManager) getPodMetrics(ctx context.Context, nginx *nginxv1alpha1.Nginx) (map[string]*clientTypes.PodMetrics, error) {
+	if nginx == nil {
+		return nil, fmt.Errorf("nginx resource cannot be nil")
+	}
+
+	if nginx.Status.PodSelector == "" {
+		return nil, fmt.Errorf("pod selector on nginx status cannot be empty")
+	}
+
+	labelSet, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var metricsList metricsv1beta1.PodMetricsList
+	err = m.cli.List(ctx, &metricsList, &client.ListOptions{LabelSelector: labelSet.AsSelector(), Namespace: nginx.Namespace})
+	if err != nil {
+		return nil, err
+	}
+
+	result := map[string]*clientTypes.PodMetrics{}
+	for _, podMetric := range metricsList.Items {
+		totalCPUUsage := resource.NewQuantity(0, resource.DecimalSI)
+		totalMemoryUsage := resource.NewQuantity(0, resource.BinarySI)
+
+		for _, container := range podMetric.Containers {
+			cpuUsage, ok := container.Usage["cpu"]
+			if !ok {
+				continue
+			}
+			totalCPUUsage.Add(cpuUsage)
+		}
+
+		for _, container := range podMetric.Containers {
+			memoryUsage, ok := container.Usage["memory"]
+			if !ok {
+				continue
+			}
+			totalMemoryUsage.Add(memoryUsage)
+		}
+
+		result[podMetric.ObjectMeta.Name] = &clientTypes.PodMetrics{
+			CPU:    totalCPUUsage.String(),
+			Memory: totalMemoryUsage.String(),
+		}
+	}
+
+	return result, nil
+}
+
 func (m *k8sRpaasManager) getServices(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]corev1.Service, error) {
 	if nginx == nil {
 		return nil, fmt.Errorf("nginx cannot be nil")
@@ -1807,12 +1860,23 @@ func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alph
 		return nil, err
 	}
 
+	podMetrics, err := m.getPodMetrics(ctx, nginx)
+	if err != nil {
+		podMetrics = map[string]*clientTypes.PodMetrics{}
+		if m.clusterName == "" {
+			logrus.Errorf("[local cluster] Failed to fetch pod metrics: %s", err.Error())
+		} else {
+			logrus.Errorf("[cluster %s] Failed to fetch pod metrics: %s", m.clusterName, err.Error())
+		}
+	}
+
 	var podStatuses []clientTypes.Pod
 	for _, pod := range pods {
 		ps, err := m.newPodStatus(ctx, &pod)
 		if err != nil {
 			return nil, err
 		}
+		ps.Metrics = podMetrics[pod.ObjectMeta.Name]
 		podStatuses = append(podStatuses, ps)
 	}
 

@@ -407,6 +407,118 @@ Routes:
 		},
 
 		{
+			name: "when pods have metrics",
+			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
+			client: &fake.FakeClient{
+				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, error) {
+					require.Equal(t, args.Instance, "my-instance")
+					return &clientTypes.InstanceInfo{
+						Name:        "my-instance",
+						Addresses:   []clientTypes.InstanceAddress{},
+						Plan:        "basic",
+						Binds:       []v1alpha1.Bind{},
+						Replicas:    int32Ptr(3),
+						Blocks:      []clientTypes.Block{},
+						Routes:      []types.Route{},
+						Team:        "some-team",
+						Cluster:     "my-dedicated-cluster",
+						Description: "some description",
+						Tags:        []string{"tag1", "tag2", "tag3"},
+						Flavors:     []string{"flavor1", "flavor2", "flavor-N"},
+						Autoscale:   nil,
+						Pods: []clientTypes.Pod{
+							{
+								Name:      "my-instance-75c8bdc6b9-abcde",
+								IP:        "169.254.1.100",
+								HostIP:    "169.254.1.100",
+								Restarts:  int32(2),
+								Ready:     true,
+								Status:    "Running",
+								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:          "http",
+										HostPort:      int32(80),
+										ContainerPort: 8001,
+									},
+									{
+										Name:          "https",
+										HostPort:      int32(443),
+										ContainerPort: 8002,
+									},
+									{
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: 8003,
+									},
+								},
+								Metrics: &clientTypes.PodMetrics{
+									CPU:    "200m",
+									Memory: "300Mi",
+								},
+							},
+							{
+								Name:      "my-instance-75c8bdc6b9-bcdef",
+								IP:        "169.254.1.101",
+								HostIP:    "169.254.1.101",
+								Ready:     false,
+								Status:    "Terminating",
+								CreatedAt: time.Now().In(time.UTC).Add(-12 * time.Hour),
+								Ports: []clientTypes.PodPort{
+									{
+										Name:          "http",
+										HostPort:      int32(80),
+										ContainerPort: 8001,
+									},
+									{
+										Name:          "https",
+										HostPort:      int32(443),
+										ContainerPort: 8002,
+									},
+									{
+										Name:          "nginx-metrics",
+										HostPort:      int32(30002),
+										ContainerPort: 8003,
+									},
+								},
+								Metrics: &clientTypes.PodMetrics{
+									CPU:    "2000m",
+									Memory: "3000Mi",
+								},
+							},
+						},
+					}, nil
+				},
+			},
+			expected: `Name: my-instance
+Description: some description
+Tags: tag1, tag2, tag3
+Team owner: some-team
+Plan: basic
+Flavors: flavor1, flavor2, flavor-N
+Cluster: my-dedicated-cluster
+
+Pods: 3
++------------------------------+---------------+-------------+----------+-----+------+--------+
+| Name                         | Host          | Status      | Restarts | Age | CPU  | Memory |
++------------------------------+---------------+-------------+----------+-----+------+--------+
+| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | Ready       |        2 | 12h | 20%  | 300Mi  |
+| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | Terminating |        0 | 12h | 200% | 3000Mi |
++------------------------------+---------------+-------------+----------+-----+------+--------+
+
+Ports:
++---------------+----------------+----------+-----------+
+| Name          | Container port | Protocol | Host port |
++---------------+----------------+----------+-----------+
+| http          |           8001 | TCP      |        80 |
+| https         |           8002 | TCP      |       443 |
+| nginx-metrics |           8003 | TCP      |     30002 |
++---------------+----------------+----------+-----------+
+
+`,
+		},
+
+		{
 			name: "when pods have different port set",
 			args: []string{"./rpaasv2", "info", "-s", "my-service", "-i", "my-instance"},
 			client: &fake.FakeClient{

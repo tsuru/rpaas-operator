@@ -11,6 +11,7 @@ import (
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 )
 
 // NewScheme creates a scheme with Rpaas, Nginx and the default Kubernetes
@@ -21,6 +22,7 @@ func NewScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(nginxv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(metricsv1beta1.AddToScheme(scheme))
 	utilruntime.Must(extensionsv1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 	return scheme

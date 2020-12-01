@@ -16,9 +16,11 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
 
@@ -3437,6 +3439,7 @@ func newScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	metricsv1beta1.SchemeBuilder.AddToScheme(scheme)
 	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
 	return scheme
 }
@@ -3976,6 +3979,35 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		},
 	}
 
+	pod2Metrics := &metricsv1beta1.PodMetrics{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance4-6f86f957b7-fghij",
+			Namespace: instance4.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance4",
+			},
+			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
+			UID:               types.UID("pod2-123"),
+		},
+		Containers: []metricsv1beta1.ContainerMetrics{
+			{
+				Name: "nginx",
+				Usage: corev1.ResourceList{
+					"cpu":    resource.MustParse("100m"),
+					"memory": resource.MustParse("100Mi"),
+				},
+			},
+			{
+				Name: "my-sidecar",
+				Usage: corev1.ResourceList{
+					"cpu":    resource.MustParse("10m"),
+					"memory": resource.MustParse("10Mi"),
+				},
+			},
+		},
+	}
+
 	event1 := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pod2.Name + ".1",
@@ -4057,6 +4089,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		nginx3, nginx4,
 		service3, service4,
 		pod1, pod2,
+		pod2Metrics,
 		event1, event2, event3, event4,
 		s1,
 	}
@@ -4226,6 +4259,10 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 								Count:   int32(15),
 								Message: "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"instance4-6f86f957b7-fghij_rpaasv2-be-rjdev(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
 							},
+						},
+						Metrics: &clientTypes.PodMetrics{
+							CPU:    "110m",
+							Memory: "110Mi",
 						},
 					},
 				},

@@ -36,6 +36,7 @@ require (
 	k8s.io/apimachinery v0.19.2
 	k8s.io/client-go v0.19.2
 	k8s.io/kubectl v0.19.2
+	k8s.io/metrics v0.19.2
 	sigs.k8s.io/controller-runtime v0.6.2
 	sigs.k8s.io/go-open-service-broker-client/v2 v2.0.0-20200925085050-ae25e62aaf10
 )

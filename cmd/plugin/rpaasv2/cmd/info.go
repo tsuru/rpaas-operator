@@ -17,6 +17,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/duration"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -121,6 +122,7 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 
 	portSet := map[string][]clientTypes.PodPort{}
 	var data [][]string
+	hasMetrics := false
 	for _, pod := range pods {
 		var ports []string
 		for _, p := range pod.Ports {
@@ -129,6 +131,10 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 		sort.Strings(ports)
 		acc := strings.Join(ports, " ")
 		portSet[acc] = pod.Ports
+
+		if pod.Metrics != nil {
+			hasMetrics = true
+		}
 	}
 
 	differentPorts := len(portSet) > 1
@@ -140,6 +146,18 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 			unifiedStatus(pod.Status, pod.Ready),
 			fmt.Sprintf("%d", pod.Restarts),
 			translateTimestampSince(pod.CreatedAt.In(time.UTC)),
+		}
+
+		if hasMetrics {
+			if pod.Metrics != nil {
+				row = append(
+					row,
+					cpuValue(pod.Metrics.CPU),
+					memoryValue(pod.Metrics.Memory),
+				)
+			} else {
+				row = append(row, "", "")
+			}
 		}
 
 		if differentPorts {
@@ -156,6 +174,9 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 	var buffer bytes.Buffer
 	table := tablewriter.NewWriter(&buffer)
 	header := []string{"Name", "Host", "Status", "Restarts", "Age"}
+	if hasMetrics {
+		header = append(header, "CPU", "Memory")
+	}
 	if differentPorts {
 		header = append(header, "Ports")
 	}
@@ -174,6 +195,26 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 	}
 
 	return buffer.String()
+}
+
+func cpuValue(q string) string {
+	var cpu string
+	qt, err := resource.ParseQuantity(q)
+	if err == nil {
+		cpu = fmt.Sprintf("%d%%", qt.MilliValue()/10)
+	}
+
+	return cpu
+}
+
+func memoryValue(q string) string {
+	var memory string
+	qt, err := resource.ParseQuantity(q)
+	if err == nil {
+		memory = fmt.Sprintf("%vMi", qt.Value()/(1024*1024))
+
+	}
+	return memory
 }
 
 func writePortsTable(w io.Writer, ports []clientTypes.PodPort) {
