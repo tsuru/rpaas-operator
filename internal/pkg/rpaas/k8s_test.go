@@ -3040,6 +3040,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 							"rpaas_instance":                          "r1",
 						},
 					},
+					RolloutNginxOnce: true,
 				},
 			},
 		},
