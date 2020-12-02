@@ -5,11 +5,21 @@
 package v1alpha1
 
 const (
-	teamOwnerLabel = "rpaas.extensions.tsuru.io/team-owner"
+	teamOwnerLabel   = "rpaas.extensions.tsuru.io/team-owner"
+	clusterNameLabel = "rpaas.extensions.tsuru.io/cluster-name"
 )
 
 func (i *RpaasInstance) SetTeamOwner(team string) {
 	newLabels := map[string]string{teamOwnerLabel: team}
+	i.appendNewLabels(newLabels)
+}
+
+func (i *RpaasInstance) SetClusterName(clusterName string) {
+	newLabels := map[string]string{clusterNameLabel: clusterName}
+	i.appendNewLabels(newLabels)
+}
+
+func (i *RpaasInstance) appendNewLabels(newLabels map[string]string) {
 	i.Labels = mergeMap(i.Labels, newLabels)
 	i.Annotations = mergeMap(i.Annotations, newLabels)
 	i.Spec.PodTemplate.Labels = mergeMap(i.Spec.PodTemplate.Labels, newLabels)

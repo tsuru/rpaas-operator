@@ -2895,6 +2895,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		expected      v1alpha1.RpaasInstance
 		expectedError string
 		extraConfig   config.RpaasConfig
+		clusterName   string // to simulate a multi-cluster environment
 	}{
 		{
 			name:          "without name",
@@ -2984,6 +2985,61 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						},
 					},
 					RolloutNginxOnce: true,
+				},
+			},
+		},
+		{
+			name:        "multi-cluster",
+			args:        CreateArgs{Name: "r1", Team: "t1"},
+			clusterName: "cluster-01",
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description":  "",
+						"rpaas.extensions.tsuru.io/tags":         "",
+						"rpaas.extensions.tsuru.io/team-owner":   "t1",
+						"rpaas.extensions.tsuru.io/cluster-name": "cluster-01",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas.extensions.tsuru.io/cluster-name":  "cluster-01",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas.extensions.tsuru.io/cluster-name":  "cluster-01",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas.extensions.tsuru.io/cluster-name":  "cluster-01",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
 				},
 			},
 		},
@@ -3247,7 +3303,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			config.Set(baseConfig)
 			defer config.Set(config.RpaasConfig{})
 			scheme := newScheme()
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...), clusterName: tt.clusterName}
 			err := manager.CreateInstance(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)

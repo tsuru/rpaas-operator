@@ -241,6 +241,9 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 
 	setDescription(instance, args.Description)
 	instance.SetTeamOwner(args.Team)
+	if m.clusterName != "" {
+		instance.SetClusterName(m.clusterName)
+	}
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 	setLoadBalancerName(instance, args.LoadBalancerName())
@@ -275,6 +278,9 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 
 	setDescription(instance, args.Description)
 	instance.SetTeamOwner(args.Team)
+	if m.clusterName != "" {
+		instance.SetClusterName(m.clusterName)
+	}
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 	setLoadBalancerName(instance, args.LoadBalancerName())
