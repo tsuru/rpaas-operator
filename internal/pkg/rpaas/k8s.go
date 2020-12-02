@@ -236,6 +236,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 			Annotations: instance.Annotations,
 			Labels:      instance.Labels,
 		},
+		RolloutNginxOnce: true,
 	}
 
 	setDescription(instance, args.Description)
@@ -282,7 +283,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 		return err
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, error) {
@@ -339,7 +340,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 		TargetMemoryUtilizationPercentage: autoscale.Memory,
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
@@ -376,7 +377,7 @@ func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName stri
 		return err
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName string) error {
@@ -387,7 +388,7 @@ func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName stri
 
 	instance.Spec.Autoscale = nil
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func validateAutoscale(ctx context.Context, s *clientTypes.Autoscale) error {
@@ -422,7 +423,7 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 	}
 
 	delete(instance.Spec.Blocks, blockType)
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) ([]ConfigurationBlock, error) {
@@ -465,7 +466,7 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 
 	instance.Spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replicas int32) error {
@@ -477,7 +478,7 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
 	}
 	instance.Spec.Replicas = &replicas
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error) {
@@ -577,7 +578,7 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		instance.Spec.Certificates = nil
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
@@ -650,7 +651,7 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		})
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {
@@ -816,7 +817,7 @@ func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName str
 		instance.Spec.ExtraFiles.Files[key] = file.Name
 	}
 	instance.Spec.ExtraFiles.Name = newExtraFiles.Name
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error {
@@ -841,7 +842,7 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 	}
 	if len(newData) == 0 {
 		instance.Spec.ExtraFiles = nil
-		return m.cli.Update(ctx, instance)
+		return m.updateInstance(ctx, instance)
 	}
 	extraFiles, err = m.createExtraFiles(ctx, *instance, newData)
 	if err != nil && k8sErrors.IsAlreadyExists(err) {
@@ -855,7 +856,7 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 		delete(instance.Spec.ExtraFiles.Files, key)
 	}
 	instance.Spec.ExtraFiles.Name = extraFiles.Name
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string) ([]File, error) {
@@ -908,7 +909,7 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 		return err
 	}
 	instance.Spec.ExtraFiles.Name = extraFiles.Name
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args BindAppArgs) error {
@@ -934,7 +935,7 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 
 	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: args.AppHost, Name: args.AppName})
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName string) error {
@@ -962,7 +963,7 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName s
 		return &NotFoundError{Msg: "app not found in instance bind list"}
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error) {
@@ -999,7 +1000,7 @@ func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path st
 	}
 
 	instance.Spec.Locations = append(instance.Spec.Locations[:index], instance.Spec.Locations[index+1:]...)
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {
@@ -1062,7 +1063,7 @@ func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, 
 		instance.Spec.Locations = append(instance.Spec.Locations, newLocation)
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.updateInstance(ctx, instance)
 }
 
 func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found bool) {
@@ -2008,6 +2009,11 @@ func (m *k8sRpaasManager) getErrorsForPod(ctx context.Context, pod *corev1.Pod) 
 	})
 
 	return errors, nil
+}
+
+func (m *k8sRpaasManager) updateInstance(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	instance.Spec.RolloutNginxOnce = true
+	return m.cli.Update(ctx, instance)
 }
 
 func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
