@@ -8,6 +8,26 @@ resources:
 - bases/extensions.tsuru.io_rpaasportallocations.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
+# Remove certificates due to https://github.com/kubernetes/kubernetes/pull/76124
+# which is only available on kubernetes 1.16+.
+patches:
+- target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: .*rpaasinstances.*
+  patch: |-
+    - op: remove
+      path: /spec/validation/openAPIV3Schema/properties/spec/properties/certificates
+- target:
+    group: apiextensions.k8s.io
+    version: v1beta1
+    kind: CustomResourceDefinition
+    name: .*flavors.*
+  patch: |-
+    - op: remove
+      path: /spec/validation/openAPIV3Schema/properties/spec/properties/instanceTemplate/properties/certificates
+
 patchesStrategicMerge:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
 # patches here are for enabling the conversion webhook for each CRD
