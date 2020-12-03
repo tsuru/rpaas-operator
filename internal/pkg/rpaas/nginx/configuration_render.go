@@ -7,15 +7,17 @@ package nginx
 import (
 	"bytes"
 	"fmt"
+	"regexp"
 	"strconv"
 	"strings"
 	"text/template"
 
-	"k8s.io/apimachinery/pkg/api/resource"
-
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/util"
+	"k8s.io/apimachinery/pkg/api/resource"
 )
+
+var trimTrailingSpacesRegex = regexp.MustCompile(`[ \t]+?\n`)
 
 type ConfigurationRenderer interface {
 	Render(ConfigurationData) (string, error)
@@ -42,7 +44,11 @@ type rpaasConfigurationRenderer struct {
 func (r *rpaasConfigurationRenderer) Render(c ConfigurationData) (string, error) {
 	buffer := &bytes.Buffer{}
 	err := r.t.Execute(buffer, c)
-	return buffer.String(), err
+	if err != nil {
+		return "", err
+	}
+	result := buffer.String()
+	return trimTrailingSpacesRegex.ReplaceAllString(result, "\n"), nil
 }
 
 func NewConfigurationRenderer(cb ConfigurationBlocks) (ConfigurationRenderer, error) {
@@ -237,7 +243,7 @@ worker_processes {{ . }};
 
 include modules/*.conf;
 
-{{- template "root" . }}
+{{ template "root" . }}
 
 events {
     {{- with $config.WorkerConnections }}
@@ -331,7 +337,7 @@ http {
     {{- end }}
 
     init_by_lua_block {
-        {{- template "lua-server" . }}
+        {{ template "lua-server" . }}
     }
 
     init_worker_by_lua_block {
@@ -346,10 +352,10 @@ http {
         {{- end }}
         {{- end }}
 
-        {{- template "lua-worker" . }}
+        {{ template "lua-worker" . }}
     }
 
-    {{- template "http" . }}
+    {{ template "http" . }}
 
     server {
         listen {{ managePort $instance }};
@@ -443,7 +449,7 @@ http {
         {{- end}}
         {{- end}}
 
-        {{- template "server" .}}
+        {{ template "server" .}}
     }
 }
 `

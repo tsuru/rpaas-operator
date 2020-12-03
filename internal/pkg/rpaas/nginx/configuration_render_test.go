@@ -40,17 +40,17 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `error_log  /dev/stderr;`, result)
 				assert.Regexp(t, `server {\n\s+listen 8800;\n\s+}\n+`, result)
 				assert.Regexp(t, `server {
-\s+listen 8080 default_server;\n+
-\s+location = /_nginx_healthcheck {\n+
-\s+access_log off;\n+
-\s+default_type "text/plain";
-\s+return 200 "WORKING\\n";
-\s+}
-\s+location / {
-\s+default_type "text/plain";
-\s+return 404 "instance not bound\\n";
-\s+}
-\s+}\n+`, result)
+[ ]+listen 8080 default_server;\n+
+[ ]+location = /_nginx_healthcheck {\n+
+[ ]+access_log off;\n+
+[ ]+default_type "text/plain";
+[ ]+return 200 "WORKING\\n";
+[ ]+}
+[ ]+location / {
+[ ]+default_type "text/plain";
+[ ]+return 404 "instance not bound\\n";
+[ ]+}\n+
+[ ]+}`, result)
 			},
 		},
 		{
@@ -250,11 +250,11 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `# some custom conf at root context`, result)
-				assert.Regexp(t, `# some custom conf at http context`, result)
-				assert.Regexp(t, `# some custom conf at server context`, result)
-				assert.Regexp(t, `# some custom conf at init_by_lua_block context`, result)
-				assert.Regexp(t, `# some custom conf at init_worker_by_lua_block context`, result)
+				assert.Regexp(t, `\s# some custom conf at root context`, result)
+				assert.Regexp(t, `\s# some custom conf at http context`, result)
+				assert.Regexp(t, `\s# some custom conf at server context`, result)
+				assert.Regexp(t, `\s# some custom conf at init_by_lua_block context`, result)
+				assert.Regexp(t, `\s# some custom conf at init_worker_by_lua_block context`, result)
 			},
 		},
 		{
