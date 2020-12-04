@@ -17,7 +17,23 @@ import (
 
 var _ Factory = &multiClusterFactory{}
 
-var ErrNoClusterProvided = &rpaas.ValidationError{Msg: "No cluster address provided"}
+type missingParamsError struct {
+	Msg           string   `json:"msg"`
+	MissingParams []string `json:"missing_params"`
+}
+
+func (e *missingParamsError) Error() string {
+	return e.Msg
+}
+
+func (e *missingParamsError) IsValidation() bool {
+	return true
+}
+
+var ErrNoClusterProvided = &missingParamsError{
+	Msg:           "No cluster address provided",
+	MissingParams: []string{"cluster"},
+}
 
 type multiClusterFactory struct {
 	tokens        sync.Map
