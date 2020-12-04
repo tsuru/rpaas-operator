@@ -33,8 +33,9 @@ type ConfigurationBlocks struct {
 }
 
 type ConfigurationData struct {
-	Config   *v1alpha1.NginxConfig
-	Instance *v1alpha1.RpaasInstance
+	Config        *v1alpha1.NginxConfig
+	Instance      *v1alpha1.RpaasInstance
+	LoadedModules []string
 }
 
 type rpaasConfigurationRenderer struct {

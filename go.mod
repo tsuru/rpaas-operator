@@ -12,10 +12,12 @@ require (
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/google/gops v0.3.12
 	github.com/gorilla/websocket v1.4.2
+	github.com/heroku/docker-registry-client v0.0.0-20190909225348-afc9e1acc3d5
 	github.com/imdario/mergo v0.3.11
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/mitchellh/mapstructure v1.1.2
 	github.com/olekukonko/tablewriter v0.0.4
+	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/opentracing-contrib/go-stdlib v1.0.0
 	github.com/opentracing/opentracing-go v1.2.0
 	github.com/pkg/errors v0.9.1

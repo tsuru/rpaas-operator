@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/tsuru/rpaas-operator/controllers"
+	"github.com/tsuru/rpaas-operator/internal/registry"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -87,6 +88,7 @@ func main() {
 		RolloutNginxEnabled: opts.enableRollout,
 		PortRangeMin:        int32(opts.portRangeMin),
 		PortRangeMax:        int32(opts.portRangeMax),
+		ImageMetadata:       registry.NewImageMetadata(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")
 		os.Exit(1)

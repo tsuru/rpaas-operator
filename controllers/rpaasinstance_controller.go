@@ -15,6 +15,7 @@ import (
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/internal/registry"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -34,6 +35,7 @@ type RpaasInstanceReconciler struct {
 	RolloutNginxEnabled bool
 	PortRangeMin        int32
 	PortRangeMax        int32
+	ImageMetadata       registry.ImageMetadata
 }
 
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;create;update;patch;delete
