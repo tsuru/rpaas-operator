@@ -1961,6 +1961,12 @@ func Test_nameForCronJob(t *testing.T) {
 	}
 }
 
+type fakeImageMetadata struct{}
+
+func (i *fakeImageMetadata) Modules(img string) ([]string, error) {
+	return []string{"mod1"}, nil
+}
+
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
 	scheme := extensionsruntime.NewScheme()
 	return &RpaasInstanceReconciler{
@@ -1968,5 +1974,6 @@ func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler
 		Log:                 ctrl.Log,
 		Scheme:              scheme,
 		RolloutNginxEnabled: true,
+		ImageMetadata:       &fakeImageMetadata{},
 	}
 }

@@ -4,8 +4,10 @@ go 1.13
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.0 // indirect
+	github.com/Masterminds/sprig/v3 v3.1.0
 	github.com/ajg/form v1.5.1
 	github.com/davecgh/go-spew v1.1.1
+	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/globocom/echo-prometheus v0.1.2
 	github.com/go-logr/logr v0.2.1
@@ -13,6 +15,7 @@ require (
 	github.com/google/gops v0.3.12
 	github.com/gorilla/websocket v1.4.2
 	github.com/heroku/docker-registry-client v0.0.0-20190909225348-afc9e1acc3d5
+	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11
 	github.com/labstack/echo/v4 v4.1.17
 	github.com/mitchellh/mapstructure v1.1.2

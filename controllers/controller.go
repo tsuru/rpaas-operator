@@ -819,11 +819,17 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
-	return cr.Render(nginx.ConfigurationData{
-		Instance:      instance,
-		Config:        &plan.Spec.Config,
-		LoadedModules: modules,
-	})
+	config := nginx.ConfigurationData{
+		Instance: instance,
+		Config:   &plan.Spec.Config,
+		Modules:  make(map[string]interface{}),
+	}
+
+	for _, mod := range modules {
+		config.Modules[mod] = nil
+	}
+
+	return cr.Render(config)
 }
 
 func (r *RpaasInstanceReconciler) getConfigurationBlocks(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {

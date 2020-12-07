@@ -5,6 +5,7 @@
 package registry
 
 import (
+	"crypto/tls"
 	"encoding/json"
 	"net/http"
 	"strings"
@@ -22,18 +23,21 @@ type ImageMetadata interface {
 }
 
 type imageMetadataRetriever struct {
-	mu          sync.Mutex
-	labelsCache map[string]map[string]string
+	mu            sync.Mutex
+	labelsCache   map[string]map[string]string
+	registryCache map[string]*registry.Registry
+	insecure      bool
 }
 
 func NewImageMetadata() *imageMetadataRetriever {
 	return &imageMetadataRetriever{
-		labelsCache: map[string]map[string]string{},
+		labelsCache:   map[string]map[string]string{},
+		registryCache: map[string]*registry.Registry{},
 	}
 }
 
 func (r *imageMetadataRetriever) Modules(image string) ([]string, error) {
-	labels, err := r.getLabels(image)
+	labels, err := r.cachedLabels(image)
 	if err != nil {
 		return nil, err
 	}
@@ -47,7 +51,7 @@ func (r *imageMetadataRetriever) Modules(image string) ([]string, error) {
 	return strings.Split(labels[modulesLabel], ","), nil
 }
 
-func (r *imageMetadataRetriever) getLabels(image string) (map[string]string, error) {
+func (r *imageMetadataRetriever) cachedLabels(image string) (map[string]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
@@ -55,7 +59,7 @@ func (r *imageMetadataRetriever) getLabels(image string) (map[string]string, err
 		return r.labelsCache[image], nil
 	}
 
-	labels, err := getImageLabels(image)
+	labels, err := r.imageLabels(image)
 	if err != nil {
 		return nil, err
 	}
@@ -64,7 +68,7 @@ func (r *imageMetadataRetriever) getLabels(image string) (map[string]string, err
 	return labels, nil
 }
 
-func getImageLabels(image string) (map[string]string, error) {
+func (r *imageMetadataRetriever) imageLabels(image string) (map[string]string, error) {
 	type historyEntry struct {
 		Config struct {
 			Labels map[string]string
@@ -72,7 +76,7 @@ func getImageLabels(image string) (map[string]string, error) {
 	}
 
 	parts := parseImage(image)
-	hub := newRegistry(parts.registry)
+	hub := r.registry(parts.registry)
 	manifest, err := hub.Manifest(parts.image, parts.tag)
 	if err != nil {
 		return nil, err
@@ -89,6 +93,31 @@ func getImageLabels(image string) (map[string]string, error) {
 		return nil, nil
 	}
 	return entry.Config.Labels, nil
+}
+
+func (r *imageMetadataRetriever) registry(registryHost string) *registry.Registry {
+	if reg := r.registryCache[registryHost]; reg != nil {
+		return reg
+	}
+	url := "https://" + registryHost
+	transport := http.DefaultTransport
+	if r.insecure {
+		newTransport := http.DefaultTransport.(*http.Transport).Clone()
+		newTransport.TLSClientConfig = &tls.Config{
+			InsecureSkipVerify: true,
+		}
+		transport = newTransport
+	}
+	reg := &registry.Registry{
+		URL: url,
+		Client: &http.Client{
+			Transport: registry.WrapTransport(transport, url, "", ""),
+			Timeout:   30 * time.Second,
+		},
+		Logf: registry.Quiet,
+	}
+	r.registryCache[registryHost] = reg
+	return reg
 }
 
 type dockerImage struct {
@@ -123,16 +152,4 @@ func parseImage(imageName string) dockerImage {
 		img.tag = parts[1]
 	}
 	return img
-}
-
-func newRegistry(registryHost string) *registry.Registry {
-	url := "https://" + registryHost
-	return &registry.Registry{
-		URL: url,
-		Client: &http.Client{
-			Transport: registry.WrapTransport(http.DefaultTransport, url, "", ""),
-			Timeout:   30 * time.Second,
-		},
-		Logf: registry.Quiet,
-	}
 }
