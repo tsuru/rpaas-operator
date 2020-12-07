@@ -36,6 +36,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.NotRegexp(t, `user(.+);`, result)
 				assert.NotRegexp(t, `worker_processes(.+);`, result)
 				assert.NotRegexp(t, `worker_connections(.+);`, result)
+				assert.Regexp(t, `include modules/\*\.conf;`, result)
 				assert.Regexp(t, `access_log /dev/stdout combined;`, result)
 				assert.Regexp(t, `error_log  /dev/stderr;`, result)
 				assert.Regexp(t, `server {\n\s+listen 8800;\n\s+}\n+`, result)
@@ -512,6 +513,19 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+\}\)
 \s+rpaasv2_session_ticket_reloader:start_worker\(\)
 \s+\}`, result)
+			},
+		},
+		{
+			name: "with custom modules",
+			data: ConfigurationData{
+				Config:   &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{},
+				Modules:  map[string]interface{}{"mod1": nil, "mod2": nil},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.NotRegexp(t, `include modules/\*\.conf;`, result)
+				assert.Regexp(t, `load_module "modules/mod1.so";`, result)
+				assert.Regexp(t, `load_module "modules/mod2.so";`, result)
 			},
 		},
 	}
