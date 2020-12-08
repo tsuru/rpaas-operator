@@ -7,6 +7,7 @@ package registry
 import (
 	"crypto/tls"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 	"sync"
@@ -59,25 +60,27 @@ func (r *imageMetadataRetriever) cachedLabels(image string) (map[string]string, 
 		return r.labelsCache[image], nil
 	}
 
-	labels, err := r.imageLabels(image)
+	parts := parseImage(image)
+	labels, err := r.imageLabels(parts)
 	if err != nil {
 		return nil, err
 	}
-	r.labelsCache[image] = labels
+	if !parts.isLatest() {
+		r.labelsCache[image] = labels
+	}
 
 	return labels, nil
 }
 
-func (r *imageMetadataRetriever) imageLabels(image string) (map[string]string, error) {
+func (r *imageMetadataRetriever) imageLabels(image dockerImage) (map[string]string, error) {
 	type historyEntry struct {
 		Config struct {
 			Labels map[string]string
 		}
 	}
 
-	parts := parseImage(image)
-	hub := r.registry(parts.registry)
-	manifest, err := hub.Manifest(parts.image, parts.tag)
+	hub := r.registry(image.registry)
+	manifest, err := hub.Manifest(image.image, image.tag)
 	if err != nil {
 		return nil, err
 	}
@@ -126,9 +129,18 @@ type dockerImage struct {
 	tag      string
 }
 
+func (i dockerImage) isLatest() bool {
+	return i.tag == "latest" || i.tag == "edge"
+}
+
+func (i dockerImage) String() string {
+	return fmt.Sprintf("%s/%s:%s", i.registry, i.image, i.tag)
+}
+
 func parseImage(imageName string) dockerImage {
 	img := dockerImage{
 		registry: "registry-1.docker.io",
+		tag:      "latest",
 	}
 
 	parts := strings.SplitN(imageName, "/", 3)
