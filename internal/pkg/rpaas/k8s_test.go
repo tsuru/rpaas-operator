@@ -1932,8 +1932,14 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 	instance2.Name = "another-instance"
 	instance2.Spec.Binds = []v1alpha1.Bind{{Host: "app2.tsuru.example.com"}}
 
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "clustered-instance"
+	instance3.ObjectMeta.Labels = map[string]string{
+		"rpaas.extensions.tsuru.io/cluster-name": "cluster-01",
+	}
+
 	scheme := newScheme()
-	resources := []runtime.Object{instance1, instance2}
+	resources := []runtime.Object{instance1, instance2, instance3}
 
 	tests := []struct {
 		name      string
@@ -1951,12 +1957,12 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			},
 		},
 		{
-			name:     "when AppHost field is not defined",
+			name:     "when AppHosts field is not defined",
 			instance: "my-instance",
 			args:     BindAppArgs{},
 			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
-				expected := &ValidationError{Msg: "application host cannot be empty"}
+				expected := &ValidationError{Msg: "application hosts cannot be empty"}
 				assert.Equal(t, expected, err)
 			},
 		},
@@ -1964,7 +1970,9 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			name:     "when instance successfully bound with an application",
 			instance: "my-instance",
 			args: BindAppArgs{
-				AppHost: "app1.tsuru.example.com",
+				AppHosts: []string{
+					"app1.tsuru.example.com",
+				},
 			},
 			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
@@ -1975,7 +1983,9 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			name:     "when instance already bound with another application",
 			instance: "another-instance",
 			args: BindAppArgs{
-				AppHost: "app1.tsuru.example.com",
+				AppHosts: []string{
+					"app1.tsuru.example.com",
+				},
 			},
 			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
@@ -1989,11 +1999,87 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			name:     "when instance already bound with the application",
 			instance: "another-instance",
 			args: BindAppArgs{
-				AppHost: "app2.tsuru.example.com",
+				AppHosts: []string{
+					"app2.tsuru.example.com",
+				},
 			},
 			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				expected := &ConflictError{Msg: "instance already bound with this application"}
+				assert.Equal(t, expected, err)
+			},
+		},
+
+		{
+			name:     "when clustered application bound in same cluster",
+			instance: "clustered-instance",
+			args: BindAppArgs{
+				AppHosts: []string{
+					"app2.tsuru.example.com",
+				},
+				AppInternalHosts: []string{
+					"tcp://app2.example.cluster.svc.local:8888",
+				},
+				AppClusterName: "cluster-01",
+			},
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				app1 := ri.Spec.Binds[0]
+				assert.Equal(t, "app2.example.cluster.svc.local:8888", app1.Host)
+			},
+		},
+
+		{
+			name:     "when clustered application bound from other cluster",
+			instance: "clustered-instance",
+			args: BindAppArgs{
+				AppHosts: []string{
+					"app2.tsuru.example.com",
+				},
+				AppInternalHosts: []string{
+					"tcp://app2.example.cluster.svc.local:8888",
+				},
+				AppClusterName: "cluster-02",
+			},
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				app1 := ri.Spec.Binds[0]
+				assert.Equal(t, "app2.tsuru.example.com", app1.Host)
+			},
+		},
+
+		{
+			name:     "when clustered application bound with no internal addresses",
+			instance: "clustered-instance",
+			args: BindAppArgs{
+				AppHosts: []string{
+					"app2.tsuru.example.com",
+				},
+				AppInternalHosts: []string{},
+				AppClusterName:   "cluster-01",
+			},
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &ValidationError{Msg: "application internal hosts cannot be empty"}
+				assert.Equal(t, expected, err)
+			},
+		},
+
+		{
+			name:     "when clustered application bound with udp service",
+			instance: "clustered-instance",
+			args: BindAppArgs{
+				AppHosts: []string{
+					"app2.tsuru.example.com",
+				},
+				AppInternalHosts: []string{
+					"udp://app2.example.svc.cluster.local:4000",
+				},
+				AppClusterName: "cluster-01",
+			},
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &ValidationError{Msg: "Unsupported host: \"udp://app2.example.svc.cluster.local:4000\""}
 				assert.Equal(t, expected, err)
 			},
 		},

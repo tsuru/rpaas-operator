@@ -141,10 +141,12 @@ type PodStatus struct {
 }
 
 type BindAppArgs struct {
-	AppName string `form:"app-name"`
-	AppHost string `form:"app-host"`
-	User    string `form:"user"`
-	EventID string `form:"eventid"`
+	AppName          string   `form:"app-name"`
+	AppHosts         []string `form:"app-hosts"`
+	AppInternalHosts []string `form:"app-internal-hosts"`
+	AppClusterName   string   `form:"app-cluster-name"`
+	User             string   `form:"user"`
+	EventID          string   `form:"eventid"`
 }
 
 type CacheManager interface {

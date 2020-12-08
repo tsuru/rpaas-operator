@@ -8,6 +8,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_SetTeamOwner(t *testing.T) {
@@ -32,4 +33,24 @@ func Test_GetTeamOwner(t *testing.T) {
 	instance.SetTeamOwner("team-one")
 	owner = instance.TeamOwner()
 	assert.Equal(t, "team-one", owner)
+}
+
+func Test_BelongsToCluster(t *testing.T) {
+	instance := &RpaasInstance{}
+	belongs := instance.BelongsToCluster("cluster01")
+	assert.Equal(t, false, belongs)
+
+	instance = &RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Labels: map[string]string{
+				clusterNameLabel: "cluster01",
+			},
+		},
+	}
+
+	belongs = instance.BelongsToCluster("cluster02")
+	assert.Equal(t, false, belongs)
+
+	belongs = instance.BelongsToCluster("cluster01")
+	assert.Equal(t, true, belongs)
 }

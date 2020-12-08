@@ -385,14 +385,40 @@ func Test_serviceBindApp(t *testing.T) {
 		},
 		{
 			name:         "when bind with application is successful",
-			requestBody:  "app-host=app1.tsuru.example.com&app-name=app1&user=admin@tsuru.example.com&eventid=123456",
+			requestBody:  "app-hosts=app1.tsuru.example.com&app-name=app1&user=admin@tsuru.example.com&eventid=123456",
 			expectedCode: http.StatusCreated,
 			manager: &fake.RpaasManager{
 				FakeBindApp: func(instanceName string, args rpaas.BindAppArgs) error {
 					assert.Equal(t, "my-instance", instanceName)
 					expected := rpaas.BindAppArgs{
 						AppName: "app1",
-						AppHost: "app1.tsuru.example.com",
+						AppHosts: []string{
+							"app1.tsuru.example.com",
+						},
+						User:    "admin@tsuru.example.com",
+						EventID: "123456",
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "when bind with application with same cluster",
+			requestBody:  "app-internal-hosts=tcp%3A%2F%2Fapp1.example.cluster.svc.local:8888&app-internal-hosts=tcp%3A%2F%2Fapp1.example.cluster.svc.local:8001&app-hosts=app1.tsuru.example.com&app-name=app1&user=admin@tsuru.example.com&eventid=123456",
+			expectedCode: http.StatusCreated,
+			manager: &fake.RpaasManager{
+				FakeBindApp: func(instanceName string, args rpaas.BindAppArgs) error {
+					assert.Equal(t, "my-instance", instanceName)
+					expected := rpaas.BindAppArgs{
+						AppName: "app1",
+						AppHosts: []string{
+							"app1.tsuru.example.com",
+						},
+						AppInternalHosts: []string{
+							"tcp://app1.example.cluster.svc.local:8888",
+							"tcp://app1.example.cluster.svc.local:8001",
+						},
 						User:    "admin@tsuru.example.com",
 						EventID: "123456",
 					}

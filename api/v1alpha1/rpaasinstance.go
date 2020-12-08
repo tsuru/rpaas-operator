@@ -19,6 +19,16 @@ func (i *RpaasInstance) SetClusterName(clusterName string) {
 	i.appendNewLabels(newLabels)
 }
 
+func (i *RpaasInstance) BelongsToCluster(clusterName string) bool {
+	instanceCluster := i.Labels[clusterNameLabel]
+
+	if instanceCluster == "" {
+		return false
+	}
+
+	return clusterName == instanceCluster
+}
+
 func (i *RpaasInstance) appendNewLabels(newLabels map[string]string) {
 	i.Labels = mergeMap(i.Labels, newLabels)
 	i.Annotations = mergeMap(i.Annotations, newLabels)

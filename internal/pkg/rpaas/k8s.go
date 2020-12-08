@@ -924,13 +924,36 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 		return err
 	}
 
-	if args.AppHost == "" {
-		return &ValidationError{Msg: "application host cannot be empty"}
+	var host string
+	if args.AppClusterName != "" && instance.BelongsToCluster(args.AppClusterName) {
+		if len(args.AppInternalHosts) == 0 {
+			return &ValidationError{Msg: "application internal hosts cannot be empty"}
+		}
+
+		host = args.AppInternalHosts[0]
+	} else {
+		if len(args.AppHosts) == 0 {
+			return &ValidationError{Msg: "application hosts cannot be empty"}
+		}
+
+		host = args.AppHosts[0]
+	}
+
+	u, err := url.Parse(host)
+	if err != nil {
+		return err
+	}
+	if u.Scheme == "tcp" {
+		host = u.Host
+	}
+
+	if u.Scheme == "udp" {
+		return &ValidationError{Msg: fmt.Sprintf("Unsupported host: %q", host)}
 	}
 
 	if len(instance.Spec.Binds) > 0 {
 		for _, value := range instance.Spec.Binds {
-			if value.Host == args.AppHost {
+			if value.Host == host {
 				return &ConflictError{Msg: "instance already bound with this application"}
 			}
 		}
@@ -939,7 +962,7 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 		instance.Spec.Binds = make([]v1alpha1.Bind, 0)
 	}
 
-	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: args.AppHost, Name: args.AppName})
+	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: host, Name: args.AppName})
 
 	return m.updateInstance(ctx, instance)
 }
