@@ -765,8 +765,8 @@ github.com/tommy-muehle/go-mnd v1.3.1-0.20200224220436-e6f9a994e8fa h1:RC4maTWLK
 github.com/tommy-muehle/go-mnd v1.3.1-0.20200224220436-e6f9a994e8fa/go.mod h1:dSUh0FtTP8VhvkL1S+gUR1OKd9ZnSaozuI6r3m6wOig=
 github.com/tsuru/config v0.0.0-20200717192526-2a9a0efe5f28 h1:ZUM5bc/TSos0Vvts+klLmPBGWPp/n/WfF3lhrmn8u5g=
 github.com/tsuru/config v0.0.0-20200717192526-2a9a0efe5f28/go.mod h1:mj6t8JKWU51GScTT50XRmDj65T5XhTyNvO5FUNV5zS4=
-github.com/tsuru/nginx-operator v0.6.0 h1:ksHY3CXmlJHfPjbXXS9EM2th/ABmX4KE/p/a0IHK22o=
-github.com/tsuru/nginx-operator v0.6.0/go.mod h1:hOn1KtyfcYltDBeKKtzNhcfTiZa17VmBM9fmAE2n1Ek=
+github.com/tsuru/nginx-operator v0.6.3 h1:S1Jo4C7649emvP975SihPa03Uyc/dLzQwM4nAlxkbH4=
+github.com/tsuru/nginx-operator v0.6.3/go.mod h1:hOn1KtyfcYltDBeKKtzNhcfTiZa17VmBM9fmAE2n1Ek=
 github.com/uber/jaeger-client-go v2.25.0+incompatible h1:IxcNZ7WRY1Y3G4poYlx24szfsn/3LvK9QHCq9oQw8+U=
 github.com/uber/jaeger-client-go v2.25.0+incompatible/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
 github.com/uber/jaeger-lib v2.4.0+incompatible h1:fY7QsGQWiCt8pajv4r7JEvmATdCVaWxXbjwyYwsNaLQ=

@@ -103,3 +103,7 @@ KUSTOMIZE=$(GOBIN)/kustomize
 else
 KUSTOMIZE=$(shell which kustomize)
 endif
+
+build/plugin/rpaasv2:
+	@mkdir -p build/_output/bin/
+	go build -o build/_output/bin/rpaasv2 ./cmd/plugin/rpaasv2

@@ -16,6 +16,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	corev1 "k8s.io/api/core/v1"
@@ -145,6 +146,19 @@ func kubectl(arg ...string) ([]byte, error) {
 	return out, nil
 }
 
+func kubectlWithRetry(args ...string) ([]byte, error) {
+	timeout := time.Now().Add(time.Second * 30)
+	for {
+		out, err := kubectl(args...)
+
+		if err == nil || time.Now().After(timeout) {
+			return out, err
+		}
+
+		time.Sleep(time.Second)
+	}
+}
+
 type rpaasApi struct {
 	address string
 	client  *http.Client
@@ -239,7 +253,7 @@ func (api *rpaasApi) health() (bool, error) {
 }
 
 func (api *rpaasApi) bind(appName, instanceName, host string) error {
-	data := url.Values{"app-host": []string{host}, "app-name": []string{appName}}
+	data := url.Values{"app-hosts": []string{host}, "app-name": []string{appName}}
 	rsp, err := api.client.PostForm(fmt.Sprintf("%s/resources/%s/bind-app", api.address, instanceName), data)
 	if err != nil {
 		return err

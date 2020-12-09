@@ -1,27 +1,27 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: controller-manager
-  namespace: system
+  name: api
   labels:
-    control-plane: controller-manager
+    name: rpaas-api
 spec:
   selector:
     matchLabels:
-      control-plane: controller-manager
+      name: rpaas-api
   replicas: 1
   template:
     metadata:
       labels:
-        control-plane: controller-manager
+        name: rpaas-api
     spec:
       containers:
       - command:
-        - rpaas-operator
-        args:
-        - --enable-leader-election
-        image: tsuru/rpaas-operator:latest
-        name: manager
+        - rpaas-api
+        image: tsuru/rpaas-api:latest
+        name: rpaas-api
+        ports:
+          - name: api
+            containerPort: 9999
         resources:
           limits:
             cpu: 100m

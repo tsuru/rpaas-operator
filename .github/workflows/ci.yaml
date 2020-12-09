@@ -21,6 +21,32 @@ jobs:
         go-version: 1.13.x
     - run: make test
 
+  integration:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@master
+      - uses: engineerd/setup-kind@v0.5.0
+        with:
+          version: "v0.9.0"
+          image: 'kindest/node:v1.17.11'
+      - uses: actions/setup-go@v1
+        with:
+          go-version: 1.13.x
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/go/pkg/mod
+            ~/.cache/go-build
+          key: ${{ runner.os }}-goleak-${{ hashFiles('**/go.sum') }}-${{ github.run_id }}
+          restore-keys: |
+            ${{ runner.os }}-goleak-${{ hashFiles('**/go.sum') }}-
+            ${{ runner.os }}-goleak-
+      - name: Run integration tests
+        env:
+          GOPATH: /tmp/go
+        run: |
+          ./scripts/localkube-integration.sh
+
   rpaas-api-docker-image:
     name: "Publish rpaas-api image on dockerhub"
     needs:

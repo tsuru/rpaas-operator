@@ -223,7 +223,7 @@ func Test_RpaasApi(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "5m", "-n", namespaceName)
+		_, err = kubectlWithRetry("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "5m", "-n", namespaceName)
 		require.NoError(t, err)
 
 		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
@@ -293,10 +293,15 @@ func Test_RpaasApi(t *testing.T) {
 			require.NoError(t, err)
 		}()
 
-		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "5m", "-n", namespaceName)
-		require.NoError(t, err)
-		_, err = kubectl("wait", "--for=condition=Ready", "-l", "app=echo-server", "pod", "--timeout", "5m", "-n", namespaceName)
-		require.NoError(t, err)
+		podLabels := []string{"app=hello", "app=echo-server"}
+		for _, podLabel := range podLabels {
+			_, err = kubectlWithRetry("wait", "--for=condition=Ready", "-l", podLabel, "pod", "--timeout", "5m", "-n", namespaceName)
+			if !assert.NoError(t, err) {
+				troubleshoot, err := kubectl("get", "pods", "-l", podLabel, "-n", namespaceName)
+				assert.NoError(t, err)
+				t.Errorf("Current pods: %s", string(troubleshoot))
+			}
+		}
 
 		serviceName := fmt.Sprintf("svc/%s-service", instanceName)
 		servicePort := "80"
@@ -457,6 +462,8 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanFunc()
 
+		time.Sleep(time.Second)
+
 		configList, err := getConfigList(instanceName, namespaceName)
 		require.NoError(t, err)
 		assert.Equal(t, len(configList.Items), 1)
@@ -553,7 +560,7 @@ func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int) (*ngi
 			waitArgs = append(waitArgs, fmt.Sprintf("pod/%s", pod.Name))
 		}
 
-		if _, err = kubectl(waitArgs...); err == nil {
+		if _, err = kubectlWithRetry(waitArgs...); err == nil {
 			return nginx, nil
 		}
 	}
