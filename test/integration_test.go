@@ -297,8 +297,8 @@ func Test_RpaasApi(t *testing.T) {
 		for _, podLabel := range podLabels {
 			_, err = kubectlWithRetry("wait", "--for=condition=Ready", "-l", podLabel, "pod", "--timeout", "5m", "-n", namespaceName)
 			if !assert.NoError(t, err) {
-				troubleshoot, err := kubectl("get", "pods", "-l", podLabel, "-n", namespaceName)
-				assert.NoError(t, err)
+				troubleshoot, troubleshootErr := kubectl("get", "pods", "-l", podLabel, "-n", namespaceName)
+				assert.NoError(t, troubleshootErr)
 				t.Errorf("Current pods: %s", string(troubleshoot))
 			}
 		}

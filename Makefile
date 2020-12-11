@@ -107,3 +107,8 @@ endif
 build/plugin/rpaasv2:
 	@mkdir -p build/_output/bin/
 	go build -o build/_output/bin/rpaasv2 ./cmd/plugin/rpaasv2
+
+lint:
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
+	go install ./...
+	golangci-lint run --config ./.golangci.yml ./...
