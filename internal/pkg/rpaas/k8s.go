@@ -23,6 +23,7 @@ import (
 	"strings"
 	"time"
 
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -264,7 +265,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	if err != nil {
 		return err
 	}
-
+	originalInstance := instance.DeepCopy()
 	if args.Plan != "" && args.Plan != instance.Spec.PlanName {
 		plan, err := m.getPlan(ctx, args.Plan)
 		if err != nil {
@@ -289,7 +290,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 		return err
 	}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, error) {
@@ -328,6 +329,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 
 	err = validateAutoscale(ctx, autoscale)
 	if err != nil {
@@ -346,7 +348,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 		TargetMemoryUtilizationPercentage: autoscale.Memory,
 	}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
@@ -354,6 +356,7 @@ func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName stri
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 
 	s := instance.Spec.Autoscale
 	if s == nil {
@@ -383,7 +386,7 @@ func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName stri
 		return err
 	}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName string) error {
@@ -391,10 +394,11 @@ func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName stri
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 
 	instance.Spec.Autoscale = nil
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func validateAutoscale(ctx context.Context, s *clientTypes.Autoscale) error {
@@ -419,6 +423,8 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 		return err
 	}
 
+	originalInstance := instance.DeepCopy()
+
 	if instance.Spec.Blocks == nil {
 		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
 	}
@@ -429,7 +435,7 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 	}
 
 	delete(instance.Spec.Blocks, blockType)
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) ([]ConfigurationBlock, error) {
@@ -461,6 +467,8 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 		return err
 	}
 
+	originalInstance := instance.DeepCopy()
+
 	blockType := v1alpha1.BlockType(block.Name)
 	if !isBlockTypeAllowed(blockType) {
 		return ValidationError{Msg: fmt.Sprintf("block %q is not allowed", block.Name)}
@@ -472,7 +480,7 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 
 	instance.Spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replicas int32) error {
@@ -480,11 +488,12 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 	if replicas < 0 {
 		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
 	}
 	instance.Spec.Replicas = &replicas
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error) {
@@ -542,6 +551,8 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		return err
 	}
 
+	originalInstance := instance.DeepCopy()
+
 	if instance.Spec.Certificates == nil {
 		return &NotFoundError{Msg: fmt.Sprintf("no certificate bound to instance %q", instanceName)}
 	}
@@ -584,7 +595,7 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		instance.Spec.Certificates = nil
 	}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
@@ -592,6 +603,8 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 	if err != nil {
 		return err
 	}
+
+	originalInstance := instance.DeepCopy()
 
 	var oldSecret corev1.Secret
 	if instance.Spec.Certificates != nil && instance.Spec.Certificates.SecretName != "" {
@@ -657,7 +670,7 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		})
 	}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {
@@ -791,6 +804,7 @@ func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName str
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 	newData := map[string][]byte{}
 	oldExtraFiles, err := m.getExtraFiles(ctx, *instance)
 	if err != nil && !IsNotFoundError(err) {
@@ -823,7 +837,7 @@ func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName str
 		instance.Spec.ExtraFiles.Files[key] = file.Name
 	}
 	instance.Spec.ExtraFiles.Name = newExtraFiles.Name
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error {
@@ -831,6 +845,7 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 	extraFiles, err := m.getExtraFiles(ctx, *instance)
 	if err != nil {
 		return err
@@ -848,7 +863,7 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 	}
 	if len(newData) == 0 {
 		instance.Spec.ExtraFiles = nil
-		return m.updateInstance(ctx, instance)
+		return m.patchInstance(ctx, originalInstance, instance)
 	}
 	extraFiles, err = m.createExtraFiles(ctx, *instance, newData)
 	if err != nil && k8sErrors.IsAlreadyExists(err) {
@@ -862,7 +877,7 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 		delete(instance.Spec.ExtraFiles.Files, key)
 	}
 	instance.Spec.ExtraFiles.Name = extraFiles.Name
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string) ([]File, error) {
@@ -892,6 +907,7 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 	extraFiles, err := m.getExtraFiles(ctx, *instance)
 	if err != nil {
 		return err
@@ -915,7 +931,7 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 		return err
 	}
 	instance.Spec.ExtraFiles.Name = extraFiles.Name
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args BindAppArgs) error {
@@ -923,6 +939,8 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 	if err != nil {
 		return err
 	}
+
+	originalInstance := instance.DeepCopy()
 
 	var host string
 	if args.AppClusterName != "" && instance.BelongsToCluster(args.AppClusterName) {
@@ -964,7 +982,7 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 
 	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: host, Name: args.AppName})
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName string) error {
@@ -972,6 +990,8 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName s
 	if err != nil {
 		return err
 	}
+
+	originalInstance := instance.DeepCopy()
 
 	if appName == "" {
 		return &ValidationError{Msg: "must specify an app name"}
@@ -992,7 +1012,7 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName s
 		return &NotFoundError{Msg: "app not found in instance bind list"}
 	}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error) {
@@ -1023,13 +1043,15 @@ func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path st
 		return err
 	}
 
+	originalInstance := instance.DeepCopy()
+
 	index, found := hasPath(*instance, path)
 	if !found {
 		return &NotFoundError{Msg: "path does not exist"}
 	}
 
 	instance.Spec.Locations = append(instance.Spec.Locations[:index], instance.Spec.Locations[index+1:]...)
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {
@@ -1069,6 +1091,7 @@ func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, 
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 
 	if err = validateRoute(route); err != nil {
 		return err
@@ -1092,7 +1115,7 @@ func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, 
 		instance.Spec.Locations = append(instance.Spec.Locations, newLocation)
 	}
 
-	return m.updateInstance(ctx, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found bool) {
@@ -2040,9 +2063,24 @@ func (m *k8sRpaasManager) getErrorsForPod(ctx context.Context, pod *corev1.Pod) 
 	return errors, nil
 }
 
-func (m *k8sRpaasManager) updateInstance(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	instance.Spec.RolloutNginxOnce = true
-	return m.cli.Update(ctx, instance)
+func (m *k8sRpaasManager) patchInstance(ctx context.Context, originalInstance *v1alpha1.RpaasInstance, updatedInstance *v1alpha1.RpaasInstance) error {
+	updatedInstance.Spec.RolloutNginxOnce = true
+
+	originalData, err := json.Marshal(originalInstance)
+	if err != nil {
+		return err
+	}
+	updatedData, err := json.Marshal(updatedInstance)
+	if err != nil {
+		return err
+	}
+	data, err := jsonpatch.CreateMergePatch(originalData, updatedData)
+
+	if err != nil {
+		return err
+	}
+
+	return m.cli.Patch(ctx, originalInstance, client.RawPatch(types.MergePatchType, data))
 }
 
 func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {

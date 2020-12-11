@@ -8,6 +8,7 @@ require (
 	github.com/ajg/form v1.5.1
 	github.com/davecgh/go-spew v1.1.1
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
+	github.com/evanphx/json-patch/v5 v5.1.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/globocom/echo-prometheus v0.1.2
 	github.com/go-logr/logr v0.2.1
