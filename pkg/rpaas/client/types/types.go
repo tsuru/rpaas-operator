@@ -101,6 +101,7 @@ type CertificateInfo struct {
 }
 
 type InstanceInfo struct {
+	Dashboard    string            `json:"dashboard,omitempty"`
 	Addresses    []InstanceAddress `json:"addresses,omitempty"`
 	Replicas     *int32            `json:"replicas,omitempty"`
 	Plan         string            `json:"plan,omitempty"`
@@ -110,6 +111,7 @@ type InstanceInfo struct {
 	Binds        []v1alpha1.Bind   `json:"binds,omitempty"`
 	Team         string            `json:"team,omitempty"`
 	Name         string            `json:"name,omitempty"`
+	Service      string            `json:"service,omitempty"`
 	Description  string            `json:"description,omitempty"`
 	Cluster      string            `json:"cluster,omitempty"` // for multi-cluster environments
 	Tags         []string          `json:"tags,omitempty"`

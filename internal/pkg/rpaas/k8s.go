@@ -21,6 +21,7 @@ import (
 	"regexp"
 	"sort"
 	"strings"
+	"text/template"
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
@@ -1637,6 +1638,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 
 	info := &clientTypes.InstanceInfo{
 		Name:        instance.Name,
+		Service:     instance.Labels[labelKey("service-name")],
 		Cluster:     m.clusterName,
 		Description: instance.Annotations[labelKey("description")],
 		Team:        instance.Annotations[labelKey("team-owner")],
@@ -1686,6 +1688,22 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 	info.Certificates, err = m.getCertificatesInfo(ctx, instance)
 	if err != nil {
 		return nil, err
+	}
+
+	dashboardTemplate := config.Get().DashboardTemplate
+	if dashboardTemplate != "" {
+		tpl, err := template.New("dashboard").Parse(dashboardTemplate)
+		if err != nil {
+			return nil, errors.Wrap(err, "could not parse dashboard template")
+		}
+
+		var buf bytes.Buffer
+		err = tpl.Execute(&buf, info)
+
+		if err != nil {
+			return nil, errors.Wrap(err, "could not execute dashboard template")
+		}
+		info.Dashboard = strings.TrimSpace(buf.String())
 	}
 
 	nginx, err := m.getNginx(ctx, instance)

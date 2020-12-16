@@ -34,6 +34,7 @@ type RpaasConfig struct {
 	DefaultAffinity                      *corev1.Affinity           `json:"default-affinity"`
 	TeamAffinity                         map[string]corev1.Affinity `json:"team-affinity"`
 	SyncInterval                         time.Duration              `json:"sync-interval"`
+	DashboardTemplate                    string                     `json:"dashboard-template"`
 	LoadBalancerNameLabelKey             string                     `json:"loadbalancer-name-label-key"`
 	WebSocketHandshakeTimeout            time.Duration              `json:"websocket-handshake-timeout"`
 	WebSocketReadBufferSize              int                        `json:"websocket-read-buffer-size"`

@@ -3931,10 +3931,18 @@ func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
 }
 
 func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
+	cfg := config.Get()
+	defer func() { config.Set(cfg) }()
+	config.Set(config.RpaasConfig{
+		DashboardTemplate: "http://grafana.example/?instance_name={{ .Name }}&service={{ .Service }}",
+	})
 	t0 := time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC)
 
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance1"
+	instance1.Labels = map[string]string{
+		"rpaas.extensions.tsuru.io/service-name": "rpaasv2-devel",
+	}
 	instance1.Annotations = map[string]string{
 		"rpaas.extensions.tsuru.io/description": "Some description about this instance",
 		"rpaas.extensions.tsuru.io/tags":        "tag1,tag2,tag3",
@@ -4281,6 +4289,8 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			instance: "instance1",
 			expected: clientTypes.InstanceInfo{
 				Name:        "instance1",
+				Service:     "rpaasv2-devel",
+				Dashboard:   "http://grafana.example/?instance_name=instance1&service=rpaasv2-devel",
 				Description: "Some description about this instance",
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
@@ -4292,6 +4302,8 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			instance: "instance2",
 			expected: clientTypes.InstanceInfo{
 				Name:        "instance2",
+				Service:     "rpaasv2-devel",
+				Dashboard:   "http://grafana.example/?instance_name=instance2&service=rpaasv2-devel",
 				Description: "Some description about this instance",
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
@@ -4309,6 +4321,8 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			instance: "instance3",
 			expected: clientTypes.InstanceInfo{
 				Name:        "instance3",
+				Service:     "rpaasv2-devel",
+				Dashboard:   "http://grafana.example/?instance_name=instance3&service=rpaasv2-devel",
 				Description: "Some description about this instance",
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
@@ -4369,6 +4383,8 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			instance: "instance4",
 			expected: clientTypes.InstanceInfo{
 				Name:        "instance4",
+				Service:     "rpaasv2-devel",
+				Dashboard:   "http://grafana.example/?instance_name=instance4&service=rpaasv2-devel",
 				Description: "Some description about this instance",
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
