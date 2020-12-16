@@ -50,7 +50,8 @@ func TestInfo(t *testing.T) {
 				FakeInfo: func(args client.InfoArgs) (*clientTypes.InstanceInfo, error) {
 					require.Equal(t, args.Instance, "my-instance")
 					return &clientTypes.InstanceInfo{
-						Name: "my-instance",
+						Name:      "my-instance",
+						Dashboard: "https://grafana.mycompany.io/my-instance",
 						Addresses: []clientTypes.InstanceAddress{
 							{
 								Hostname: "some-host",
@@ -282,6 +283,7 @@ func TestInfo(t *testing.T) {
 				},
 			},
 			expected: `Name: my-instance
+Dashboard: https://grafana.mycompany.io/my-instance
 Description: some description
 Tags: tag1, tag2, tag3
 Team owner: some-team
