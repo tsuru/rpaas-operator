@@ -1967,6 +1967,18 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 			},
 		},
 		{
+			name:     "when AppHosts field is blank",
+			instance: "my-instance",
+			args: BindAppArgs{
+				AppHosts: []string{""},
+			},
+			assertion: func(t *testing.T, err error, _ v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &ValidationError{Msg: "application hosts cannot be empty"}
+				assert.Equal(t, expected, err)
+			},
+		},
+		{
 			name:     "when instance successfully bound with an application",
 			instance: "my-instance",
 			args: BindAppArgs{
@@ -2057,6 +2069,25 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 				},
 				AppInternalHosts: []string{},
 				AppClusterName:   "cluster-01",
+			},
+			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				expected := &ValidationError{Msg: "application internal hosts cannot be empty"}
+				assert.Equal(t, expected, err)
+			},
+		},
+
+		{
+			name:     "when clustered application bound with a blank internal addresses",
+			instance: "clustered-instance",
+			args: BindAppArgs{
+				AppHosts: []string{
+					"app2.tsuru.example.com",
+				},
+				AppInternalHosts: []string{
+					"",
+				},
+				AppClusterName: "cluster-01",
 			},
 			assertion: func(t *testing.T, err error, ri v1alpha1.RpaasInstance) {
 				assert.Error(t, err)

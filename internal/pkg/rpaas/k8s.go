@@ -944,13 +944,13 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 
 	var host string
 	if args.AppClusterName != "" && instance.BelongsToCluster(args.AppClusterName) {
-		if len(args.AppInternalHosts) == 0 {
+		if len(args.AppInternalHosts) == 0 || args.AppInternalHosts[0] == "" {
 			return &ValidationError{Msg: "application internal hosts cannot be empty"}
 		}
 
 		host = args.AppInternalHosts[0]
 	} else {
-		if len(args.AppHosts) == 0 {
+		if len(args.AppHosts) == 0 || args.AppHosts[0] == "" {
 			return &ValidationError{Msg: "application hosts cannot be empty"}
 		}
 
