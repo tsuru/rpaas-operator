@@ -1692,16 +1692,16 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 
 	dashboardTemplate := config.Get().DashboardTemplate
 	if dashboardTemplate != "" {
-		tpl, err := template.New("dashboard").Parse(dashboardTemplate)
-		if err != nil {
-			return nil, errors.Wrap(err, "could not parse dashboard template")
+		tpl, tplErr := template.New("dashboard").Parse(dashboardTemplate)
+		if tplErr != nil {
+			return nil, errors.Wrap(tplErr, "could not parse dashboard template")
 		}
 
 		var buf bytes.Buffer
-		err = tpl.Execute(&buf, info)
+		tplErr = tpl.Execute(&buf, info)
 
-		if err != nil {
-			return nil, errors.Wrap(err, "could not execute dashboard template")
+		if tplErr != nil {
+			return nil, errors.Wrap(tplErr, "could not execute dashboard template")
 		}
 		info.Dashboard = strings.TrimSpace(buf.String())
 	}
