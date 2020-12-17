@@ -411,9 +411,21 @@ func runInfo(c *cli.Context) error {
 		return writeInfoOnJSONFormat(c.App.Writer, infoPayload)
 	}
 
-	err = instanceInfoTemplate.Execute(c.App.Writer, infoPayload)
+	writer := newPagerWriter(c.App.Writer)
+
+	err = instanceInfoTemplate.Execute(writer, infoPayload)
 	if err != nil {
 		return err
+	}
+
+	if pw, ok := writer.(*pagerWriter); ok {
+		if pw.pagerPipe != nil {
+			pw.pagerPipe.Close()
+		}
+		err = pw.Wait()
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

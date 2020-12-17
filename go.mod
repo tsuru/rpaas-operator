@@ -37,6 +37,7 @@ require (
 	github.com/willf/bitset v1.1.11
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
+	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
 	golang.org/x/net v0.0.0-20200822124328-c89045814202
 	k8s.io/api v0.19.2
 	k8s.io/apimachinery v0.19.2
