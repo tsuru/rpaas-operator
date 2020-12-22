@@ -4,6 +4,7 @@ import (
 	"log"
 
 	"github.com/google/gops/agent"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/internal/purge"
 )
 
@@ -24,8 +25,11 @@ func main() {
 	}
 
 	w.Watch()
+	defer w.Stop()
 
-	a, err := purge.NewAPI(w)
+	n := nginx.NewNginxManager()
+
+	a, err := purge.NewAPI(w, n)
 	if err != nil {
 		log.Fatalf("could not create Purge API: %v", err)
 	}
