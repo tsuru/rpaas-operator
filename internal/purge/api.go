@@ -14,8 +14,11 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"golang.org/x/net/http2"
+
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/pkg/observability"
 )
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
@@ -44,7 +47,7 @@ func NewAPI(w *Watcher) (*purge, error) {
 		e:               echo.New(),
 		shutdown:        make(chan struct{}),
 	}
-	p.setupEcho(p.e)
+	p.setupEcho()
 	return p, nil
 }
 
@@ -92,9 +95,28 @@ func (p *purge) handleSignals() {
 	}
 }
 
-func (p *purge) setupEcho(e *echo.Echo) {
-	e.HideBanner = true
-	e.HTTPErrorHandler = func(err error, c echo.Context) {
+func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
+	return func(c echo.Context) error {
+		err := next(c)
+		if err == nil {
+			return nil
+		}
+		if rpaas.IsValidationError(err) {
+			return &echo.HTTPError{Code: http.StatusBadRequest, Message: err}
+		}
+		if rpaas.IsConflictError(err) {
+			return &echo.HTTPError{Code: http.StatusConflict, Message: err}
+		}
+		if rpaas.IsNotFoundError(err) {
+			return &echo.HTTPError{Code: http.StatusNotFound, Message: err}
+		}
+		return err
+	}
+}
+
+func (p *purge) setupEcho() {
+	p.e.HideBanner = true
+	p.e.HTTPErrorHandler = func(err error, c echo.Context) {
 		var (
 			code = http.StatusInternalServerError
 			msg  interface{}
@@ -113,7 +135,7 @@ func (p *purge) setupEcho(e *echo.Echo) {
 			msg = echo.Map{"message": msg}
 		}
 
-		e.Logger.Error(err)
+		p.e.Logger.Error(err)
 
 		if !c.Response().Committed {
 			if c.Request().Method == http.MethodHead {
@@ -122,22 +144,24 @@ func (p *purge) setupEcho(e *echo.Echo) {
 				err = c.JSON(code, msg)
 			}
 			if err != nil {
-				e.Logger.Error(err)
+				p.e.Logger.Error(err)
 			}
 		}
 	}
 
-	e.Use(middleware.Recover())
-	e.Use(middleware.Logger())
-	e.Use(metricsMiddleware)
-	//e.Use(OpenTracingMiddleware)
-	//e.Use(errorMiddleware)
+	observability.Initialize()
 
-	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
-	e.GET("/healthcheck", healthcheck)
+	p.e.Use(middleware.Recover())
+	p.e.Use(middleware.Logger())
+	p.e.Use(metricsMiddleware)
+	p.e.Use(observability.OpenTracingMiddleware)
+	p.e.Use(errorMiddleware)
 
-	e.POST("/resource/:instance/purge", p.cachePurge)
-	e.POST("/resource/:instance/purge/bulk", p.cachePurgeBulk)
+	p.e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
+	p.e.GET("/healthcheck", healthcheck)
+
+	p.e.POST("/resource/:instance/purge", p.cachePurge)
+	p.e.POST("/resource/:instance/purge/bulk", p.cachePurgeBulk)
 }
 
 func healthcheck(c echo.Context) error {

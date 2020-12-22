@@ -1,6 +1,7 @@
 package purge
 
 import (
+	"fmt"
 	"time"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
@@ -54,6 +55,10 @@ func (w *Watcher) ListPods(instance string) ([]rpaas.PodStatus, int32, error) {
 	if err != nil {
 		// Todo
 		return pods, -1, err
+	}
+
+	if len(list) == 0 {
+		return pods, -1, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods for %s", instance)}
 	}
 
 	port := util.PortByName(list[0].Spec.Containers[0].Ports, nginx.PortNameManagement)
