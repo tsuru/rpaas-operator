@@ -72,7 +72,7 @@ func (p *purge) PurgeCache(ctx context.Context, name string, args rpaas.PurgeCac
 	}
 	pods, port, err := p.watcher.ListPods(name)
 	if err != nil {
-		return 0, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods: %w", err)}
+		return 0, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods: %v", err)}
 	}
 	purgeCount := 0
 	for _, pod := range pods {
