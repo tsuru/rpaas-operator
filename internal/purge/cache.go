@@ -74,6 +74,7 @@ func (p *purge) PurgeCache(ctx context.Context, name string, args rpaas.PurgeCac
 	if err != nil {
 		return 0, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods: %v", err)}
 	}
+	// ToDo: better error handling (accumulate errors?)
 	purgeCount := 0
 	for _, pod := range pods {
 		if !pod.Running {
@@ -84,5 +85,5 @@ func (p *purge) PurgeCache(ctx context.Context, name string, args rpaas.PurgeCac
 		}
 		purgeCount++
 	}
-	return purgeCount, nil
+	return purgeCount, err
 }
