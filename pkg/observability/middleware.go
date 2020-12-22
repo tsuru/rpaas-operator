@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
-package web
+package observability
 
 import (
 	"log"
@@ -15,7 +15,7 @@ import (
 	"github.com/uber/jaeger-client-go/zipkin"
 )
 
-func init() {
+func Initialize() {
 	// We decided to use B3 Format, in the future plan to move to W3C context propagation
 	// https://github.com/w3c/trace-context
 	zipkinPropagator := zipkin.NewZipkinB3HTTPHeaderPropagator()
