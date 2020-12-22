@@ -43,6 +43,10 @@ func (w *Watcher) Watch() {
 	informerFactory.Start(w.stopCh)
 }
 
+func (w *Watcher) Stop() {
+	close(w.stopCh)
+}
+
 func (w *Watcher) ListPods(instance string) ([]rpaas.PodStatus, int32, error) {
 	labelSet := labels.Set{
 		defaultInstanceLabel: instance,

@@ -70,7 +70,8 @@ func (p *purge) PurgeCache(ctx context.Context, name string, args rpaas.PurgeCac
 	if args.Path == "" {
 		return 0, rpaas.ValidationError{Msg: "path is required"}
 	}
-	pods, port, err := p.watcher.ListPods(name)
+
+	pods, port, err := p.lister.ListPods(name)
 	if err != nil {
 		return 0, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods: %v", err)}
 	}

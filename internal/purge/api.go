@@ -26,7 +26,7 @@ var metricsMiddleware = echoPrometheus.MetricsMiddleware()
 type purge struct {
 	sync.Mutex
 
-	watcher      *Watcher
+	lister       PodLister
 	cacheManager nginx.NginxManager
 
 	Address string
@@ -38,10 +38,14 @@ type purge struct {
 	shutdown chan struct{}
 }
 
-func NewAPI(w *Watcher) (*purge, error) {
+type PodLister interface {
+	ListPods(instance string) ([]rpaas.PodStatus, int32, error)
+}
+
+func NewAPI(l PodLister, n nginx.NginxManager) (*purge, error) {
 	p := &purge{
-		watcher:         w,
-		cacheManager:    nginx.NewNginxManager(),
+		lister:          l,
+		cacheManager:    n,
 		Address:         `:9990`,
 		ShutdownTimeout: 30 * time.Second,
 		e:               echo.New(),
