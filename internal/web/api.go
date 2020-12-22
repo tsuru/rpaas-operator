@@ -23,6 +23,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/web/target"
+	"github.com/tsuru/rpaas-operator/pkg/observability"
 )
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
@@ -173,10 +174,12 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 		}
 	}
 
+	observability.Initialize()
+
 	e.Use(middleware.Recover())
 	e.Use(middleware.Logger())
 	e.Use(metricsMiddleware)
-	e.Use(OpenTracingMiddleware)
+	e.Use(observability.OpenTracingMiddleware)
 	e.Use(middleware.BasicAuthWithConfig(middleware.BasicAuthConfig{
 		Skipper: func(c echo.Context) bool {
 			conf := config.Get()
