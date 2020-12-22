@@ -35,7 +35,7 @@ type purge struct {
 	shutdown chan struct{}
 }
 
-func New(w *Watcher) (*purge, error) {
+func NewAPI(w *Watcher) (*purge, error) {
 	p := &purge{
 		watcher:         w,
 		cacheManager:    nginx.NewNginxManager(),

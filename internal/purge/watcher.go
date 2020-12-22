@@ -16,10 +16,7 @@ import (
 
 // Should be exported from rpaas/k8s.go
 const (
-	defaultNamespace      = "rpaasv2"
-	defaultKeyLabelPrefix = "rpaas.extensions.tsuru.io"
-
-	nginxContainerName = "nginx"
+	defaultInstanceLabel = "rpaas.extensions.tsuru.io/instance-name"
 )
 
 type Watcher struct {
@@ -29,7 +26,7 @@ type Watcher struct {
 	stopCh chan struct{}
 }
 
-func NewWithClient(c kubernetes.Interface) (*Watcher, error) {
+func NewWatcher(c kubernetes.Interface) (*Watcher, error) {
 	return &Watcher{
 		Client: c,
 		stopCh: make(chan struct{}),
@@ -38,15 +35,16 @@ func NewWithClient(c kubernetes.Interface) (*Watcher, error) {
 
 func (w *Watcher) Watch() {
 	informerFactory := informers.NewFilteredSharedInformerFactory(w.Client, time.Minute, metav1.NamespaceAll, nil)
-	informerFactory.Start(w.stopCh)
 
 	w.Informer = informerFactory.Core().V1().Pods()
 	w.Informer.Informer()
+
+	informerFactory.Start(w.stopCh)
 }
 
 func (w *Watcher) ListPods(instance string) ([]rpaas.PodStatus, int32, error) {
 	labelSet := labels.Set{
-		"rpaas.extensions.tsuru.io/instance-name": instance,
+		defaultInstanceLabel: instance,
 	}
 	sel := labels.SelectorFromSet(labelSet)
 

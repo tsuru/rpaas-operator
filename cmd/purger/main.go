@@ -15,22 +15,22 @@ func main() {
 
 	k, err := purge.NewK8S()
 	if err != nil {
-		log.Fatalf("could not create RPaaS API: %v", err)
+		log.Fatalf("could not initialize kubernetes interface: %v", err)
 	}
 
-	w, err := purge.NewWithClient(k)
+	w, err := purge.NewWatcher(k)
 	if err != nil {
-		log.Fatalf("could not create RPaaS API: %v", err)
+		log.Fatalf("could not create pods watcher: %v", err)
 	}
 
 	w.Watch()
 
-	a, err := purge.New(w)
+	a, err := purge.NewAPI(w)
 	if err != nil {
-		log.Fatalf("could not create RPaaS API: %v", err)
+		log.Fatalf("could not create Purge API: %v", err)
 	}
 
 	if err := a.Start(); err != nil {
-		log.Fatalf("could not start the RPaaS API server: %v", err)
+		log.Fatalf("could not start the Purge API server: %v", err)
 	}
 }
