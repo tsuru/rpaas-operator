@@ -72,6 +72,9 @@ build-api:
 build-operator:
 	CGO_ENABLED=0 go build -o rpaas-operator .
 
+build-purger:
+	CGO_ENABLED=0 go build -o rpaas-purger ./cmd/purger
+
 # find or download controller-gen
 # download controller-gen if necessary
 controller-gen:
