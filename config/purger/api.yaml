@@ -1,0 +1,32 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: purger
+  labels:
+    name: rpaas-purger
+spec:
+  selector:
+    matchLabels:
+      name: rpaas-purger
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: rpaas-purger
+    spec:
+      containers:
+      - command:
+        - rpaas-purger
+        image: tsuru/rpaas-purger:latest
+        name: rpaas-purger
+        ports:
+          - name: purger
+            containerPort: 9999
+        resources:
+          limits:
+            cpu: 100m
+            memory: 30Mi
+          requests:
+            cpu: 100m
+            memory: 20Mi
+      terminationGracePeriodSeconds: 10
