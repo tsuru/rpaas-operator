@@ -17,7 +17,6 @@ import (
 	"golang.org/x/net/http2"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 )
 
@@ -27,7 +26,7 @@ type purge struct {
 	sync.Mutex
 
 	lister       PodLister
-	cacheManager nginx.NginxManager
+	cacheManager rpaas.CacheManager
 
 	Address string
 
@@ -42,7 +41,7 @@ type PodLister interface {
 	ListPods(instance string) ([]rpaas.PodStatus, int32, error)
 }
 
-func NewAPI(l PodLister, n nginx.NginxManager) (*purge, error) {
+func NewAPI(l PodLister, n rpaas.CacheManager) (*purge, error) {
 	p := &purge{
 		lister:          l,
 		cacheManager:    n,
