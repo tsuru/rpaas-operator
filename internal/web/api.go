@@ -181,6 +181,7 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 		Skipper: func(c echo.Context) bool {
 			conf := config.Get()
 			return c.Path() == "/healthcheck" ||
+				c.Path() == "/metrics" ||
 				(conf.APIUsername == "" && conf.APIPassword == "")
 		},
 		Validator: func(user, pass string, c echo.Context) (bool, error) {
