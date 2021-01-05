@@ -83,6 +83,18 @@ func Test_cachePurge(t *testing.T) {
 				},
 			},
 		},
+		{
+			description:  "returns OK with the total number of servers where the cache was successfully purged and error where it failed",
+			instanceName: "my-instance",
+			requestBody:  "path=/index.html&preserve_path=true",
+			expectedCode: http.StatusOK,
+			expectedBody: "Object purged on 2 servers\nSomething was not found",
+			manager: &fake.RpaasManager{
+				FakePurgeCache: func(instanceName string, args rpaas.PurgeCacheArgs) (int, error) {
+					return 2, rpaas.NotFoundError{Msg: "Something was not found"}
+				},
+			},
+		},
 	}
 
 	for _, tt := range testCases {

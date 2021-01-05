@@ -14,6 +14,8 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/watch"
 	ktesting "k8s.io/client-go/testing"
+
+	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 )
 
 func bodyContent(rsp *httptest.ResponseRecorder) string {
@@ -22,9 +24,13 @@ func bodyContent(rsp *httptest.ResponseRecorder) string {
 }
 
 type fakeCacheManager struct {
+	purgeCacheFunc func(host, path string, port int32, preservePath bool) error
 }
 
 func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool) error {
+	if f.purgeCacheFunc != nil {
+		return f.purgeCacheFunc(host, path, port, preservePath)
+	}
 	return nil
 }
 
@@ -43,7 +49,7 @@ func TestCachePurge(t *testing.T) {
 	assert.NoError(t, err)
 
 	// adds pods to watcher to ensure correct behaviour for success test cases
-	basePod := &apiv1.Pod{
+	pod1 := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "pod0-sample-rpaasv2",
 			Labels: map[string]string{
@@ -65,7 +71,32 @@ func TestCachePurge(t *testing.T) {
 			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
 		},
 	}
-	watchFake.Add(basePod.DeepCopy())
+	watchFake.Add(pod1.DeepCopy())
+
+	pod2 := &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pod1-sample-rpaasv2",
+			Labels: map[string]string{
+				defaultInstanceLabel: "sample-rpaasv2",
+			},
+			ResourceVersion: "0",
+		},
+		Spec: apiv1.PodSpec{
+			Containers: []apiv1.Container{
+				{
+					Ports: []apiv1.ContainerPort{
+						{Name: "nginx-metrics", ContainerPort: 8889},
+					},
+				},
+			},
+		},
+		Status: apiv1.PodStatus{
+			PodIP:             "172.0.2.2",
+			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
+		},
+	}
+	watchFake.Add(pod2.DeepCopy())
+
 	// Let fake watch propagate the event
 	time.Sleep(100 * time.Millisecond)
 
@@ -75,13 +106,30 @@ func TestCachePurge(t *testing.T) {
 		requestBody    string
 		expectedStatus int
 		expectedBody   string
+		cacheManager   fakeCacheManager
 	}{
 		{
 			name:           "success",
 			instance:       "sample-rpaasv2",
 			requestBody:    `{"path":"/index.html","preserve_path":true}`,
 			expectedStatus: http.StatusOK,
-			expectedBody:   "Object purged on 1 servers",
+			expectedBody:   `{"path":"/index.html","instances_purged":2}`,
+			cacheManager:   fakeCacheManager{},
+		},
+		{
+			name:           "fails on some servers",
+			instance:       "sample-rpaasv2",
+			requestBody:    `{"path":"/index.html","preserve_path":true}`,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"path":"/index.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2 failed: some nginx error\n\n"}`,
+			cacheManager: fakeCacheManager{
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
+					if host == "172.0.2.2" {
+						return nginxManager.NginxError{Msg: "some nginx error"}
+					}
+					return nil
+				},
+			},
 		},
 		{
 			name:           "returns bad request if body is empty",
@@ -89,6 +137,7 @@ func TestCachePurge(t *testing.T) {
 			requestBody:    "",
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   `{"message":"Request body can't be empty"}`,
+			cacheManager:   fakeCacheManager{},
 		},
 		{
 			name:           "returns bad request if instance is not sent",
@@ -96,11 +145,13 @@ func TestCachePurge(t *testing.T) {
 			requestBody:    `{"path":"/index.html","preserve_path":true}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "instance is required",
+			cacheManager:   fakeCacheManager{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			api.cacheManager = tt.cacheManager
 
 			w := httptest.NewRecorder()
 			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resources/%s/purge", api.Address, tt.instance), strings.NewReader(tt.requestBody))
@@ -131,7 +182,7 @@ func TestCachePurgeBulk(t *testing.T) {
 	assert.NoError(t, err)
 
 	// adds pods to watcher to ensure correct behaviour for success test cases
-	basePod := &apiv1.Pod{
+	pod1 := &apiv1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "pod0-sample-rpaasv2",
 			Labels: map[string]string{
@@ -153,7 +204,31 @@ func TestCachePurgeBulk(t *testing.T) {
 			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
 		},
 	}
-	watchFake.Add(basePod.DeepCopy())
+	watchFake.Add(pod1.DeepCopy())
+
+	pod2 := &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pod1-sample-rpaasv2",
+			Labels: map[string]string{
+				defaultInstanceLabel: "sample-rpaasv2",
+			},
+			ResourceVersion: "0",
+		},
+		Spec: apiv1.PodSpec{
+			Containers: []apiv1.Container{
+				{
+					Ports: []apiv1.ContainerPort{
+						{Name: "nginx-metrics", ContainerPort: 8889},
+					},
+				},
+			},
+		},
+		Status: apiv1.PodStatus{
+			PodIP:             "172.0.2.2",
+			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
+		},
+	}
+	watchFake.Add(pod2.DeepCopy())
 	// Let fake watch propagate the event
 	time.Sleep(100 * time.Millisecond)
 
@@ -163,13 +238,30 @@ func TestCachePurgeBulk(t *testing.T) {
 		requestBody    string
 		expectedStatus int
 		expectedBody   string
+		cacheManager   fakeCacheManager
 	}{
 		{
 			name:           "success",
 			instance:       "sample-rpaasv2",
 			requestBody:    `[{"path":"/index.html","preserve_path":true}]`,
 			expectedStatus: http.StatusOK,
-			expectedBody:   `[{"path":"/index.html","instances_purged":1}]`,
+			expectedBody:   `[{"path":"/index.html","instances_purged":2}]`,
+			cacheManager:   fakeCacheManager{},
+		},
+		{
+			name:           "fails on some servers",
+			instance:       "sample-rpaasv2",
+			requestBody:    `[{"path":"/index.html","preserve_path":true},{"path":"/other.html","preserve_path":true}]`,
+			expectedStatus: http.StatusInternalServerError,
+			expectedBody:   `[{"path":"/index.html","instances_purged":2},{"path":"/other.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2 failed: some nginx error\n\n"}]`,
+			cacheManager: fakeCacheManager{
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
+					if host == "172.0.2.2" && path == "/other.html" {
+						return nginxManager.NginxError{Msg: "some nginx error"}
+					}
+					return nil
+				},
+			},
 		},
 		{
 			name:           "returns bad request if instance is not sent",
@@ -177,6 +269,7 @@ func TestCachePurgeBulk(t *testing.T) {
 			requestBody:    `[{"path":"/index.html","preserve_path":true}]`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "instance is required",
+			cacheManager:   fakeCacheManager{},
 		},
 		{
 			name:           "returns bad request if arguments are not a list",
@@ -184,11 +277,13 @@ func TestCachePurgeBulk(t *testing.T) {
 			requestBody:    `{"path":"/index.html","preserve_path":true}`,
 			expectedStatus: http.StatusBadRequest,
 			expectedBody:   "instance is required",
+			cacheManager:   fakeCacheManager{},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			api.cacheManager = tt.cacheManager
 
 			w := httptest.NewRecorder()
 			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resources/%s/purge/bulk", api.Address, tt.instance), strings.NewReader(tt.requestBody))

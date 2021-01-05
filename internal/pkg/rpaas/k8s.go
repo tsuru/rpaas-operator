@@ -1033,10 +1033,10 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 			continue
 		}
 		if err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, port, args.PreservePath); err != nil {
-			purgeErrors = multierror.Append(purgeErrors, err)
+			purgeErrors = multierror.Append(purgeErrors, errors.Wrapf(err, "pod %s failed", podStatus.Address))
 			continue
 		}
-		purgeCount += 1
+		purgeCount++
 	}
 	return purgeCount, purgeErrors
 }
