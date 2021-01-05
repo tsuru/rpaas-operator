@@ -1894,7 +1894,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 			},
 		},
 		{
-			name:     "return the number of nginx instances where cache was purged",
+			name:     "return the number of nginx instances where cache was purged and error",
 			instance: "my-instance",
 			args:     PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{
@@ -1906,7 +1906,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 				},
 			},
 			assertion: func(t *testing.T, count int, err error) {
-				assert.NoError(t, err)
+				assert.Error(t, err)
 				assert.Equal(t, 1, count)
 			},
 		},

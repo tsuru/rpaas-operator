@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/http"
 
+	"github.com/hashicorp/go-multierror"
 	"github.com/labstack/echo/v4"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
@@ -75,16 +76,18 @@ func (p *purge) PurgeCache(ctx context.Context, name string, args rpaas.PurgeCac
 	if err != nil {
 		return 0, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods: %v", err)}
 	}
-	// ToDo: better error handling (accumulate errors?)
+
+	var purgeErrors error
 	purgeCount := 0
 	for _, pod := range pods {
 		if !pod.Running {
 			continue
 		}
 		if err = p.cacheManager.PurgeCache(pod.Address, args.Path, port, args.PreservePath); err != nil {
+			purgeErrors = multierror.Append(purgeErrors, err)
 			continue
 		}
 		purgeCount++
 	}
-	return purgeCount, err
+	return purgeCount, purgeErrors
 }
