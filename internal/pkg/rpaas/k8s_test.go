@@ -1906,7 +1906,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 				},
 			},
 			assertion: func(t *testing.T, count int, err error) {
-				assert.Error(t, err)
+				assert.EqualError(t, err, "1 error occurred:\n\t* pod 10.0.0.9 failed: some nginx error\n\n")
 				assert.Equal(t, 1, count)
 			},
 		},

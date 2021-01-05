@@ -33,8 +33,10 @@ func cachePurge(c echo.Context) error {
 		return err
 	}
 	count, err := manager.PurgeCache(ctx, name, args)
-	if err != nil {
+	if err != nil && count == 0 {
 		return err
+	} else if err != nil {
+		return c.String(http.StatusOK, fmt.Sprintf("Object purged on %d servers\n%v", count, err))
 	}
 	return c.String(http.StatusOK, fmt.Sprintf("Object purged on %d servers", count))
 }
