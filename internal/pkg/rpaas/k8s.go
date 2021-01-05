@@ -25,6 +25,7 @@ import (
 	"time"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
+	"github.com/hashicorp/go-multierror"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -1025,17 +1026,19 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 		return 0, ValidationError{Msg: "path is required"}
 	}
 	port := util.PortByName(nginx.Spec.PodTemplate.Ports, nginxManager.PortNameManagement)
+	var purgeErrors error
 	purgeCount := 0
 	for _, podStatus := range podMap {
 		if !podStatus.Running {
 			continue
 		}
 		if err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, port, args.PreservePath); err != nil {
+			purgeErrors = multierror.Append(purgeErrors, err)
 			continue
 		}
 		purgeCount += 1
 	}
-	return purgeCount, nil
+	return purgeCount, purgeErrors
 }
 
 func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {

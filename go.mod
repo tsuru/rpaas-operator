@@ -15,6 +15,7 @@ require (
 	github.com/go-logr/zapr v0.2.0 // indirect
 	github.com/google/gops v0.3.12
 	github.com/gorilla/websocket v1.4.2
+	github.com/hashicorp/go-multierror v1.1.0
 	github.com/heroku/docker-registry-client v0.0.0-20190909225348-afc9e1acc3d5
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.11
