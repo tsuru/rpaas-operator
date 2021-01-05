@@ -5,17 +5,11 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/pkg/errors"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/client-go/informers"
-	v1informers "k8s.io/client-go/informers/core/v1"
-	"k8s.io/client-go/kubernetes"
-	"k8s.io/client-go/tools/cache"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Should be exported from rpaas/k8s.go
@@ -25,73 +19,27 @@ const (
 )
 
 type Watcher struct {
-	Client   kubernetes.Interface
-	Informer v1informers.PodInformer
-
-	stopCh chan struct{}
+	Client client.Client
 }
 
-func NewWatcher(c kubernetes.Interface) (*Watcher, error) {
+func NewWatcher(c client.Client) (*Watcher, error) {
 	return &Watcher{
 		Client: c,
-		stopCh: make(chan struct{}),
 	}, nil
 }
 
-func (w *Watcher) Watch() {
-	informerFactory := informers.NewFilteredSharedInformerFactory(w.Client, time.Minute, metav1.NamespaceAll, nil)
-
-	w.Informer = informerFactory.Core().V1().Pods()
-	w.Informer.Informer()
-
-	informerFactory.Start(w.stopCh)
-
-	w.waitForSync(w.Informer.Informer())
-}
-
-func (w *Watcher) Stop() {
-	close(w.stopCh)
-}
-
-func (w *Watcher) waitForSync(informer cache.SharedInformer) error {
-	if informer.HasSynced() {
-		return nil
-	}
-	ctx, cancel := contextWithCancelByChannel(context.Background(), w.stopCh, informerSyncTimeout)
-	defer cancel()
-	cache.WaitForCacheSync(ctx.Done(), informer.HasSynced)
-	return errors.Wrap(ctx.Err(), "error waiting for informer sync")
-}
-
-func contextWithCancelByChannel(ctx context.Context, ch chan struct{}, timeout time.Duration) (context.Context, func()) {
-	ctx, cancel := context.WithTimeout(ctx, timeout)
-	go func() {
-		select {
-		case <-ch:
-			cancel()
-		case <-ctx.Done():
-			return
-		}
-	}()
-	return ctx, cancel
-}
-
 func (w *Watcher) ListPods(instance string) ([]rpaas.PodStatus, int32, error) {
-	labelSet := labels.Set{
-		defaultInstanceLabel: instance,
-	}
-	sel := labels.SelectorFromSet(labelSet)
-
 	pods := []rpaas.PodStatus{}
 
-	list, err := w.Informer.Lister().List(sel)
-	if err != nil || len(list) == 0 {
+	list := &v1.PodList{}
+	err := w.Client.List(context.Background(), list, client.MatchingLabels{defaultInstanceLabel: instance})
+	if err != nil || len(list.Items) == 0 {
 		return pods, -1, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods for %s: %v", instance, err)}
 	}
 
-	port := util.PortByName(list[0].Spec.Containers[0].Ports, nginx.PortNameManagement)
-	for _, p := range list {
-		ps, err := w.podStatus(p)
+	port := util.PortByName(list.Items[0].Spec.Containers[0].Ports, nginx.PortNameManagement)
+	for _, p := range list.Items {
+		ps, err := w.podStatus(&p)
 		if err != nil {
 			continue
 		}

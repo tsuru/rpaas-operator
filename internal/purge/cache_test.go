@@ -7,15 +7,15 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
-	"time"
 
 	"github.com/stretchr/testify/assert"
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/watch"
-	ktesting "k8s.io/client-go/testing"
+	"k8s.io/apimachinery/pkg/runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 func bodyContent(rsp *httptest.ResponseRecorder) string {
@@ -35,71 +35,6 @@ func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath
 }
 
 func TestCachePurge(t *testing.T) {
-	// setup
-	watchFake := watch.NewFake()
-	k8sClient.Fake.PrependWatchReactor("pods", ktesting.DefaultWatchReactor(watchFake, nil))
-
-	watcher, err := NewWatcher(k8sClient)
-	assert.NoError(t, err)
-	defer watcher.Stop()
-	watcher.Watch()
-
-	managerFake := fakeCacheManager{}
-	api, err := NewAPI(watcher, managerFake)
-	assert.NoError(t, err)
-
-	// adds pods to watcher to ensure correct behaviour for success test cases
-	pod1 := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "pod0-sample-rpaasv2",
-			Labels: map[string]string{
-				defaultInstanceLabel: "sample-rpaasv2",
-			},
-			ResourceVersion: "0",
-		},
-		Spec: apiv1.PodSpec{
-			Containers: []apiv1.Container{
-				{
-					Ports: []apiv1.ContainerPort{
-						{Name: "nginx-metrics", ContainerPort: 8889},
-					},
-				},
-			},
-		},
-		Status: apiv1.PodStatus{
-			PodIP:             "172.0.2.1",
-			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
-		},
-	}
-	watchFake.Add(pod1.DeepCopy())
-
-	pod2 := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "pod1-sample-rpaasv2",
-			Labels: map[string]string{
-				defaultInstanceLabel: "sample-rpaasv2",
-			},
-			ResourceVersion: "0",
-		},
-		Spec: apiv1.PodSpec{
-			Containers: []apiv1.Container{
-				{
-					Ports: []apiv1.ContainerPort{
-						{Name: "nginx-metrics", ContainerPort: 8889},
-					},
-				},
-			},
-		},
-		Status: apiv1.PodStatus{
-			PodIP:             "172.0.2.2",
-			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
-		},
-	}
-	watchFake.Add(pod2.DeepCopy())
-
-	// Let fake watch propagate the event
-	time.Sleep(100 * time.Millisecond)
-
 	tests := []struct {
 		name           string
 		instance       string
@@ -151,7 +86,11 @@ func TestCachePurge(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api.cacheManager = tt.cacheManager
+			watcher, err := NewWatcher(fake.NewFakeClientWithScheme(extensionsruntime.NewScheme(), getFakePods()...))
+			assert.NoError(t, err)
+
+			api, err := NewAPI(watcher, tt.cacheManager)
+			assert.NoError(t, err)
 
 			w := httptest.NewRecorder()
 			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resources/%s/purge", api.Address, tt.instance), strings.NewReader(tt.requestBody))
@@ -168,70 +107,6 @@ func TestCachePurge(t *testing.T) {
 }
 
 func TestCachePurgeBulk(t *testing.T) {
-	// setup
-	watchFake := watch.NewFake()
-	k8sClient.Fake.PrependWatchReactor("pods", ktesting.DefaultWatchReactor(watchFake, nil))
-
-	watcher, err := NewWatcher(k8sClient)
-	assert.NoError(t, err)
-	defer watcher.Stop()
-	watcher.Watch()
-
-	managerFake := fakeCacheManager{}
-	api, err := NewAPI(watcher, managerFake)
-	assert.NoError(t, err)
-
-	// adds pods to watcher to ensure correct behaviour for success test cases
-	pod1 := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "pod0-sample-rpaasv2",
-			Labels: map[string]string{
-				defaultInstanceLabel: "sample-rpaasv2",
-			},
-			ResourceVersion: "0",
-		},
-		Spec: apiv1.PodSpec{
-			Containers: []apiv1.Container{
-				{
-					Ports: []apiv1.ContainerPort{
-						{Name: "nginx-metrics", ContainerPort: 8889},
-					},
-				},
-			},
-		},
-		Status: apiv1.PodStatus{
-			PodIP:             "172.0.2.1",
-			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
-		},
-	}
-	watchFake.Add(pod1.DeepCopy())
-
-	pod2 := &apiv1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: "pod1-sample-rpaasv2",
-			Labels: map[string]string{
-				defaultInstanceLabel: "sample-rpaasv2",
-			},
-			ResourceVersion: "0",
-		},
-		Spec: apiv1.PodSpec{
-			Containers: []apiv1.Container{
-				{
-					Ports: []apiv1.ContainerPort{
-						{Name: "nginx-metrics", ContainerPort: 8889},
-					},
-				},
-			},
-		},
-		Status: apiv1.PodStatus{
-			PodIP:             "172.0.2.2",
-			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
-		},
-	}
-	watchFake.Add(pod2.DeepCopy())
-	// Let fake watch propagate the event
-	time.Sleep(100 * time.Millisecond)
-
 	tests := []struct {
 		name           string
 		instance       string
@@ -283,7 +158,11 @@ func TestCachePurgeBulk(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			api.cacheManager = tt.cacheManager
+			watcher, err := NewWatcher(fake.NewFakeClientWithScheme(extensionsruntime.NewScheme(), getFakePods()...))
+			assert.NoError(t, err)
+
+			api, err := NewAPI(watcher, tt.cacheManager)
+			assert.NoError(t, err)
 
 			w := httptest.NewRecorder()
 			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resources/%s/purge/bulk", api.Address, tt.instance), strings.NewReader(tt.requestBody))
@@ -297,4 +176,54 @@ func TestCachePurgeBulk(t *testing.T) {
 			assert.Equal(t, tt.expectedBody, bodyContent(w))
 		})
 	}
+}
+
+func getFakePods() []runtime.Object {
+	pod1 := &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pod0-sample-rpaasv2",
+			Labels: map[string]string{
+				defaultInstanceLabel: "sample-rpaasv2",
+			},
+			ResourceVersion: "0",
+		},
+		Spec: apiv1.PodSpec{
+			Containers: []apiv1.Container{
+				{
+					Ports: []apiv1.ContainerPort{
+						{Name: "nginx-metrics", ContainerPort: 8889},
+					},
+				},
+			},
+		},
+		Status: apiv1.PodStatus{
+			PodIP:             "172.0.2.1",
+			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
+		},
+	}
+
+	pod2 := &apiv1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "pod1-sample-rpaasv2",
+			Labels: map[string]string{
+				defaultInstanceLabel: "sample-rpaasv2",
+			},
+			ResourceVersion: "0",
+		},
+		Spec: apiv1.PodSpec{
+			Containers: []apiv1.Container{
+				{
+					Ports: []apiv1.ContainerPort{
+						{Name: "nginx-metrics", ContainerPort: 8889},
+					},
+				},
+			},
+		},
+		Status: apiv1.PodStatus{
+			PodIP:             "172.0.2.2",
+			ContainerStatuses: []apiv1.ContainerStatus{{Ready: true}},
+		},
+	}
+
+	return []runtime.Object{pod1, pod2}
 }
