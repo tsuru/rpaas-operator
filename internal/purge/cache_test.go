@@ -103,7 +103,7 @@ func TestCachePurge(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			w := httptest.NewRecorder()
-			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resource/%s/purge", api.Address, tt.instance), strings.NewReader(tt.requestBody))
+			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resources/%s/purge", api.Address, tt.instance), strings.NewReader(tt.requestBody))
 			assert.NoError(t, err)
 
 			r.Header.Add("Content-Type", "application/json")
@@ -191,7 +191,7 @@ func TestCachePurgeBulk(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 
 			w := httptest.NewRecorder()
-			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resource/%s/purge/bulk", api.Address, tt.instance), strings.NewReader(tt.requestBody))
+			r, err := http.NewRequest(http.MethodPost, fmt.Sprintf("http://%s/resources/%s/purge/bulk", api.Address, tt.instance), strings.NewReader(tt.requestBody))
 			assert.NoError(t, err)
 
 			r.Header.Add("Content-Type", "application/json")
