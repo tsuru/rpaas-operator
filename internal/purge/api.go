@@ -18,6 +18,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
+	"github.com/tsuru/rpaas-operator/pkg/web"
 )
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
@@ -98,73 +99,22 @@ func (p *purge) handleSignals() {
 	}
 }
 
-func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		err := next(c)
-		if err == nil {
-			return nil
-		}
-		if rpaas.IsValidationError(err) {
-			return &echo.HTTPError{Code: http.StatusBadRequest, Message: err}
-		}
-		if rpaas.IsConflictError(err) {
-			return &echo.HTTPError{Code: http.StatusConflict, Message: err}
-		}
-		if rpaas.IsNotFoundError(err) {
-			return &echo.HTTPError{Code: http.StatusNotFound, Message: err}
-		}
-		return err
-	}
-}
-
 func (p *purge) setupEcho() {
 	p.e.HideBanner = true
-	p.e.HTTPErrorHandler = func(err error, c echo.Context) {
-		var (
-			code = http.StatusInternalServerError
-			msg  interface{}
-		)
-
-		if he, ok := err.(*echo.HTTPError); ok {
-			code = he.Code
-			msg = he.Message
-			if he.Internal != nil {
-				msg = fmt.Sprintf("%v, %v", err, he.Internal)
-			}
-		} else {
-			msg = err.Error()
-		}
-		if _, ok := msg.(string); ok {
-			msg = echo.Map{"message": msg}
-		}
-
-		p.e.Logger.Error(err)
-
-		if !c.Response().Committed {
-			if c.Request().Method == http.MethodHead {
-				err = c.NoContent(code)
-			} else {
-				err = c.JSON(code, msg)
-			}
-			if err != nil {
-				p.e.Logger.Error(err)
-			}
-		}
-	}
-
+	p.e.HTTPErrorHandler = web.HTTPErrorHandler
 	observability.Initialize()
 
 	p.e.Use(middleware.Recover())
 	p.e.Use(middleware.Logger())
 	p.e.Use(metricsMiddleware)
 	p.e.Use(observability.OpenTracingMiddleware)
-	p.e.Use(errorMiddleware)
+	p.e.Use(web.ErrorMiddleware)
 
 	p.e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	p.e.GET("/healthcheck", healthcheck)
 
-	p.e.POST("/resource/:instance/purge", p.cachePurge)
-	p.e.POST("/resource/:instance/purge/bulk", p.cachePurgeBulk)
+	p.e.POST("/resources/:instance/purge", p.cachePurge)
+	p.e.POST("/resources/:instance/purge/bulk", p.cachePurgeBulk)
 }
 
 func healthcheck(c echo.Context) error {

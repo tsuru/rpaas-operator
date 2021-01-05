@@ -24,6 +24,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/web/target"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
+	"github.com/tsuru/rpaas-operator/pkg/web"
 )
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
@@ -119,60 +120,10 @@ func getManager(ctx context.Context) (rpaas.RpaasManager, error) {
 	return manager, nil
 }
 
-func errorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
-	return func(c echo.Context) error {
-		err := next(c)
-		if err == nil {
-			return nil
-		}
-		if rpaas.IsValidationError(err) {
-			return &echo.HTTPError{Code: http.StatusBadRequest, Message: err}
-		}
-		if rpaas.IsConflictError(err) {
-			return &echo.HTTPError{Code: http.StatusConflict, Message: err}
-		}
-		if rpaas.IsNotFoundError(err) {
-			return &echo.HTTPError{Code: http.StatusNotFound, Message: err}
-		}
-		return err
-	}
-}
-
 func newEcho(targetFactory target.Factory) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
-	e.HTTPErrorHandler = func(err error, c echo.Context) {
-		var (
-			code = http.StatusInternalServerError
-			msg  interface{}
-		)
-
-		if he, ok := err.(*echo.HTTPError); ok {
-			code = he.Code
-			msg = he.Message
-			if he.Internal != nil {
-				msg = fmt.Sprintf("%v, %v", err, he.Internal)
-			}
-		} else {
-			msg = err.Error()
-		}
-		if _, ok := msg.(string); ok {
-			msg = echo.Map{"message": msg}
-		}
-
-		e.Logger.Error(err)
-
-		if !c.Response().Committed {
-			if c.Request().Method == http.MethodHead {
-				err = c.NoContent(code)
-			} else {
-				err = c.JSON(code, msg)
-			}
-			if err != nil {
-				e.Logger.Error(err)
-			}
-		}
-	}
+	e.HTTPErrorHandler = web.HTTPErrorHandler
 
 	observability.Initialize()
 
@@ -194,7 +145,7 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 		},
 		Realm: "Restricted",
 	}))
-	e.Use(errorMiddleware)
+	e.Use(web.ErrorMiddleware)
 
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/healthcheck", healthcheck)
