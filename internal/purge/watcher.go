@@ -3,7 +3,6 @@ package purge
 import (
 	"context"
 	"fmt"
-	"time"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
@@ -15,7 +14,6 @@ import (
 // Should be exported from rpaas/k8s.go
 const (
 	defaultInstanceLabel = "rpaas.extensions.tsuru.io/instance-name"
-	informerSyncTimeout  = 10 * time.Second
 )
 
 type Watcher struct {
