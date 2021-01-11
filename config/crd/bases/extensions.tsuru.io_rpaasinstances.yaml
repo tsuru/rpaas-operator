@@ -302,6 +302,10 @@ spec:
             planName:
               description: PlanName is the name of the rpaasplan instance.
               type: string
+            planNamespace:
+              description: PlanNamespace is the namespace of target plan and their
+                flavors, when empty uses the same namespace of instance.
+              type: string
             planTemplate:
               description: PlanTemplate allow overriding fields in the specified plan.
               properties:
