@@ -46,6 +46,7 @@ type RpaasConfig struct {
 	WebSocketAllowedOrigins              []string                   `json:"websocket-allowed-origins"`
 	SuppressPrivateKeyOnCertificatesList bool                       `json:"suppress-private-key-on-certificates-list"`
 	MultiCluster                         bool                       `json:"multi-cluster"`
+	NamespacedInstances                  bool                       `json:"namespaced-instances"`
 	Clusters                             []ClusterConfig            `json:"clusters"`
 	ConfigDenyPatterns                   []regexp.Regexp            `json:"config-deny-patterns"`
 }

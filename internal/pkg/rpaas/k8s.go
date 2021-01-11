@@ -72,14 +72,16 @@ type k8sRpaasManager struct {
 	restConfig   *rest.Config
 	kcs          *kubernetes.Clientset
 	clusterName  string
+	poolName     string
 }
 
-func NewK8S(cfg *rest.Config, k8sClient client.Client, clusterName string) (RpaasManager, error) {
+func NewK8S(cfg *rest.Config, k8sClient client.Client, clusterName string, poolName string) (RpaasManager, error) {
 	m := &k8sRpaasManager{
 		cli:          k8sClient,
 		cacheManager: nginxManager.NewNginxManager(),
 		restConfig:   cfg,
 		clusterName:  clusterName,
+		poolName:     poolName,
 	}
 
 	if cfg == nil {
@@ -244,6 +246,10 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 		RolloutNginxOnce: true,
 	}
 
+	if config.Get().NamespacedInstances {
+		instance.Spec.PlanNamespace = getServiceName()
+	}
+
 	setDescription(instance, args.Description)
 	instance.SetTeamOwner(args.Team)
 	if m.clusterName != "" {
@@ -298,7 +304,17 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 }
 
 func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, error) {
-	nsName := getServiceName()
+	var nsName string
+	poolNamespace, err := m.poolNamespace()
+	if err != nil {
+		return "", err
+	}
+	if poolNamespace != "" {
+		nsName = poolNamespace
+	} else {
+		nsName = getServiceName()
+	}
+
 	ns := newNamespace(nsName)
 	if err := m.cli.Create(ctx, &ns); err != nil && !k8sErrors.IsAlreadyExists(err) {
 		return "", err
@@ -710,7 +726,22 @@ func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (
 
 func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.RpaasInstance, error) {
 	var instance v1alpha1.RpaasInstance
-	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &instance)
+
+	poolNamespace, err := m.poolNamespace()
+	if err != nil {
+		return nil, err
+	}
+	if poolNamespace != "" {
+		err = m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: poolNamespace}, &instance)
+		if err != nil && !k8sErrors.IsNotFound(err) {
+			return nil, err
+		}
+
+		if err == nil {
+			return &instance, nil
+		}
+	}
+	err = m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &instance)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		return nil, NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", name)}
 	}
@@ -777,6 +808,17 @@ func (m *k8sRpaasManager) GetFlavors(ctx context.Context) ([]Flavor, error) {
 	sort.SliceStable(result, func(i, j int) bool { return result[i].Name < result[j].Name })
 
 	return result, nil
+}
+
+func (m *k8sRpaasManager) poolNamespace() (string, error) {
+	if config.Get().NamespacedInstances {
+		if m.poolName == "" {
+			return "", ErrNoPoolDefined
+		}
+		return fmt.Sprintf("%s-%s", defaultNamespace, m.poolName), nil
+	}
+
+	return "", nil
 }
 
 func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavor, error) {

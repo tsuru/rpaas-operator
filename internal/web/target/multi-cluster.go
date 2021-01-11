@@ -44,6 +44,7 @@ type multiClusterFactory struct {
 
 type managersCacheKey struct {
 	clusterName    string
+	poolName       string
 	clusterAddress string
 }
 
@@ -57,14 +58,15 @@ func NewMultiClustersFactory(clusters []config.ClusterConfig) Factory {
 }
 
 func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) (rpaas.RpaasManager, error) {
-	name := headers.Get("X-Tsuru-Cluster-Name")
+	clusterName := headers.Get("X-Tsuru-Cluster-Name")
 	address := headers.Get("X-Tsuru-Cluster-Addresses")
 
 	if address == "" {
 		return nil, ErrNoClusterProvided
 	}
 
-	cacheKey := managersCacheKey{name, address}
+	poolName := headers.Get("X-Tsuru-Pool-Name")
+	cacheKey := managersCacheKey{clusterName, poolName, address}
 
 	m.managersMutex.RLock()
 	manager := m.managers[cacheKey]
@@ -76,11 +78,12 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 
 	span := opentracing.SpanFromContext(ctx)
 	if span != nil {
-		span.SetTag("cluster.name", name)
+		span.SetTag("cluster.name", clusterName)
 		span.SetTag("cluster.address", address)
+		span.SetTag("pool.name", poolName)
 	}
 
-	bearerToken, err := m.getToken(name)
+	bearerToken, err := m.getToken(clusterName)
 	if err != nil {
 		return nil, err
 	}
@@ -94,7 +97,7 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 		return nil, err
 	}
 
-	manager, err = rpaas.NewK8S(kubernetesRestConfig, k8sClient, name)
+	manager, err = rpaas.NewK8S(kubernetesRestConfig, k8sClient, clusterName, poolName)
 	if err != nil {
 		return nil, err
 	}

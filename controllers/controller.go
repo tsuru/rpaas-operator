@@ -204,6 +204,10 @@ func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, 
 			Namespace: instance.Namespace,
 		}
 
+		if instance.Spec.PlanNamespace != "" {
+			flavorObjectKey.Namespace = instance.Spec.PlanNamespace
+		}
+
 		var flavor extensionsv1alpha1.RpaasFlavor
 		if err := r.Client.Get(ctx, flavorObjectKey, &flavor); err != nil {
 			return nil, err

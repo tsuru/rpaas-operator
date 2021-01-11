@@ -5,7 +5,12 @@
 package rpaas
 
 import (
+	"github.com/pkg/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+)
+
+var (
+	ErrNoPoolDefined = errors.New("No pool defined")
 )
 
 type ValidationError struct {
