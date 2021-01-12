@@ -730,7 +730,7 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 		return nil, err
 	}
 	if poolNamespace != "" {
-		err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: poolNamespace}, &instance)
+		err = m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: poolNamespace}, &instance)
 		if err != nil && !k8sErrors.IsNotFound(err) {
 			return nil, err
 		}
