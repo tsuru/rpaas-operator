@@ -59,6 +59,10 @@ func (r *RpaasInstanceReconciler) Reconcile(req ctrl.Request) (ctrl.Result, erro
 		Name:      instance.Spec.PlanName,
 		Namespace: instance.Namespace,
 	}
+	if instance.Spec.PlanNamespace != "" {
+		planName.Namespace = instance.Spec.PlanNamespace
+	}
+
 	plan := &extensionsv1alpha1.RpaasPlan{}
 	err = r.Client.Get(ctx, planName, plan)
 	if err != nil {

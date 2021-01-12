@@ -242,6 +242,11 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 	instance5.Name = "instance5"
 	instance5.Spec.Flavors = []string{"banana"}
 
+	instance6 := newEmptyRpaasInstance()
+	instance6.Name = "instance6"
+	instance6.Spec.Flavors = []string{"beer"}
+	instance6.Spec.PlanNamespace = "rpaasv2-system"
+
 	mintFlavor := newRpaasFlavor()
 	mintFlavor.Name = "mint"
 	mintFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
@@ -294,6 +299,13 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		AllocateContainerPorts: v1alpha1.Bool(false),
 	}
 
+	poolNameSpacedFlavor := newRpaasFlavor()
+	poolNameSpacedFlavor.Name = "beer"
+	poolNameSpacedFlavor.Namespace = "rpaasv2-system"
+	poolNameSpacedFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		AllocateContainerPorts: v1alpha1.Bool(false),
+	}
+
 	defaultFlavor := newRpaasFlavor()
 	defaultFlavor.Name = "default"
 	defaultFlavor.Spec.Default = true
@@ -319,7 +331,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor}
+	resources := []runtime.Object{
+		instance1, instance2, instance3, instance4, instance5, instance6,
+		mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor, poolNameSpacedFlavor,
+	}
 
 	tests := []struct {
 		name      string
@@ -525,6 +540,44 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				Spec: v1alpha1.RpaasInstanceSpec{
 					PlanName:               "my-plan",
 					Flavors:                []string{"banana"},
+					AllocateContainerPorts: v1alpha1.Bool(false),
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"default-service-annotation": "default",
+						},
+						Labels: map[string]string{
+							"default-service-label":  "default",
+							"flavored-service-label": "default",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Annotations: map[string]string{
+							"default-pod-annotation": "default",
+						},
+						Labels: map[string]string{
+							"mango-pod-label":   "not-a-mango",
+							"default-pod-label": "default",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:      "when flavor has another namespace",
+			objectKey: types.NamespacedName{Name: instance6.Name, Namespace: instance6.Namespace},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance6.Name,
+					Namespace: instance6.Namespace,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName:               "my-plan",
+					PlanNamespace:          "rpaasv2-system",
+					Flavors:                []string{"beer"},
 					AllocateContainerPorts: v1alpha1.Bool(false),
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
@@ -1641,6 +1694,39 @@ func TestReconcile(t *testing.T) {
 		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-snapshot/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-snapshot"},
 	}, podSpec.Containers[0].Env)
+}
+
+func TestReconcilePoolNamespaced(t *testing.T) {
+	rpaas := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2-my-pool",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PlanName:      "my-plan",
+			PlanNamespace: "default",
+		},
+	}
+	plan := &v1alpha1.RpaasPlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-plan",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasPlanSpec{
+			Image: "tsuru:pool-namespaces-image:test",
+		},
+	}
+	reconciler := newRpaasInstanceReconciler(rpaas, plan)
+	result, err := reconciler.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "rpaasv2-my-pool", Name: "my-instance"}})
+	require.NoError(t, err)
+
+	assert.Equal(t, result, reconcile.Result{})
+
+	nginx := &nginxv1alpha1.Nginx{}
+	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
+	require.NoError(t, err)
+
+	assert.Equal(t, "tsuru:pool-namespaces-image:test", nginx.Spec.Image)
 }
 
 func resourceMustParsePtr(fmt string) *resource.Quantity {
