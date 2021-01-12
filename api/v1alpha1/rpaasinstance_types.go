@@ -21,7 +21,7 @@ type RpaasInstanceSpec struct {
 	// +optional
 	PlanName string `json:"planName"`
 
-	// PlanNamespace is the namespace of target plan, when empty uses the same namespace of instance.
+	// PlanNamespace is the namespace of target plan and their flavors, when empty uses the same namespace of instance.
 	// +optional
 	PlanNamespace string `json:"planNamespace"`
 
