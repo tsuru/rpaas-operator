@@ -54,6 +54,10 @@ func main() {
 		log.Fatalf("could not create Purge API: %v", err)
 	}
 
+	go func() {
+		mgr.Start(a.Shutdown)
+	}()
+
 	if err := a.Start(); err != nil {
 		log.Fatalf("could not start the Purge API server: %v", err)
 	}

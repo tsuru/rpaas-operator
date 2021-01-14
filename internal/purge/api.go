@@ -23,7 +23,7 @@ import (
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
 
-type purge struct {
+type PurgeAPI struct {
 	sync.Mutex
 
 	lister       PodLister
@@ -35,32 +35,32 @@ type purge struct {
 
 	started  bool
 	e        *echo.Echo
-	shutdown chan struct{}
+	Shutdown chan struct{}
 }
 
 type PodLister interface {
 	ListPods(instance string) ([]rpaas.PodStatus, int32, error)
 }
 
-func NewAPI(l PodLister, n rpaas.CacheManager) (*purge, error) {
-	p := &purge{
+func NewAPI(l PodLister, n rpaas.CacheManager) (*PurgeAPI, error) {
+	p := &PurgeAPI{
 		lister:          l,
 		cacheManager:    n,
 		Address:         `:9990`,
 		ShutdownTimeout: 30 * time.Second,
 		e:               echo.New(),
-		shutdown:        make(chan struct{}),
+		Shutdown:        make(chan struct{}),
 	}
 	p.setupEcho()
 	return p, nil
 }
 
-func (p *purge) startServer() error {
+func (p *PurgeAPI) startServer() error {
 	return p.e.StartH2CServer(p.Address, &http2.Server{})
 }
 
 // Start runs the web server.
-func (p *purge) Start() error {
+func (p *PurgeAPI) Start() error {
 	p.Lock()
 	p.started = true
 	p.Unlock()
@@ -74,32 +74,32 @@ func (p *purge) Start() error {
 }
 
 // Stop shut down the web server.
-func (p *purge) Stop() error {
+func (p *PurgeAPI) Stop() error {
 	p.Lock()
 	defer p.Unlock()
 	if !p.started {
 		return fmt.Errorf("web server is already down")
 	}
-	if p.shutdown == nil {
+	if p.Shutdown == nil {
 		return fmt.Errorf("shutdown channel is not defined")
 	}
-	close(p.shutdown)
+	close(p.Shutdown)
 	ctx, cancel := context.WithTimeout(context.Background(), p.ShutdownTimeout)
 	defer cancel()
 	return p.e.Shutdown(ctx)
 }
 
-func (p *purge) handleSignals() {
+func (p *PurgeAPI) handleSignals() {
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	select {
 	case <-quit:
 		p.Stop()
-	case <-p.shutdown:
+	case <-p.Shutdown:
 	}
 }
 
-func (p *purge) setupEcho() {
+func (p *PurgeAPI) setupEcho() {
 	p.e.HideBanner = true
 	p.e.HTTPErrorHandler = web.HTTPErrorHandler
 	observability.Initialize()
@@ -112,6 +112,7 @@ func (p *purge) setupEcho() {
 
 	p.e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	p.e.GET("/healthcheck", healthcheck)
+	p.e.GET("/", mainRoute)
 
 	p.e.POST("/resources/:instance/purge", p.cachePurge)
 	p.e.POST("/resources/:instance/purge/bulk", p.cachePurgeBulk)
@@ -119,4 +120,8 @@ func (p *purge) setupEcho() {
 
 func healthcheck(c echo.Context) error {
 	return c.String(http.StatusOK, "OK")
+}
+
+func mainRoute(c echo.Context) error {
+	return c.String(http.StatusOK, "RPaaS Purger")
 }

@@ -82,7 +82,7 @@ func (m NginxManager) purgeRequest(host, path string, port int32, headers map[st
 		return NginxError{Msg: errorMessage}
 	}
 	if resp.StatusCode != http.StatusOK {
-		errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %v", resp)
+		errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %d", resp.StatusCode)
 		logrus.Error(errorMessage)
 		return NginxError{Msg: errorMessage}
 	}
