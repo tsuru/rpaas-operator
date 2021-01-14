@@ -13,7 +13,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
-func (p *purge) cachePurge(c echo.Context) error {
+func (p *PurgeAPI) cachePurge(c echo.Context) error {
 	if c.Request().ContentLength == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
@@ -37,7 +37,7 @@ func (p *purge) cachePurge(c echo.Context) error {
 	return c.JSON(http.StatusOK, rpaas.PurgeCacheBulkResult{Path: args.Path, InstancesPurged: count})
 }
 
-func (p *purge) cachePurgeBulk(c echo.Context) error {
+func (p *PurgeAPI) cachePurgeBulk(c echo.Context) error {
 	if c.Request().ContentLength == 0 {
 		return echo.NewHTTPError(http.StatusBadRequest, "Request body can't be empty")
 	}
@@ -70,7 +70,7 @@ func (p *purge) cachePurgeBulk(c echo.Context) error {
 	return c.JSON(status, results)
 }
 
-func (p *purge) PurgeCache(ctx context.Context, name string, args rpaas.PurgeCacheArgs) (int, error) {
+func (p *PurgeAPI) PurgeCache(ctx context.Context, name string, args rpaas.PurgeCacheArgs) (int, error) {
 	if args.Path == "" {
 		return 0, rpaas.ValidationError{Msg: "path is required"}
 	}
