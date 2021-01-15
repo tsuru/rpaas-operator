@@ -60,6 +60,21 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 		},
 		{
+			description:  "makes a request to /purge/<purgePath> when preservePath is true with custom cache key",
+			purgePath:    "0:desktop:myhostname/some/path/index.html",
+			preservePath: true,
+			assertion: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
+				if r.RequestURI == "/purge/0:desktop:myhostname/some/path/index.html" {
+					w.WriteHeader(http.StatusOK)
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			},
+		},
+		{
 			description:  "makes a request to /purge/<protocol>/<purgePath> when preservePath is false",
 			purgePath:    "/index.html",
 			preservePath: false,

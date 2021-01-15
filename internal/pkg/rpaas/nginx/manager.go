@@ -7,6 +7,7 @@ package nginx
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -58,7 +59,11 @@ func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePat
 		headers := map[string]string{"Accept-Encoding": encoding}
 
 		if preservePath {
-			path := fmt.Sprintf("%s%s", defaultPurgeLocation, purgePath)
+			separator := "/"
+			if strings.HasPrefix(purgePath, "/") {
+				separator = ""
+			}
+			path := fmt.Sprintf("%s%s%s", defaultPurgeLocation, separator, purgePath)
 			if err := m.purgeRequest(host, path, port, headers); err != nil {
 				return err
 			}
