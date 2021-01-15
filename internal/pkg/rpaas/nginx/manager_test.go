@@ -27,7 +27,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			purgePath:    "/index.html",
 			preservePath: false,
 			assertion: func(t *testing.T, err error) {
-				require.Error(t, err)
+				require.NoError(t, err)
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
@@ -38,10 +38,21 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			purgePath:    "/index.html",
 			preservePath: true,
 			assertion: func(t *testing.T, err error) {
-				require.Error(t, err)
+				require.NoError(t, err)
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
+			},
+		},
+		{
+			description:  "returns not found error when nginx returns 500",
+			purgePath:    "/index.html",
+			preservePath: true,
+			assertion: func(t *testing.T, err error) {
+				require.Error(t, err)
+			},
+			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
 			},
 		},
 		{
