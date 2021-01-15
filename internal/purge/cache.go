@@ -9,6 +9,7 @@ import (
 	"github.com/hashicorp/go-multierror"
 	"github.com/labstack/echo/v4"
 	"github.com/pkg/errors"
+	"github.com/sirupsen/logrus"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
@@ -79,6 +80,7 @@ func (p *PurgeAPI) PurgeCache(ctx context.Context, name string, args rpaas.Purge
 	if err != nil {
 		return 0, rpaas.NotFoundError{Msg: fmt.Sprintf("Failed to find pods: %v", err)}
 	}
+	logrus.Infof("Found %d pods listening on port %d for instance: %s", len(pods), port, name)
 
 	var purgeErrors error
 	purgeCount := 0
@@ -87,7 +89,7 @@ func (p *PurgeAPI) PurgeCache(ctx context.Context, name string, args rpaas.Purge
 			continue
 		}
 		if err = p.cacheManager.PurgeCache(pod.Address, args.Path, port, args.PreservePath); err != nil {
-			purgeErrors = multierror.Append(purgeErrors, errors.Wrapf(err, "pod %s failed", pod.Address))
+			purgeErrors = multierror.Append(purgeErrors, errors.Wrapf(err, "pod %s:%d failed", pod.Address, port))
 			continue
 		}
 		purgeCount++

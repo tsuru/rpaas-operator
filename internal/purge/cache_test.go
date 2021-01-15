@@ -56,7 +56,7 @@ func TestCachePurge(t *testing.T) {
 			instance:       "sample-rpaasv2",
 			requestBody:    `{"path":"/index.html","preserve_path":true}`,
 			expectedStatus: http.StatusOK,
-			expectedBody:   `{"path":"/index.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2 failed: some nginx error\n\n"}`,
+			expectedBody:   `{"path":"/index.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2:8889 failed: some nginx error\n\n"}`,
 			cacheManager: fakeCacheManager{
 				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
 					if host == "172.0.2.2" {
@@ -128,7 +128,7 @@ func TestCachePurgeBulk(t *testing.T) {
 			instance:       "sample-rpaasv2",
 			requestBody:    `[{"path":"/index.html","preserve_path":true},{"path":"/other.html","preserve_path":true}]`,
 			expectedStatus: http.StatusInternalServerError,
-			expectedBody:   `[{"path":"/index.html","instances_purged":2},{"path":"/other.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2 failed: some nginx error\n\n"}]`,
+			expectedBody:   `[{"path":"/index.html","instances_purged":2},{"path":"/other.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2:8889 failed: some nginx error\n\n"}]`,
 			cacheManager: fakeCacheManager{
 				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
 					if host == "172.0.2.2" && path == "/other.html" {
@@ -192,6 +192,8 @@ func getFakePods() []runtime.Object {
 				{
 					Ports: []apiv1.ContainerPort{
 						{Name: "nginx-metrics", ContainerPort: 8889},
+						{Name: "http", ContainerPort: 8888},
+						{Name: "https", ContainerPort: 8443},
 					},
 				},
 			},
@@ -215,6 +217,8 @@ func getFakePods() []runtime.Object {
 				{
 					Ports: []apiv1.ContainerPort{
 						{Name: "nginx-metrics", ContainerPort: 8889},
+						{Name: "http", ContainerPort: 8888},
+						{Name: "https", ContainerPort: 8443},
 					},
 				},
 			},
