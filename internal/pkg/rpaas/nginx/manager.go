@@ -7,6 +7,7 @@ package nginx
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/sirupsen/logrus"
@@ -58,7 +59,11 @@ func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePat
 		headers := map[string]string{"Accept-Encoding": encoding}
 
 		if preservePath {
-			path := fmt.Sprintf("%s%s", defaultPurgeLocation, purgePath)
+			separator := "/"
+			if strings.HasPrefix(purgePath, "/") {
+				separator = ""
+			}
+			path := fmt.Sprintf("%s%s%s", defaultPurgeLocation, separator, purgePath)
 			if err := m.purgeRequest(host, path, port, headers); err != nil {
 				return err
 			}
@@ -81,12 +86,13 @@ func (m NginxManager) purgeRequest(host, path string, port int32, headers map[st
 		logrus.Error(errorMessage)
 		return NginxError{Msg: errorMessage}
 	}
-	if resp.StatusCode != http.StatusOK {
-		errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %d", resp.StatusCode)
-		logrus.Error(errorMessage)
-		return NginxError{Msg: errorMessage}
+	// StatusNotFound is a valid response when nginx does not have the path on its cache.
+	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
+		return nil
 	}
-	return nil
+	errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %d", resp.StatusCode)
+	logrus.Error(errorMessage)
+	return NginxError{Msg: errorMessage}
 }
 
 func (m NginxManager) requestNginx(host, path string, port int32, headers map[string]string) (*http.Response, error) {
