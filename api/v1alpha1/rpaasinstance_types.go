@@ -41,6 +41,10 @@ type RpaasInstanceSpec struct {
 	// +optional
 	Locations []Location `json:"locations,omitempty"`
 
+	// DNS Configuration for the current flavor
+	// +optional
+	DNS *DNSConfig `json:"dns,omitempty"`
+
 	// Certificates are a set of attributes that relate the certificate's
 	// location in the cluster (Secret resource name) and its destination into
 	// Pods.
@@ -112,6 +116,15 @@ const (
 	BlockTypeLuaServer = "lua-server"
 	BlockTypeLuaWorker = "lua-worker"
 )
+
+type DNSConfig struct {
+	// Zone is the suffix which all DNS entries will be formed with
+	// using the rule `instance_name.zone`
+	Zone string `json:"zone"`
+	// TTL is the DNS entry time to live in seconds (default is 60s)
+	// +optional
+	TTL *int32 `json:"ttl"`
+}
 
 type Location struct {
 	Path        string `json:"path"`

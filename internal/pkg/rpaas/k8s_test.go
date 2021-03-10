@@ -3436,6 +3436,299 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_CreateInstance_withDNS(t *testing.T) {
+	one := int32(1)
+	tests := []struct {
+		name          string
+		args          CreateArgs
+		resources     []runtime.Object
+		expected      v1alpha1.RpaasInstance
+		expectedError string
+		extraConfig   config.RpaasConfig
+		clusterName   string // to simulate a multi-cluster environment
+	}{
+		{
+			name: "simple",
+			args: CreateArgs{Name: "r1", Team: "t1"},
+			resources: []runtime.Object{
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "plan1",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasPlanSpec{
+						Default: true,
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "strawberry",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Default:     true,
+						Description: "aaaaa",
+					},
+				},
+			},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					RolloutNginxOnce: true,
+				},
+			},
+		},
+		{
+			name: "flavor with dns suffix",
+			args: CreateArgs{Name: "r1", Team: "t1"},
+			resources: []runtime.Object{
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "plan1",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasPlanSpec{
+						Default: true,
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "strawberry",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Default:     true,
+						Description: "aaaaa",
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							DNS: &v1alpha1.DNSConfig{
+								Zone: "internal.tsuru.io",
+							},
+						},
+					},
+				},
+			},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+						Annotations: map[string]string{
+							"external-dns.alpha.kubernetes.io/hostname": "r1.internal.tsuru.io",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					RolloutNginxOnce: true,
+				},
+			},
+		},
+		{
+			name: "flavor with dns suffix and ttl",
+			args: CreateArgs{Name: "r1", Team: "t1"},
+			resources: []runtime.Object{
+				&v1alpha1.RpaasPlan{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "plan1",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasPlanSpec{
+						Default: true,
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "strawberry",
+						Namespace: namespaceName(),
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Default:     true,
+						Description: "aaaaa",
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							DNS: &v1alpha1.DNSConfig{
+								Zone: "internal.tsuru.io",
+								TTL: func() *int32 {
+									v := int32(42)
+									return &v
+								}(),
+							},
+						},
+					},
+				},
+			},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+						Annotations: map[string]string{
+							"external-dns.alpha.kubernetes.io/hostname": "r1.internal.tsuru.io",
+							"external-dns.alpha.kubernetes.io/ttl":      "42",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					RolloutNginxOnce: true,
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			baseConfig := config.RpaasConfig{
+				ServiceName:              "rpaasv2",
+				LoadBalancerNameLabelKey: "cloudprovider.example/lb-name",
+				TeamAffinity: map[string]corev1.Affinity{
+					"team-one": {
+						NodeAffinity: &corev1.NodeAffinity{
+							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
+								NodeSelectorTerms: []corev1.NodeSelectorTerm{
+									{
+										MatchExpressions: []corev1.NodeSelectorRequirement{
+											{
+												Key:      "machine-type",
+												Operator: corev1.NodeSelectorOpIn,
+												Values:   []string{"ultra-fast-io"},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			}
+			mergo.MergeWithOverwrite(&baseConfig, tt.extraConfig)
+			config.Set(baseConfig)
+			defer config.Set(config.RpaasConfig{})
+			scheme := newScheme()
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, tt.resources...), clusterName: tt.clusterName}
+			err := manager.CreateInstance(context.Background(), tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			result, err := manager.GetInstance(context.Background(), tt.args.Name)
+			require.NoError(t, err)
+			assert.Equal(t, &tt.expected, result)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 	cfg := config.Get()
 	defer func() { config.Set(cfg) }()
@@ -4559,7 +4852,7 @@ func Test_k8sRpaasManager_GetPlans(t *testing.T) {
 			},
 			"lb-name": map[string]interface{}{
 				"type":        "string",
-				"description": "Custom domain address (e.g. following RFC 1035) assingned to instance's load balancer. Example: lb-name=my-instance.internal.subdomain.example.\n",
+				"description": "Custom domain address (e.g. following RFC 1035) assigned to instance's load balancer. Example: lb-name=my-instance.internal.subdomain.example.\n",
 			},
 		},
 		"definitions": map[string]interface{}{
