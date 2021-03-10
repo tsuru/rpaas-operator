@@ -165,6 +165,21 @@ spec:
             configHistoryLimit:
               description: The number of old Configs to retain to allow rollback.
               type: integer
+            dns:
+              description: DNS Configuration for the current flavor
+              properties:
+                ttl:
+                  description: TTL is the DNS entry time to live in seconds (default
+                    is 60s)
+                  format: int32
+                  type: integer
+                zone:
+                  description: Zone is the suffix which all DNS entries will be formed
+                    with using the rule `instance_name.zone`
+                  type: string
+              required:
+              - zone
+              type: object
             extraFiles:
               description: ExtraFiles points to a ConfigMap where the files are stored.
               properties:
