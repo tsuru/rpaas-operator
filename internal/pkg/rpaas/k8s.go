@@ -1638,11 +1638,8 @@ func setLoadBalancerName(instance *v1alpha1.RpaasInstance, lbName string) {
 }
 
 func (m *k8sRpaasManager) setDNSAnnotation(ctx context.Context, instance *v1alpha1.RpaasInstance) {
-	flavor, err := m.getDefaultFlavor(ctx, instance.Namespace)
-	if err != nil {
-		return
-	}
-	if flavor.Spec.InstanceTemplate == nil || flavor.Spec.InstanceTemplate.DNS == nil {
+	flavor, err := m.getDefaultFlavorWithDNS(ctx, instance.Namespace)
+	if err != nil || flavor == nil {
 		return
 	}
 
@@ -1660,7 +1657,7 @@ func (m *k8sRpaasManager) setDNSAnnotation(ctx context.Context, instance *v1alph
 	}
 }
 
-func (m *k8sRpaasManager) getDefaultFlavor(ctx context.Context, namespace string) (*v1alpha1.RpaasFlavor, error) {
+func (m *k8sRpaasManager) getDefaultFlavorWithDNS(ctx context.Context, namespace string) (*v1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
 	if err := m.cli.List(ctx, flavorList, client.InNamespace(namespace)); err != nil {
 		return nil, err
@@ -1668,11 +1665,13 @@ func (m *k8sRpaasManager) getDefaultFlavor(ctx context.Context, namespace string
 
 	for _, flavor := range flavorList.Items {
 		if flavor.Spec.Default {
-			return &flavor, nil
+			if flavor.Spec.InstanceTemplate != nil && flavor.Spec.InstanceTemplate.DNS != nil {
+				return &flavor, nil
+			}
 		}
 	}
 
-	return nil, fmt.Errorf("unable do find a default flavor")
+	return nil, nil
 }
 
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
