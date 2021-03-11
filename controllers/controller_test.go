@@ -242,6 +242,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 	instance5.Name = "instance5"
 	instance5.Spec.Flavors = []string{"banana"}
 
+	instance6 := newEmptyRpaasInstance()
+	instance6.Name = "instance6"
+	instance6.Spec.Flavors = []string{"raspberry"}
+
 	mintFlavor := newRpaasFlavor()
 	mintFlavor.Name = "mint"
 	mintFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
@@ -317,9 +321,22 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				"default-pod-label": "default",
 			},
 		},
+		DNS: &v1alpha1.DNSConfig{
+			Zone: "test-zone",
+			TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor}
+	raspberryFlavor := newRpaasFlavor()
+	raspberryFlavor.Name = "raspberry"
+	raspberryFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		DNS: &v1alpha1.DNSConfig{
+			Zone: "raspberry-zone",
+			TTL:  func() *int32 { ttl := int32(25); return &ttl }(),
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, instance6, mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor, raspberryFlavor}
 
 	tests := []struct {
 		name      string
@@ -358,6 +375,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 							"mango-pod-label":   "not-a-mango",
 							"default-pod-label": "default",
 						},
+					},
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "test-zone",
+						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
 					},
 				},
 			},
@@ -413,6 +434,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						},
 						HostNetwork: true,
 					},
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "test-zone",
+						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+					},
 				},
 			},
 		},
@@ -463,6 +488,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						},
 						HostNetwork: true,
 					},
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "test-zone",
+						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+					},
 				},
 			},
 		},
@@ -507,6 +536,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 							"default-pod-label": "default",
 						},
 					},
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "test-zone",
+						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+					},
 				},
 			},
 		},
@@ -543,6 +576,51 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 							"mango-pod-label":   "not-a-mango",
 							"default-pod-label": "default",
 						},
+					},
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "test-zone",
+						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+					},
+				},
+			},
+		},
+		{
+			name:      "when default flavor defines a DNS value but a custom flavor defines another, the custom flavor should take precedence",
+			objectKey: types.NamespacedName{Name: instance6.Name, Namespace: instance6.Namespace},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instance6.Name,
+					Namespace: instance6.Namespace,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName:               "my-plan",
+					Flavors:                []string{"raspberry"},
+					AllocateContainerPorts: v1alpha1.Bool(true),
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"default-service-annotation": "default",
+						},
+						Labels: map[string]string{
+							"default-service-label":  "default",
+							"flavored-service-label": "default",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Annotations: map[string]string{
+							"default-pod-annotation": "default",
+						},
+						Labels: map[string]string{
+							"mango-pod-label":   "not-a-mango",
+							"default-pod-label": "default",
+						},
+					},
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "raspberry-zone",
+						TTL:  func() *int32 { ttl := int32(25); return &ttl }(),
 					},
 				},
 			},
@@ -1582,7 +1660,26 @@ func TestReconcile(t *testing.T) {
 			},
 		},
 	}
-	reconciler := newRpaasInstanceReconciler(rpaas, plan)
+
+	defaultFlavor := newRpaasFlavor()
+	defaultFlavor.Name = "default"
+	defaultFlavor.Spec.Default = true
+	defaultFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		DNS: &v1alpha1.DNSConfig{
+			Zone: "test-zone",
+			TTL:  func() *int32 { ttl := int32(25); return &ttl }(),
+		},
+		Service: &nginxv1alpha1.NginxService{
+			Annotations: map[string]string{
+				"flavored-service-annotation": "v1",
+			},
+			Labels: map[string]string{
+				"flavored-service-label": "v1",
+				"conflict-label":         "ignored",
+			},
+		},
+	}
+	reconciler := newRpaasInstanceReconciler(rpaas, plan, defaultFlavor)
 	result, err := reconciler.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
 	require.NoError(t, err)
 
@@ -1591,16 +1688,16 @@ func TestReconcile(t *testing.T) {
 	nginx := &nginxv1alpha1.Nginx{}
 	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
 	require.NoError(t, err)
-
 	assert.Equal(t, "cache-snapshot-volume", nginx.Spec.PodTemplate.Volumes[0].Name)
 	assert.Equal(t, &corev1.PersistentVolumeClaimVolumeSource{ClaimName: "my-instance-snapshot-volume"}, nginx.Spec.PodTemplate.Volumes[0].PersistentVolumeClaim)
 	assert.Equal(t, "cache-snapshot-volume", nginx.Spec.PodTemplate.VolumeMounts[0].Name)
 	assert.Equal(t, "/var/cache/cache-snapshot", nginx.Spec.PodTemplate.VolumeMounts[0].MountPath)
-
 	assert.Equal(t, nginx.Spec.PodTemplate.Ports, []corev1.ContainerPort{
 		{Name: "nginx-metrics", ContainerPort: 8800, Protocol: "TCP"},
 	})
 	assert.Equal(t, resource.MustParse("100M"), *nginx.Spec.Cache.Size)
+	assert.Equal(t, nginx.Spec.Service.Annotations[externalDNSHostnameLabel], "my-instance.test-zone")
+	assert.Equal(t, nginx.Spec.Service.Annotations[externalDNSTTLLabel], "25")
 
 	initContainer := nginx.Spec.PodTemplate.InitContainers[0]
 	assert.Equal(t, "restore-snapshot", initContainer.Name)
@@ -1641,6 +1738,7 @@ func TestReconcile(t *testing.T) {
 		{Name: "CACHE_PATH", Value: "/var/cache/nginx/rpaas"},
 		{Name: "POD_CMD", Value: "rsync -avz --recursive --delete --temp-dir=/var/cache/cache-snapshot/temp /var/cache/nginx/rpaas/nginx /var/cache/cache-snapshot"},
 	}, podSpec.Containers[0].Env)
+
 }
 
 func resourceMustParsePtr(fmt string) *resource.Quantity {
