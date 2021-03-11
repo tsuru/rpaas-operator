@@ -60,7 +60,6 @@ const (
 	defaultKeyLabelPrefix = "rpaas.extensions.tsuru.io"
 
 	externalDNSHostnameLabel = "external-dns.alpha.kubernetes.io/hostname"
-	externalDNSTTLLabel      = "external-dns.alpha.kubernetes.io/ttl"
 
 	nginxContainerName = "nginx"
 )
@@ -253,7 +252,6 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 	setLoadBalancerName(instance, args.LoadBalancerName())
-	m.setDNSAnnotation(ctx, instance)
 
 	if err = setPlanTemplate(instance, args.PlanOverride()); err != nil {
 		return err
@@ -1637,44 +1635,6 @@ func setLoadBalancerName(instance *v1alpha1.RpaasInstance, lbName string) {
 	instance.Spec.Service.Annotations[lbNameLabelKey] = lbName
 }
 
-func (m *k8sRpaasManager) setDNSAnnotation(ctx context.Context, instance *v1alpha1.RpaasInstance) {
-	flavor, err := m.getDefaultFlavor(ctx, instance.Namespace)
-	if err != nil {
-		return
-	}
-	if flavor.Spec.InstanceTemplate == nil || flavor.Spec.InstanceTemplate.DNS == nil {
-		return
-	}
-
-	suffix := flavor.Spec.InstanceTemplate.DNS.Zone
-	vhost := fmt.Sprintf("%v.%v", instance.Name, suffix)
-
-	if instance.Spec.Service.Annotations == nil {
-		instance.Spec.Service.Annotations = make(map[string]string)
-	}
-	instance.Spec.Service.Annotations[externalDNSHostnameLabel] = vhost
-
-	if flavor.Spec.InstanceTemplate.DNS.TTL != nil {
-		ttl := fmt.Sprintf("%v", *flavor.Spec.InstanceTemplate.DNS.TTL)
-		instance.Spec.Service.Annotations[externalDNSTTLLabel] = ttl
-	}
-}
-
-func (m *k8sRpaasManager) getDefaultFlavor(ctx context.Context, namespace string) (*v1alpha1.RpaasFlavor, error) {
-	flavorList := &v1alpha1.RpaasFlavorList{}
-	if err := m.cli.List(ctx, flavorList, client.InNamespace(namespace)); err != nil {
-		return nil, err
-	}
-
-	for _, flavor := range flavorList.Items {
-		if flavor.Spec.Default {
-			return &flavor, nil
-		}
-	}
-
-	return nil, fmt.Errorf("unable do find a default flavor")
-}
-
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -1922,12 +1882,15 @@ func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc
 
 	if isLoadBalancerReady(svc) {
 		status := "ready"
-
 		for _, lbIngress := range svc.Status.LoadBalancer.Ingress {
+			hostname := lbIngress.Hostname
+			if vhost, ok := svc.Annotations[externalDNSHostnameLabel]; ok {
+				hostname = vhost
+			}
 			addresses = append(addresses, clientTypes.InstanceAddress{
 				ServiceName: svc.ObjectMeta.Name,
 				IP:          lbIngress.IP,
-				Hostname:    lbIngress.Hostname,
+				Hostname:    hostname,
 				Status:      status,
 			})
 		}

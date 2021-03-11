@@ -14,6 +14,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 
@@ -57,6 +58,9 @@ const (
 
 	sessionTicketsSecretSuffix  = "-session-tickets"
 	sessionTicketsCronJobSuffix = "-session-tickets"
+
+	externalDNSHostnameLabel = "external-dns.alpha.kubernetes.io/hostname"
+	externalDNSTTLLabel      = "external-dns.alpha.kubernetes.io/ttl"
 )
 
 var (
@@ -946,6 +950,21 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 	}
 }
 
+func mergeServiceWithDNS(instance *v1alpha1.RpaasInstance) *nginxv1alpha1.NginxService {
+	service := instance.Spec.Service
+	if instance.Spec.DNS != nil && service != nil {
+		if service.Annotations == nil {
+			service.Annotations = make(map[string]string)
+		}
+		service.Annotations[externalDNSHostnameLabel] = fmt.Sprintf("%s.%s", instance.Name, instance.Spec.DNS.Zone)
+		if instance.Spec.DNS.TTL != nil {
+			service.Annotations[externalDNSTTLLabel] = strconv.Itoa(int(*instance.Spec.DNS.TTL))
+		}
+	}
+
+	return service
+}
+
 func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxv1alpha1.Nginx {
 	var cacheConfig nginxv1alpha1.NginxCacheSpec
 	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
@@ -955,6 +974,9 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 			cacheConfig.Size = plan.Spec.Config.CacheSize
 		}
 	}
+
+	instance.Spec.Service = mergeServiceWithDNS(instance)
+
 	n := &nginxv1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
