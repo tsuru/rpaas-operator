@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"sort"
+	"strconv"
 	"strings"
 	"text/template"
 	"time"
@@ -64,6 +65,7 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 		"formatPods":         writePodsOnTableFormat,
 		"formatPodErrors":    writePodErrorsOnTableFormat,
 		"formatCertificates": writeCertificatesOnTableFormat,
+		"formatExternalDNS":  writeExternalDNSHostnameOnTableFormat,
 	}).
 	Parse(`
 {{- $instance := . -}}
@@ -114,6 +116,11 @@ Blocks:
 {{- with .Routes }}
 Routes:
 {{ formatRoutes . }}
+{{- end }}
+
+{{- with .DNS }}
+DNS:
+{{ formatExternalDNS . }}
 {{- end }}
 {{- /* end template */ -}}
 `))
@@ -311,6 +318,25 @@ func writePodErrorsOnTableFormat(pods []clientTypes.Pod) string {
 func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
 	var buffer bytes.Buffer
 	writeAutoscale(&buffer, autoscale)
+	return buffer.String()
+}
+
+func writeExternalDNSHostnameOnTableFormat(dns *clientTypes.DNSInfo) string {
+	var ttl string
+	if dns.TTL != nil {
+		ttl = strconv.Itoa(int(*dns.TTL))
+	}
+	data := [][]string{{dns.ExternalURL, dns.Zone, ttl}}
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"External URL", "Zone", "TTL (Time To Live)"})
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetRowLine(true)
+	table.SetAutoWrapText(false)
+	table.SetReflowDuringAutoWrap(false)
+	table.AppendBulk(data)
+	table.Render()
 	return buffer.String()
 }
 

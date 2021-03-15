@@ -4297,6 +4297,12 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 
 	instance4 := instance1.DeepCopy()
 	instance4.Name = "instance4"
+	instance4.Spec.DNS = &v1alpha1.DNSConfig{
+		Zone: "zone1",
+	}
+	instance4.Spec.Service = &nginxv1alpha1.NginxService{
+		Annotations: map[string]string{externalDNSHostnameLabel: instance4.Name + "." + instance4.Spec.DNS.Zone},
+	}
 
 	service3 := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
@@ -4683,6 +4689,10 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
 				Flavors:     []string{"mango", "milk"},
+				DNS: &clientTypes.DNSInfo{
+					Zone:        "zone1",
+					ExternalURL: "instance4.zone1",
+				},
 				Addresses: []clientTypes.InstanceAddress{
 					{
 						ServiceName: "instance4-service",

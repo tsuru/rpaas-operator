@@ -1680,6 +1680,19 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
+	var dns *clientTypes.DNSInfo
+	if instance.Spec.DNS != nil {
+		dns = &clientTypes.DNSInfo{
+			Zone: instance.Spec.DNS.Zone,
+			TTL:  instance.Spec.DNS.TTL,
+		}
+		if instance.Spec.Service != nil {
+			if vhost, ok := instance.Spec.Service.Annotations[externalDNSHostnameLabel]; ok {
+				dns.ExternalURL = vhost
+			}
+		}
+	}
+
 	info := &clientTypes.InstanceInfo{
 		Name:        instance.Name,
 		Service:     instance.Labels[labelKey("service-name")],
@@ -1691,6 +1704,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Plan:        instance.Spec.PlanName,
 		Binds:       instance.Spec.Binds,
 		Flavors:     instance.Spec.Flavors,
+		DNS:         dns,
 	}
 
 	autoscale := instance.Spec.Autoscale
