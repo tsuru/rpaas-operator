@@ -100,12 +100,6 @@ type CertificateInfo struct {
 	PublicKeyBitSize   int
 }
 
-type DNSInfo struct {
-	ExternalURL string
-	Zone        string
-	TTL         *int32
-}
-
 type InstanceInfo struct {
 	Dashboard    string            `json:"dashboard,omitempty"`
 	Addresses    []InstanceAddress `json:"addresses,omitempty"`
@@ -124,5 +118,4 @@ type InstanceInfo struct {
 	Pods         []Pod             `json:"pods,omitempty"`
 	Flavors      []string          `json:"flavors,omitempty"`
 	Certificates []CertificateInfo `json:"certificates,omitempty"`
-	DNS          *DNSInfo          `json:"dns,omitempty"`
 }

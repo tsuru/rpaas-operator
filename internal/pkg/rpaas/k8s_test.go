@@ -4322,8 +4322,9 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 
 	service4 := &corev1.Service{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance4.Name + "-service",
-			Namespace: instance4.Namespace,
+			Name:        instance4.Name + "-service",
+			Namespace:   instance4.Namespace,
+			Annotations: map[string]string{externalDNSHostnameLabel: instance4.Name + ".zone1"},
 		},
 		Spec: corev1.ServiceSpec{
 			Type: corev1.ServiceTypeLoadBalancer,
@@ -4332,8 +4333,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			LoadBalancer: corev1.LoadBalancerStatus{
 				Ingress: []corev1.LoadBalancerIngress{
 					{
-						IP:       "192.168.10.10",
-						Hostname: "instance4-service.rpaasv2.tsuru.example.com",
+						IP: "192.168.10.10",
 					},
 				},
 			},
@@ -4689,15 +4689,11 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
 				Flavors:     []string{"mango", "milk"},
-				DNS: &clientTypes.DNSInfo{
-					Zone:        "zone1",
-					ExternalURL: "instance4.zone1",
-				},
 				Addresses: []clientTypes.InstanceAddress{
 					{
 						ServiceName: "instance4-service",
 						IP:          "192.168.10.10",
-						Hostname:    "instance4-service.rpaasv2.tsuru.example.com",
+						Hostname:    "instance4.zone1",
 						Status:      "ready",
 					},
 				},

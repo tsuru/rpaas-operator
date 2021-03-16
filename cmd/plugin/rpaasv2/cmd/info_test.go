@@ -261,10 +261,6 @@ func TestInfo(t *testing.T) {
 								},
 							},
 						},
-						DNS: &clientTypes.DNSInfo{
-							ExternalURL: "my-instance" + ".zone1",
-							Zone:        "zone1",
-						},
 						Certificates: []clientTypes.CertificateInfo{
 							{
 								Name:               "default",
@@ -409,13 +405,6 @@ Routes:
 | /login/provider1 | app2.tsuru.example.com |      ✓       |                         |
 | /app3/           |                        |              | # some raw nginx config |
 +------------------+------------------------+--------------+-------------------------+
-
-DNS:
-+-------------------+-------+--------------------+
-| External URL      | Zone  | TTL (Time To Live) |
-+-------------------+-------+--------------------+
-| my-instance.zone1 | zone1 |                    |
-+-------------------+-------+--------------------+
 `,
 		},
 
