@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -197,6 +198,19 @@ func Test_deleteCertificate(t *testing.T) {
 				FakeDeleteCertificate: func(instance, name string) error {
 					assert.Equal(t, "my-instance", instance)
 					assert.Equal(t, "junda", name)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+		{
+			name:     "passing a certificate name and asserting it",
+			instance: "my-instance",
+			certName: url.QueryEscape("cert name with spaces"),
+			manager: &fake.RpaasManager{
+				FakeDeleteCertificate: func(instance, name string) error {
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "cert name with spaces", name)
 					return nil
 				},
 			},

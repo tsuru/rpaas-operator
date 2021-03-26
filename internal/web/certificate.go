@@ -8,6 +8,7 @@ import (
 	"crypto/tls"
 	"fmt"
 	"net/http"
+	"net/url"
 
 	"github.com/labstack/echo/v4"
 
@@ -23,7 +24,10 @@ func deleteCertificate(c echo.Context) error {
 	}
 
 	instance := c.Param("instance")
-	certName := c.Param("name")
+	certName, err := url.QueryUnescape(c.Param("name"))
+	if err != nil {
+		return err
+	}
 	err = manager.DeleteCertificate(ctx, instance, certName)
 	if err != nil {
 		return err
