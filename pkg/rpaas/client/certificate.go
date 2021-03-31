@@ -63,11 +63,11 @@ func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateAr
 		part.Write([]byte(args.Key))
 	}
 
-	if err := w.WriteField("name", args.Name); err != nil {
+	if err = w.WriteField("name", args.Name); err != nil {
 		return err
 	}
 
-	if err := w.Close(); err != nil {
+	if err = w.Close(); err != nil {
 		return err
 	}
 

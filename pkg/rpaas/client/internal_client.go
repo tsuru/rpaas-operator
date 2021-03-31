@@ -158,6 +158,15 @@ func (c *client) GetFlavors(ctx context.Context, instance string) ([]types.Flavo
 	return nil, fmt.Errorf("not implemented yet")
 }
 
+func (c *client) SetService(service string) error {
+	if service == "" {
+		return ErrMissingTsuruService
+	}
+
+	c.tsuruService = service
+	return nil
+}
+
 func (c *client) newRequest(method, pathName string, body io.Reader, instance string) (*http.Request, error) {
 	url := c.formatURL(pathName, instance)
 	request, err := http.NewRequest(method, url, body)
