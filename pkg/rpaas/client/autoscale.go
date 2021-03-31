@@ -9,9 +9,9 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
+	"github.com/ajg/form"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -82,53 +82,55 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 		return err
 	}
 
+	values := types.Autoscale{}
+	if args.MaxReplicas > 0 {
+		values.MaxReplicas = &args.MaxReplicas
+	}
+	if args.MinReplicas > 0 {
+		values.MinReplicas = &args.MinReplicas
+	}
+	if args.CPU > 0 {
+		values.CPU = &args.CPU
+	}
+	if args.Memory > 0 {
+		values.Memory = &args.Memory
+	}
+
 	var request *http.Request
 	shouldCreate, err := c.shouldCreate(ctx, args.Instance)
 	if err != nil {
 		return err
 	}
-	if shouldCreate {
-		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
-		values := url.Values{}
-		values.Set("max", fmt.Sprint(args.MaxReplicas))
-		values.Set("min", fmt.Sprint(args.MinReplicas))
-		values.Set("cpu", fmt.Sprint(args.CPU))
-		values.Set("memory", fmt.Sprint(args.Memory))
-		body := strings.NewReader(values.Encode())
-		request, err = c.newRequest("POST", pathName, body, args.Instance)
-		if err != nil {
-			return err
-		}
-		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
-	} else {
-		pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
-		values := url.Values{}
-		if args.MaxReplicas > 0 {
-			values.Set("max", fmt.Sprint(args.MaxReplicas))
-		}
-		if args.MinReplicas > 0 {
-			values.Set("min", fmt.Sprint(args.MinReplicas))
-		}
-		if args.CPU > 0 {
-			values.Set("cpu", fmt.Sprint(args.CPU))
-		}
-		if args.Memory > 0 {
-			values.Set("memory", fmt.Sprint(args.Memory))
-		}
-		body := strings.NewReader(values.Encode())
-		request, err = c.newRequest("PATCH", pathName, body, args.Instance)
-		if err != nil {
-			return err
-		}
-		request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	b, err := form.EncodeToString(values)
+	if err != nil {
+		return err
 	}
+	body := strings.NewReader(b)
+
+	pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
+	if shouldCreate {
+		request, err = c.newRequest("POST", pathName, body, args.Instance)
+	} else {
+		request, err = c.newRequest("PATCH", pathName, body, args.Instance)
+	}
+	if err != nil {
+		return err
+	}
+
+	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.do(ctx, request)
 	if err != nil {
 		return err
 	}
 
-	if resp.StatusCode != http.StatusCreated {
+	expectedStatus := http.StatusCreated
+	if shouldCreate {
+		expectedStatus = http.StatusOK
+	}
+
+	if resp.StatusCode != expectedStatus {
 		return newErrUnexpectedStatusCodeFromResponse(resp)
 	}
 

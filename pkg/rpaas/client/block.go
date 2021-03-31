@@ -8,9 +8,9 @@ import (
 	"context"
 	"fmt"
 	"net/http"
-	"net/url"
 	"strings"
 
+	"github.com/ajg/form"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -35,10 +35,17 @@ func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) error {
 		return err
 	}
 
-	values := url.Values{}
-	values.Set("block_name", args.Name)
-	values.Set("content", args.Content)
-	body := strings.NewReader(values.Encode())
+	values := types.Block{
+		Name:    args.Name,
+		Content: args.Content,
+	}
+
+	b, err := form.EncodeToString(values)
+	if err != nil {
+		return err
+	}
+	body := strings.NewReader(b)
+
 	pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
 	req, err := c.newRequest("POST", pathName, body, args.Instance)
 	if err != nil {

@@ -115,7 +115,7 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 					values, err := url.ParseQuery(getBody(t, r))
 					assert.NoError(t, err)
 					assert.Equal(t, expected, values)
-					w.WriteHeader(http.StatusCreated)
+					w.WriteHeader(http.StatusOK)
 					handlerCount = 0
 				}
 			},

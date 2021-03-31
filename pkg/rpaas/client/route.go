@@ -9,9 +9,9 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"strconv"
 	"strings"
 
+	"github.com/ajg/form"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -111,15 +111,20 @@ func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) error {
 		return err
 	}
 
-	pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
-	values := url.Values{
-		"path":        []string{args.Path},
-		"destination": []string{args.Destination},
-		"https_only":  []string{strconv.FormatBool(args.HTTPSOnly)},
-		"content":     []string{args.Content},
+	values := types.Route{
+		Path:        args.Path,
+		Destination: args.Destination,
+		HTTPSOnly:   args.HTTPSOnly,
+		Content:     args.Content,
 	}
-	body := strings.NewReader(values.Encode())
 
+	b, err := form.EncodeToString(values)
+	if err != nil {
+		return err
+	}
+	body := strings.NewReader(b)
+
+	pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
 	req, err := c.newRequest("POST", pathName, body, args.Instance)
 	if err != nil {
 		return err

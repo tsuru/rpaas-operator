@@ -189,8 +189,6 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 				expected := url.Values{
 					"path":        []string{"/app"},
 					"destination": []string{"app.tsuru.example.com"},
-					"https_only":  []string{"false"},
-					"content":     []string{""},
 				}
 				values, err := url.ParseQuery(getBody(t, r))
 				assert.NoError(t, err)
