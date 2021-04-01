@@ -141,7 +141,7 @@ func Test_createAutoscale(t *testing.T) {
 						CPU:         pointerToInt(60),
 						Memory:      pointerToInt(512),
 					}
-					assert.Equal(t, autoscale, expectedAutoscale)
+					assert.Equal(t, expectedAutoscale, autoscale)
 					return nil
 				},
 			},
@@ -233,7 +233,7 @@ func Test_updateAutoscale(t *testing.T) {
 						CPU:         pointerToInt(80),
 						Memory:      pointerToInt(512),
 					}
-					assert.Equal(t, autoscale, expectedAutoscale)
+					assert.Equal(t, expectedAutoscale, autoscale)
 					return nil
 				},
 			},
