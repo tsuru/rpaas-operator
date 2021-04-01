@@ -82,11 +82,23 @@ func runUpdateAutoscale(c *cli.Context) error {
 
 	updateArgs := rpaasclient.UpdateAutoscaleArgs{
 		Instance:    c.String("instance"),
-		MinReplicas: int32(c.Int("min")),
-		MaxReplicas: int32(c.Int("max")),
-		CPU:         int32(c.Int("cpu")),
-		Memory:      int32(c.Int("memory")),
+		MaxReplicas: pointerToInt32(int32(c.Int("max"))),
 	}
+
+	if c.IsSet("min") {
+		updateArgs.MinReplicas = pointerToInt32(int32(c.Int("min")))
+	} else {
+		updateArgs.MinReplicas = pointerToInt32(1)
+	}
+
+	if c.IsSet("cpu") {
+		updateArgs.CPU = pointerToInt32(int32(c.Int("cpu")))
+	}
+
+	if c.IsSet("memory") {
+		updateArgs.Memory = pointerToInt32(int32(c.Int("memory")))
+	}
+
 	err = client.UpdateAutoscale(c.Context, updateArgs)
 	if err != nil {
 		return err
@@ -242,4 +254,8 @@ func writeAutoscale(w io.Writer, autoscale *clientTypes.Autoscale) {
 	}
 	table.AppendBulk(data)
 	table.Render()
+}
+
+func pointerToInt32(x int32) *int32 {
+	return &x
 }
