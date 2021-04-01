@@ -75,10 +75,10 @@ type GetAutoscaleArgs struct {
 
 type UpdateAutoscaleArgs struct {
 	Instance    string
-	MinReplicas int32
-	MaxReplicas int32
-	CPU         int32
-	Memory      int32
+	MinReplicas *int32
+	MaxReplicas *int32
+	CPU         *int32
+	Memory      *int32
 }
 
 type RemoveAutoscaleArgs struct {

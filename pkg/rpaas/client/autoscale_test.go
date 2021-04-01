@@ -34,10 +34,10 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 			name: "when the server returns an error",
 			args: UpdateAutoscaleArgs{
 				Instance:    "my-instance",
-				MinReplicas: int32(5),
-				MaxReplicas: int32(10),
-				CPU:         int32(27),
-				Memory:      int32(33),
+				MinReplicas: pointerToInt(5),
+				MaxReplicas: pointerToInt(10),
+				CPU:         pointerToInt(27),
+				Memory:      pointerToInt(33),
 			},
 			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
@@ -49,10 +49,10 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 			name: "when an autoscale spec is found",
 			args: UpdateAutoscaleArgs{
 				Instance:    "my-instance",
-				MinReplicas: int32(5),
-				MaxReplicas: int32(10),
-				CPU:         int32(27),
-				Memory:      int32(33),
+				MinReplicas: pointerToInt(5),
+				MaxReplicas: pointerToInt(10),
+				CPU:         pointerToInt(27),
+				Memory:      pointerToInt(33),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				switch handlerCount {
@@ -88,10 +88,10 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 			name: "when an autoscale spec is not found",
 			args: UpdateAutoscaleArgs{
 				Instance:    "my-instance",
-				MinReplicas: int32(5),
-				MaxReplicas: int32(10),
-				CPU:         int32(27),
-				Memory:      int32(33),
+				MinReplicas: pointerToInt(5),
+				MaxReplicas: pointerToInt(10),
+				CPU:         pointerToInt(27),
+				Memory:      pointerToInt(33),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				switch handlerCount {
@@ -234,4 +234,8 @@ func TestClientThroughTsuru_RemoveAutoscale(t *testing.T) {
 			assert.NoError(t, err)
 		})
 	}
+}
+
+func pointerToInt(x int32) *int32 {
+	return &x
 }

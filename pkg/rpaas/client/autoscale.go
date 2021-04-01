@@ -60,7 +60,7 @@ func (args UpdateAutoscaleArgs) Validate() error {
 		return ErrMissingInstance
 	}
 
-	if args.MaxReplicas == 0 && args.MaxReplicas == args.MinReplicas && args.MaxReplicas == args.CPU && args.MaxReplicas == args.Memory {
+	if *args.MaxReplicas == 0 && args.MaxReplicas == args.MinReplicas {
 		return ErrMissingValues
 	}
 	return nil
@@ -83,17 +83,17 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 	}
 
 	values := types.Autoscale{}
-	if args.MaxReplicas > 0 {
-		values.MaxReplicas = &args.MaxReplicas
+	if args.MaxReplicas != nil && *args.MaxReplicas > 0 {
+		values.MaxReplicas = args.MaxReplicas
 	}
-	if args.MinReplicas > 0 {
-		values.MinReplicas = &args.MinReplicas
+	if args.MinReplicas != nil && *args.MinReplicas > 0 {
+		values.MinReplicas = args.MinReplicas
 	}
-	if args.CPU > 0 {
-		values.CPU = &args.CPU
+	if args.CPU != nil && *args.CPU > 0 {
+		values.CPU = args.CPU
 	}
-	if args.Memory > 0 {
-		values.Memory = &args.Memory
+	if args.Memory != nil && *args.Memory > 0 {
+		values.Memory = args.Memory
 	}
 
 	var request *http.Request
