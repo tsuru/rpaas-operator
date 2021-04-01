@@ -5,13 +5,12 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"strings"
 
-	"github.com/ajg/form"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -96,18 +95,18 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 		values.Memory = args.Memory
 	}
 
-	var request *http.Request
 	shouldCreate, err := c.shouldCreate(ctx, args.Instance)
 	if err != nil {
 		return err
 	}
 
-	b, err := form.EncodeToString(values)
+	b, err := json.Marshal(values)
 	if err != nil {
 		return err
 	}
-	body := strings.NewReader(b)
+	body := bytes.NewReader(b)
 
+	var request *http.Request
 	pathName := fmt.Sprintf("/resources/%s/autoscale", args.Instance)
 	if shouldCreate {
 		request, err = c.newRequest("POST", pathName, body, args.Instance)
@@ -117,8 +116,7 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 	if err != nil {
 		return err
 	}
-
-	request.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	request.Header.Set("Content-Type", "application/json; charset=UTF-8")
 
 	resp, err := c.do(ctx, request)
 	if err != nil {

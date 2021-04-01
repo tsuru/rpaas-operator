@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"net/url"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -70,13 +69,50 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 					assert.Equal(t, "PATCH", r.Method)
 					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
-					expected := url.Values{
-						"max":    []string{"10"},
-						"min":    []string{"5"},
-						"cpu":    []string{"27"},
-						"memory": []string{"33"},
+					expected := types.Autoscale{
+						MaxReplicas: pointerToInt(10),
+						MinReplicas: pointerToInt(5),
+						CPU:         pointerToInt(27),
+						Memory:      pointerToInt(33),
 					}
-					values, err := url.ParseQuery(getBody(t, r))
+					defer r.Body.Close()
+					var values types.Autoscale
+					err := json.NewDecoder(r.Body).Decode(&values)
+					assert.NoError(t, err)
+					assert.Equal(t, expected, values)
+					w.WriteHeader(http.StatusCreated)
+					handlerCount = 0
+				}
+			},
+		},
+		{
+			name: "when an autoscale spec is found - only max replicas",
+			args: UpdateAutoscaleArgs{
+				Instance:    "my-instance",
+				MaxReplicas: pointerToInt(15),
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch handlerCount {
+				case 0:
+					assert.Equal(t, "GET", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					w.WriteHeader(http.StatusOK)
+					payload, err := json.Marshal(&types.Autoscale{})
+					require.NoError(t, err)
+					w.Write(payload)
+					handlerCount++
+
+				case 1:
+					assert.Equal(t, "PATCH", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					expected := types.Autoscale{
+						MaxReplicas: pointerToInt(15),
+					}
+					defer r.Body.Close()
+					var values types.Autoscale
+					err := json.NewDecoder(r.Body).Decode(&values)
 					assert.NoError(t, err)
 					assert.Equal(t, expected, values)
 					w.WriteHeader(http.StatusCreated)
@@ -106,13 +142,51 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 					assert.Equal(t, "POST", r.Method)
 					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
-					expected := url.Values{
-						"max":    []string{"10"},
-						"min":    []string{"5"},
-						"cpu":    []string{"27"},
-						"memory": []string{"33"},
+					expected := types.Autoscale{
+						MaxReplicas: pointerToInt(10),
+						MinReplicas: pointerToInt(5),
+						CPU:         pointerToInt(27),
+						Memory:      pointerToInt(33),
 					}
-					values, err := url.ParseQuery(getBody(t, r))
+					defer r.Body.Close()
+					var values types.Autoscale
+					err := json.NewDecoder(r.Body).Decode(&values)
+					assert.NoError(t, err)
+					assert.Equal(t, expected, values)
+					w.WriteHeader(http.StatusOK)
+					handlerCount = 0
+				}
+			},
+		},
+		{
+			name: "when an autoscale spec is not found - only replicas are set",
+			args: UpdateAutoscaleArgs{
+				Instance:    "my-instance",
+				MinReplicas: pointerToInt(5),
+				MaxReplicas: pointerToInt(10),
+				CPU:         nil,
+				Memory:      nil,
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				switch handlerCount {
+				case 0:
+					assert.Equal(t, "GET", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					w.WriteHeader(http.StatusNotFound)
+					handlerCount++
+
+				case 1:
+					assert.Equal(t, "POST", r.Method)
+					assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+					assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/autoscale"), r.URL.RequestURI())
+					expected := types.Autoscale{
+						MaxReplicas: pointerToInt(10),
+						MinReplicas: pointerToInt(5),
+					}
+					defer r.Body.Close()
+					var values types.Autoscale
+					err := json.NewDecoder(r.Body).Decode(&values)
 					assert.NoError(t, err)
 					assert.Equal(t, expected, values)
 					w.WriteHeader(http.StatusOK)
