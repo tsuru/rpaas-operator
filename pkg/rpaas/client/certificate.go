@@ -11,6 +11,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
+	"net/url"
 	"strings"
 )
 
@@ -63,11 +64,11 @@ func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateAr
 		part.Write([]byte(args.Key))
 	}
 
-	if err = w.WriteField("name", args.Name); err != nil {
+	if err := w.WriteField("name", args.Name); err != nil {
 		return err
 	}
 
-	if err = w.Close(); err != nil {
+	if err := w.Close(); err != nil {
 		return err
 	}
 
@@ -75,6 +76,38 @@ func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateAr
 	pathName := fmt.Sprintf("/resources/%s/certificate", args.Instance)
 	req, err := c.newRequest("POST", pathName, body, args.Instance)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
+	if err != nil {
+		return err
+	}
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	return nil
+}
+
+func (args *DeleteCertificateArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
+func (c *client) DeleteCertificate(ctx context.Context, args DeleteCertificateArgs) error {
+	if err := args.Validate(); err != nil {
+		return err
+	}
+
+	args.Name = url.QueryEscape(args.Name)
+	pathName := fmt.Sprintf("/resources/%s/certificate/%s", args.Instance, args.Name)
+	req, err := c.newRequest("DELETE", pathName, nil, args.Instance)
 	if err != nil {
 		return err
 	}
