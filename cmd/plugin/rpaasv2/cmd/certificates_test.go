@@ -110,3 +110,61 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		})
 	}
 }
+
+func TestDeleteCertificate(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expected      string
+		expectedError string
+		client        rpaasclient.Client
+	}{
+		{
+			name:          "when Delete certificate returns an error",
+			args:          []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--name", "my-instance.example.com"},
+			expectedError: "some error",
+			client: &fake.FakeClient{
+				FakeDeleteCertificate: func(args rpaasclient.DeleteCertificateArgs) error {
+					expected := rpaasclient.DeleteCertificateArgs{
+						Instance: "my-instance",
+						Name:     "my-instance.example.com",
+					}
+					assert.Equal(t, expected, args)
+					return fmt.Errorf("some error")
+				},
+			},
+		},
+		{
+			name: "when DeleteCertificate returns no error",
+			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--name", "my-instance.example.com"},
+			client: &fake.FakeClient{
+				FakeDeleteCertificate: func(args rpaasclient.DeleteCertificateArgs) error {
+					expected := rpaasclient.DeleteCertificateArgs{
+						Instance: "my-instance",
+						Name:     "my-instance.example.com",
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+			expected: "certificate \"my-instance.example.com\" successfully deleted on my-instance\n",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := NewApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.Error(t, err)
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
+}

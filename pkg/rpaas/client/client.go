@@ -26,6 +26,11 @@ type UpdateCertificateArgs struct {
 	boundary string
 }
 
+type DeleteCertificateArgs struct {
+	Instance string
+	Name     string
+}
+
 type UpdateBlockArgs struct {
 	Instance string
 	Name     string
@@ -98,6 +103,7 @@ type Client interface {
 	Scale(ctx context.Context, args ScaleArgs) error
 	Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, error)
 	UpdateCertificate(ctx context.Context, args UpdateCertificateArgs) error
+	DeleteCertificate(ctx context.Context, args DeleteCertificateArgs) error
 	UpdateBlock(ctx context.Context, args UpdateBlockArgs) error
 	DeleteBlock(ctx context.Context, args DeleteBlockArgs) error
 	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.Block, error)

@@ -266,6 +266,83 @@ func TestClientThroughTsuru_UpdateCertificate(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_DeleteCertificate(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          DeleteCertificateArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		{
+			name:          "when instance is empty",
+			args:          DeleteCertificateArgs{},
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+		{
+			name: "when certificate name is empty, should not return error since empty = default",
+			args: DeleteCertificateArgs{
+				Instance: "my-instance",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "DELETE")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/certificate/"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name: "when the server returns the expected response",
+			args: DeleteCertificateArgs{
+				Instance: "my-instance",
+				Name:     "my-certificate",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "DELETE")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/certificate/my-certificate"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				assert.Equal(t, "", getBody(t, r))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name: "when the server returns an error",
+			args: DeleteCertificateArgs{
+				Instance: "my-instance",
+				Name:     "my-certificate",
+			},
+			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, "instance not found")
+			},
+		},
+		{
+			name: "when the certificate name has spaces should should query escape cert name",
+			args: DeleteCertificateArgs{
+				Instance: "my-instance",
+				Name:     "my certificate",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/certificate/my+certificate"), r.URL.RequestURI())
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+			err := client.DeleteCertificate(context.TODO(), tt.args)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
 func TestClientThroughTsuru_UpdateBlock(t *testing.T) {
 	tests := []struct {
 		name          string

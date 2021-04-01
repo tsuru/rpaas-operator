@@ -272,6 +272,37 @@ func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateAr
 	return nil
 }
 
+func (args *DeleteCertificateArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
+func (c *client) DeleteCertificate(ctx context.Context, args DeleteCertificateArgs) error {
+	if err := args.Validate(); err != nil {
+		return err
+	}
+
+	args.Name = url.QueryEscape(args.Name)
+	request, err := c.buildRequest("DeleteCertificate", args)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.do(ctx, request)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	return nil
+}
+
 func (args UpdateBlockArgs) Validate() error {
 	if args.Instance == "" {
 		return ErrMissingInstance
@@ -734,6 +765,11 @@ func (c *client) buildRequest(operation string, data interface{}) (req *http.Req
 		pathName := fmt.Sprintf("/resources/%s/certificate", args.Instance)
 		req, err = c.newRequest("POST", pathName, body, args.Instance)
 		req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
+
+	case "DeleteCertificate":
+		args := data.(DeleteCertificateArgs)
+		pathName := fmt.Sprintf("/resources/%s/certificate/%s", args.Instance, args.Name)
+		req, err = c.newRequest("DELETE", pathName, nil, args.Instance)
 
 	case "UpdateBlock":
 		args := data.(UpdateBlockArgs)
