@@ -14,15 +14,15 @@ import (
 )
 
 type Block struct {
-	Name    string `json:"block_name"`
-	Content string `json:"content"`
+	Name    string `json:"block_name" form:"block_name"`
+	Content string `json:"content" form:"content"`
 }
 
 type Route struct {
-	Path        string `json:"path"`
-	Destination string `json:"destination,omitempty"`
-	HTTPSOnly   bool   `json:"https_only,omitempty"`
-	Content     string `json:"content,omitempty"`
+	Path        string `json:"path" form:"path"`
+	Destination string `json:"destination,omitempty" form:"destination,omitempty"`
+	HTTPSOnly   bool   `json:"https_only,omitempty" form:"https_only,omitempty"`
+	Content     string `json:"content,omitempty" form:"content,omitempty"`
 }
 
 type Autoscale struct {

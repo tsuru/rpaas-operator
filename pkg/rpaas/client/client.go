@@ -75,10 +75,10 @@ type GetAutoscaleArgs struct {
 
 type UpdateAutoscaleArgs struct {
 	Instance    string
-	MinReplicas int32
-	MaxReplicas int32
-	CPU         int32
-	Memory      int32
+	MinReplicas *int32
+	MaxReplicas *int32
+	CPU         *int32
+	Memory      *int32
 }
 
 type RemoveAutoscaleArgs struct {
@@ -114,4 +114,5 @@ type Client interface {
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
+	SetService(service string) error
 }

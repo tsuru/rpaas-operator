@@ -29,6 +29,7 @@ type FakeClient struct {
 	FakeUpdateAutoscale   func(args client.UpdateAutoscaleArgs) error
 	FakeRemoveAutoscale   func(args client.RemoveAutoscaleArgs) error
 	FakeExec              func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error)
+	FakeSetService        func(service string) error
 }
 
 var _ client.Client = &FakeClient{}
@@ -159,4 +160,12 @@ func (f *FakeClient) Exec(ctx context.Context, args client.ExecArgs) (*websocket
 	}
 
 	return nil, nil
+}
+
+func (f *FakeClient) SetService(service string) error {
+	if f.FakeSetService != nil {
+		return f.FakeSetService(service)
+	}
+
+	return nil
 }
