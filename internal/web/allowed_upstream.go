@@ -6,13 +6,27 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
 func getAllowedUpstreams(c echo.Context) error {
-	return nil
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	instance := c.Param("instance")
+
+	upstreams, err := manager.GetAllowedUpstreams(ctx, instance)
+	if err != nil {
+		return err
+	}
+
+	return c.JSON(http.StatusOK, upstreams.Spec.Upstreams)
 }
 
 func addAllowedUpstream(c echo.Context) error {
@@ -39,5 +53,27 @@ func addAllowedUpstream(c echo.Context) error {
 }
 
 func deleteAllowedUpstream(c echo.Context) error {
-	return nil
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	instance := c.Param("instance")
+
+	host := c.QueryParam("host")
+	portString := c.QueryParam("port")
+	port := 0
+	if portString != "" {
+		port, err = strconv.Atoi(portString)
+		if err != nil {
+			return err
+		}
+	}
+
+	if err := manager.DeleteAllowedUpstream(ctx, instance, host, port); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusNoContent)
 }

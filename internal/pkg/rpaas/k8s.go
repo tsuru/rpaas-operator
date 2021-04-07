@@ -2196,10 +2196,10 @@ func publicKeySize(publicKey interface{}) (keySize int) {
 
 func (m *k8sRpaasManager) AddAllowedUpstream(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAllowedUpstream) error {
 	isCreation := false
-	instance, err := m.getAllowedUpstreams(ctx, instanceName)
+	allowedUpstream, err := m.GetAllowedUpstreams(ctx, instanceName)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
-			instance = &v1alpha1.RpaasAllowedUpstreams{
+			allowedUpstream = &v1alpha1.RpaasAllowedUpstreams{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      instanceName,
 					Namespace: namespaceName(),
@@ -2211,20 +2211,39 @@ func (m *k8sRpaasManager) AddAllowedUpstream(ctx context.Context, instanceName s
 		}
 	}
 
-	instance.Spec.Upstreams = append(instance.Spec.Upstreams, upstream)
+	allowedUpstream.Spec.Upstreams = append(allowedUpstream.Spec.Upstreams, upstream)
 	if isCreation {
-		return m.cli.Create(ctx, instance)
+		return m.cli.Create(ctx, allowedUpstream)
 	}
 
-	return m.cli.Update(ctx, instance)
+	return m.cli.Update(ctx, allowedUpstream)
 }
 
-func (m *k8sRpaasManager) getAllowedUpstreams(ctx context.Context, name string) (*v1alpha1.RpaasAllowedUpstreams, error) {
-	var instance v1alpha1.RpaasAllowedUpstreams
-	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &instance)
+func (m *k8sRpaasManager) GetAllowedUpstreams(ctx context.Context, name string) (*v1alpha1.RpaasAllowedUpstreams, error) {
+	var allowedUpstreams v1alpha1.RpaasAllowedUpstreams
+	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &allowedUpstreams)
 	if err != nil {
 		return nil, err
 	}
 
-	return &instance, nil
+	return &allowedUpstreams, nil
+}
+
+func (m *k8sRpaasManager) DeleteAllowedUpstream(ctx context.Context, instance string, host string, port int) error {
+	upstreams, err := m.GetAllowedUpstreams(ctx, instance)
+	if err != nil {
+		return err
+	}
+
+	for i, upstream := range upstreams.Spec.Upstreams {
+		if strings.Compare(upstream.Host, host) != 0 {
+			continue
+		}
+		if upstream.Port != nil && port == *upstream.Port {
+			upstreams.Spec.Upstreams = append(upstreams.Spec.Upstreams[:i], upstreams.Spec.Upstreams[i+1:]...)
+			break
+		}
+	}
+
+	return m.cli.Update(ctx, upstreams)
 }
