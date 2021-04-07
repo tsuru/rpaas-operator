@@ -1,0 +1,20 @@
+# permissions for end users to view rpaasallowedupstreams.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: rpaasallowedupstreams-viewer-role
+rules:
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasallowedupstreams
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasallowedupstreams/status
+  verbs:
+  - get
