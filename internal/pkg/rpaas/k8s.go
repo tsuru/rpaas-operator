@@ -2193,3 +2193,38 @@ func publicKeySize(publicKey interface{}) (keySize int) {
 	}
 	return
 }
+
+func (m *k8sRpaasManager) AddAllowedUpstream(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAllowedUpstream) error {
+	isCreation := false
+	instance, err := m.getAllowedUpstreams(ctx, instanceName)
+	if err != nil {
+		if k8sErrors.IsNotFound(err) {
+			instance = &v1alpha1.RpaasAllowedUpstreams{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      instanceName,
+					Namespace: namespaceName(),
+				},
+			}
+			isCreation = true
+		} else {
+			return err
+		}
+	}
+
+	instance.Spec.Upstreams = append(instance.Spec.Upstreams, upstream)
+	if isCreation {
+		return m.cli.Create(ctx, instance)
+	}
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) getAllowedUpstreams(ctx context.Context, name string) (*v1alpha1.RpaasAllowedUpstreams, error) {
+	var instance v1alpha1.RpaasAllowedUpstreams
+	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &instance)
+	if err != nil {
+		return nil, err
+	}
+
+	return &instance, nil
+}

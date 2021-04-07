@@ -219,6 +219,8 @@ type RpaasManager interface {
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
 	GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error)
 	Exec(ctx context.Context, instanceName string, args ExecArgs) error
+
+	AddAllowedUpstream(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAllowedUpstream) error
 }
 
 type CertificateData struct {
