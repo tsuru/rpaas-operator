@@ -5,11 +5,13 @@
 package web
 
 import (
+	"fmt"
 	"net/http"
 	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
 func getAccessControlList(c echo.Context) error {
@@ -24,6 +26,10 @@ func getAccessControlList(c echo.Context) error {
 	upstreams, err := manager.GetAccessControlList(ctx, instance)
 	if err != nil {
 		return err
+	}
+
+	if upstreams == nil {
+		return rpaas.NotFoundError{Msg: fmt.Sprintf("ACL for instance %s not found", instance)}
 	}
 
 	return c.JSON(http.StatusOK, upstreams.Spec.Items)

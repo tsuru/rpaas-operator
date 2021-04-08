@@ -2220,30 +2220,30 @@ func (m *k8sRpaasManager) AddAccessControlList(ctx context.Context, instanceName
 }
 
 func (m *k8sRpaasManager) GetAccessControlList(ctx context.Context, name string) (*v1alpha1.RpaasAccessControlList, error) {
-	var allowedUpstreams v1alpha1.RpaasAccessControlList
-	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &allowedUpstreams)
+	var acl v1alpha1.RpaasAccessControlList
+	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &acl)
 	if err != nil {
 		return nil, err
 	}
 
-	return &allowedUpstreams, nil
+	return &acl, nil
 }
 
 func (m *k8sRpaasManager) DeleteAccessControlList(ctx context.Context, instance string, host string, port int) error {
-	upstreams, err := m.GetAccessControlList(ctx, instance)
+	acl, err := m.GetAccessControlList(ctx, instance)
 	if err != nil {
 		return err
 	}
 
-	for i, upstream := range upstreams.Spec.Items {
+	for i, upstream := range acl.Spec.Items {
 		if strings.Compare(upstream.Host, host) != 0 {
 			continue
 		}
 		if upstream.Port != nil && port == *upstream.Port {
-			upstreams.Spec.Items = append(upstreams.Spec.Items[:i], upstreams.Spec.Items[i+1:]...)
+			acl.Spec.Items = append(acl.Spec.Items[:i], acl.Spec.Items[i+1:]...)
 			break
 		}
 	}
 
-	return m.cli.Update(ctx, upstreams)
+	return m.cli.Update(ctx, acl)
 }
