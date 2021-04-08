@@ -32,7 +32,7 @@ func (c *client) AddAccessControlList(ctx context.Context, instance, host string
 	}
 	body := bytes.NewReader(b)
 
-	pathName := fmt.Sprintf("/resources/%s/allowed-upstream", instance)
+	pathName := fmt.Sprintf("/resources/%s/acl", instance)
 	req, err := c.newRequest("POST", pathName, body, instance)
 	if err != nil {
 		return err
@@ -56,7 +56,7 @@ func (c *client) ListAccessControlList(ctx context.Context, instance string) (*t
 		return nil, ErrMissingInstance
 	}
 
-	pathName := fmt.Sprintf("/resources/%s/allowed-upstream", instance)
+	pathName := fmt.Sprintf("/resources/%s/acl", instance)
 	req, err := c.newRequest("GET", pathName, nil, instance)
 	if err != nil {
 		return nil, err
@@ -94,7 +94,7 @@ func (c *client) RemoveAccessControlList(ctx context.Context, instance, host str
 		values.Set("port", strconv.Itoa(port))
 	}
 
-	pathName := fmt.Sprintf("/resources/%s/allowed-upstream?%s", instance, values.Encode())
+	pathName := fmt.Sprintf("/resources/%s/acl?%s", instance, values.Encode())
 	req, err := c.newRequest("DELETE", pathName, nil, instance)
 	if err != nil {
 		return err

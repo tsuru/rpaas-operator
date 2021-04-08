@@ -8,12 +8,12 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
-// RpaasAllowedUpstreamsSpec defines the desired state of RpaasAllowedUpstreams
-type RpaasAllowedUpstreamsSpec struct {
-	Upstreams []RpaasAllowedUpstream `json:"upstreams"`
+// RpaasAccessControlListSpec defines the desired state of RpaasAccessControlList
+type RpaasAccessControlListSpec struct {
+	Items []RpaasAccessControlListItem `json:"upstreams"`
 }
 
-type RpaasAllowedUpstream struct {
+type RpaasAccessControlListItem struct {
 	Host string `json:"host"`
 	Port *int   `json:"port,omitempty"`
 }
@@ -21,23 +21,23 @@ type RpaasAllowedUpstream struct {
 //+kubebuilder:object:root=true
 //+kubebuilder:subresource:status
 
-// RpaasAllowedUpstreams is the Schema for the rpaasallowedupstreams API
-type RpaasAllowedUpstreams struct {
+// RpaasAccessControlList is the Schema for the RpaasAccessControlList API
+type RpaasAccessControlList struct {
 	metav1.TypeMeta   `json:",inline"`
 	metav1.ObjectMeta `json:"metadata,omitempty"`
 
-	Spec RpaasAllowedUpstreamsSpec `json:"spec,omitempty"`
+	Spec RpaasAccessControlListSpec `json:"spec,omitempty"`
 }
 
 //+kubebuilder:object:root=true
 
-// RpaasAllowedUpstreamsList contains a list of RpaasAllowedUpstreams
-type RpaasAllowedUpstreamsList struct {
+// RpaasACLList contains a list of RpaasAccessControlList
+type RpaasACLList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata,omitempty"`
-	Items           []RpaasAllowedUpstreams `json:"items"`
+	Items           []RpaasAccessControlList `json:"items"`
 }
 
 func init() {
-	SchemeBuilder.Register(&RpaasAllowedUpstreams{}, &RpaasAllowedUpstreamsList{})
+	SchemeBuilder.Register(&RpaasAccessControlList{}, &RpaasACLList{})
 }

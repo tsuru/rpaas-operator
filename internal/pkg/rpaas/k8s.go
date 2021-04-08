@@ -2194,12 +2194,12 @@ func publicKeySize(publicKey interface{}) (keySize int) {
 	return
 }
 
-func (m *k8sRpaasManager) AddAllowedUpstream(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAllowedUpstream) error {
+func (m *k8sRpaasManager) AddAccessControlList(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAccessControlListItem) error {
 	isCreation := false
-	allowedUpstream, err := m.GetAllowedUpstreams(ctx, instanceName)
+	acl, err := m.GetAccessControlList(ctx, instanceName)
 	if err != nil {
 		if k8sErrors.IsNotFound(err) {
-			allowedUpstream = &v1alpha1.RpaasAllowedUpstreams{
+			acl = &v1alpha1.RpaasAccessControlList{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      instanceName,
 					Namespace: namespaceName(),
@@ -2211,16 +2211,16 @@ func (m *k8sRpaasManager) AddAllowedUpstream(ctx context.Context, instanceName s
 		}
 	}
 
-	allowedUpstream.Spec.Upstreams = append(allowedUpstream.Spec.Upstreams, upstream)
+	acl.Spec.Upstreams = append(acl.Spec.Upstreams, upstream)
 	if isCreation {
-		return m.cli.Create(ctx, allowedUpstream)
+		return m.cli.Create(ctx, acl)
 	}
 
-	return m.cli.Update(ctx, allowedUpstream)
+	return m.cli.Update(ctx, acl)
 }
 
-func (m *k8sRpaasManager) GetAllowedUpstreams(ctx context.Context, name string) (*v1alpha1.RpaasAllowedUpstreams, error) {
-	var allowedUpstreams v1alpha1.RpaasAllowedUpstreams
+func (m *k8sRpaasManager) GetAccessControlList(ctx context.Context, name string) (*v1alpha1.RpaasAccessControlList, error) {
+	var allowedUpstreams v1alpha1.RpaasAccessControlList
 	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &allowedUpstreams)
 	if err != nil {
 		return nil, err
@@ -2229,8 +2229,8 @@ func (m *k8sRpaasManager) GetAllowedUpstreams(ctx context.Context, name string) 
 	return &allowedUpstreams, nil
 }
 
-func (m *k8sRpaasManager) DeleteAllowedUpstream(ctx context.Context, instance string, host string, port int) error {
-	upstreams, err := m.GetAllowedUpstreams(ctx, instance)
+func (m *k8sRpaasManager) DeleteAccessControlList(ctx context.Context, instance string, host string, port int) error {
+	upstreams, err := m.GetAccessControlList(ctx, instance)
 	if err != nil {
 		return err
 	}

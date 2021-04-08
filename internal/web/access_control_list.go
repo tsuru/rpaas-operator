@@ -12,7 +12,7 @@ import (
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
-func getAllowedUpstreams(c echo.Context) error {
+func getAccessControlList(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
@@ -21,7 +21,7 @@ func getAllowedUpstreams(c echo.Context) error {
 
 	instance := c.Param("instance")
 
-	upstreams, err := manager.GetAllowedUpstreams(ctx, instance)
+	upstreams, err := manager.GetAccessControlList(ctx, instance)
 	if err != nil {
 		return err
 	}
@@ -29,7 +29,7 @@ func getAllowedUpstreams(c echo.Context) error {
 	return c.JSON(http.StatusOK, upstreams.Spec.Upstreams)
 }
 
-func addAllowedUpstream(c echo.Context) error {
+func addAccessControlList(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
@@ -38,13 +38,13 @@ func addAllowedUpstream(c echo.Context) error {
 
 	instance := c.Param("instance")
 
-	u := v1alpha1.RpaasAllowedUpstream{}
+	u := v1alpha1.RpaasAccessControlListItem{}
 	err = c.Bind(&u)
 	if err != nil {
 		return err
 	}
 
-	err = manager.AddAllowedUpstream(ctx, instance, u)
+	err = manager.AddAccessControlList(ctx, instance, u)
 	if err != nil {
 		return err
 	}
@@ -52,7 +52,7 @@ func addAllowedUpstream(c echo.Context) error {
 	return c.NoContent(http.StatusCreated)
 }
 
-func deleteAllowedUpstream(c echo.Context) error {
+func deleteAccessControlList(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
@@ -71,7 +71,7 @@ func deleteAllowedUpstream(c echo.Context) error {
 		}
 	}
 
-	if err := manager.DeleteAllowedUpstream(ctx, instance, host, port); err != nil {
+	if err := manager.DeleteAccessControlList(ctx, instance, host, port); err != nil {
 		return err
 	}
 

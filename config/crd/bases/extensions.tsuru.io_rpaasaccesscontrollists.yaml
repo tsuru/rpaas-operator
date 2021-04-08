@@ -6,20 +6,20 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.3.0
   creationTimestamp: null
-  name: rpaasallowedupstreams.extensions.tsuru.io
+  name: rpaasaccesscontrollists.extensions.tsuru.io
 spec:
   group: extensions.tsuru.io
   names:
-    kind: RpaasAllowedUpstreams
-    listKind: RpaasAllowedUpstreamsList
-    plural: rpaasallowedupstreams
-    singular: rpaasallowedupstreams
+    kind: RpaasAccessControlList
+    listKind: RpaasAccessControlListList
+    plural: rpaasaccesscontrollists
+    singular: rpaasaccesscontrollist
   scope: Namespaced
   subresources:
     status: {}
   validation:
     openAPIV3Schema:
-      description: RpaasAllowedUpstreams is the Schema for the rpaasallowedupstreams
+      description: RpaasAccessControlList is the Schema for the RpaasAccessControlList
         API
       properties:
         apiVersion:
@@ -35,7 +35,7 @@ spec:
         metadata:
           type: object
         spec:
-          description: RpaasAllowedUpstreamsSpec defines the desired state of RpaasAllowedUpstreams
+          description: RpaasAccessControlListSpec defines the desired state of RpaasAccessControlList
           properties:
             upstreams:
               items:

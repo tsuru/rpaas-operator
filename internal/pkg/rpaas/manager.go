@@ -220,9 +220,9 @@ type RpaasManager interface {
 	GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error)
 	Exec(ctx context.Context, instanceName string, args ExecArgs) error
 
-	AddAllowedUpstream(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAllowedUpstream) error
-	GetAllowedUpstreams(ctx context.Context, name string) (*v1alpha1.RpaasAllowedUpstreams, error)
-	DeleteAllowedUpstream(ctx context.Context, instance string, host string, port int) error
+	AddAccessControlList(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAccessControlListItem) error
+	GetAccessControlList(ctx context.Context, name string) (*v1alpha1.RpaasAccessControlList, error)
+	DeleteAccessControlList(ctx context.Context, instance string, host string, port int) error
 }
 
 type CertificateData struct {
