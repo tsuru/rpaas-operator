@@ -2211,7 +2211,7 @@ func (m *k8sRpaasManager) AddAccessControlList(ctx context.Context, instanceName
 		}
 	}
 
-	acl.Spec.Upstreams = append(acl.Spec.Upstreams, upstream)
+	acl.Spec.Items = append(acl.Spec.Items, upstream)
 	if isCreation {
 		return m.cli.Create(ctx, acl)
 	}
@@ -2235,12 +2235,12 @@ func (m *k8sRpaasManager) DeleteAccessControlList(ctx context.Context, instance 
 		return err
 	}
 
-	for i, upstream := range upstreams.Spec.Upstreams {
+	for i, upstream := range upstreams.Spec.Items {
 		if strings.Compare(upstream.Host, host) != 0 {
 			continue
 		}
 		if upstream.Port != nil && port == *upstream.Port {
-			upstreams.Spec.Upstreams = append(upstreams.Spec.Upstreams[:i], upstreams.Spec.Upstreams[i+1:]...)
+			upstreams.Spec.Items = append(upstreams.Spec.Items[:i], upstreams.Spec.Items[i+1:]...)
 			break
 		}
 	}

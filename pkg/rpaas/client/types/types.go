@@ -121,7 +121,7 @@ type InstanceInfo struct {
 }
 
 type AccessControlList struct {
-	Upstreams []AllowedHost `json:"upstreams"`
+	Items []AllowedHost `json:"upstreams"`
 }
 
 type AllowedHost struct {
