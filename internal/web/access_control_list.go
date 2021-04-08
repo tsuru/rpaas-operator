@@ -26,7 +26,7 @@ func getAccessControlList(c echo.Context) error {
 		return err
 	}
 
-	return c.JSON(http.StatusOK, upstreams.Spec.Upstreams)
+	return c.JSON(http.StatusOK, upstreams.Spec.Items)
 }
 
 func addAccessControlList(c echo.Context) error {
