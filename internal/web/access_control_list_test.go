@@ -7,6 +7,7 @@ package web
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -80,10 +81,28 @@ func TestAddAccessControlList(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     string
+		requestBody  string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
-	}{}
+	}{
+		{
+			name:         "add upstream",
+			instance:     "valid",
+			requestBody:  `{"host":"host1","port":8888}`,
+			expectedCode: http.StatusCreated,
+			expectedBody: "",
+			manager: &fake.RpaasManager{
+				FakeAddAccessControlList: func(instanceName string, upstream v1alpha1.RpaasAccessControlListItem) error {
+					assert.Equal(t, v1alpha1.RpaasAccessControlListItem{
+						Host: "host1",
+						Port: pointerToInt(8888),
+					}, upstream)
+					return nil
+				},
+			},
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -91,8 +110,9 @@ func TestAddAccessControlList(t *testing.T) {
 			defer srv.Close()
 
 			path := fmt.Sprintf("%s/resources/%s/acl", srv.URL, tt.instance)
-			request, err := http.NewRequest(http.MethodPost, path, nil)
+			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
 			assert.NoError(t, err)
+			request.Header.Add("Content-Type", "application/json")
 
 			rsp, err := srv.Client().Do(request)
 			assert.NoError(t, err)
@@ -106,10 +126,27 @@ func TestRemoveAccessControlList(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     string
+		args         string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
-	}{}
+	}{
+		{
+			name:         "remove upstream",
+			instance:     "valid",
+			args:         "host=host1&port=8888",
+			expectedCode: http.StatusNoContent,
+			expectedBody: "",
+			manager: &fake.RpaasManager{
+				FakeDeleteAccessControlList: func(instanceName, host string, port int) error {
+					assert.Equal(t, "valid", instanceName)
+					assert.Equal(t, "host1", host)
+					assert.Equal(t, 8888, port)
+					return nil
+				},
+			},
+		},
+	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -117,6 +154,9 @@ func TestRemoveAccessControlList(t *testing.T) {
 			defer srv.Close()
 
 			path := fmt.Sprintf("%s/resources/%s/acl", srv.URL, tt.instance)
+			if tt.args != "" {
+				path = fmt.Sprintf("%s?%s", path, tt.args)
+			}
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
 			assert.NoError(t, err)
 
