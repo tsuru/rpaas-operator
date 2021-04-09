@@ -4688,7 +4688,7 @@ func Test_k8sRpaasManager_AddAccessControlList(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
 			err := manager.AddAccessControlList(context.Background(), tt.instance, tt.item)
 			tt.assertion(t, err, manager)
@@ -4755,7 +4755,7 @@ func Test_k8sRpaasManager_DeleteAccessControlList(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
 			err := manager.DeleteAccessControlList(context.Background(), tt.instance, tt.item.Host, *tt.item.Port)
 			tt.assertion(t, err, manager)
@@ -4793,7 +4793,7 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 		assertion func(*testing.T, error, *v1alpha1.RpaasAccessControlList, *k8sRpaasManager)
 	}{
 		{
-			name:     "updates an instance",
+			name:     "get an instance",
 			instance: "instance-1",
 			assertion: func(t *testing.T, err error, acl *v1alpha1.RpaasAccessControlList, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -4801,7 +4801,7 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 			},
 		},
 		{
-			name:     "error removing nonexistent",
+			name:     "cannot get nonexistent instance",
 			instance: "instance-2",
 			assertion: func(t *testing.T, err error, acl *v1alpha1.RpaasAccessControlList, m *k8sRpaasManager) {
 				assert.Error(t, err)
@@ -4811,7 +4811,7 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 	}
 
 	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
+		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
 			instance, err := manager.GetAccessControlList(context.Background(), tt.instance)
 			tt.assertion(t, err, instance, manager)
