@@ -3627,10 +3627,6 @@ func pointerToInt32(x int32) *int32 {
 	return &x
 }
 
-func pointerToInt(x int) *int {
-	return &x
-}
-
 func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
