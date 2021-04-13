@@ -5,16 +5,13 @@
 package web
 
 import (
-	"fmt"
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
-func getAccessControlList(c echo.Context) error {
+func getUpstreams(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
@@ -23,19 +20,15 @@ func getAccessControlList(c echo.Context) error {
 
 	instance := c.Param("instance")
 
-	upstreams, err := manager.GetAccessControlList(ctx, instance)
+	upstreams, err := manager.GetUpstreams(ctx, instance)
 	if err != nil {
 		return err
 	}
 
-	if upstreams == nil {
-		return rpaas.NotFoundError{Msg: fmt.Sprintf("ACL for instance %s not found", instance)}
-	}
-
-	return c.JSON(http.StatusOK, upstreams.Spec.Items)
+	return c.JSON(http.StatusOK, upstreams)
 }
 
-func addAccessControlList(c echo.Context) error {
+func addUpstream(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
@@ -44,13 +37,13 @@ func addAccessControlList(c echo.Context) error {
 
 	instance := c.Param("instance")
 
-	u := v1alpha1.RpaasAccessControlListItem{}
-	err = c.Bind(&u)
+	upstream := v1alpha1.AllowedUpstream{}
+	err = c.Bind(&upstream)
 	if err != nil {
 		return err
 	}
 
-	err = manager.AddAccessControlList(ctx, instance, u)
+	err = manager.AddUpstream(ctx, instance, upstream)
 	if err != nil {
 		return err
 	}
@@ -58,7 +51,7 @@ func addAccessControlList(c echo.Context) error {
 	return c.NoContent(http.StatusCreated)
 }
 
-func deleteAccessControlList(c echo.Context) error {
+func deleteUpstream(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
@@ -67,17 +60,13 @@ func deleteAccessControlList(c echo.Context) error {
 
 	instance := c.Param("instance")
 
-	host := c.QueryParam("host")
-	portString := c.QueryParam("port")
-	port := 0
-	if portString != "" {
-		port, err = strconv.Atoi(portString)
-		if err != nil {
-			return err
-		}
+	upstream := v1alpha1.AllowedUpstream{}
+	err = c.Bind(&upstream)
+	if err != nil {
+		return err
 	}
 
-	if err := manager.DeleteAccessControlList(ctx, instance, host, port); err != nil {
+	if err := manager.DeleteUpstream(ctx, instance, upstream); err != nil {
 		return err
 	}
 

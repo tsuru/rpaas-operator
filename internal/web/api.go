@@ -205,9 +205,9 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 	group.POST("/:instance/purge", cachePurge)
 	group.POST("/:instance/purge/bulk", cachePurgeBulk)
 	group.Any("/:instance/exec", exec)
-	group.GET("/:instance/acl", getAccessControlList)
-	group.POST("/:instance/acl", addAccessControlList)
-	group.DELETE("/:instance/acl", deleteAccessControlList)
+	group.GET("/:instance/acl", getUpstreams)
+	group.POST("/:instance/acl", addUpstream)
+	group.DELETE("/:instance/acl", deleteUpstream)
 
 	return e
 }

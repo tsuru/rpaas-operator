@@ -4619,70 +4619,72 @@ func Test_certificateName(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_AddAccessControlList(t *testing.T) {
+func Test_AddUpstream(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
 
-	instance1 := &v1alpha1.RpaasAccessControlList{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance-1",
-			Namespace: namespaceName(),
-		},
-		Spec: v1alpha1.RpaasAccessControlListSpec{
-			Items: []v1alpha1.RpaasAccessControlListItem{
-				{Host: "host-1", Port: pointerToInt(8889)},
-			},
-		},
-	}
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "instance1"
+	instance1.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{{Host: "host-1", Port: 8889}}
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "instance2"
 
-	resources := []runtime.Object{instance1}
+	resources := []runtime.Object{instance1, instance2}
 
 	testCases := []struct {
 		name      string
 		instance  string
-		item      v1alpha1.RpaasAccessControlListItem
+		upstream  v1alpha1.AllowedUpstream
 		assertion func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
 			name:     "updates an instance",
-			instance: "instance-1",
-			item: v1alpha1.RpaasAccessControlListItem{
-				Host: "host-2", Port: pointerToInt(8888),
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-2", Port: 8888,
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				instance := v1alpha1.RpaasAccessControlList{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance-1", Namespace: namespaceName()}, &instance)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance1", Namespace: namespaceName()}, &instance)
 				require.NoError(t, err)
 
-				assert.NotEqual(t, nil, instance.Spec.Items)
-				expectedItems := []v1alpha1.RpaasAccessControlListItem{
-					{Host: "host-1", Port: pointerToInt(8889)},
-					{Host: "host-2", Port: pointerToInt(8888)},
+				expectedItems := []v1alpha1.AllowedUpstream{
+					{Host: "host-1", Port: 8889},
+					{Host: "host-2", Port: 8888},
 				}
-				assert.Equal(t, expectedItems, instance.Spec.Items)
+				assert.Equal(t, expectedItems, instance.Spec.AllowedUpstreams)
 			},
 		},
 		{
 			name:     "creates an instance",
-			instance: "instance-2",
-			item: v1alpha1.RpaasAccessControlListItem{
-				Host: "host-3", Port: pointerToInt(8888),
+			instance: "instance2",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-3", Port: 8888,
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				instance := v1alpha1.RpaasAccessControlList{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance-2", Namespace: namespaceName()}, &instance)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance2", Namespace: namespaceName()}, &instance)
 				require.NoError(t, err)
 
-				assert.NotEqual(t, nil, instance.Spec.Items)
-				expectedItems := []v1alpha1.RpaasAccessControlListItem{
-					{Host: "host-3", Port: pointerToInt(8888)},
+				expectedItems := []v1alpha1.AllowedUpstream{
+					{Host: "host-3", Port: 8888},
 				}
-				assert.Equal(t, expectedItems, instance.Spec.Items)
+				assert.Equal(t, expectedItems, instance.Spec.AllowedUpstreams)
+			},
+		},
+		{
+			name:     "conflict error",
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-1", Port: 8889,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.EqualError(t, err, "upstream already present in instance: instance1")
 			},
 		},
 	}
@@ -4690,28 +4692,22 @@ func Test_k8sRpaasManager_AddAccessControlList(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
-			err := manager.AddAccessControlList(context.Background(), tt.instance, tt.item)
+			err := manager.AddUpstream(context.Background(), tt.instance, tt.upstream)
 			tt.assertion(t, err, manager)
 		})
 	}
 }
 
-func Test_k8sRpaasManager_DeleteAccessControlList(t *testing.T) {
+func Test_k8sRpaasManager_DeleteUpstream(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
 
-	instance1 := &v1alpha1.RpaasAccessControlList{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance-1",
-			Namespace: namespaceName(),
-		},
-		Spec: v1alpha1.RpaasAccessControlListSpec{
-			Items: []v1alpha1.RpaasAccessControlListItem{
-				{Host: "host-1", Port: pointerToInt(8889)},
-				{Host: "host-2", Port: pointerToInt(8888)},
-			},
-		},
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "instance1"
+	instance1.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{
+		{Host: "host-1", Port: 8889},
+		{Host: "host-2", Port: 8888},
 	}
 
 	resources := []runtime.Object{instance1}
@@ -4719,37 +4715,36 @@ func Test_k8sRpaasManager_DeleteAccessControlList(t *testing.T) {
 	testCases := []struct {
 		name      string
 		instance  string
-		item      v1alpha1.RpaasAccessControlListItem
+		upstream  v1alpha1.AllowedUpstream
 		assertion func(*testing.T, error, *k8sRpaasManager)
 	}{
 		{
 			name:     "updates an instance",
-			instance: "instance-1",
-			item: v1alpha1.RpaasAccessControlListItem{
-				Host: "host-2", Port: pointerToInt(8888),
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-2", Port: 8888,
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
 
-				instance := v1alpha1.RpaasAccessControlList{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance-1", Namespace: namespaceName()}, &instance)
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance1", Namespace: namespaceName()}, &instance)
 				require.NoError(t, err)
 
-				assert.NotEqual(t, nil, instance.Spec.Items)
-				expectedItems := []v1alpha1.RpaasAccessControlListItem{
-					{Host: "host-1", Port: pointerToInt(8889)},
+				expectedItems := []v1alpha1.AllowedUpstream{
+					{Host: "host-1", Port: 8889},
 				}
-				assert.Equal(t, expectedItems, instance.Spec.Items)
+				assert.Equal(t, expectedItems, instance.Spec.AllowedUpstreams)
 			},
 		},
 		{
 			name:     "error removing nonexistent",
-			instance: "instance-2",
-			item: v1alpha1.RpaasAccessControlListItem{
-				Host: "host-3", Port: pointerToInt(8888),
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-3", Port: 8888,
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
+				assert.EqualError(t, err, "upstream not found inside list of allowed upstreams of instance1")
 			},
 		},
 	}
@@ -4757,7 +4752,7 @@ func Test_k8sRpaasManager_DeleteAccessControlList(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
-			err := manager.DeleteAccessControlList(context.Background(), tt.instance, tt.item.Host, *tt.item.Port)
+			err := manager.DeleteUpstream(context.Background(), tt.instance, tt.upstream)
 			tt.assertion(t, err, manager)
 		})
 	}
@@ -4768,44 +4763,41 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 	corev1.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
 
-	instance1 := &v1alpha1.RpaasAccessControlList{
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "RpaasAccessControlList",
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance-1",
-			Namespace: namespaceName(),
-		},
-		Spec: v1alpha1.RpaasAccessControlListSpec{
-			Items: []v1alpha1.RpaasAccessControlListItem{
-				{Host: "host-1", Port: pointerToInt(8889)},
-				{Host: "host-2", Port: pointerToInt(8888)},
-			},
-		},
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "instance1"
+	instance1.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{
+		{Host: "host-1", Port: 8889},
+		{Host: "host-2", Port: 8888},
 	}
 
-	resources := []runtime.Object{instance1}
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "instance2"
+
+	resources := []runtime.Object{instance1, instance2}
 
 	testCases := []struct {
 		name      string
 		instance  string
-		assertion func(*testing.T, error, *v1alpha1.RpaasAccessControlList, *k8sRpaasManager)
+		assertion func(*testing.T, error, []v1alpha1.AllowedUpstream, *k8sRpaasManager)
 	}{
 		{
 			name:     "get an instance",
-			instance: "instance-1",
-			assertion: func(t *testing.T, err error, acl *v1alpha1.RpaasAccessControlList, m *k8sRpaasManager) {
+			instance: "instance1",
+			assertion: func(t *testing.T, err error, upstreams []v1alpha1.AllowedUpstream, m *k8sRpaasManager) {
 				assert.NoError(t, err)
-				assert.Equal(t, instance1, acl)
+				expectedUpstreams := []v1alpha1.AllowedUpstream{
+					{Host: "host-1", Port: 8889},
+					{Host: "host-2", Port: 8888},
+				}
+				assert.Equal(t, expectedUpstreams, instance1.Spec.AllowedUpstreams)
 			},
 		},
 		{
 			name:     "cannot get nonexistent instance",
-			instance: "instance-2",
-			assertion: func(t *testing.T, err error, acl *v1alpha1.RpaasAccessControlList, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Nil(t, acl)
+			instance: "instance2",
+			assertion: func(t *testing.T, err error, upstreams []v1alpha1.AllowedUpstream, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+				assert.Empty(t, upstreams)
 			},
 		},
 	}
@@ -4813,7 +4805,7 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
-			instance, err := manager.GetAccessControlList(context.Background(), tt.instance)
+			instance, err := manager.GetUpstreams(context.Background(), tt.instance)
 			tt.assertion(t, err, instance, manager)
 		})
 	}

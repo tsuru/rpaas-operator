@@ -52,6 +52,17 @@ spec:
                     containers. This is useful when combined with HostNetwork config
                     to avoid conflicts between multiple nginx instances.
                   type: boolean
+                allowedUpstreams:
+                  description: AllowedUpstreams holds the endpoints to which the RpaasInstance
+                    should be able to access
+                  items:
+                    properties:
+                      host:
+                        type: string
+                      port:
+                        type: integer
+                    type: object
+                  type: array
                 autoscale:
                   description: Autoscale holds the infos used to configure the HorizontalPodAutoscaler
                     for this instance.

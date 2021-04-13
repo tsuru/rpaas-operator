@@ -16,11 +16,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 )
 
-func pointerToInt(x int) *int {
-	return &x
-}
-
-func TestGetAccessControlList(t *testing.T) {
+func TestGetUpstreams(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     string
@@ -29,32 +25,16 @@ func TestGetAccessControlList(t *testing.T) {
 		manager      rpaas.RpaasManager
 	}{
 		{
-			name:         "invalid instance",
-			instance:     "invalid",
-			expectedCode: http.StatusNotFound,
-			expectedBody: `{"Msg":"ACL for instance invalid not found"}`,
-			manager: &fake.RpaasManager{
-				FakeGetAccessControlList: func(instance string) (*v1alpha1.RpaasAccessControlList, error) {
-					return nil, nil
-				},
-			},
-		},
-		{
-			name:         "acl found",
+			name:         "upstreams not empty",
 			instance:     "valid",
 			expectedCode: http.StatusOK,
 			expectedBody: `[{"host":"host1","port":"8888"},{"host":"host2","port":"8889"}]`,
 			manager: &fake.RpaasManager{
-				FakeGetAccessControlList: func(instance string) (*v1alpha1.RpaasAccessControlList, error) {
-					acl := &v1alpha1.RpaasAccessControlList{
-						Spec: v1alpha1.RpaasAccessControlListSpec{
-							Items: []v1alpha1.RpaasAccessControlListItem{
-								{Host: "host1", Port: pointerToInt(8888)},
-								{Host: "host2", Port: pointerToInt(8889)},
-							},
-						},
-					}
-					return acl, nil
+				FakeGetUpstreams: func(instance string) ([]v1alpha1.AllowedUpstream, error) {
+					return []v1alpha1.AllowedUpstream{
+						{Host: "host1", Port: 8888},
+						{Host: "host2", Port: 8889},
+					}, nil
 				},
 			},
 		},
@@ -77,7 +57,7 @@ func TestGetAccessControlList(t *testing.T) {
 	}
 }
 
-func TestAddAccessControlList(t *testing.T) {
+func TestAddUpstream(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     string
@@ -93,10 +73,10 @@ func TestAddAccessControlList(t *testing.T) {
 			expectedCode: http.StatusCreated,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
-				FakeAddAccessControlList: func(instanceName string, upstream v1alpha1.RpaasAccessControlListItem) error {
-					assert.Equal(t, v1alpha1.RpaasAccessControlListItem{
+				FakeAddUpstream: func(instanceName string, upstream v1alpha1.AllowedUpstream) error {
+					assert.Equal(t, v1alpha1.AllowedUpstream{
 						Host: "host1",
-						Port: pointerToInt(8888),
+						Port: 8888,
 					}, upstream)
 					return nil
 				},
@@ -138,10 +118,9 @@ func TestRemoveAccessControlList(t *testing.T) {
 			expectedCode: http.StatusNoContent,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
-				FakeDeleteAccessControlList: func(instanceName, host string, port int) error {
-					assert.Equal(t, "valid", instanceName)
-					assert.Equal(t, "host1", host)
-					assert.Equal(t, 8888, port)
+				FakeDeleteUpstream: func(instanceName string, upstream v1alpha1.AllowedUpstream) error {
+					expectedUpstream := v1alpha1.AllowedUpstream{Host: "host1", Port: 8888}
+					assert.Equal(t, expectedUpstream, upstream)
 					return nil
 				},
 			},

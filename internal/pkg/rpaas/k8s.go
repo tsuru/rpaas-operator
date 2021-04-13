@@ -2194,56 +2194,55 @@ func publicKeySize(publicKey interface{}) (keySize int) {
 	return
 }
 
-func (m *k8sRpaasManager) AddAccessControlList(ctx context.Context, instanceName string, upstream v1alpha1.RpaasAccessControlListItem) error {
-	isCreation := false
-	acl, err := m.GetAccessControlList(ctx, instanceName)
+func (m *k8sRpaasManager) AddUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error {
+	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
-		if k8sErrors.IsNotFound(err) {
-			acl = &v1alpha1.RpaasAccessControlList{
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instanceName,
-					Namespace: namespaceName(),
-				},
-			}
-			isCreation = true
-		} else {
-			return err
+		return err
+	}
+	originalInstance := instance.DeepCopy()
+
+	upstreams := instance.Spec.AllowedUpstreams
+	if upstreams == nil {
+		upstreams = []v1alpha1.AllowedUpstream{}
+	}
+	for _, u := range upstreams {
+		if u.Host == upstream.Host && u.Port == upstream.Port {
+			return &ConflictError{Msg: fmt.Sprintf("upstream already present in instance: %s", instanceName)}
 		}
 	}
+	instance.Spec.AllowedUpstreams = append(upstreams, upstream)
 
-	acl.Spec.Items = append(acl.Spec.Items, upstream)
-	if isCreation {
-		return m.cli.Create(ctx, acl)
-	}
-
-	return m.cli.Update(ctx, acl)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
-func (m *k8sRpaasManager) GetAccessControlList(ctx context.Context, name string) (*v1alpha1.RpaasAccessControlList, error) {
-	var acl v1alpha1.RpaasAccessControlList
-	err := m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &acl)
+func (m *k8sRpaasManager) GetUpstreams(ctx context.Context, instanceName string) ([]v1alpha1.AllowedUpstream, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return nil, err
 	}
 
-	return &acl, nil
+	return instance.Spec.AllowedUpstreams, nil
 }
 
-func (m *k8sRpaasManager) DeleteAccessControlList(ctx context.Context, instance string, host string, port int) error {
-	acl, err := m.GetAccessControlList(ctx, instance)
+func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error {
+	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
+	originalInstance := instance.DeepCopy()
 
-	for i, upstream := range acl.Spec.Items {
-		if strings.Compare(upstream.Host, host) != 0 {
-			continue
-		}
-		if upstream.Port != nil && port == *upstream.Port {
-			acl.Spec.Items = append(acl.Spec.Items[:i], acl.Spec.Items[i+1:]...)
-			break
+	found := false
+	upstreams := instance.Spec.AllowedUpstreams
+	for i, u := range upstreams {
+		if u.Port == upstream.Port && u.Host == upstream.Host {
+			found = true
+			upstreams = append(upstreams[:i], upstreams[i+1:]...)
 		}
 	}
+	if !found {
+		return &NotFoundError{Msg: fmt.Sprintf("upstream not found inside list of allowed upstreams of %s", instanceName)}
+	}
 
-	return m.cli.Update(ctx, acl)
+	instance.Spec.AllowedUpstreams = upstreams
+	return m.patchInstance(ctx, originalInstance, instance)
 }
