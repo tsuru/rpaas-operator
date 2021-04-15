@@ -1680,7 +1680,7 @@ func TestReconcile(t *testing.T) {
 		},
 	}
 	reconciler := newRpaasInstanceReconciler(rpaas, plan, defaultFlavor)
-	result, err := reconciler.Reconcile(reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
+	result, err := reconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
 	require.NoError(t, err)
 
 	assert.Equal(t, result, reconcile.Result{})
