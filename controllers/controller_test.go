@@ -2080,7 +2080,7 @@ func (i *fakeImageMetadata) Modules(img string) ([]string, error) {
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
 	scheme := extensionsruntime.NewScheme()
 	return &RpaasInstanceReconciler{
-		Client:              fake.NewFakeClientWithScheme(scheme, objs...),
+		Client:              fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
 		Log:                 ctrl.Log,
 		Scheme:              scheme,
 		RolloutNginxEnabled: true,

@@ -68,7 +68,7 @@ func TestCanListPods(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			watcher, err := NewWatcher(fake.NewFakeClientWithScheme(extensionsruntime.NewScheme(), tt.resources()...))
+			watcher, err := NewWatcher(fake.NewClientBuilder().WithScheme(extensionsruntime.NewScheme()).WithRuntimeObjects(tt.resources()...).Build())
 			assert.NoError(t, err)
 
 			pods, port, err := watcher.ListPods(tt.instanceName)

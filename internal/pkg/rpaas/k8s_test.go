@@ -129,7 +129,7 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources()...).Build()}
 			err := manager.DeleteBlock(context.TODO(), tt.instance, tt.block)
 			var instance v1alpha1.RpaasInstance
 			if err == nil {
@@ -222,7 +222,7 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources()...).Build()}
 			blocks, err := manager.ListBlocks(context.TODO(), tt.instance)
 			tt.assertion(t, err, blocks)
 		})
@@ -306,7 +306,7 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...),
+				cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources()...).Build(),
 			}
 			err := manager.UpdateBlock(context.TODO(), tt.instance, tt.block)
 			var instance v1alpha1.RpaasInstance
@@ -497,7 +497,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			certData, err := manager.GetCertificates(context.Background(), tt.instanceName)
 			tt.assertion(t, err, manager, certData)
 		})
@@ -677,7 +677,7 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.DeleteCertificate(context.Background(), tt.instanceName, tt.certName)
 			tt.assertion(t, err, manager)
 		})
@@ -963,7 +963,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.UpdateCertificate(context.Background(), tt.instanceName, tt.certificateName, tt.certificate)
 			tt.assertion(t, err, manager)
 		})
@@ -1238,7 +1238,7 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources()...),
+				cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources()...).Build(),
 			}
 			address, err := manager.GetInstanceAddress(context.Background(), tt.instance)
 			tt.assertion(t, address, err)
@@ -1422,7 +1422,7 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 
 	for _, testCase := range testCases {
 		t.Run(testCase.instance, func(t *testing.T) {
-			fakeCli := fake.NewFakeClientWithScheme(newScheme(), resources...)
+			fakeCli := fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build()
 			manager := &k8sRpaasManager{
 				cli: fakeCli,
 			}
@@ -1558,7 +1558,7 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.CreateExtraFiles(context.Background(), tt.instance, tt.files...)
 			tt.assertion(t, err, manager)
 		})
@@ -1611,7 +1611,7 @@ func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			files, err := manager.GetExtraFiles(context.Background(), tt.instance)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedFiles, files)
@@ -1704,7 +1704,7 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.UpdateExtraFiles(context.Background(), tt.instance, tt.files...)
 			tt.assertion(t, err, manager)
 		})
@@ -1775,7 +1775,7 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.DeleteExtraFiles(context.Background(), tt.instance, tt.filenames...)
 			tt.assertion(t, err, manager)
 		})
@@ -1914,7 +1914,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			fakeCli := fake.NewFakeClientWithScheme(scheme, resources...)
+			fakeCli := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()
 			manager := &k8sRpaasManager{
 				cli:          fakeCli,
 				cacheManager: tt.cacheManager,
@@ -2118,7 +2118,7 @@ func Test_k8sRpaasManager_BindApp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			bindAppErr := manager.BindApp(context.Background(), tt.instance, tt.args)
 
 			var instance v1alpha1.RpaasInstance
@@ -2213,7 +2213,7 @@ func Test_k8sRpaasManager_UnbindApp(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			unbindAppErr := manager.UnbindApp(context.Background(), tt.instance, tt.appName)
 
 			var instance v1alpha1.RpaasInstance
@@ -2343,7 +2343,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.DeleteRoute(context.Background(), tt.instance, tt.path)
 			var ri v1alpha1.RpaasInstance
 			if err == nil {
@@ -2538,7 +2538,7 @@ func Test_k8sRpaasManager_GetRoutes(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			routes, err := manager.GetRoutes(context.Background(), tt.instance)
 			tt.assertion(t, err, routes)
 		})
@@ -2788,7 +2788,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.UpdateRoute(context.Background(), tt.instance, tt.route)
 			ri := &v1alpha1.RpaasInstance{}
 			if err == nil {
@@ -2892,7 +2892,7 @@ func Test_getPlan(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources...).Build()}
 			p, err := manager.getPlan(context.Background(), tt.plan)
 			tt.assertion(t, err, p)
 		})
@@ -3421,7 +3421,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			config.Set(baseConfig)
 			defer config.Set(config.RpaasConfig{})
 			scheme := newScheme()
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...), clusterName: tt.clusterName}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build(), clusterName: tt.clusterName}
 			err := manager.CreateInstance(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
@@ -3535,7 +3535,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(newScheme(), resources...),
+				cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build(),
 			}
 			err := manager.UpdateInstance(context.TODO(), tt.instance, tt.args)
 			instance := new(v1alpha1.RpaasInstance)
@@ -3604,7 +3604,7 @@ func Test_k8sRpaasManager_GetFlavors(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			manager := &k8sRpaasManager{
-				cli: fake.NewFakeClientWithScheme(newScheme(), tt.resources...),
+				cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources...).Build(),
 			}
 
 			flavors, err := manager.GetFlavors(context.TODO())
@@ -3674,7 +3674,7 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			autoscale, err := manager.GetAutoscale(context.Background(), tt.instance)
 			tt.assertion(t, autoscale, err, manager)
 		})
@@ -3764,7 +3764,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.CreateAutoscale(context.Background(), tt.instance, &tt.autoscale)
 			tt.assertion(t, err, manager)
 		})
@@ -3872,7 +3872,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.UpdateAutoscale(context.Background(), tt.instance, &tt.autoscale)
 			tt.assertion(t, err, manager)
 		})
@@ -3923,7 +3923,7 @@ func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.DeleteAutoscale(context.Background(), tt.instance)
 			tt.assertion(t, err, manager)
 		})
@@ -4473,7 +4473,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.instance, func(t *testing.T) {
-			fakeCli := fake.NewFakeClientWithScheme(newScheme(), resources...)
+			fakeCli := fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build()
 			manager := &k8sRpaasManager{
 				cli: fakeCli,
 			}
@@ -4533,7 +4533,7 @@ func Test_k8sRpaasManager_GetPlans(t *testing.T) {
 	}
 
 	manager := &k8sRpaasManager{
-		cli: fake.NewFakeClientWithScheme(newScheme(), resources...),
+		cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build(),
 	}
 	plans, err := manager.GetPlans(context.TODO())
 	require.NoError(t, err)
@@ -4687,7 +4687,7 @@ func Test_AddUpstream(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.AddUpstream(context.Background(), tt.instance, tt.upstream)
 			tt.assertion(t, err, manager)
 		})
@@ -4747,7 +4747,7 @@ func Test_k8sRpaasManager_DeleteUpstream(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			err := manager.DeleteUpstream(context.Background(), tt.instance, tt.upstream)
 			tt.assertion(t, err, manager)
 		})
@@ -4800,7 +4800,7 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			instance, err := manager.GetUpstreams(context.Background(), tt.instance)
 			tt.assertion(t, err, instance, manager)
 		})
