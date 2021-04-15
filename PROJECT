@@ -21,12 +21,4 @@ resources:
   kind: RpaasPortAllocation
   path: k8s.io/api/extensions/v1alpha1
   version: v1alpha1
-- api:
-    crdVersion: v1beta1
-    namespaced: true
-  domain: tsuru.io
-  group: extensions
-  kind: RpaasAllowedUpstreams
-  path: github.com/tsuru/rpaas-operator/api/v1alpha1
-  version: v1alpha1
 version: "3"
