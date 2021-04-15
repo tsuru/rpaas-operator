@@ -119,3 +119,12 @@ type InstanceInfo struct {
 	Flavors      []string          `json:"flavors,omitempty"`
 	Certificates []CertificateInfo `json:"certificates,omitempty"`
 }
+
+type AccessControlList struct {
+	Items []AllowedHost `json:"upstreams"`
+}
+
+type AllowedHost struct {
+	Host string `json:"host"`
+	Port *int   `json:"port,omitempty"`
+}

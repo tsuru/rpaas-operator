@@ -18,7 +18,7 @@ import (
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
-func pointerToInt(x int32) *int32 {
+func pointerToInt32(x int32) *int32 {
 	return &x
 }
 
@@ -63,10 +63,10 @@ func Test_getAutoscale(t *testing.T) {
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
 					s := &clientTypes.Autoscale{
-						MaxReplicas: pointerToInt(10),
-						MinReplicas: pointerToInt(3),
-						CPU:         pointerToInt(60),
-						Memory:      pointerToInt(512),
+						MaxReplicas: pointerToInt32(10),
+						MinReplicas: pointerToInt32(3),
+						CPU:         pointerToInt32(60),
+						Memory:      pointerToInt32(512),
 					}
 					return s, nil
 				},
@@ -107,7 +107,7 @@ func Test_createAutoscale(t *testing.T) {
 			manager: &fake.RpaasManager{
 				FakeCreateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "invalid-instance", instance)
-					assert.Equal(t, pointerToInt(10), autoscale.MaxReplicas)
+					assert.Equal(t, pointerToInt32(10), autoscale.MaxReplicas)
 					return rpaas.NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", instance)}
 				},
 			},
@@ -121,7 +121,7 @@ func Test_createAutoscale(t *testing.T) {
 			manager: &fake.RpaasManager{
 				FakeCreateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
-					assert.Equal(t, pointerToInt(10), autoscale.MinReplicas)
+					assert.Equal(t, pointerToInt32(10), autoscale.MinReplicas)
 					return rpaas.ValidationError{Msg: "max replicas is required"}
 				},
 			},
@@ -136,10 +136,10 @@ func Test_createAutoscale(t *testing.T) {
 				FakeCreateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
 					expectedAutoscale := &clientTypes.Autoscale{
-						MaxReplicas: pointerToInt(10),
-						MinReplicas: pointerToInt(3),
-						CPU:         pointerToInt(60),
-						Memory:      pointerToInt(512),
+						MaxReplicas: pointerToInt32(10),
+						MinReplicas: pointerToInt32(3),
+						CPU:         pointerToInt32(60),
+						Memory:      pointerToInt32(512),
 					}
 					assert.Equal(t, expectedAutoscale, autoscale)
 					return nil
@@ -203,7 +203,7 @@ func Test_updateAutoscale(t *testing.T) {
 				},
 				FakeUpdateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
-					assert.Equal(t, pointerToInt(10), autoscale.MinReplicas)
+					assert.Equal(t, pointerToInt32(10), autoscale.MinReplicas)
 					return rpaas.ValidationError{Msg: "max replicas is required"}
 				},
 			},
@@ -218,20 +218,20 @@ func Test_updateAutoscale(t *testing.T) {
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
 					currentAutoscale := &clientTypes.Autoscale{
-						MaxReplicas: pointerToInt(10),
-						MinReplicas: pointerToInt(3),
-						CPU:         pointerToInt(80),
-						Memory:      pointerToInt(1024),
+						MaxReplicas: pointerToInt32(10),
+						MinReplicas: pointerToInt32(3),
+						CPU:         pointerToInt32(80),
+						Memory:      pointerToInt32(1024),
 					}
 					return currentAutoscale, nil
 				},
 				FakeUpdateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
 					expectedAutoscale := &clientTypes.Autoscale{
-						MaxReplicas: pointerToInt(10),
-						MinReplicas: pointerToInt(5),
-						CPU:         pointerToInt(80),
-						Memory:      pointerToInt(512),
+						MaxReplicas: pointerToInt32(10),
+						MinReplicas: pointerToInt32(5),
+						CPU:         pointerToInt32(80),
+						Memory:      pointerToInt32(512),
 					}
 					assert.Equal(t, expectedAutoscale, autoscale)
 					return nil

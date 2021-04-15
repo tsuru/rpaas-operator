@@ -114,5 +114,10 @@ type Client interface {
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
+
+	AddAccessControlList(ctx context.Context, instance, host string, port int) error
+	ListAccessControlList(ctx context.Context, instance string) (*types.AccessControlList, error)
+	RemoveAccessControlList(ctx context.Context, instance, host string, port int) error
+
 	SetService(service string) error
 }

@@ -49,6 +49,9 @@ type RpaasManager struct {
 	FakeDeleteAutoscale   func(name string) error
 	FakeGetInstanceInfo   func(instanceName string) (*clientTypes.InstanceInfo, error)
 	FakeExec              func(instanceName string, args rpaas.ExecArgs) error
+	FakeAddUpstream       func(instanceName string, upstream v1alpha1.AllowedUpstream) error
+	FakeGetUpstreams      func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
+	FakeDeleteUpstream    func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 }
 
 func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
@@ -265,6 +268,27 @@ func (m *RpaasManager) DeleteAutoscale(ctx context.Context, instanceName string)
 func (m *RpaasManager) Exec(ctx context.Context, instanceName string, args rpaas.ExecArgs) error {
 	if m.FakeExec != nil {
 		return m.FakeExec(instanceName, args)
+	}
+	return nil
+}
+
+func (m *RpaasManager) AddUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error {
+	if m.FakeAddUpstream != nil {
+		return m.FakeAddUpstream(instanceName, upstream)
+	}
+	return nil
+}
+
+func (m *RpaasManager) GetUpstreams(ctx context.Context, instanceName string) ([]v1alpha1.AllowedUpstream, error) {
+	if m.FakeGetUpstreams != nil {
+		return m.FakeGetUpstreams(instanceName)
+	}
+	return nil, nil
+}
+
+func (m *RpaasManager) DeleteUpstream(ctx context.Context, instance string, upstream v1alpha1.AllowedUpstream) error {
+	if m.FakeDeleteUpstream != nil {
+		return m.FakeDeleteUpstream(instance, upstream)
 	}
 	return nil
 }

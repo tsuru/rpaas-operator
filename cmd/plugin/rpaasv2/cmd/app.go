@@ -28,6 +28,7 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 	app.Writer = o
 	app.Commands = []*cli.Command{
 		NewCmdScale(),
+		NewCmdAccessControlList(),
 		NewCmdCertificates(),
 		NewCmdBlocks(),
 		NewCmdRoutes(),

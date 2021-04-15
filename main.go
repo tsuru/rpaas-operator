@@ -10,12 +10,13 @@ import (
 	"os"
 	"time"
 
-	"github.com/tsuru/rpaas-operator/controllers"
-	"github.com/tsuru/rpaas-operator/internal/registry"
-	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
+
+	"github.com/tsuru/rpaas-operator/controllers"
+	"github.com/tsuru/rpaas-operator/internal/registry"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	// +kubebuilder:scaffold:imports
 )
 

@@ -78,10 +78,10 @@ func Test_instanceInfo(t *testing.T) {
 							},
 						},
 						Autoscale: &clientTypes.Autoscale{
-							MaxReplicas: pointerToInt(3),
-							MinReplicas: pointerToInt(1),
-							CPU:         pointerToInt(70),
-							Memory:      pointerToInt(1024),
+							MaxReplicas: pointerToInt32(3),
+							MinReplicas: pointerToInt32(1),
+							CPU:         pointerToInt32(70),
+							Memory:      pointerToInt32(1024),
 						},
 					}, nil
 				},

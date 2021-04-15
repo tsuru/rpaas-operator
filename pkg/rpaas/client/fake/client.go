@@ -13,23 +13,26 @@ import (
 )
 
 type FakeClient struct {
-	FakeGetPlans          func(instance string) ([]types.Plan, error)
-	FakeGetFlavors        func(instance string) ([]types.Flavor, error)
-	FakeScale             func(args client.ScaleArgs) error
-	FakeUpdateCertificate func(args client.UpdateCertificateArgs) error
-	FakeDeleteCertificate func(args client.DeleteCertificateArgs) error
-	FakeUpdateBlock       func(args client.UpdateBlockArgs) error
-	FakeDeleteBlock       func(args client.DeleteBlockArgs) error
-	FakeListBlocks        func(args client.ListBlocksArgs) ([]types.Block, error)
-	FakeDeleteRoute       func(args client.DeleteRouteArgs) error
-	FakeListRoutes        func(args client.ListRoutesArgs) ([]types.Route, error)
-	FakeUpdateRoute       func(args client.UpdateRouteArgs) error
-	FakeInfo              func(args client.InfoArgs) (*types.InstanceInfo, error)
-	FakeGetAutoscale      func(args client.GetAutoscaleArgs) (*types.Autoscale, error)
-	FakeUpdateAutoscale   func(args client.UpdateAutoscaleArgs) error
-	FakeRemoveAutoscale   func(args client.RemoveAutoscaleArgs) error
-	FakeExec              func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error)
-	FakeSetService        func(service string) error
+	FakeGetPlans                func(instance string) ([]types.Plan, error)
+	FakeGetFlavors              func(instance string) ([]types.Flavor, error)
+	FakeScale                   func(args client.ScaleArgs) error
+	FakeUpdateCertificate       func(args client.UpdateCertificateArgs) error
+	FakeDeleteCertificate       func(args client.DeleteCertificateArgs) error
+	FakeUpdateBlock             func(args client.UpdateBlockArgs) error
+	FakeDeleteBlock             func(args client.DeleteBlockArgs) error
+	FakeListBlocks              func(args client.ListBlocksArgs) ([]types.Block, error)
+	FakeDeleteRoute             func(args client.DeleteRouteArgs) error
+	FakeListRoutes              func(args client.ListRoutesArgs) ([]types.Route, error)
+	FakeUpdateRoute             func(args client.UpdateRouteArgs) error
+	FakeInfo                    func(args client.InfoArgs) (*types.InstanceInfo, error)
+	FakeGetAutoscale            func(args client.GetAutoscaleArgs) (*types.Autoscale, error)
+	FakeUpdateAutoscale         func(args client.UpdateAutoscaleArgs) error
+	FakeRemoveAutoscale         func(args client.RemoveAutoscaleArgs) error
+	FakeExec                    func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error)
+	FakeAddAccessControlList    func(instance, host string, port int) error
+	FakeListAccessControlList   func(instance string) (*types.AccessControlList, error)
+	FakeRemoveAccessControlList func(instance, host string, port int) error
+	FakeSetService              func(service string) error
 }
 
 var _ client.Client = &FakeClient{}
@@ -160,6 +163,25 @@ func (f *FakeClient) Exec(ctx context.Context, args client.ExecArgs) (*websocket
 	}
 
 	return nil, nil
+}
+
+func (f *FakeClient) AddAccessControlList(ctx context.Context, instance, host string, port int) error {
+	if f.FakeAddAccessControlList != nil {
+		return f.FakeAddAccessControlList(instance, host, port)
+	}
+	return nil
+}
+func (f *FakeClient) ListAccessControlList(ctx context.Context, instance string) (*types.AccessControlList, error) {
+	if f.FakeListAccessControlList != nil {
+		return f.FakeListAccessControlList(instance)
+	}
+	return nil, nil
+}
+func (f *FakeClient) RemoveAccessControlList(ctx context.Context, instance, host string, port int) error {
+	if f.FakeRemoveAccessControlList != nil {
+		return f.FakeRemoveAccessControlList(instance, host, port)
+	}
+	return nil
 }
 
 func (f *FakeClient) SetService(service string) error {

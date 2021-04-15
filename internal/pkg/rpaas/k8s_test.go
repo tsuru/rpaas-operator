@@ -3623,7 +3623,7 @@ func newScheme() *runtime.Scheme {
 	return scheme
 }
 
-func pointerToInt(x int32) *int32 {
+func pointerToInt32(x int32) *int32 {
 	return &x
 }
 
@@ -3636,9 +3636,9 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 		MaxReplicas:                       3,
-		MinReplicas:                       pointerToInt(1),
-		TargetCPUUtilizationPercentage:    pointerToInt(70),
-		TargetMemoryUtilizationPercentage: pointerToInt(1024),
+		MinReplicas:                       pointerToInt32(1),
+		TargetCPUUtilizationPercentage:    pointerToInt32(70),
+		TargetMemoryUtilizationPercentage: pointerToInt32(1024),
 	}
 
 	resources := []runtime.Object{instance1}
@@ -3662,10 +3662,10 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 				assert.NoError(t, err)
 
 				expectedAutoscale := &clientTypes.Autoscale{
-					MaxReplicas: pointerToInt(3),
-					MinReplicas: pointerToInt(1),
-					CPU:         pointerToInt(70),
-					Memory:      pointerToInt(1024),
+					MaxReplicas: pointerToInt32(3),
+					MinReplicas: pointerToInt32(1),
+					CPU:         pointerToInt32(70),
+					Memory:      pointerToInt32(1024),
 				}
 				assert.Equal(t, expectedAutoscale, s)
 			},
@@ -3705,7 +3705,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "my-invalid-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(10),
+				MaxReplicas: pointerToInt32(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, NotFoundError{
@@ -3716,7 +3716,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(0),
+				MaxReplicas: pointerToInt32(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, ValidationError{
@@ -3727,7 +3727,7 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "another-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(0),
+				MaxReplicas: pointerToInt32(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, ValidationError{
@@ -3738,10 +3738,10 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(10),
-				MinReplicas: pointerToInt(5),
-				CPU:         pointerToInt(2),
-				Memory:      pointerToInt(1024),
+				MaxReplicas: pointerToInt32(10),
+				MinReplicas: pointerToInt32(5),
+				CPU:         pointerToInt32(2),
+				Memory:      pointerToInt32(1024),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -3753,9 +3753,9 @@ func Test_k8sRpaasManager_CreateAutoscale(t *testing.T) {
 				assert.NotEqual(t, nil, instance.Spec.Autoscale)
 				expectedAutoscale := &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MaxReplicas:                       10,
-					MinReplicas:                       pointerToInt(5),
-					TargetCPUUtilizationPercentage:    pointerToInt(2),
-					TargetMemoryUtilizationPercentage: pointerToInt(1024),
+					MinReplicas:                       pointerToInt32(5),
+					TargetCPUUtilizationPercentage:    pointerToInt32(2),
+					TargetMemoryUtilizationPercentage: pointerToInt32(1024),
 				}
 				assert.Equal(t, expectedAutoscale, instance.Spec.Autoscale)
 			},
@@ -3780,9 +3780,9 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 		MaxReplicas:                       3,
-		MinReplicas:                       pointerToInt(1),
-		TargetCPUUtilizationPercentage:    pointerToInt(70),
-		TargetMemoryUtilizationPercentage: pointerToInt(1024),
+		MinReplicas:                       pointerToInt32(1),
+		TargetCPUUtilizationPercentage:    pointerToInt32(70),
+		TargetMemoryUtilizationPercentage: pointerToInt32(1024),
 	}
 
 	instance2 := newEmptyRpaasInstance()
@@ -3805,7 +3805,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "my-invalid-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(10),
+				MaxReplicas: pointerToInt32(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, NotFoundError{
@@ -3816,7 +3816,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(0),
+				MaxReplicas: pointerToInt32(0),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.Error(t, ValidationError{
@@ -3827,7 +3827,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "noscale-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(10),
+				MaxReplicas: pointerToInt32(10),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -3846,10 +3846,10 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 		{
 			instance: "my-instance",
 			autoscale: clientTypes.Autoscale{
-				MaxReplicas: pointerToInt(10),
-				MinReplicas: pointerToInt(5),
-				CPU:         pointerToInt(80),
-				Memory:      pointerToInt(512),
+				MaxReplicas: pointerToInt32(10),
+				MinReplicas: pointerToInt32(5),
+				CPU:         pointerToInt32(80),
+				Memory:      pointerToInt32(512),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -3861,9 +3861,9 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 				assert.NotEqual(t, nil, instance.Spec.Autoscale)
 				expectedAutoscale := &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MaxReplicas:                       10,
-					MinReplicas:                       pointerToInt(5),
-					TargetCPUUtilizationPercentage:    pointerToInt(80),
-					TargetMemoryUtilizationPercentage: pointerToInt(512),
+					MinReplicas:                       pointerToInt32(5),
+					TargetCPUUtilizationPercentage:    pointerToInt32(80),
+					TargetMemoryUtilizationPercentage: pointerToInt32(512),
 				}
 				assert.Equal(t, expectedAutoscale, instance.Spec.Autoscale)
 			},
@@ -3888,9 +3888,9 @@ func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 		MaxReplicas:                       3,
-		MinReplicas:                       pointerToInt(1),
-		TargetCPUUtilizationPercentage:    pointerToInt(70),
-		TargetMemoryUtilizationPercentage: pointerToInt(1024),
+		MinReplicas:                       pointerToInt32(1),
+		TargetCPUUtilizationPercentage:    pointerToInt32(70),
+		TargetMemoryUtilizationPercentage: pointerToInt32(1024),
 	}
 
 	resources := []runtime.Object{instance1}
@@ -3953,11 +3953,11 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 
 	instance2 := instance1.DeepCopy()
 	instance2.Name = "instance2"
-	instance2.Spec.Replicas = pointerToInt(3)
+	instance2.Spec.Replicas = pointerToInt32(3)
 	instance2.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 		MaxReplicas:                    100,
-		MinReplicas:                    pointerToInt(1),
-		TargetCPUUtilizationPercentage: pointerToInt(90),
+		MinReplicas:                    pointerToInt32(1),
+		TargetCPUUtilizationPercentage: pointerToInt32(90),
 	}
 
 	instance3 := instance1.DeepCopy()
@@ -4315,11 +4315,11 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Tags:        []string{"tag1", "tag2", "tag3"},
 				Plan:        "huge",
 				Flavors:     []string{"mango", "milk"},
-				Replicas:    pointerToInt(3),
+				Replicas:    pointerToInt32(3),
 				Autoscale: &clientTypes.Autoscale{
-					MaxReplicas: pointerToInt(100),
-					MinReplicas: pointerToInt(1),
-					CPU:         pointerToInt(90),
+					MaxReplicas: pointerToInt32(100),
+					MinReplicas: pointerToInt32(1),
+					CPU:         pointerToInt32(90),
 				},
 			},
 		},
@@ -4611,6 +4611,198 @@ func Test_certificateName(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			assert.Equal(t, tt.expected, certificateName(tt.name))
+		})
+	}
+}
+
+func Test_AddUpstream(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "instance1"
+	instance1.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{{Host: "host-1", Port: 8889}}
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "instance2"
+
+	resources := []runtime.Object{instance1, instance2}
+
+	testCases := []struct {
+		name      string
+		instance  string
+		upstream  v1alpha1.AllowedUpstream
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			name:     "updates an instance",
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-2", Port: 8888,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance1", Namespace: namespaceName()}, &instance)
+				require.NoError(t, err)
+
+				expectedItems := []v1alpha1.AllowedUpstream{
+					{Host: "host-1", Port: 8889},
+					{Host: "host-2", Port: 8888},
+				}
+				assert.Equal(t, expectedItems, instance.Spec.AllowedUpstreams)
+			},
+		},
+		{
+			name:     "creates an instance",
+			instance: "instance2",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-3", Port: 8888,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance2", Namespace: namespaceName()}, &instance)
+				require.NoError(t, err)
+
+				expectedItems := []v1alpha1.AllowedUpstream{
+					{Host: "host-3", Port: 8888},
+				}
+				assert.Equal(t, expectedItems, instance.Spec.AllowedUpstreams)
+			},
+		},
+		{
+			name:     "conflict error",
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-1", Port: 8889,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.EqualError(t, err, "upstream already present in instance: instance1")
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.AddUpstream(context.Background(), tt.instance, tt.upstream)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_DeleteUpstream(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "instance1"
+	instance1.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{
+		{Host: "host-1", Port: 8889},
+		{Host: "host-2", Port: 8888},
+	}
+
+	resources := []runtime.Object{instance1}
+
+	testCases := []struct {
+		name      string
+		instance  string
+		upstream  v1alpha1.AllowedUpstream
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			name:     "updates an instance",
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-2", Port: 8888,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance1", Namespace: namespaceName()}, &instance)
+				require.NoError(t, err)
+
+				expectedItems := []v1alpha1.AllowedUpstream{
+					{Host: "host-1", Port: 8889},
+				}
+				assert.Equal(t, expectedItems, instance.Spec.AllowedUpstreams)
+			},
+		},
+		{
+			name:     "error removing nonexistent",
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{
+				Host: "host-3", Port: 8888,
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.EqualError(t, err, "upstream not found inside list of allowed upstreams of instance1")
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			err := manager.DeleteUpstream(context.Background(), tt.instance, tt.upstream)
+			tt.assertion(t, err, manager)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "instance1"
+	instance1.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{
+		{Host: "host-1", Port: 8889},
+		{Host: "host-2", Port: 8888},
+	}
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "instance2"
+
+	resources := []runtime.Object{instance1, instance2}
+
+	testCases := []struct {
+		name      string
+		instance  string
+		assertion func(*testing.T, error, []v1alpha1.AllowedUpstream, *k8sRpaasManager)
+	}{
+		{
+			name:     "get an instance",
+			instance: "instance1",
+			assertion: func(t *testing.T, err error, upstreams []v1alpha1.AllowedUpstream, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+				expectedUpstreams := []v1alpha1.AllowedUpstream{
+					{Host: "host-1", Port: 8889},
+					{Host: "host-2", Port: 8888},
+				}
+				assert.Equal(t, expectedUpstreams, instance1.Spec.AllowedUpstreams)
+			},
+		},
+		{
+			name:     "cannot get nonexistent instance",
+			instance: "instance2",
+			assertion: func(t *testing.T, err error, upstreams []v1alpha1.AllowedUpstream, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+				assert.Empty(t, upstreams)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewFakeClientWithScheme(scheme, resources...)}
+			instance, err := manager.GetUpstreams(context.Background(), tt.instance)
+			tt.assertion(t, err, instance, manager)
 		})
 	}
 }

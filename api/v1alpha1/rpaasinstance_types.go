@@ -100,6 +100,15 @@ type RpaasInstanceSpec struct {
 	// regardless of the default behavior on the controller.
 	// +optional
 	RolloutNginx bool `json:"rolloutNginx,omitempty"`
+
+	// AllowedUpstreams holds the endpoints to which the RpaasInstance should be able to access
+	// +optional
+	AllowedUpstreams []AllowedUpstream `json:"allowedUpstreams,omitempty"`
+}
+
+type AllowedUpstream struct {
+	Host string `json:"host,omitempty"`
+	Port int    `json:"port,omitempty"`
 }
 
 type Bind struct {
