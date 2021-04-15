@@ -11,8 +11,7 @@ require (
 	github.com/evanphx/json-patch/v5 v5.1.0
 	github.com/fsnotify/fsnotify v1.4.9
 	github.com/globocom/echo-prometheus v0.1.2
-	github.com/go-logr/logr v0.2.1
-	github.com/go-logr/zapr v0.2.0 // indirect
+	github.com/go-logr/logr v0.3.0
 	github.com/google/gops v0.3.12
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-multierror v1.1.0
@@ -38,13 +37,13 @@ require (
 	github.com/willf/bitset v1.1.11
 	go.uber.org/multierr v1.6.0 // indirect
 	go.uber.org/zap v1.16.0 // indirect
-	golang.org/x/crypto v0.0.0-20200820211705-5c72a883971a
-	golang.org/x/net v0.0.0-20200822124328-c89045814202
-	k8s.io/api v0.19.2
-	k8s.io/apimachinery v0.19.2
-	k8s.io/client-go v0.19.2
-	k8s.io/kubectl v0.19.2
-	k8s.io/metrics v0.19.2
-	sigs.k8s.io/controller-runtime v0.6.2
+	golang.org/x/crypto v0.0.0-20201002170205-7f63de1d35b0
+	golang.org/x/net v0.0.0-20201110031124-69a78807bb2b
+	k8s.io/api v0.20.2
+	k8s.io/apimachinery v0.20.2
+	k8s.io/client-go v0.20.2
+	k8s.io/kubectl v0.20.2
+	k8s.io/metrics v0.20.2
+	sigs.k8s.io/controller-runtime v0.8.3
 	sigs.k8s.io/go-open-service-broker-client/v2 v2.0.0-20200925085050-ae25e62aaf10
 )

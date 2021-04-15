@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"log"
 	"time"
@@ -55,7 +56,7 @@ func main() {
 	}
 
 	go func() {
-		mgr.Start(a.Shutdown)
+		mgr.Start(context.Background())
 	}()
 
 	if err := a.Start(); err != nil {
