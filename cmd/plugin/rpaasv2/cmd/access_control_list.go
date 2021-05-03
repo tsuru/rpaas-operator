@@ -147,12 +147,12 @@ func runListAccessControlList(c *cli.Context) error {
 	}
 
 	instance := c.String("instance")
-	acl, err := client.ListAccessControlList(c.Context, instance)
+	acls, err := client.ListAccessControlList(c.Context, instance)
 	if err != nil {
 		return err
 	}
 
-	writeAccessControlList(c.App.Writer, acl)
+	writeAccessControlList(c.App.Writer, acls)
 	return nil
 }
 
@@ -175,8 +175,8 @@ func runRemoveAccessControlList(c *cli.Context) error {
 	return nil
 }
 
-func writeAccessControlList(w io.Writer, acl *types.AccessControlList) {
-	if acl == nil {
+func writeAccessControlList(w io.Writer, acls []types.AllowedUpstream) {
+	if len(acls) <= 0 {
 		return
 	}
 	table := tablewriter.NewWriter(w)
@@ -186,12 +186,8 @@ func writeAccessControlList(w io.Writer, acl *types.AccessControlList) {
 	table.SetAutoWrapText(true)
 	table.SetRowLine(false)
 
-	for _, item := range acl.Items {
-		port := ""
-		if item.Port != nil {
-			port = strconv.Itoa(*item.Port)
-		}
-		table.Append([]string{item.Host, port})
+	for _, acl := range acls {
+		table.Append([]string{acl.Host, strconv.Itoa(acl.Port)})
 	}
 
 	table.Render()

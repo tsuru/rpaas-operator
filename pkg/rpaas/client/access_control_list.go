@@ -44,14 +44,14 @@ func (c *client) AddAccessControlList(ctx context.Context, instance, host string
 		return err
 	}
 
-	if response.StatusCode != http.StatusOK {
+	if response.StatusCode != http.StatusCreated {
 		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
 	return nil
 }
 
-func (c *client) ListAccessControlList(ctx context.Context, instance string) (*types.AccessControlList, error) {
+func (c *client) ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error) {
 	if instance == "" {
 		return nil, ErrMissingInstance
 	}
@@ -74,13 +74,13 @@ func (c *client) ListAccessControlList(ctx context.Context, instance string) (*t
 	}
 
 	defer resp.Body.Close()
-	var spec *types.AccessControlList
-	err = json.NewDecoder(resp.Body).Decode(&spec)
+	var acls []types.AllowedUpstream
+	err = json.NewDecoder(resp.Body).Decode(&acls)
 	if err != nil {
 		return nil, err
 	}
 
-	return spec, nil
+	return acls, nil
 }
 
 func (c *client) RemoveAccessControlList(ctx context.Context, instance, host string, port int) error {

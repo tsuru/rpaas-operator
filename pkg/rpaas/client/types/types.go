@@ -120,8 +120,9 @@ type InstanceInfo struct {
 	Certificates []CertificateInfo `json:"certificates,omitempty"`
 }
 
-type AccessControlList struct {
-	Items []AllowedHost `json:"upstreams"`
+type AllowedUpstream struct {
+	Host string `json:"host,omitempty"`
+	Port int    `json:"port,omitempty"`
 }
 
 type AllowedHost struct {
