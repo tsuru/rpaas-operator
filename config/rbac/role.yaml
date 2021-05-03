@@ -84,3 +84,10 @@ rules:
   verbs:
   - list
   - get
+
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - '*'
