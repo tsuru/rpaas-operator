@@ -2234,14 +2234,14 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 	found := false
 	upstreams := instance.Spec.AllowedUpstreams
 	for i, u := range upstreams {
-		if u.Port == upstream.Port && u.Host == upstream.Host {
+		if u.Port == upstream.Port && strings.Compare(u.Host, upstream.Host) == 0 {
 			found = true
 			upstreams = append(upstreams[:i], upstreams[i+1:]...)
 			break
 		}
 	}
 	if !found {
-		return &NotFoundError{Msg: fmt.Sprintf("upstream not found inside list of allowed upstreams of %s\n DEBUG: current upstreams: %v", instanceName, instance.Spec.AllowedUpstreams)}
+		return &NotFoundError{Msg: fmt.Sprintf("upstream not found inside list of allowed upstreams of %s", instanceName)}
 	}
 
 	instance.Spec.AllowedUpstreams = upstreams

@@ -171,7 +171,7 @@ func runRemoveAccessControlList(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Successfully removed %s:%d to %s ACL.\n", host, port, formatInstanceName(c))
+	fmt.Fprintf(c.App.Writer, "Successfully removed %s:%d from %s ACL.\n", host, port, formatInstanceName(c))
 	return nil
 }
 

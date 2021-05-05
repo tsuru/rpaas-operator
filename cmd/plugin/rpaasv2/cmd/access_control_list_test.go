@@ -69,6 +69,59 @@ func TestAddAcl(t *testing.T) {
 	}
 }
 
+func TestRemoveAcl(t *testing.T) {
+	tests := []struct {
+		name          string
+		args          []string
+		expected      string
+		expectedError string
+		client        client.Client
+	}{
+		{
+			name:          "when acl remove method returns an error",
+			args:          []string{"./rpaasv2", "acl", "remove", "-s", "some-service", "-i", "my-instance", "--host", "some-host", "--port", "80"},
+			expectedError: "some error",
+			client: &fake.FakeClient{
+				FakeRemoveAccessControlList: func(instance, host string, port int) error {
+					require.Equal(t, instance, "my-instance")
+					require.Equal(t, host, "some-host")
+					require.Equal(t, port, 80)
+					return fmt.Errorf("some error")
+				},
+			},
+		},
+		{
+			name:     "when acl remove is successfull",
+			args:     []string{"./rpaasv2", "acl", "remove", "-s", "some-service", "-i", "my-instance", "-host", "some-host.com", "--port", "80"},
+			expected: "Successfully removed some-host.com:80 from some-service/my-instance ACL.\n",
+			client: &fake.FakeClient{
+				FakeRemoveAccessControlList: func(instance, host string, port int) error {
+					require.Equal(t, instance, "my-instance")
+					require.Equal(t, host, "some-host.com")
+					require.Equal(t, port, 80)
+					return nil
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := NewApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, stdout.String())
+			assert.Empty(t, stderr.String())
+		})
+	}
+}
+
 func TestListAcl(t *testing.T) {
 	tests := []struct {
 		name          string
