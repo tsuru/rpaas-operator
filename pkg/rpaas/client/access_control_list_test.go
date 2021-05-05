@@ -31,7 +31,7 @@ func TestClientThroughTsuru_AddAccessControlList(t *testing.T) {
 			expectedError: "rpaasv2: instance cannot be empty",
 		},
 		{
-			name:     "when AddAccessControlList is successfull",
+			name:     "when AddAccessControlList is successful",
 			instance: "my-instance",
 			host:     "some-host.com",
 			port:     80,
@@ -74,7 +74,7 @@ func TestClientThroughTsuru_RemoveAccessControlList(t *testing.T) {
 			expectedError: "rpaasv2: instance cannot be empty",
 		},
 		{
-			name:     "when RemoveAccessControlList is successfull",
+			name:     "when RemoveAccessControlList is successful",
 			instance: "my-instance",
 			host:     "some-host.com",
 			port:     80,
@@ -114,7 +114,7 @@ func TestClientThroughTsuru_ListAccessControlList(t *testing.T) {
 			expectedError: "rpaasv2: instance cannot be empty",
 		},
 		{
-			name:     "when ListAccessControlList is successfull",
+			name:     "when ListAccessControlList is successful",
 			instance: "my-instance",
 			expectedAcls: []types.AllowedUpstream{
 				{

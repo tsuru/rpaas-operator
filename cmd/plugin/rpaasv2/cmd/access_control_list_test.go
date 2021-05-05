@@ -38,7 +38,7 @@ func TestAddAcl(t *testing.T) {
 			},
 		},
 		{
-			name:     "when acl add is successfull",
+			name:     "when acl add is successful",
 			args:     []string{"./rpaasv2", "acl", "add", "-s", "some-service", "-i", "my-instance", "-host", "some-host.com", "--port", "80"},
 			expected: "Successfully added some-host.com:80 to some-service/my-instance ACL.\n",
 			client: &fake.FakeClient{
@@ -91,7 +91,7 @@ func TestRemoveAcl(t *testing.T) {
 			},
 		},
 		{
-			name:     "when acl remove is successfull",
+			name:     "when acl remove is successful",
 			args:     []string{"./rpaasv2", "acl", "remove", "-s", "some-service", "-i", "my-instance", "-host", "some-host.com", "--port", "80"},
 			expected: "Successfully removed some-host.com:80 from some-service/my-instance ACL.\n",
 			client: &fake.FakeClient{
