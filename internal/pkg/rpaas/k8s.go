@@ -2234,9 +2234,10 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 	found := false
 	upstreams := instance.Spec.AllowedUpstreams
 	for i, u := range upstreams {
-		if u.Port == upstream.Port && u.Host == upstream.Host {
+		if u.Port == upstream.Port && strings.Compare(u.Host, upstream.Host) == 0 {
 			found = true
 			upstreams = append(upstreams[:i], upstreams[i+1:]...)
+			break
 		}
 	}
 	if !found {
