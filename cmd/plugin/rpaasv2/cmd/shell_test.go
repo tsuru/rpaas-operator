@@ -30,26 +30,6 @@ func TestShell(t *testing.T) {
 		client         client.Client
 	}{
 		{
-			name: "with command and arguments",
-			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance"},
-			client: &fake.FakeClient{
-				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error) {
-					called = true
-					expected := client.ExecArgs{
-						In:          os.Stdin,
-						Command:     []string{"bash"},
-						Instance:    "my-instance",
-						Interactive: true,
-						TTY:         true,
-					}
-					assert.Equal(t, expected, args)
-					return nil, fmt.Errorf("some error")
-				},
-			},
-			expectedCalled: true,
-			expectedError:  "some error",
-		},
-		{
 			name: "with all options activated",
 			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance"},
 			client: &fake.FakeClient{
