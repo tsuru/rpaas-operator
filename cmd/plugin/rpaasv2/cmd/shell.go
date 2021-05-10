@@ -18,7 +18,7 @@ func NewCmdShell() *cli.Command {
 	return &cli.Command{
 		Name:      "shell",
 		Usage:     "Run a command in an instance",
-		ArgsUsage: "[-p POD] [-c CONTAINER] [--] COMMAND [args...]",
+		ArgsUsage: "[-p POD] [-c CONTAINER]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -41,19 +41,19 @@ func NewCmdShell() *cli.Command {
 				Aliases: []string{"c"},
 				Usage:   "container name - if omitted, the \"nginx\" container will be chosen",
 			},
-			// &cli.BoolFlag{
-			// 	Name:    "interactive",
-			// 	Aliases: []string{},
-			// 	Usage:   "pass STDIN to container",
-			// },
-			// &cli.BoolFlag{
-			// 	Name:    "tty",
-			// 	Aliases: []string{},
-			// 	Usage:   "allocate a pseudo-TTY",
-			// },
+			&cli.BoolFlag{
+				Name:    "interactive",
+				Aliases: []string{"I", "stdin"},
+				Usage:   "pass STDIN to container",
+			},
+			&cli.BoolFlag{
+				Name:    "tty",
+				Aliases: []string{"t"},
+				Usage:   "allocate a pseudo-TTY",
+			},
 		},
 		Before: setupClient,
-		Action: runExec,
+		Action: runShell,
 	}
 }
 
@@ -69,12 +69,12 @@ func runShell(c *cli.Context) error {
 	}
 
 	args := rpaasclient.ExecArgs{
-		Command:        c.Args().Slice(),
+		Command:        []string{"bash"},
 		Instance:       c.String("instance"),
 		Pod:            c.String("pod"),
 		Container:      c.String("container"),
-		Interactive:    c.Bool("interactive"),
-		TTY:            c.Bool("tty"),
+		Interactive:    true,
+		TTY:            true,
 		TerminalWidth:  width,
 		TerminalHeight: height,
 	}

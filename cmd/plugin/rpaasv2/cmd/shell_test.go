@@ -31,13 +31,16 @@ func TestShell(t *testing.T) {
 	}{
 		{
 			name: "with command and arguments",
-			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance", "--", "my-command", "-arg1", "--arg2"},
+			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance"},
 			client: &fake.FakeClient{
 				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error) {
 					called = true
 					expected := client.ExecArgs{
-						Command:  []string{"my-command", "-arg1", "--arg2"},
-						Instance: "my-instance",
+						In:          os.Stdin,
+						Command:     []string{"bash"},
+						Instance:    "my-instance",
+						Interactive: true,
+						TTY:         true,
 					}
 					assert.Equal(t, expected, args)
 					return nil, fmt.Errorf("some error")
@@ -48,16 +51,14 @@ func TestShell(t *testing.T) {
 		},
 		{
 			name: "with all options activated",
-			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance", "-p", "pod-1", "-c", "container-1", "--", "my-shell"},
+			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance", "--tty", "--interactive"},
 			client: &fake.FakeClient{
 				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error) {
 					called = true
 					expected := client.ExecArgs{
 						In:          os.Stdin,
-						Command:     []string{"my-shell"},
+						Command:     []string{"bash"},
 						Instance:    "my-instance",
-						Pod:         "pod-1",
-						Container:   "container-1",
 						TTY:         true,
 						Interactive: true,
 					}
