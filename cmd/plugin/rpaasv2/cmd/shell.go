@@ -41,16 +41,6 @@ func NewCmdShell() *cli.Command {
 				Aliases: []string{"c"},
 				Usage:   "container name - if omitted, the \"nginx\" container will be chosen",
 			},
-			&cli.BoolFlag{
-				Name:    "interactive",
-				Aliases: []string{"I", "stdin"},
-				Usage:   "pass STDIN to container",
-			},
-			&cli.BoolFlag{
-				Name:    "tty",
-				Aliases: []string{"t"},
-				Usage:   "allocate a pseudo-TTY",
-			},
 		},
 		Before: setupClient,
 		Action: runShell,

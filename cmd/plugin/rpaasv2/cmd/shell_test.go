@@ -51,7 +51,7 @@ func TestShell(t *testing.T) {
 		},
 		{
 			name: "with all options activated",
-			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance", "--tty", "--interactive"},
+			args: []string{"rpaasv2", "shell", "-s", "rpaasv2", "-i", "my-instance"},
 			client: &fake.FakeClient{
 				FakeExec: func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error) {
 					called = true
