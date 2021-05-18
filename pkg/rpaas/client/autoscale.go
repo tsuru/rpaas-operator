@@ -123,12 +123,7 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 		return err
 	}
 
-	expectedStatus := http.StatusCreated
-	if shouldCreate {
-		expectedStatus = http.StatusOK
-	}
-
-	if resp.StatusCode != expectedStatus {
+	if resp.StatusCode > http.StatusCreated {
 		return newErrUnexpectedStatusCodeFromResponse(resp)
 	}
 

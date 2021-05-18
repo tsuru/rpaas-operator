@@ -117,6 +117,7 @@ func TestNewClientThroughTsuruWithOptions(t *testing.T) {
 				assert.EqualError(t, err, tt.expectedError)
 			} else {
 				require.NoError(t, err)
+				rpaasClient.(*client).client.Transport = nil // void compare
 				assert.Equal(t, tt.expected, rpaasClient.(*client))
 			}
 			if tt.teardown != nil {
