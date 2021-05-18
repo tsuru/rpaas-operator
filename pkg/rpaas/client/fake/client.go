@@ -184,10 +184,10 @@ func (f *FakeClient) RemoveAccessControlList(ctx context.Context, instance, host
 	return nil
 }
 
-func (f *FakeClient) SetService(service string) error {
+func (f *FakeClient) SetService(service string) (client.Client, error) {
 	if f.FakeSetService != nil {
-		return f.FakeSetService(service)
+		return f, f.FakeSetService(service)
 	}
 
-	return nil
+	return f, nil
 }

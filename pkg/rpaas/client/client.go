@@ -119,5 +119,5 @@ type Client interface {
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)
 	RemoveAccessControlList(ctx context.Context, instance, host string, port int) error
 
-	SetService(service string) error
+	SetService(service string) (Client, error)
 }
