@@ -6,11 +6,13 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
+	"net"
 	"net/http"
 	"os"
 	"time"
@@ -68,7 +70,8 @@ func isNotFoundError(err error) bool {
 }
 
 type ClientOptions struct {
-	Timeout time.Duration
+	Timeout            time.Duration
+	InsecureSkipVerify bool
 }
 
 var DefaultClientOptions = ClientOptions{
@@ -129,8 +132,24 @@ func NewClientThroughTsuruWithOptions(target, token, service string, opts Client
 }
 
 func newHTTPClient(opts ClientOptions) *http.Client {
+	transport := &http.Transport{
+		Proxy: http.ProxyFromEnvironment,
+		DialContext: (&net.Dialer{
+			Timeout:   30 * time.Second,
+			KeepAlive: 30 * time.Second,
+		}).DialContext,
+		ForceAttemptHTTP2:     true,
+		MaxIdleConns:          100,
+		IdleConnTimeout:       90 * time.Second,
+		TLSHandshakeTimeout:   10 * time.Second,
+		ExpectContinueTimeout: 1 * time.Second,
+		TLSClientConfig: &tls.Config{
+			InsecureSkipVerify: opts.InsecureSkipVerify,
+		},
+	}
 	return &http.Client{
-		Timeout: opts.Timeout,
+		Timeout:   opts.Timeout,
+		Transport: transport,
 	}
 }
 
