@@ -7,6 +7,7 @@ package rpaas
 import (
 	"context"
 	"crypto/tls"
+	"regexp"
 	"testing"
 	"time"
 
@@ -2590,6 +2591,14 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 	scheme := newScheme()
 	resources := []runtime.Object{instance1, instance2, cm}
 
+	config.Set(config.RpaasConfig{
+		ConfigDenyPatterns: []regexp.Regexp{
+			*regexp.MustCompile(`forbidden1.*?2`),
+			*regexp.MustCompile(`forbidden2.*?3`),
+		},
+	})
+	defer config.Set(config.RpaasConfig{})
+
 	tests := []struct {
 		name      string
 		instance  string
@@ -2782,6 +2791,17 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 						Value: "# My new NGINX configuration",
 					},
 				}, ri.Spec.Locations[3])
+			},
+		},
+		{
+			name:     "when updating a route which its Content contains forbidden patterns",
+			instance: "another-instance",
+			route: Route{
+				Path:    "/",
+				Content: "# My new NGINX configuration\na forbidden2abc3 other\ntest",
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+				assert.EqualError(t, err, `content contains the forbidden pattern "forbidden2.*?3"`)
 			},
 		},
 	}

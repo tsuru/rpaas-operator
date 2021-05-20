@@ -470,18 +470,18 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 	if err != nil {
 		return err
 	}
-
 	originalInstance := instance.DeepCopy()
 
-	blockType := v1alpha1.BlockType(block.Name)
-	if !isBlockTypeAllowed(blockType) {
-		return ValidationError{Msg: fmt.Sprintf("block %q is not allowed", block.Name)}
+	err = validateBlock(block)
+	if err != nil {
+		return err
 	}
 
 	if instance.Spec.Blocks == nil {
 		instance.Spec.Blocks = make(map[v1alpha1.BlockType]v1alpha1.Value)
 	}
 
+	blockType := v1alpha1.BlockType(block.Name)
 	instance.Spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
 
 	return m.patchInstance(ctx, originalInstance, instance)
@@ -1134,6 +1134,31 @@ func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found boo
 	return
 }
 
+func validateContent(content string) error {
+	denyPatterns := config.Get().ConfigDenyPatterns
+	for _, re := range denyPatterns {
+		if re.MatchString(content) {
+			return &ValidationError{Msg: fmt.Sprintf("content contains the forbidden pattern %q", re.String())}
+		}
+	}
+	return nil
+}
+
+func validateBlock(block ConfigurationBlock) error {
+	blockType := v1alpha1.BlockType(block.Name)
+	if !isBlockTypeAllowed(blockType) {
+		return ValidationError{Msg: fmt.Sprintf("block %q is not allowed", block.Name)}
+	}
+	if block.Content == "" {
+		return &ValidationError{Msg: "content is required"}
+	}
+	err := validateContent(block.Content)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func validateRoute(r Route) error {
 	if r.Path == "" {
 		return &ValidationError{Msg: "path is required"}
@@ -1153,6 +1178,13 @@ func validateRoute(r Route) error {
 
 	if r.Content != "" && r.HTTPSOnly {
 		return &ValidationError{Msg: "cannot set both content and httpsonly"}
+	}
+
+	if r.Content != "" {
+		err := validateContent(r.Content)
+		if err != nil {
+			return err
+		}
 	}
 
 	return nil

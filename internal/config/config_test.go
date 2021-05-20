@@ -8,6 +8,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"testing"
 	"time"
 
@@ -220,6 +221,9 @@ websocket-write-wait: 5s
 websocket-allowed-origins:
 - rpaasv2.example.com
 - rpaasv2.test
+config-deny-patterns:
+- pattern1.*
+- pattern2.*
 `,
 			expected: RpaasConfig{
 				ServiceName:               "rpaasv2",
@@ -231,6 +235,10 @@ websocket-allowed-origins:
 				WebSocketMaxIdleTime:      5 * time.Second,
 				WebSocketWriteWait:        5 * time.Second,
 				WebSocketAllowedOrigins:   []string{"rpaasv2.example.com", "rpaasv2.test"},
+				ConfigDenyPatterns: []regexp.Regexp{
+					*regexp.MustCompile(`pattern1.*`),
+					*regexp.MustCompile(`pattern2.*`),
+				},
 			},
 		},
 	}

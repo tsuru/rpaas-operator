@@ -10,6 +10,7 @@ import (
 	"log"
 	"os"
 	"reflect"
+	"regexp"
 	"strings"
 	"sync"
 	"time"
@@ -46,6 +47,7 @@ type RpaasConfig struct {
 	SuppressPrivateKeyOnCertificatesList bool                       `json:"suppress-private-key-on-certificates-list"`
 	MultiCluster                         bool                       `json:"multi-cluster"`
 	Clusters                             []ClusterConfig            `json:"clusters"`
+	ConfigDenyPatterns                   []regexp.Regexp            `json:"config-deny-patterns"`
 }
 
 type ClusterConfig struct {
@@ -104,19 +106,25 @@ func Init() error {
 	rpaasConfig.Lock()
 	defer rpaasConfig.Unlock()
 	var conf RpaasConfig
-	decodeHook := mapstructure.ComposeDecodeHookFunc(
-		mapstructure.StringToTimeDurationHookFunc(),
-		mapstructure.StringToSliceHookFunc(","),
-		jsonStringToMap,
-	)
-	err = viper.Unmarshal(&conf, viper.DecodeHook(decodeHook), func(dc *mapstructure.DecoderConfig) {
-		dc.TagName = "json"
-	})
+	err = unmarshalConfig(&conf)
 	if err != nil {
 		return err
 	}
 	rpaasConfig.conf = conf
 	return nil
+}
+
+func unmarshalConfig(conf *RpaasConfig) error {
+	decodeHook := mapstructure.ComposeDecodeHookFunc(
+		mapstructure.StringToTimeDurationHookFunc(),
+		mapstructure.StringToSliceHookFunc(","),
+		jsonStringToMap,
+		stringToRegexp,
+	)
+	err := viper.Unmarshal(conf, viper.DecodeHook(decodeHook), func(dc *mapstructure.DecoderConfig) {
+		dc.TagName = "json"
+	})
+	return err
 }
 
 func readConfig() error {
@@ -136,7 +144,7 @@ func readConfig() error {
 		defer rpaasConfig.Unlock()
 		log.Printf("reloading config file: %v", e.Name)
 		var conf RpaasConfig
-		err = viper.Unmarshal(&conf)
+		err = unmarshalConfig(&conf)
 		if err != nil {
 			log.Printf("error parsing new config file: %v", err)
 		} else {
@@ -144,6 +152,21 @@ func readConfig() error {
 		}
 	})
 	return nil
+}
+
+func stringToRegexp(src reflect.Type, target reflect.Type, data interface{}) (interface{}, error) {
+	if src.Kind() != reflect.String || target != reflect.TypeOf(regexp.Regexp{}) {
+		return data, nil
+	}
+	raw := data.(string)
+	if raw == "" {
+		return nil, nil
+	}
+	re, err := regexp.Compile(raw)
+	if err != nil {
+		return nil, err
+	}
+	return re, nil
 }
 
 func jsonStringToMap(f reflect.Kind, t reflect.Kind, data interface{}) (interface{}, error) {
