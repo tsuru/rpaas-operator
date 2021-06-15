@@ -815,7 +815,7 @@ func (m *k8sRpaasManager) poolNamespace() (string, error) {
 		if m.poolName == "" {
 			return "", ErrNoPoolDefined
 		}
-		return fmt.Sprintf("%s-%s", defaultNamespace, m.poolName), nil
+		return fmt.Sprintf("%s-%s", namespaceName(), m.poolName), nil
 	}
 
 	return "", nil

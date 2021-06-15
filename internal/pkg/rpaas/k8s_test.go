@@ -3002,6 +3002,15 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				Default: true,
 			},
 		},
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "plan1",
+				Namespace: "my-rpaasv2",
+			},
+			Spec: v1alpha1.RpaasPlanSpec{
+				Default: true,
+			},
+		},
 		&v1alpha1.RpaasInstance{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "r0",
@@ -3236,6 +3245,68 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 							"rpaas.extensions.tsuru.io/team-owner":    "t1",
 							"rpaas.extensions.tsuru.io/cluster-name":  "cluster-01",
 							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					RolloutNginxOnce: true,
+				},
+			},
+		},
+		{
+			name:        "pool-namespaced-custom-service",
+			args:        CreateArgs{Name: "r1", Team: "t1"},
+			clusterName: "cluster-01",
+			poolName:    "my-pool",
+			extraConfig: config.RpaasConfig{
+				NamespacedInstances: true,
+				ServiceName:         "my-rpaasv2",
+			},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "my-rpaasv2-my-pool",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description":  "",
+						"rpaas.extensions.tsuru.io/tags":         "",
+						"rpaas.extensions.tsuru.io/team-owner":   "t1",
+						"rpaas.extensions.tsuru.io/cluster-name": "cluster-01",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "my-rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas.extensions.tsuru.io/cluster-name":  "cluster-01",
+						"rpaas_service":                           "my-rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas:      &one,
+					PlanName:      "plan1",
+					PlanNamespace: "my-rpaasv2",
+					Service: &nginxv1alpha1.NginxService{
+						Type: corev1.ServiceTypeLoadBalancer,
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "my-rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas.extensions.tsuru.io/cluster-name":  "cluster-01",
+							"rpaas_service":                           "my-rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "my-rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas.extensions.tsuru.io/cluster-name":  "cluster-01",
+							"rpaas_service":                           "my-rpaasv2",
 							"rpaas_instance":                          "r1",
 						},
 					},
