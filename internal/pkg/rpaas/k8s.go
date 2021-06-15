@@ -741,7 +741,7 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 			return &instance, nil
 		}
 	}
-	err = m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespaceName()}, &instance)
+	err = m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: getServiceName()}, &instance)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		return nil, NotFoundError{Msg: fmt.Sprintf("rpaas instance %q not found", name)}
 	}
@@ -755,7 +755,7 @@ func (m *k8sRpaasManager) GetInstance(ctx context.Context, name string) (*v1alph
 
 func (m *k8sRpaasManager) GetPlans(ctx context.Context) ([]Plan, error) {
 	var planList v1alpha1.RpaasPlanList
-	if err := m.cli.List(ctx, &planList, client.InNamespace(namespaceName())); err != nil {
+	if err := m.cli.List(ctx, &planList, client.InNamespace(getServiceName())); err != nil {
 		return nil, err
 	}
 
@@ -815,7 +815,7 @@ func (m *k8sRpaasManager) poolNamespace() (string, error) {
 		if m.poolName == "" {
 			return "", ErrNoPoolDefined
 		}
-		return fmt.Sprintf("%s-%s", namespaceName(), m.poolName), nil
+		return fmt.Sprintf("%s-%s", getServiceName(), m.poolName), nil
 	}
 
 	return "", nil
@@ -823,7 +823,7 @@ func (m *k8sRpaasManager) poolNamespace() (string, error) {
 
 func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
-	if err := m.cli.List(ctx, flavorList, client.InNamespace(namespaceName())); err != nil {
+	if err := m.cli.List(ctx, flavorList, client.InNamespace(getServiceName())); err != nil {
 		return nil, err
 	}
 
@@ -1279,7 +1279,7 @@ func (m *k8sRpaasManager) getPlan(ctx context.Context, name string) (*v1alpha1.R
 
 	planName := types.NamespacedName{
 		Name:      name,
-		Namespace: namespaceName(),
+		Namespace: getServiceName(),
 	}
 	var plan v1alpha1.RpaasPlan
 	if err := m.cli.Get(ctx, planName, &plan); err != nil {
@@ -1589,10 +1589,6 @@ func getServiceName() string {
 	return serviceName
 }
 
-func namespaceName() string {
-	return getServiceName()
-}
-
 func newNamespace(name string) corev1.Namespace {
 	return corev1.Namespace{
 		TypeMeta: metav1.TypeMeta{
@@ -1611,7 +1607,7 @@ func newRpaasInstance(name string) *v1alpha1.RpaasInstance {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      name,
-			Namespace: namespaceName(),
+			Namespace: getServiceName(),
 			Labels:    labelsForRpaasInstance(name),
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{},
