@@ -339,6 +339,36 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
+	defaultFlavorNamespaced := newRpaasFlavor()
+	defaultFlavorNamespaced.Name = "default"
+	defaultFlavorNamespaced.Namespace = "rpaasv2-system"
+	defaultFlavorNamespaced.Spec.Default = true
+	defaultFlavorNamespaced.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		AllocateContainerPorts: v1alpha1.Bool(true),
+		Service: &nginxv1alpha1.NginxService{
+			Annotations: map[string]string{
+				"default-service-annotation": "defaultNamespaced",
+			},
+			Labels: map[string]string{
+				"default-service-label":  "defaultNamespaced",
+				"flavored-service-label": "defaultNamespaced",
+			},
+		},
+		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+			Annotations: map[string]string{
+				"default-pod-annotation": "defaultNamespaced",
+			},
+			Labels: map[string]string{
+				"mango-pod-label":   "not-a-mango",
+				"default-pod-label": "defaultNamespaced",
+			},
+		},
+		DNS: &v1alpha1.DNSConfig{
+			Zone: "test-zone-2",
+			TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+		},
+	}
+
 	raspberryFlavor := newRpaasFlavor()
 	raspberryFlavor.Name = "raspberry"
 	raspberryFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
@@ -350,7 +380,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 
 	resources := []runtime.Object{
 		instance1, instance2, instance3, instance4, instance5, instance6, instance7,
-		mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor, poolNameSpacedFlavor, raspberryFlavor,
+		mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor, defaultFlavorNamespaced, poolNameSpacedFlavor, raspberryFlavor,
 	}
 
 	tests := []struct {
@@ -672,24 +702,24 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					AllocateContainerPorts: v1alpha1.Bool(false),
 					Service: &nginxv1alpha1.NginxService{
 						Annotations: map[string]string{
-							"default-service-annotation": "default",
+							"default-service-annotation": "defaultNamespaced",
 						},
 						Labels: map[string]string{
-							"default-service-label":  "default",
-							"flavored-service-label": "default",
+							"default-service-label":  "defaultNamespaced",
+							"flavored-service-label": "defaultNamespaced",
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 						Annotations: map[string]string{
-							"default-pod-annotation": "default",
+							"default-pod-annotation": "defaultNamespaced",
 						},
 						Labels: map[string]string{
 							"mango-pod-label":   "not-a-mango",
-							"default-pod-label": "default",
+							"default-pod-label": "defaultNamespaced",
 						},
 					},
 					DNS: &v1alpha1.DNSConfig{
-						Zone: "test-zone",
+						Zone: "test-zone-2",
 						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
 					},
 				},
@@ -1831,7 +1861,24 @@ func TestReconcilePoolNamespaced(t *testing.T) {
 			Image: "tsuru:pool-namespaces-image:test",
 		},
 	}
-	reconciler := newRpaasInstanceReconciler(rpaas, plan)
+	flavor := &v1alpha1.RpaasFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-flavor",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasFlavorSpec{
+			InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+				Service: &nginxv1alpha1.NginxService{
+					Labels: map[string]string{
+						"tsuru.io/custom-flavor-label": "foobar",
+					},
+				},
+			},
+			Default: true,
+		},
+	}
+
+	reconciler := newRpaasInstanceReconciler(rpaas, plan, flavor)
 	result, err := reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "rpaasv2-my-pool", Name: "my-instance"}})
 	require.NoError(t, err)
 
@@ -1842,6 +1889,7 @@ func TestReconcilePoolNamespaced(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, "tsuru:pool-namespaces-image:test", nginx.Spec.Image)
+	assert.Equal(t, "foobar", nginx.Spec.Service.Labels["tsuru.io/custom-flavor-label"])
 }
 
 func resourceMustParsePtr(fmt string) *resource.Quantity {
