@@ -246,7 +246,11 @@ func mergeInstanceWithFlavor(instance *extensionsv1alpha1.RpaasInstance, flavor 
 
 func (r *RpaasInstanceReconciler) listDefaultFlavors(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance) ([]extensionsv1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
-	if err := r.Client.List(ctx, flavorList, client.InNamespace(instance.Namespace)); err != nil {
+	flavorNamespace := instance.Namespace
+	if instance.Spec.PlanNamespace != "" {
+		flavorNamespace = instance.Spec.PlanNamespace
+	}
+	if err := r.Client.List(ctx, flavorList, client.InNamespace(flavorNamespace)); err != nil {
 		return nil, err
 	}
 
