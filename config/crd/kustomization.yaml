@@ -9,8 +9,7 @@ resources:
 - bases/extensions.tsuru.io_rpaasportallocations.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
-# Remove certificates due to https://github.com/kubernetes/kubernetes/pull/76124
-# which is only available on kubernetes 1.16+.
+# Remove OpenAPI validation due to errors while creating the CRDs.
 patches:
 - target:
     group: apiextensions.k8s.io
@@ -19,7 +18,7 @@ patches:
     name: .*rpaasinstances.*
   patch: |-
     - op: remove
-      path: /spec/validation/openAPIV3Schema/properties/spec/properties/certificates
+      path: /spec/validation
 - target:
     group: apiextensions.k8s.io
     version: v1beta1
@@ -27,7 +26,7 @@ patches:
     name: .*flavors.*
   patch: |-
     - op: remove
-      path: /spec/validation/openAPIV3Schema/properties/spec/properties/instanceTemplate/properties/certificates
+      path: /spec/validation
 
 patchesStrategicMerge:
 # [WEBHOOK] To enable webhook, uncomment all the sections with [WEBHOOK] prefix.
