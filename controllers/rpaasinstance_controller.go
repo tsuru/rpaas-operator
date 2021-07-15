@@ -11,11 +11,8 @@ import (
 	"sort"
 
 	"github.com/go-logr/logr"
+	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
-	"github.com/tsuru/rpaas-operator/internal/registry"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +22,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/internal/registry"
 )
 
 // RpaasInstanceReconciler reconciles a RpaasInstance object
@@ -108,6 +111,10 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Protocol:      corev1.ProtocolTCP,
 			},
 		}
+	}
+
+	if err = certificates.RencocileAutoCertificates(ctx, r.Client, instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	rendered, err := r.renderTemplate(ctx, instance, plan)
@@ -232,5 +239,6 @@ func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&batchv1beta1.CronJob{}).
 		Owns(&nginxv1alpha1.Nginx{}).
+		Owns(&cmv1.Certificate{}).
 		Complete(r)
 }
