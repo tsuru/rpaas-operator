@@ -12,6 +12,7 @@ import (
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
@@ -19,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/runtime"
 )
@@ -61,6 +63,41 @@ func Test_ReconcileCertManager(t *testing.T) {
 				},
 				SecretName: "another-secret",
 				DNSNames:   []string{"my-instance-2.example.com"},
+			},
+		},
+
+		&cmv1.Certificate{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-3",
+				Namespace: "rpaasv2",
+			},
+			Spec: cmv1.CertificateSpec{
+				IssuerRef: cmmeta.ObjectReference{
+					Name:  "issuer-1",
+					Kind:  "Issuer",
+					Group: "cert-manager.io",
+				},
+				SecretName: "my-instance-3-cert-manager",
+				DNSNames:   []string{"my-instance-3.example.com"},
+			},
+			Status: cmv1.CertificateStatus{
+				Conditions: []cmv1.CertificateCondition{
+					{
+						Type:   cmv1.CertificateConditionReady,
+						Status: cmmeta.ConditionTrue,
+					},
+				},
+			},
+		},
+
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-3-cert-manager",
+				Namespace: "rpaasv2",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(`--- some cert here ---`),
+				"tls.key": []byte(`--- some key here ---`),
 			},
 		},
 	}
@@ -199,13 +236,64 @@ func Test_ReconcileCertManager(t *testing.T) {
 			},
 			expectedError: `there is no Issuer or ClusterIssuer with "not-found-issuer" name`,
 		},
+
+		"when certificates is ready, should update the rpaasinstance's certificate secret with newer one": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance-3",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					AutoCertificates: &v1alpha1.AutoCertificates{
+						CertManager: &v1alpha1.CertManager{
+							Issuer:   "issuer-1",
+							DNSNames: []string{"my-instance-3.example.com"},
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				assert.NotNil(t, instance.Spec.Certificates)
+				assert.Equal(t, &nginxv1alpha1.TLSSecret{
+					SecretName: "my-instance-3-certificates",
+					Items: []nginxv1alpha1.TLSSecretItem{
+						{
+							CertificateField: "cert-manager.crt",
+							KeyField:         "cert-manager.key",
+						},
+					},
+				}, instance.Spec.Certificates)
+				require.NotNil(t, instance.Spec.PodTemplate.Annotations)
+				assert.Equal(t, "9a47733699de9ddcc177b90d1d170e927a4a9061c0880483db57c2999f0af84b", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/certificates-sha256-hash"])
+
+				var cert cmv1.Certificate
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				}, &cert)
+				require.NoError(t, err)
+
+				var s corev1.Secret
+				err = cli.Get(context.TODO(), types.NamespacedName{
+					Name:      instance.Spec.Certificates.SecretName,
+					Namespace: instance.Namespace,
+				}, &s)
+				require.NoError(t, err)
+				assert.Equal(t, map[string][]byte{
+					"cert-manager.crt": []byte(`--- some cert here ---`),
+					"cert-manager.key": []byte(`--- some key here ---`),
+				}, s.Data)
+			},
+		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			allResources := append(resources, tt.instance)
+
 			cli := fake.NewClientBuilder().
 				WithScheme(runtime.NewScheme()).
-				WithRuntimeObjects(resources...).
+				WithRuntimeObjects(allResources...).
 				Build()
 
 			err := reconcileCertManager(context.TODO(), cli, tt.instance)
