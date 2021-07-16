@@ -12,6 +12,7 @@ import (
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
@@ -159,6 +160,25 @@ func Test_ReconcileCertManager(t *testing.T) {
 					DNSNames:    []string{"my-instance-2.example.com", "app1.example.com"},
 					IPAddresses: []string{"2001:db8:dead:beef::"},
 				}, cert.Spec)
+			},
+		},
+
+		"when cert manager field is removed, should delete certificate": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance-2",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{},
+			},
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				var cert cmv1.Certificate
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				}, &cert)
+				assert.Error(t, err)
+				assert.True(t, k8serrors.IsNotFound(err))
 			},
 		},
 	}
