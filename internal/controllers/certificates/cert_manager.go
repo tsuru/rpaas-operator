@@ -10,7 +10,6 @@ import (
 
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
-
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -22,8 +21,7 @@ import (
 
 func reconcileCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
 	if instance.Spec.AutoCertificates == nil || instance.Spec.AutoCertificates.CertManager == nil {
-		// TODO: remove all resources related with Cert Manager integration for this instance.
-		return nil
+		return deleteCertManager(ctx, client, instance)
 	}
 
 	issuer, err := getCertManagerIssuer(ctx, client, instance)
@@ -40,6 +38,19 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance *v
 	newCert.ResourceVersion = cert.ResourceVersion
 
 	return client.Update(ctx, newCert)
+}
+
+func deleteCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
+	cert, err := getCertificate(ctx, client, instance)
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	return client.Delete(ctx, cert)
 }
 
 func getCertificate(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmv1.Certificate, error) {
