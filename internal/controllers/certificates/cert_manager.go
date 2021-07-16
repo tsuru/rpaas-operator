@@ -112,6 +112,10 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v
 		Name: instance.Spec.AutoCertificates.CertManager.Issuer,
 	}, &clusterIssuer)
 
+	if err != nil && k8serrors.IsNotFound(err) {
+		return nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", instance.Spec.AutoCertificates.CertManager.Issuer)
+	}
+
 	if err != nil {
 		return nil, err
 	}

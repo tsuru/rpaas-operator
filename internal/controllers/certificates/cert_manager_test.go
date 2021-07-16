@@ -66,8 +66,9 @@ func Test_ReconcileCertManager(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		instance *v1alpha1.RpaasInstance
-		assert   func(*testing.T, client.Client, *v1alpha1.RpaasInstance)
+		instance      *v1alpha1.RpaasInstance
+		assert        func(*testing.T, client.Client, *v1alpha1.RpaasInstance)
+		expectedError string
 	}{
 		"when cert manager fields are set, should create certificate": {
 			instance: &v1alpha1.RpaasInstance{
@@ -181,6 +182,23 @@ func Test_ReconcileCertManager(t *testing.T) {
 				assert.True(t, k8serrors.IsNotFound(err))
 			},
 		},
+
+		"issuer not found, should return error": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					AutoCertificates: &v1alpha1.AutoCertificates{
+						CertManager: &v1alpha1.CertManager{
+							Issuer: "not-found-issuer",
+						},
+					},
+				},
+			},
+			expectedError: `there is no Issuer or ClusterIssuer with "not-found-issuer" name`,
+		},
 	}
 
 	for name, tt := range tests {
@@ -191,8 +209,13 @@ func Test_ReconcileCertManager(t *testing.T) {
 				Build()
 
 			err := reconcileCertManager(context.TODO(), cli, tt.instance)
-			assert.NoError(t, err)
 
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
 			tt.assert(t, cli, tt.instance)
 		})
 	}
