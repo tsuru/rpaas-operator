@@ -85,7 +85,7 @@ func setClient(c *cli.Context, client rpaasclient.Client) {
 }
 
 func getClient(c *cli.Context) (rpaasclient.Client, error) {
-	client, ok := c.Value(rpaasClientKey).(rpaasclient.Client)
+	client, ok := c.Context.Value(rpaasClientKey).(rpaasclient.Client)
 	if !ok {
 		return nil, errClientNotFoundAtContext
 	}
