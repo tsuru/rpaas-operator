@@ -10,6 +10,7 @@ import (
 
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -18,6 +19,8 @@ import (
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
+
+const CertManagerCertificateName string = "cert-manager"
 
 func reconcileCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
 	if instance.Spec.AutoCertificates == nil || instance.Spec.AutoCertificates.CertManager == nil {
@@ -37,7 +40,11 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance *v
 	newCert := newCertificate(instance, issuer)
 	newCert.ResourceVersion = cert.ResourceVersion
 
-	return client.Update(ctx, newCert)
+	if err = client.Update(ctx, newCert); err != nil {
+		return err
+	}
+
+	return reconcileCertificateSecret(ctx, client, instance, cert)
 }
 
 func deleteCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
@@ -51,6 +58,27 @@ func deleteCertManager(ctx context.Context, client client.Client, instance *v1al
 	}
 
 	return client.Delete(ctx, cert)
+}
+
+func reconcileCertificateSecret(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance, cert *cmv1.Certificate) error {
+	if !isCertificateReady(cert) {
+		return nil
+	}
+
+	var s corev1.Secret
+
+	err := client.Get(ctx, types.NamespacedName{
+		Name:      cert.Spec.SecretName,
+		Namespace: cert.Namespace,
+	}, &s)
+
+	if err != nil {
+		return err
+	}
+
+	var rawCert, rawKey []byte = s.Data["tls.crt"], s.Data["tls.key"]
+
+	return UpdateCertificates(ctx, client, instance, CertManagerCertificateName, rawCert, rawKey)
 }
 
 func getCertificate(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmv1.Certificate, error) {
@@ -125,4 +153,14 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v
 		Kind:  clusterIssuer.Kind,
 		Name:  clusterIssuer.Name,
 	}, nil
+}
+
+func isCertificateReady(cert *cmv1.Certificate) bool {
+	for _, c := range cert.Status.Conditions {
+		if c.Type == cmv1.CertificateConditionReady && c.Status == cmmeta.ConditionTrue {
+			return true
+		}
+	}
+
+	return false
 }
