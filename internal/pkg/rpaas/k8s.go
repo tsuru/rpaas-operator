@@ -595,7 +595,7 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return err
 	}
 
-	return certificates.UpdateCertificates(ctx, m.cli, instance, name, rawCertificate, rawKey)
+	return certificates.UpdateCertificate(ctx, m.cli, instance, name, rawCertificate, rawKey)
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {

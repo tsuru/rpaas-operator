@@ -44,7 +44,7 @@ func reconcileAutoCertificates(ctx context.Context, client client.Client, instan
 	return reconcileCertManager(ctx, client, instance)
 }
 
-func UpdateCertificates(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string, certData, keyData []byte) error {
+func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string, certData, keyData []byte) error {
 	if c == nil {
 		return fmt.Errorf("kubernetes client cannot be nil")
 	}
