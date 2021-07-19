@@ -100,7 +100,7 @@ func reconcileCertificateSecret(ctx context.Context, client client.Client, insta
 
 	var rawCert, rawKey []byte = s.Data["tls.crt"], s.Data["tls.key"]
 
-	return UpdateCertificates(ctx, client, instance, CertManagerCertificateName, rawCert, rawKey)
+	return UpdateCertificate(ctx, client, instance, CertManagerCertificateName, rawCert, rawKey)
 }
 
 func getCertificate(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmv1.Certificate, error) {
