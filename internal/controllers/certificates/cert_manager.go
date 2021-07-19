@@ -57,7 +57,29 @@ func deleteCertManager(ctx context.Context, client client.Client, instance *v1al
 		return err
 	}
 
-	return client.Delete(ctx, cert)
+	certmanagerSecretName := cert.Spec.SecretName
+
+	if err = client.Delete(ctx, cert); err != nil {
+		return err
+	}
+
+	var s corev1.Secret
+	err = client.Get(ctx, types.NamespacedName{
+		Name:      certmanagerSecretName,
+		Namespace: cert.Namespace,
+	}, &s)
+
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	if err == nil {
+		if err = client.Delete(ctx, &s); err != nil {
+			return err
+		}
+	}
+
+	return DeleteCertificate(ctx, client, instance, CertManagerCertificateName)
 }
 
 func reconcileCertificateSecret(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance, cert *cmv1.Certificate) error {

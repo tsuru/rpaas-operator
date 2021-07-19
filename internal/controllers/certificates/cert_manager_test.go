@@ -50,6 +50,28 @@ func Test_ReconcileCertManager(t *testing.T) {
 			},
 		},
 
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-2-certificates",
+				Namespace: "rpaasv2",
+			},
+			Data: map[string][]byte{
+				"cert-manager.crt": []byte(`--- some cert here ---`),
+				"cert-manager.key": []byte(`--- some key here ---`),
+			},
+		},
+
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-2-cert-manager",
+				Namespace: "rpaasv2",
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(`--- some cert here ---`),
+				"tls.key": []byte(`--- some key here ---`),
+			},
+		},
+
 		&cmv1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-instance-2",
@@ -61,7 +83,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Kind:  "Issuer",
 					Group: "cert-manager.io",
 				},
-				SecretName: "another-secret",
+				SecretName: "my-instance-2-cert-manager",
 				DNSNames:   []string{"my-instance-2.example.com"},
 			},
 		},
@@ -207,7 +229,17 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Name:      "my-instance-2",
 					Namespace: "rpaasv2",
 				},
-				Spec: v1alpha1.RpaasInstanceSpec{},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Certificates: &nginxv1alpha1.TLSSecret{
+						SecretName: "my-instance-2-certificates",
+						Items: []nginxv1alpha1.TLSSecretItem{
+							{
+								CertificateField: "cert-manager.crt",
+								KeyField:         "cert-manager.key",
+							},
+						},
+					},
+				},
 			},
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				var cert cmv1.Certificate
@@ -215,6 +247,25 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Name:      instance.Name,
 					Namespace: instance.Namespace,
 				}, &cert)
+				assert.Error(t, err)
+				assert.True(t, k8serrors.IsNotFound(err))
+
+				assert.Nil(t, instance.Spec.Certificates)
+				_, found := instance.Spec.PodTemplate.Annotations[CertificatesSHA256HashLabel]
+				assert.False(t, found)
+
+				var s corev1.Secret
+				err = cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-2-certificates",
+					Namespace: instance.Namespace,
+				}, &s)
+				assert.Error(t, err)
+				assert.True(t, k8serrors.IsNotFound(err))
+
+				err = cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-2-cert-manager",
+					Namespace: instance.Namespace,
+				}, &s)
 				assert.Error(t, err)
 				assert.True(t, k8serrors.IsNotFound(err))
 			},
