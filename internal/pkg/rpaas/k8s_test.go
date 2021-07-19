@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/config"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
+	rpaasruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 var (
@@ -4931,6 +4933,99 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			instance, err := manager.GetUpstreams(context.Background(), tt.instance)
 			tt.assertion(t, err, instance, manager)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-1",
+				Namespace: "rpaasv2",
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		instanceName  string
+		certManager   clientTypes.CertManager
+		cfg           config.RpaasConfig
+		expectedError string
+		assert        func(t *testing.T, cli client.Client)
+	}{
+		"cert-manager integration disabled": {
+			expectedError: "cert-manager integration is not enabled",
+		},
+
+		"request without issuer and no default issuer": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames: []string{"my-instance-1.example.com"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager: true,
+			},
+			expectedError: "cert-manager issuer cannot be empty",
+		},
+
+		"request without DNSes and IP addresses, should return error": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Issuer: "issuer-1",
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager: true,
+			},
+			expectedError: "you should provide a list of DNS names or IP addresses",
+		},
+
+		"using default certificate issuer from configs": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames:    []string{"my-instance-1.example.com"},
+				IPAddresses: []string{"169.196.100.1"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "default-issuer",
+			},
+			assert: func(t *testing.T, cli client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-1",
+					Namespace: "rpaasv2",
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.Equal(t, v1alpha1.CertManager{
+					Issuer:      "default-issuer",
+					DNSNames:    []string{"my-instance-1.example.com"},
+					IPAddresses: []string{"169.196.100.1"},
+				}, instance.Spec.AutoCertificates.CertManager)
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := config.Get()
+			config.Set(tt.cfg)
+			defer func() { config.Set(cfg) }()
+
+			client := fake.NewClientBuilder().
+				WithScheme(rpaasruntime.NewScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			manager := &k8sRpaasManager{cli: client}
+
+			err := manager.UpdateCertManagerRequest(context.TODO(), tt.instanceName, tt.certManager)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+
 		})
 	}
 }

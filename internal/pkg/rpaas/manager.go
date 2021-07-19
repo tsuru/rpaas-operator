@@ -223,6 +223,8 @@ type RpaasManager interface {
 	AddUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error
 	GetUpstreams(ctx context.Context, name string) ([]v1alpha1.AllowedUpstream, error)
 	DeleteUpstream(ctx context.Context, instance string, upstream v1alpha1.AllowedUpstream) error
+
+	UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error
 }
 
 type CertificateData struct {

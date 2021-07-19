@@ -2222,3 +2222,39 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 	instance.Spec.AllowedUpstreams = upstreams
 	return m.patchInstance(ctx, originalInstance, instance)
 }
+
+func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error {
+	if !config.Get().EnableCertManager {
+		return ConflictError{Msg: "cert-manager integration is not enabled"}
+	}
+
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if instance.Spec.AutoCertificates == nil {
+		instance.Spec.AutoCertificates = &v1alpha1.AutoCertificates{}
+	}
+
+	issuer := in.Issuer
+	if defaultIssuer := config.Get().DefaultCertManagerIssuer; defaultIssuer != "" {
+		issuer = defaultIssuer
+	}
+
+	if issuer == "" {
+		return &ValidationError{Msg: "cert-manager issuer cannot be empty"}
+	}
+
+	if len(in.DNSNames) == 0 && len(in.IPAddresses) == 0 {
+		return &ValidationError{Msg: "you should provide a list of DNS names or IP addresses"}
+	}
+
+	instance.Spec.AutoCertificates.CertManager = &v1alpha1.CertManager{
+		Issuer:      in.Issuer,
+		DNSNames:    in.DNSNames,
+		IPAddresses: in.IPAddresses,
+	}
+
+	return m.cli.Update(ctx, instance)
+}

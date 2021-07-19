@@ -18,40 +18,41 @@ import (
 var _ rpaas.RpaasManager = &RpaasManager{}
 
 type RpaasManager struct {
-	FakeUpdateCertificate func(instance, name string, cert tls.Certificate) error
-	FakeGetCertificates   func(instanceName string) ([]rpaas.CertificateData, error)
-	FakeDeleteCertificate func(instance, name string) error
-	FakeCreateInstance    func(args rpaas.CreateArgs) error
-	FakeDeleteInstance    func(instanceName string) error
-	FakeUpdateInstance    func(instanceName string, args rpaas.UpdateInstanceArgs) error
-	FakeGetInstance       func(instanceName string) (*v1alpha1.RpaasInstance, error)
-	FakeDeleteBlock       func(instanceName, blockName string) error
-	FakeListBlocks        func(instanceName string) ([]rpaas.ConfigurationBlock, error)
-	FakeUpdateBlock       func(instanceName string, block rpaas.ConfigurationBlock) error
-	FakeInstanceAddress   func(name string) (string, error)
-	FakeInstanceStatus    func(name string) (*nginxv1alpha1.Nginx, rpaas.PodStatusMap, error)
-	FakeScale             func(instanceName string, replicas int32) error
-	FakeGetPlans          func() ([]rpaas.Plan, error)
-	FakeGetFlavors        func() ([]rpaas.Flavor, error)
-	FakeCreateExtraFiles  func(instanceName string, files ...rpaas.File) error
-	FakeDeleteExtraFiles  func(instanceName string, filenames ...string) error
-	FakeGetExtraFiles     func(instanceName string) ([]rpaas.File, error)
-	FakeUpdateExtraFiles  func(instanceName string, files ...rpaas.File) error
-	FakeBindApp           func(instanceName string, args rpaas.BindAppArgs) error
-	FakeUnbindApp         func(instanceName, appName string) error
-	FakePurgeCache        func(instanceName string, args rpaas.PurgeCacheArgs) (int, error)
-	FakeDeleteRoute       func(instanceName, path string) error
-	FakeGetRoutes         func(instanceName string) ([]rpaas.Route, error)
-	FakeUpdateRoute       func(instanceName string, route rpaas.Route) error
-	FakeGetAutoscale      func(name string) (*clientTypes.Autoscale, error)
-	FakeCreateAutoscale   func(instanceName string, autoscale *clientTypes.Autoscale) error
-	FakeUpdateAutoscale   func(instanceName string, autoscale *clientTypes.Autoscale) error
-	FakeDeleteAutoscale   func(name string) error
-	FakeGetInstanceInfo   func(instanceName string) (*clientTypes.InstanceInfo, error)
-	FakeExec              func(instanceName string, args rpaas.ExecArgs) error
-	FakeAddUpstream       func(instanceName string, upstream v1alpha1.AllowedUpstream) error
-	FakeGetUpstreams      func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
-	FakeDeleteUpstream    func(instanceName string, upstream v1alpha1.AllowedUpstream) error
+	FakeUpdateCertificate        func(instance, name string, cert tls.Certificate) error
+	FakeGetCertificates          func(instanceName string) ([]rpaas.CertificateData, error)
+	FakeDeleteCertificate        func(instance, name string) error
+	FakeCreateInstance           func(args rpaas.CreateArgs) error
+	FakeDeleteInstance           func(instanceName string) error
+	FakeUpdateInstance           func(instanceName string, args rpaas.UpdateInstanceArgs) error
+	FakeGetInstance              func(instanceName string) (*v1alpha1.RpaasInstance, error)
+	FakeDeleteBlock              func(instanceName, blockName string) error
+	FakeListBlocks               func(instanceName string) ([]rpaas.ConfigurationBlock, error)
+	FakeUpdateBlock              func(instanceName string, block rpaas.ConfigurationBlock) error
+	FakeInstanceAddress          func(name string) (string, error)
+	FakeInstanceStatus           func(name string) (*nginxv1alpha1.Nginx, rpaas.PodStatusMap, error)
+	FakeScale                    func(instanceName string, replicas int32) error
+	FakeGetPlans                 func() ([]rpaas.Plan, error)
+	FakeGetFlavors               func() ([]rpaas.Flavor, error)
+	FakeCreateExtraFiles         func(instanceName string, files ...rpaas.File) error
+	FakeDeleteExtraFiles         func(instanceName string, filenames ...string) error
+	FakeGetExtraFiles            func(instanceName string) ([]rpaas.File, error)
+	FakeUpdateExtraFiles         func(instanceName string, files ...rpaas.File) error
+	FakeBindApp                  func(instanceName string, args rpaas.BindAppArgs) error
+	FakeUnbindApp                func(instanceName, appName string) error
+	FakePurgeCache               func(instanceName string, args rpaas.PurgeCacheArgs) (int, error)
+	FakeDeleteRoute              func(instanceName, path string) error
+	FakeGetRoutes                func(instanceName string) ([]rpaas.Route, error)
+	FakeUpdateRoute              func(instanceName string, route rpaas.Route) error
+	FakeGetAutoscale             func(name string) (*clientTypes.Autoscale, error)
+	FakeCreateAutoscale          func(instanceName string, autoscale *clientTypes.Autoscale) error
+	FakeUpdateAutoscale          func(instanceName string, autoscale *clientTypes.Autoscale) error
+	FakeDeleteAutoscale          func(name string) error
+	FakeGetInstanceInfo          func(instanceName string) (*clientTypes.InstanceInfo, error)
+	FakeExec                     func(instanceName string, args rpaas.ExecArgs) error
+	FakeAddUpstream              func(instanceName string, upstream v1alpha1.AllowedUpstream) error
+	FakeGetUpstreams             func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
+	FakeDeleteUpstream           func(instanceName string, upstream v1alpha1.AllowedUpstream) error
+	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
 }
 
 func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
@@ -289,6 +290,13 @@ func (m *RpaasManager) GetUpstreams(ctx context.Context, instanceName string) ([
 func (m *RpaasManager) DeleteUpstream(ctx context.Context, instance string, upstream v1alpha1.AllowedUpstream) error {
 	if m.FakeDeleteUpstream != nil {
 		return m.FakeDeleteUpstream(instance, upstream)
+	}
+	return nil
+}
+
+func (m *RpaasManager) UpdateCertManagerRequest(ctx context.Context, instance string, in clientTypes.CertManager) error {
+	if m.FakeUpdateCertManagerRequest != nil {
+		return m.FakeUpdateCertManagerRequest(instance, in)
 	}
 	return nil
 }
