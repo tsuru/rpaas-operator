@@ -638,43 +638,6 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 				require.Error(t, err)
 			},
 		},
-		{
-			name:         "deleting one certificate but keeping another",
-			instanceName: "another-instance",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				require.NoError(t, err)
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      "another-instance",
-					Namespace: getServiceName(),
-				}, &instance)
-				require.NoError(t, err)
-
-				assert.NotNil(t, instance.Spec.Certificates)
-				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
-
-				expectedCertificates := &nginxv1alpha1.TLSSecret{
-					SecretName: instance.Spec.Certificates.SecretName,
-					Items: []nginxv1alpha1.TLSSecretItem{
-						{CertificateField: "junda.crt", KeyField: "junda.key"},
-					},
-				}
-				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
-
-				secret := corev1.Secret{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: getServiceName(),
-				}, &secret)
-				require.NoError(t, err)
-
-				expectedSecretData := map[string][]byte{
-					"junda.crt": []byte(ecdsaCertPem),
-					"junda.key": []byte(ecdsaKeyPem),
-				}
-				assert.Equal(t, expectedSecretData, secret.Data)
-			},
-		},
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -947,8 +910,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			instanceName: "another-instance",
 			certificate:  rsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, &ConflictError{Msg: "certificate \"default\" already is deployed"}, err)
+				assert.NoError(t, err)
 			},
 		},
 		{
