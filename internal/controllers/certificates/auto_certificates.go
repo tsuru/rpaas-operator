@@ -20,6 +20,8 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
+const CertificatesSHA256HashLabel = "rpaas.extensions.tsuru.io/certificates-sha256-hash"
+
 func RencocileAutoCertificates(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
 	if ctx == nil {
 		return fmt.Errorf("context cannot be nil")
@@ -91,7 +93,7 @@ func UpdateCertificates(ctx context.Context, c client.Client, instance *v1alpha1
 		instance.Spec.Certificates.SecretName = fmt.Sprintf("%s-certificates", instance.Name)
 	}
 
-	if hasCertificate(instance.Spec.Certificates.Items, certLabel) {
+	if hasCertificate(instance, certLabel) {
 		return nil
 	}
 
@@ -104,9 +106,64 @@ func UpdateCertificates(ctx context.Context, c client.Client, instance *v1alpha1
 		instance.Spec.PodTemplate.Annotations = make(map[string]string)
 	}
 
-	instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/certificates-sha256-hash"] = util.SHA256(s.Data)
+	instance.Spec.PodTemplate.Annotations[CertificatesSHA256HashLabel] = util.SHA256(s.Data)
 
 	return c.Update(ctx, instance)
+}
+
+func DeleteCertificate(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string) error {
+	if c == nil {
+		return fmt.Errorf("kubernetes client cannot be nil")
+	}
+
+	if instance == nil {
+		return fmt.Errorf("rpaasinstance cannot be nil")
+	}
+
+	if certificateName == "" {
+		return fmt.Errorf("certificate name cannot be empty")
+	}
+
+	certLabel, keyLabel := fmt.Sprintf("%s.crt", certificateName), fmt.Sprintf("%s.key", certificateName)
+
+	if !hasCertificate(instance, certLabel) {
+		return fmt.Errorf("certificate %q not found", certificateName)
+	}
+
+	var s corev1.Secret
+	err := c.Get(ctx, types.NamespacedName{
+		Name:      secretNameForCertificates(instance),
+		Namespace: instance.Namespace,
+	}, &s)
+
+	if err != nil {
+		return err
+	}
+
+	delete(s.Data, certLabel)
+	delete(s.Data, keyLabel)
+
+	if len(s.Data) == 0 {
+		instance.Spec.Certificates = nil
+		delete(instance.Spec.PodTemplate.Annotations, CertificatesSHA256HashLabel)
+
+		if err = c.Update(ctx, instance); err != nil {
+			return err
+		}
+
+		// NOTE: removing secret as last step since the order matters to avoid disruption
+		return c.Delete(ctx, &s)
+	}
+
+	instance.Spec.PodTemplate.Annotations[CertificatesSHA256HashLabel] = util.SHA256(s.Data)
+	instance.Spec.Certificates.Items = removeCertificateFromItems(instance, certLabel)
+
+	if err = c.Update(ctx, instance); err != nil {
+		return err
+	}
+
+	// NOTE: updating secret as last step since the order matters to avoid disruption
+	return c.Update(ctx, &s)
 }
 
 func secretNameForCertificates(instance *v1alpha1.RpaasInstance) string {
@@ -133,12 +190,26 @@ func newSecretForCertificates(instance *v1alpha1.RpaasInstance) *corev1.Secret {
 	}
 }
 
-func hasCertificate(items []nginxv1alpha1.TLSSecretItem, certLabel string) bool {
-	for _, i := range items {
+func hasCertificate(instance *v1alpha1.RpaasInstance, certLabel string) bool {
+	if instance == nil || instance.Spec.Certificates == nil {
+		return false
+	}
+
+	for _, i := range instance.Spec.Certificates.Items {
 		if certLabel == i.CertificateField {
 			return true
 		}
 	}
 
 	return false
+}
+
+func removeCertificateFromItems(instance *v1alpha1.RpaasInstance, certLabel string) (items []nginxv1alpha1.TLSSecretItem) {
+	for _, item := range instance.Spec.Certificates.Items {
+		if item.CertificateField != certLabel {
+			items = append(items, item)
+		}
+	}
+
+	return
 }
