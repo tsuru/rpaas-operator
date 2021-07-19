@@ -93,14 +93,12 @@ func UpdateCertificates(ctx context.Context, c client.Client, instance *v1alpha1
 		instance.Spec.Certificates.SecretName = fmt.Sprintf("%s-certificates", instance.Name)
 	}
 
-	if hasCertificate(instance, certLabel) {
-		return nil
+	if !hasCertificate(instance, certLabel) {
+		instance.Spec.Certificates.Items = append(instance.Spec.Certificates.Items, nginxv1alpha1.TLSSecretItem{
+			CertificateField: certLabel,
+			KeyField:         keyLabel,
+		})
 	}
-
-	instance.Spec.Certificates.Items = append(instance.Spec.Certificates.Items, nginxv1alpha1.TLSSecretItem{
-		CertificateField: certLabel,
-		KeyField:         keyLabel,
-	})
 
 	if instance.Spec.PodTemplate.Annotations == nil {
 		instance.Spec.PodTemplate.Annotations = make(map[string]string)
