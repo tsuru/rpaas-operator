@@ -400,7 +400,8 @@ http {
 
         {{- if $instance.Spec.Certificates }}
         {{- range $_, $item := $instance.Spec.Certificates.Items }}
-        {{- if and (eq $item.CertificateField "default.crt") (eq $item.KeyField "default.key") }}
+        {{- if or (and (eq $item.CertificateField "default.crt") (eq $item.KeyField "default.key"))
+                  (and (eq $item.CertificateField "cert-manager.crt") (eq $item.KeyField "cert-manager.key")) }}
         listen {{ httpsPort $instance }} default_server ssl http2
             {{- with $config.HTTPSListenOptions }} {{ . }}{{ end }};
 
