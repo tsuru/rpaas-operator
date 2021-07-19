@@ -14,6 +14,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func deleteCertificate(c echo.Context) error {
@@ -38,6 +39,7 @@ func deleteCertificate(c echo.Context) error {
 
 func updateCertificate(c echo.Context) error {
 	ctx := c.Request().Context()
+
 	rawCertificate, err := getFormFileContent(c, "cert")
 	if err != nil {
 		if err == http.ErrMissingFile {
@@ -45,6 +47,7 @@ func updateCertificate(c echo.Context) error {
 		}
 		return err
 	}
+
 	rawKey, err := getFormFileContent(c, "key")
 	if err != nil {
 		if err == http.ErrMissingFile {
@@ -52,17 +55,18 @@ func updateCertificate(c echo.Context) error {
 		}
 		return err
 	}
+
 	certificate, err := tls.X509KeyPair(rawCertificate, rawKey)
 	if err != nil {
 		return c.String(http.StatusBadRequest, fmt.Sprintf("could not load the given certicate and key: %s", err))
 	}
+
 	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	instance := c.Param("instance")
-	certName := c.FormValue("name")
-	err = manager.UpdateCertificate(ctx, instance, certName, certificate)
+
+	err = manager.UpdateCertificate(ctx, c.Param("instance"), c.FormValue("name"), certificate)
 	if err != nil {
 		return err
 	}
@@ -93,4 +97,25 @@ func getCertificates(c echo.Context) error {
 	}
 
 	return c.JSON(http.StatusOK, certList)
+}
+
+func updateCertManagerRequest(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	manager, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	var in types.CertManager
+	if err = c.Bind(&in); err != nil {
+		return err
+	}
+
+	err = manager.UpdateCertManagerRequest(ctx, c.Param("instance"), in)
+	if err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
 }
