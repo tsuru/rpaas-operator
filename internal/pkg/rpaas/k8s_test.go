@@ -922,6 +922,16 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				assert.EqualError(t, err, `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`)
 			},
 		},
+
+		{
+			name:            `setting certificate with name "cert-manager"`,
+			instanceName:    "my-instance",
+			certificate:     ecdsaCertificate,
+			certificateName: "cert-manager",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.EqualError(t, err, `certificate name is forbidden: you cannot use a certificate named as "cert-manager"`)
+			},
+		},
 	}
 
 	for _, tt := range testCases {
