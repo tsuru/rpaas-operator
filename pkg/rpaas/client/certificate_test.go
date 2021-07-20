@@ -237,3 +237,44 @@ func TestClientThroughTsuru_DeleteUpdateCertManager(t *testing.T) {
 		})
 	}
 }
+
+func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
+	tests := map[string]struct {
+		instance      string
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		"disabling cert-manager integration": {
+			instance: "my-instance",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, "DELETE", r.Method)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+
+		"when server returns an error": {
+			instance: "my-instance",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, `{"Msg": "some error"}`)
+			},
+			expectedError: `rpaasv2: unexpected status code: 404 Not Found, detail: {"Msg": "some error"}`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+
+			err := client.DeleteCertManager(context.TODO(), tt.instance)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
