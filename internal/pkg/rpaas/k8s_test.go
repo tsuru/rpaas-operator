@@ -4998,7 +4998,7 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				}, &instance)
 				require.NoError(t, err)
 
-				assert.Equal(t, v1alpha1.CertManager{
+				assert.Equal(t, &v1alpha1.CertManager{
 					Issuer:      "default-issuer",
 					DNSNames:    []string{"my-instance-1.example.com"},
 					IPAddresses: []string{"169.196.100.1"},
@@ -5021,11 +5021,86 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 			manager := &k8sRpaasManager{cli: client}
 
 			err := manager.UpdateCertManagerRequest(context.TODO(), tt.instanceName, tt.certManager)
-			if tt.expectedError == "" {
-				require.NoError(t, err)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
 				return
 			}
 
+			require.NotNil(t, tt.assert)
+			tt.assert(t, client)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-1",
+				Namespace: "rpaasv2",
+			},
+		},
+
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-2",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				AutoCertificates: &v1alpha1.AutoCertificates{
+					CertManager: &v1alpha1.CertManager{
+						Issuer:   "my-issuer",
+						DNSNames: []string{"my-instance-2.example.com"},
+					},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		instanceName  string
+		expectedError string
+		assert        func(*testing.T, client.Client)
+	}{
+		"cert-manager field is not set": {
+			instanceName:  "my-instance-1",
+			expectedError: "cert-manager integration has already been removed",
+		},
+
+		"removing integration of cert-manager": {
+			instanceName: "my-instance-2",
+			assert: func(t *testing.T, cli client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-2",
+					Namespace: "rpaasv2",
+				}, &instance)
+				require.NoError(t, err)
+				require.NotNil(t, instance.Spec.AutoCertificates)
+				assert.Nil(t, instance.Spec.AutoCertificates.CertManager)
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := fake.NewClientBuilder().
+				WithScheme(rpaasruntime.NewScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			manager := &k8sRpaasManager{cli: client}
+
+			err := manager.DeleteCertManagerRequest(context.TODO(), tt.instanceName)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, tt.assert)
+
+			tt.assert(t, client)
 		})
 	}
 }

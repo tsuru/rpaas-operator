@@ -2251,10 +2251,25 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 	}
 
 	instance.Spec.AutoCertificates.CertManager = &v1alpha1.CertManager{
-		Issuer:      in.Issuer,
+		Issuer:      issuer,
 		DNSNames:    in.DNSNames,
 		IPAddresses: in.IPAddresses,
 	}
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instanceName string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if instance.Spec.AutoCertificates == nil || instance.Spec.AutoCertificates.CertManager == nil {
+		return &NotFoundError{Msg: "cert-manager integration has already been removed"}
+	}
+
+	instance.Spec.AutoCertificates.CertManager = nil
 
 	return m.cli.Update(ctx, instance)
 }

@@ -189,6 +189,7 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 	group.DELETE("/:instance/certificate", deleteCertificate)
 	group.GET("/:instance/certificate", getCertificates)
 	group.POST("/:instance/cert-manager", updateCertManagerRequest)
+	group.DELETE("/:instance/cert-manager", deleteCertManagerRequest)
 	group.GET("/:instance/block", listBlocks)
 	group.POST("/:instance/block", updateBlock)
 	group.DELETE("/:instance/block/:block", deleteBlock)
