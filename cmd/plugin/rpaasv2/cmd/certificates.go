@@ -32,7 +32,7 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 	return &cli.Command{
 		Name:    "update",
 		Aliases: []string{"add"},
-		Usage:   "Uploads a certificate and key to an instance.",
+		Usage:   "Uploads a certificate and key or enables Cert Manager integration on an instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -51,16 +51,30 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 				Value: "default",
 			},
 			&cli.PathFlag{
-				Name:     "certificate",
-				Aliases:  []string{"cert", "cert-file"},
-				Usage:    "path in the system where the certificate (in PEM format) is located",
-				Required: true,
+				Name:    "certificate",
+				Aliases: []string{"cert", "cert-file"},
+				Usage:   "path in the system where the certificate (in PEM format) is located",
 			},
 			&cli.PathFlag{
-				Name:     "key",
-				Aliases:  []string{"key-file"},
-				Usage:    "path in the system where the key (in PEM format) is located",
-				Required: true,
+				Name:    "key",
+				Aliases: []string{"key-file"},
+				Usage:   "path in the system where the key (in PEM format) is located",
+			},
+			&cli.BoolFlag{
+				Name:  "cert-manager",
+				Usage: "whether Cert Manager integration should be enabled",
+			},
+			&cli.StringSliceFlag{
+				Name:  "dns",
+				Usage: "a list of DNS names to be set on certificate as Subject Alternative Names (its usage requires --cert-manager)",
+			},
+			&cli.StringSliceFlag{
+				Name:  "ip",
+				Usage: "a list of IP addresses to be set on certificates as Subject Alternative Names (its usage requires --cert-manager)",
+			},
+			&cli.StringFlag{
+				Name:  "issuer",
+				Usage: "a Cert Manager Issuer name (its usage requires --cert-manager)",
 			},
 		},
 		Before: setupClient,
@@ -71,6 +85,11 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 func runUpdateCertificate(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
+		return err
+	}
+
+	handled, err := updateCertManagerCertificate(c, client)
+	if err != nil || handled {
 		return err
 	}
 
@@ -97,6 +116,31 @@ func runUpdateCertificate(c *cli.Context) error {
 
 	fmt.Fprintf(c.App.Writer, "certificate %q updated in %s\n", args.Name, formatInstanceName(c))
 	return nil
+}
+
+func updateCertManagerCertificate(c *cli.Context, client rpaasclient.Client) (bool, error) {
+	if !c.Bool("cert-manager") {
+		if c.String("issuer") != "" || len(c.StringSlice("dns")) > 0 || len(c.StringSlice("ip")) > 0 {
+			return true, fmt.Errorf("issuer, DNS names and IP addresses require --cert-manager=true")
+		}
+
+		return false, nil
+	}
+
+	err := client.UpdateCertManager(c.Context, rpaasclient.UpdateCertManagerArgs{
+		Instance: c.String("instance"),
+		CertManager: clientTypes.CertManager{
+			Issuer:      c.String("issuer"),
+			DNSNames:    c.StringSlice("dns"),
+			IPAddresses: c.StringSlice("ip"),
+		},
+	})
+	if err != nil {
+		return true, err
+	}
+
+	fmt.Fprintln(c.App.Writer, "cert manager certificate was updated")
+	return true, nil
 }
 
 func NewCmdDeleteCertitifcate() *cli.Command {
