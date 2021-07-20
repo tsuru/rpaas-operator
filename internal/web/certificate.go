@@ -119,3 +119,18 @@ func updateCertManagerRequest(c echo.Context) error {
 
 	return c.NoContent(http.StatusOK)
 }
+
+func deleteCertManagerRequest(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	manager, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	if err := manager.DeleteCertManagerRequest(ctx, c.Param("instance")); err != nil {
+		return err
+	}
+
+	return c.NoContent(http.StatusOK)
+}
