@@ -181,6 +181,17 @@ func TestDeleteCertificate(t *testing.T) {
 			},
 			expected: "certificate \"my-instance.example.com\" successfully deleted on my-instance\n",
 		},
+		{
+			name: "disabling Cert Manager integration",
+			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--cert-manager"},
+			client: &fake.FakeClient{
+				FakeDeleteCertManager: func(instance string) error {
+					assert.Equal(t, "my-instance", instance)
+					return nil
+				},
+			},
+			expected: "cert manager integration was disabled\n",
+		},
 	}
 
 	for _, tt := range tests {

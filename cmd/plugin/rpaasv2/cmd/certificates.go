@@ -165,6 +165,10 @@ func NewCmdDeleteCertitifcate() *cli.Command {
 				Usage: "an identifier for the current certificate and key",
 				Value: "default",
 			},
+			&cli.BoolFlag{
+				Name:  "cert-manager",
+				Usage: "whether Cert Manager integration should be disabled",
+			},
 		},
 		Before: setupClient,
 		Action: runDeleteCertificate,
@@ -175,6 +179,15 @@ func runDeleteCertificate(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
 		return err
+	}
+
+	if c.Bool("cert-manager") {
+		if err = client.DeleteCertManager(c.Context, c.String("instance")); err != nil {
+			return err
+		}
+
+		fmt.Fprintln(c.App.Writer, "cert manager integration was disabled")
+		return nil
 	}
 
 	args := rpaasclient.DeleteCertificateArgs{
