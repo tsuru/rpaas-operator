@@ -37,8 +37,8 @@ require (
 	github.com/urfave/cli/v2 v2.1.1
 	github.com/willf/bitset v1.1.11
 	go.uber.org/multierr v1.6.0 // indirect
-	golang.org/x/crypto v0.0.0-20210220033148-5ea612d1eb83
 	golang.org/x/net v0.0.0-20210405180319-a5a99cb37ef4
+	golang.org/x/term v0.0.0-20210220032956-6a3ed077a48d
 	k8s.io/api v0.21.0
 	k8s.io/apimachinery v0.21.0
 	k8s.io/client-go v0.21.0

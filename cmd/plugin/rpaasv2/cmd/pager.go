@@ -10,7 +10,7 @@ import (
 	"strings"
 	"syscall"
 
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 type descriptable interface {
@@ -28,7 +28,7 @@ func newPagerWriter(baseWriter io.Writer) io.Writer {
 		return baseWriter
 	}
 	terminalFd := int(outputDesc.Fd())
-	if !terminal.IsTerminal(terminalFd) {
+	if !term.IsTerminal(terminalFd) {
 		return baseWriter
 	}
 
