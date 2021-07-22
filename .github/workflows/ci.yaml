@@ -39,16 +39,6 @@ jobs:
         with:
           version: "v0.9.0"
           image: 'kindest/node:v1.17.11'
-      - uses: 'deliverybot/helm@v1'
-        with:
-          release: cert-manager
-          namespace: cert-manager
-          chart: cert-manager
-          repository: https://charts.jetstack.io
-          dry-run: true
-          helm: helm3
-        env:
-          KUBECONFIG_FILE: '${{ env.KUBECONFIG }}'
       - uses: actions/setup-go@v2
         with:
           go-version: 1.16
@@ -65,6 +55,7 @@ jobs:
         env:
           GOPATH: /tmp/go
         run: |
+          go install github.com/helm/helm@v3.6.3 && helm version
           ./scripts/localkube-integration.sh
 
   rpaas-api-docker-image:
