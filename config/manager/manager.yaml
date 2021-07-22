@@ -2,7 +2,6 @@ apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: controller-manager
-  namespace: system
   labels:
     control-plane: controller-manager
 spec:
@@ -15,6 +14,7 @@ spec:
       labels:
         control-plane: controller-manager
     spec:
+      serviceAccountName: manager
       containers:
       - command:
         - rpaas-operator

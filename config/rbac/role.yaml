@@ -9,85 +9,107 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - pods
-  - services
-  - endpoints
-  - persistentvolumeclaims
-  - events
   - configmaps
+  - persistentvolumeclaims
   - secrets
   verbs:
-  - '*'
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
   - create
-- apiGroups:
-  - apps
-  resources:
-  - deployments
-  - daemonsets
-  - replicasets
-  - statefulsets
-  verbs:
-  - '*'
-- apiGroups:
-  - monitoring.coreos.com
-  resources:
-  - servicemonitors
-  verbs:
+  - delete
   - get
-  - create
-- apiGroups:
-  - extensions.tsuru.io
-  resources:
-  - rpaasinstances
-  - rpaasinstances/status
-  - rpaasinstances/scale
-  - rpaasplans
-  - rpaasflavors
-  - rpaasportallocations
-  verbs:
-  - '*'
-- apiGroups:
-  - nginx.tsuru.io
-  resources:
-  - '*'
-  verbs:
-  - '*'
+  - list
+  - update
+  - watch
 - apiGroups:
   - autoscaling
   resources:
   - horizontalpodautoscalers
   verbs:
-  - '*'
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
 - apiGroups:
   - batch
   resources:
-  - jobs
   - cronjobs
   verbs:
-  - '*'
-# NOTE: Pod exec is required by RPaaS API due to PR #83.
-- apiGroups: [""]
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - cert-manager.io
   resources:
-  - pods/exec
+  - certificates
   verbs:
   - create
-- apiGroups:
-  - metrics.k8s.io
-  resources:
-  - pods
-  verbs:
-  - list
+  - delete
   - get
-
+  - list
+  - update
+  - watch
 - apiGroups:
-  - coordination.k8s.io
+  - cert-manager.io
   resources:
-  - leases
+  - clusterissuers
+  - issuers
   verbs:
-  - '*'
+  - get
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasflavors
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasinstances
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasinstances/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasplans
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasportallocations
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - nginx.tsuru.io
+  resources:
+  - nginxes
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch

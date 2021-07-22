@@ -1,0 +1,83 @@
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: api-role
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  - secrets
+  verbs:
+  - get
+  - list
+  - create
+  - patch
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
+  - pods/exec
+  verbs:
+  - create
+- apiGroups:
+  - ""
+  resources:
+  - pods
+  verbs:
+  - list
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - services
+  verbs:
+  - get
+- apiGroups:
+  - ""
+  resources:
+  - events
+  - pods
+  verbs:
+  - list
+- apiGroups:
+  - nginx.tsuru.io
+  resources:
+  - nginxes
+  verbs:
+  - get
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasflavors
+  - rpaasplans
+  verbs:
+  - get
+  - list
+- apiGroups:
+  - metrics.k8s.io
+  resources:
+  - pods
+  verbs:
+  - list
+  - get
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasinstances
+  verbs:
+  - get
+  - list
+  - create
+  - update
+  - delete
+  - patch
