@@ -67,7 +67,7 @@ run_nginx_operator() {
   (cd ${nginx_operator_dir}/config/default && kustomize edit set namespace ${namespace})
   (cd ${nginx_operator_dir}/config/default && kustomize edit set image tsuru/nginx-operator=tsuru/nginx-operator:${tag})
 
-  kustomize build ${nginx_operator_dir}/config/default | kubectl -n ${namespace} apply -f -
+  kustomize build ${nginx_operator_dir}/config/default | kubectl -n ${namespace} apply --validate=false -f -
 
   kubectl rollout status deployment/nginx-operator-controller -n ${namespace} || \
     kubectl describe deployment/nginx-operator-controller -n ${namespace} && \
