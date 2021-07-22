@@ -99,9 +99,26 @@ func Test_RpaasOperator(t *testing.T) {
 					KeyField:         "default.key",
 					KeyPath:          "my-custom-name.key",
 				},
+				{
+					CertificateField: "cert-manager.crt",
+					KeyField:         "cert-manager.key",
+				},
 			},
 		}
 		assert.Equal(t, tlsSecret, nginx.Spec.Certificates)
+
+		certificatesSecret := &corev1.Secret{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "v1",
+				Kind:       "Secret",
+			},
+		}
+		err = get(certificatesSecret, nginx.Spec.Certificates.SecretName, namespaceName)
+		require.NoError(t, err)
+		assert.NotEmpty(t, certificatesSecret.Data["default.crt"])
+		assert.NotEmpty(t, certificatesSecret.Data["default.key"])
+		assert.NotEmpty(t, certificatesSecret.Data["cert-manager.crt"])
+		assert.NotEmpty(t, certificatesSecret.Data["cert-manager.key"])
 
 		nginxService := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{
