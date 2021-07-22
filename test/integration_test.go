@@ -173,6 +173,20 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
+	err = apply("testdata/hello-app.yaml", namespaceName)
+	require.NoError(t, err)
+	defer func() {
+		err = delete("testdata/hello-app.yaml", namespaceName)
+		require.NoError(t, err)
+	}()
+
+	err = apply("testdata/echo-server.yaml", namespaceName)
+	require.NoError(t, err)
+	defer func() {
+		err = delete("testdata/echo-server.yaml", namespaceName)
+		require.NoError(t, err)
+	}()
+
 	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := generateRandomName("my-instance")
 		teamName := generateRandomName("team-one")
@@ -215,13 +229,6 @@ func Test_RpaasApi(t *testing.T) {
 
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
-
-		err = apply("testdata/hello-app.yaml", namespaceName)
-		require.NoError(t, err)
-		defer func() {
-			err = delete("testdata/hello-app.yaml", namespaceName)
-			require.NoError(t, err)
-		}()
 
 		_, err = kubectlWithRetry("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "5m", "-n", namespaceName)
 		require.NoError(t, err)
@@ -279,19 +286,6 @@ func Test_RpaasApi(t *testing.T) {
 
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
-
-		err = apply("testdata/hello-app.yaml", namespaceName)
-		require.NoError(t, err)
-		defer func() {
-			err = delete("testdata/hello-app.yaml", namespaceName)
-			require.NoError(t, err)
-		}()
-		err = apply("testdata/echo-server.yaml", namespaceName)
-		require.NoError(t, err)
-		defer func() {
-			err = delete("testdata/echo-server.yaml", namespaceName)
-			require.NoError(t, err)
-		}()
 
 		podLabels := []string{"app=hello", "app=echo-server"}
 		for _, podLabel := range podLabels {
