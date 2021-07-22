@@ -69,7 +69,9 @@ run_nginx_operator() {
 
   kustomize build ${nginx_operator_dir}/config/default | kubectl -n ${namespace} apply -f -
 
-  kubectl rollout status deployment/nginx-operator-controller -n ${namespace}
+  kubectl rollout status deployment/nginx-operator-controller -n ${namespace} || \
+    kubectl describe deployment/nginx-operator-controller -n ${namespace} && \
+    kubectl get pods -n ${namespace}
 }
 
 run_rpaas_operator() {
@@ -89,8 +91,13 @@ run_rpaas_operator() {
 
   kustomize build ./config/default | kubectl -n ${namespace} apply -f -
 
-  kubectl rollout status deployment/rpaas-api -n ${namespace}
-  kubectl rollout status deployment/rpaas-operator-controller-manager -n ${namespace}
+  kubectl rollout status deployment/rpaas-api -n ${namespace} || \
+    kubectl describe deployment/rpaas-api -n ${namespace} && \
+    kubectl get pods -n ${namespace}
+
+  kubectl rollout status deployment/rpaas-operator-controller-manager -n ${namespace} || \
+    kubectl describe deployment/rpaas-operator-controller-manager -n ${namespace} && \
+    kubectl get pods -n ${namespace}
 }
 
 install_cert_manager() {
