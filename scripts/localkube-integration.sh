@@ -67,11 +67,9 @@ run_nginx_operator() {
   (cd ${nginx_operator_dir}/config/default && kustomize edit set namespace ${namespace})
   (cd ${nginx_operator_dir}/config/default && kustomize edit set image tsuru/nginx-operator=tsuru/nginx-operator:${tag})
 
-  kustomize build ${nginx_operator_dir}/config/default | kubectl -n ${namespace} apply --validate=false -f -
+  kustomize build ${nginx_operator_dir}/config/default | kubectl -n ${namespace} apply -f -
 
-  kubectl rollout status deployment/nginx-operator-controller -n ${namespace} || \
-    kubectl describe deployment/nginx-operator-controller -n ${namespace} && \
-    kubectl get pods -n ${namespace}
+  kubectl rollout status deployment/nginx-operator-controller -n ${namespace}
 }
 
 run_rpaas_operator() {
@@ -95,9 +93,7 @@ run_rpaas_operator() {
     kubectl describe deployment/rpaas-api -n ${namespace} && \
     kubectl get pods -n ${namespace}
 
-  kubectl rollout status deployment/rpaas-operator-controller-manager -n ${namespace} || \
-    kubectl describe deployment/rpaas-operator-controller-manager -n ${namespace} && \
-    kubectl get pods -n ${namespace}
+  kubectl rollout status deployment/rpaas-operator-controller-manager -n ${namespace}
 }
 
 install_cert_manager() {
@@ -110,9 +106,6 @@ install_cert_manager() {
 }
 
 [[ -n ${DEBUG:-} ]] && set -x
-
-
-export GO111MODULE=on
 
 # show some info about Kubernetes cluster
 kubectl cluster-info
