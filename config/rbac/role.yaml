@@ -59,6 +59,8 @@ rules:
   - issuers
   verbs:
   - get
+  - list
+  - watch
 - apiGroups:
   - extensions.tsuru.io
   resources:
