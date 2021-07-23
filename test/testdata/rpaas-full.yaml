@@ -83,7 +83,7 @@ spec:
       - app.example.com
       ipAddresses:
       - 169.196.254.254
-      - 2001:db8:dead:beef::
+      - "2001:db8:dead:beef::"
   service:
     type: LoadBalancer
     loadBalancerIP: 127.0.0.1
