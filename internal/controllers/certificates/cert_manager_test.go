@@ -136,7 +136,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AutoCertificates: &v1alpha1.AutoCertificates{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
 						CertManager: &v1alpha1.CertManager{
 							Issuer:      "issuer-1",
 							DNSNames:    []string{"my-instance.example.com"},
@@ -183,7 +183,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AutoCertificates: &v1alpha1.AutoCertificates{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
 						CertManager: &v1alpha1.CertManager{
 							Issuer:      "cluster-issuer-1",
 							DNSNames:    []string{"my-instance-2.example.com", "app1.example.com"},
@@ -278,7 +278,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AutoCertificates: &v1alpha1.AutoCertificates{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
 						CertManager: &v1alpha1.CertManager{
 							Issuer: "not-found-issuer",
 						},
@@ -295,7 +295,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					AutoCertificates: &v1alpha1.AutoCertificates{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
 						CertManager: &v1alpha1.CertManager{
 							Issuer:   "issuer-1",
 							DNSNames: []string{"my-instance-3.example.com"},

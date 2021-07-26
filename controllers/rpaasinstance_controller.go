@@ -125,7 +125,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if err = certificates.RencocileAutoCertificates(ctx, r.Client, instance); err != nil {
+	if err = certificates.RencocileDynamicCertificates(ctx, r.Client, instance); err != nil {
 		return reconcile.Result{}, err
 	}
 

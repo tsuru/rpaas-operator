@@ -22,7 +22,7 @@ import (
 
 const CertificatesSHA256HashLabel = "rpaas.extensions.tsuru.io/certificates-sha256-hash"
 
-func RencocileAutoCertificates(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
+func RencocileDynamicCertificates(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
 	if ctx == nil {
 		return fmt.Errorf("context cannot be nil")
 	}
@@ -35,10 +35,10 @@ func RencocileAutoCertificates(ctx context.Context, client client.Client, instan
 		return fmt.Errorf("rpaasinstance cannot be nil")
 	}
 
-	return reconcileAutoCertificates(ctx, client, instance)
+	return reconcileDynamicCertificates(ctx, client, instance)
 }
 
-func reconcileAutoCertificates(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
+func reconcileDynamicCertificates(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
 	// NOTE: for now, we've only a way to obtain automatic certificates but it can
 	// be useful if we had more options in the future.
 	return reconcileCertManager(ctx, client, instance)

@@ -5002,7 +5002,7 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 					Issuer:      "default-issuer",
 					DNSNames:    []string{"my-instance-1.example.com"},
 					IPAddresses: []string{"169.196.100.1"},
-				}, instance.Spec.AutoCertificates.CertManager)
+				}, instance.Spec.DynamicCertificates.CertManager)
 			},
 		},
 	}
@@ -5047,7 +5047,7 @@ func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
 				Namespace: "rpaasv2",
 			},
 			Spec: v1alpha1.RpaasInstanceSpec{
-				AutoCertificates: &v1alpha1.AutoCertificates{
+				DynamicCertificates: &v1alpha1.DynamicCertificates{
 					CertManager: &v1alpha1.CertManager{
 						Issuer:   "my-issuer",
 						DNSNames: []string{"my-instance-2.example.com"},
@@ -5076,8 +5076,8 @@ func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
 					Namespace: "rpaasv2",
 				}, &instance)
 				require.NoError(t, err)
-				require.NotNil(t, instance.Spec.AutoCertificates)
-				assert.Nil(t, instance.Spec.AutoCertificates.CertManager)
+				require.NotNil(t, instance.Spec.DynamicCertificates)
+				assert.Nil(t, instance.Spec.DynamicCertificates.CertManager)
 			},
 		},
 	}

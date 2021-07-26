@@ -75,7 +75,7 @@ spec:
       certificatePath: my-custom-name.crt
       keyField: default.key
       keyPath: my-custom-name.key
-  autoCertificates:
+  dynamicCertificates:
     certManager:
       issuer: self-signed
       dnsNames:
