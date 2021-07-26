@@ -57,33 +57,6 @@ spec:
                     type: integer
                 type: object
               type: array
-            autoCertificates:
-              description: AutoCertificates enables automatic issuing and renewal
-                for TLS certificates.
-              properties:
-                certManager:
-                  description: CertManager contains specific configurations to enable
-                    Cert Manager integration.
-                  properties:
-                    dnsNames:
-                      description: DNSNames is a list of DNS names to be set in Subject
-                        Alternative Names.
-                      items:
-                        type: string
-                      type: array
-                    ipAddresses:
-                      description: IPAddresses is a list of IP addresses to be set
-                        in Subject Alternative Names.
-                      items:
-                        type: string
-                      type: array
-                    issuer:
-                      description: "Issuer refers either to Issuer or ClusterIssuer
-                        resource. \n NOTE: when there's no Issuer on this name, it
-                        tries using ClusterIssuer instead."
-                      type: string
-                  type: object
-              type: object
             autoscale:
               description: Autoscale holds the infos used to configure the HorizontalPodAutoscaler
                 for this instance.
@@ -217,6 +190,33 @@ spec:
                   type: string
               required:
               - zone
+              type: object
+            dynamicCertificates:
+              description: DynamicCertificates enables automatic issuing and renewal
+                for TLS certificates.
+              properties:
+                certManager:
+                  description: CertManager contains specific configurations to enable
+                    Cert Manager integration.
+                  properties:
+                    dnsNames:
+                      description: DNSNames is a list of DNS names to be set in Subject
+                        Alternative Names.
+                      items:
+                        type: string
+                      type: array
+                    ipAddresses:
+                      description: IPAddresses is a list of IP addresses to be set
+                        in Subject Alternative Names.
+                      items:
+                        type: string
+                      type: array
+                    issuer:
+                      description: "Issuer refers either to Issuer or ClusterIssuer
+                        resource. \n NOTE: when there's no Issuer on this name, it
+                        tries using ClusterIssuer instead."
+                      type: string
+                  type: object
               type: object
             extraFiles:
               description: ExtraFiles points to a ConfigMap where the files are stored.

@@ -23,7 +23,7 @@ import (
 const CertManagerCertificateName string = "cert-manager"
 
 func reconcileCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
-	if instance.Spec.AutoCertificates == nil || instance.Spec.AutoCertificates.CertManager == nil {
+	if instance.Spec.DynamicCertificates == nil || instance.Spec.DynamicCertificates.CertManager == nil {
 		return deleteCertManager(ctx, client, instance)
 	}
 
@@ -129,8 +129,8 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		},
 		Spec: cmv1.CertificateSpec{
 			IssuerRef:   *issuer,
-			DNSNames:    instance.Spec.AutoCertificates.CertManager.DNSNames,
-			IPAddresses: instance.Spec.AutoCertificates.CertManager.IPAddresses,
+			DNSNames:    instance.Spec.DynamicCertificates.CertManager.DNSNames,
+			IPAddresses: instance.Spec.DynamicCertificates.CertManager.IPAddresses,
 			SecretName:  fmt.Sprintf("%s-cert-manager", instance.Name),
 		},
 	}
@@ -140,7 +140,7 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v
 	var issuer cmv1.Issuer
 
 	err := client.Get(ctx, types.NamespacedName{
-		Name:      instance.Spec.AutoCertificates.CertManager.Issuer,
+		Name:      instance.Spec.DynamicCertificates.CertManager.Issuer,
 		Namespace: instance.Namespace,
 	}, &issuer)
 
@@ -159,11 +159,11 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v
 	var clusterIssuer cmv1.ClusterIssuer
 
 	err = client.Get(ctx, types.NamespacedName{
-		Name: instance.Spec.AutoCertificates.CertManager.Issuer,
+		Name: instance.Spec.DynamicCertificates.CertManager.Issuer,
 	}, &clusterIssuer)
 
 	if err != nil && k8serrors.IsNotFound(err) {
-		return nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", instance.Spec.AutoCertificates.CertManager.Issuer)
+		return nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", instance.Spec.DynamicCertificates.CertManager.Issuer)
 	}
 
 	if err != nil {

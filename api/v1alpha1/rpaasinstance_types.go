@@ -109,12 +109,12 @@ type RpaasInstanceSpec struct {
 	// +optional
 	AllowedUpstreams []AllowedUpstream `json:"allowedUpstreams,omitempty"`
 
-	// AutoCertificates enables automatic issuing and renewal for TLS certificates.
+	// DynamicCertificates enables automatic issuing and renewal for TLS certificates.
 	// +optional
-	AutoCertificates *AutoCertificates `json:"autoCertificates,omitempty"`
+	DynamicCertificates *DynamicCertificates `json:"dynamicCertificates,omitempty"`
 }
 
-type AutoCertificates struct {
+type DynamicCertificates struct {
 	// CertManager contains specific configurations to enable Cert Manager integration.
 	// +optional
 	CertManager *CertManager `json:"certManager,omitempty"`

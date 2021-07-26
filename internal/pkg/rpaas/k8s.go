@@ -2233,8 +2233,8 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		return err
 	}
 
-	if instance.Spec.AutoCertificates == nil {
-		instance.Spec.AutoCertificates = &v1alpha1.AutoCertificates{}
+	if instance.Spec.DynamicCertificates == nil {
+		instance.Spec.DynamicCertificates = &v1alpha1.DynamicCertificates{}
 	}
 
 	issuer := in.Issuer
@@ -2250,7 +2250,7 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		return &ValidationError{Msg: "you should provide a list of DNS names or IP addresses"}
 	}
 
-	instance.Spec.AutoCertificates.CertManager = &v1alpha1.CertManager{
+	instance.Spec.DynamicCertificates.CertManager = &v1alpha1.CertManager{
 		Issuer:      issuer,
 		DNSNames:    in.DNSNames,
 		IPAddresses: in.IPAddresses,
@@ -2265,11 +2265,11 @@ func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instance
 		return err
 	}
 
-	if instance.Spec.AutoCertificates == nil || instance.Spec.AutoCertificates.CertManager == nil {
+	if instance.Spec.DynamicCertificates == nil || instance.Spec.DynamicCertificates.CertManager == nil {
 		return &NotFoundError{Msg: "cert-manager integration has already been removed"}
 	}
 
-	instance.Spec.AutoCertificates.CertManager = nil
+	instance.Spec.DynamicCertificates.CertManager = nil
 
 	return m.cli.Update(ctx, instance)
 }
