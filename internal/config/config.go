@@ -27,6 +27,9 @@ const (
 )
 
 type RpaasConfig struct {
+	WebSocketAllowedOrigins              []string                   `json:"websocket-allowed-origins"`
+	Clusters                             []ClusterConfig            `json:"clusters"`
+	ConfigDenyPatterns                   []regexp.Regexp            `json:"config-deny-patterns"`
 	ServiceName                          string                     `json:"service-name"`
 	APIUsername                          string                     `json:"api-username"`
 	APIPassword                          string                     `json:"api-password"`
@@ -36,6 +39,7 @@ type RpaasConfig struct {
 	TeamAffinity                         map[string]corev1.Affinity `json:"team-affinity"`
 	SyncInterval                         time.Duration              `json:"sync-interval"`
 	DashboardTemplate                    string                     `json:"dashboard-template"`
+	DefaultCertManagerIssuer             string                     `json:"defaultCertManagerIssuer"`
 	LoadBalancerNameLabelKey             string                     `json:"loadbalancer-name-label-key"`
 	WebSocketHandshakeTimeout            time.Duration              `json:"websocket-handshake-timeout"`
 	WebSocketReadBufferSize              int                        `json:"websocket-read-buffer-size"`
@@ -43,12 +47,10 @@ type RpaasConfig struct {
 	WebSocketPingInterval                time.Duration              `json:"websocket-ping-interval"`
 	WebSocketMaxIdleTime                 time.Duration              `json:"websocket-max-idle-time"`
 	WebSocketWriteWait                   time.Duration              `json:"websocket-write-wait"`
-	WebSocketAllowedOrigins              []string                   `json:"websocket-allowed-origins"`
 	SuppressPrivateKeyOnCertificatesList bool                       `json:"suppress-private-key-on-certificates-list"`
 	MultiCluster                         bool                       `json:"multi-cluster"`
 	NamespacedInstances                  bool                       `json:"namespaced-instances"`
-	Clusters                             []ClusterConfig            `json:"clusters"`
-	ConfigDenyPatterns                   []regexp.Regexp            `json:"config-deny-patterns"`
+	EnableCertManager                    bool                       `json:"enableCertManager"`
 }
 
 type ClusterConfig struct {

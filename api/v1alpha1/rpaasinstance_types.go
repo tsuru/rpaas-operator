@@ -108,6 +108,31 @@ type RpaasInstanceSpec struct {
 	// AllowedUpstreams holds the endpoints to which the RpaasInstance should be able to access
 	// +optional
 	AllowedUpstreams []AllowedUpstream `json:"allowedUpstreams,omitempty"`
+
+	// DynamicCertificates enables automatic issuing and renewal for TLS certificates.
+	// +optional
+	DynamicCertificates *DynamicCertificates `json:"dynamicCertificates,omitempty"`
+}
+
+type DynamicCertificates struct {
+	// CertManager contains specific configurations to enable Cert Manager integration.
+	// +optional
+	CertManager *CertManager `json:"certManager,omitempty"`
+}
+
+type CertManager struct {
+	// Issuer refers either to Issuer or ClusterIssuer resource.
+	//
+	// NOTE: when there's no Issuer on this name, it tries using ClusterIssuer instead.
+	Issuer string `json:"issuer,omitempty"`
+
+	// DNSNames is a list of DNS names to be set in Subject Alternative Names.
+	// +optional
+	DNSNames []string `json:"dnsNames,omitempty"`
+
+	// IPAddresses is a list of IP addresses to be set in Subject Alternative Names.
+	// +optional
+	IPAddresses []string `json:"ipAddresses,omitempty"`
 }
 
 type AllowedUpstream struct {

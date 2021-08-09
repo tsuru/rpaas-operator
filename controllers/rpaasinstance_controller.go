@@ -11,11 +11,8 @@ import (
 	"sort"
 
 	"github.com/go-logr/logr"
+	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
-	"github.com/tsuru/rpaas-operator/internal/registry"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -25,6 +22,12 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/internal/registry"
 )
 
 // RpaasInstanceReconciler reconciles a RpaasInstance object
@@ -38,7 +41,19 @@ type RpaasInstanceReconciler struct {
 	ImageMetadata       registry.ImageMetadata
 }
 
-// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;create;update;patch;delete
+// +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete
+
+// +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=cert-manager.io,resources=clusterissuers;issuers,verbs=get;list;watch
+
+// +kubebuilder:rbac:groups=nginx.tsuru.io,resources=nginxes,verbs=get;list;watch;create;update
+
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasportallocations,verbs=get;list;watch;create;update
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasflavors,verbs=get;list;watch
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasplans,verbs=get;list;watch
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances/status,verbs=get;update;patch
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
@@ -108,6 +123,10 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 				Protocol:      corev1.ProtocolTCP,
 			},
 		}
+	}
+
+	if err = certificates.RencocileDynamicCertificates(ctx, r.Client, instance); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	rendered, err := r.renderTemplate(ctx, instance, plan)
@@ -232,5 +251,6 @@ func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&batchv1beta1.CronJob{}).
 		Owns(&nginxv1alpha1.Nginx{}).
+		Owns(&cmv1.Certificate{}).
 		Complete(r)
 }

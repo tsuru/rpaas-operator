@@ -124,3 +124,9 @@ type AllowedUpstream struct {
 	Host string `json:"host,omitempty"`
 	Port int    `json:"port,omitempty"`
 }
+
+type CertManager struct {
+	Issuer      string   `json:"issuer,omitempty"`
+	DNSNames    []string `json:"dnsNames,omitempty"`
+	IPAddresses []string `json:"ipAddresses,omitempty"`
+}

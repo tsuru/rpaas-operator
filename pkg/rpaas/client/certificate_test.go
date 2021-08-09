@@ -6,12 +6,14 @@ package client
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func TestClientThroughTsuru_UpdateCertificate(t *testing.T) {
@@ -163,6 +165,115 @@ func TestClientThroughTsuru_DeleteCertificate(t *testing.T) {
 				require.NoError(t, err)
 				return
 			}
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
+func TestClientThroughTsuru_DeleteUpdateCertManager(t *testing.T) {
+	tests := map[string]struct {
+		args          UpdateCertManagerArgs
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		"when instance is empty": {
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+
+		"when cert-manager is successfully updated": {
+			args: UpdateCertManagerArgs{
+				Instance: "my-instance",
+				CertManager: types.CertManager{
+					Issuer:      "my-issuer",
+					DNSNames:    []string{"my-instance.example.com"},
+					IPAddresses: []string{"169.196.100.1"},
+				},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, "POST", r.Method)
+				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
+				var cm types.CertManager
+				body := getBody(t, r)
+				require.NoError(t, json.Unmarshal([]byte(body), &cm))
+				assert.Equal(t, types.CertManager{
+					Issuer:      "my-issuer",
+					DNSNames:    []string{"my-instance.example.com"},
+					IPAddresses: []string{"169.196.100.1"},
+				}, cm)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+
+		"when server returns an error": {
+			args: UpdateCertManagerArgs{
+				Instance: "my-instance",
+				CertManager: types.CertManager{
+					Issuer:      "my-issuer",
+					DNSNames:    []string{"my-instance.example.com"},
+					IPAddresses: []string{"169.196.100.1"},
+				},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusBadRequest)
+				fmt.Fprintf(w, `{Msg: "some error"}`)
+			},
+			expectedError: `rpaasv2: unexpected status code: 400 Bad Request, detail: {Msg: "some error"}`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+
+			err := client.UpdateCertManager(context.TODO(), tt.args)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
+func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
+	tests := map[string]struct {
+		instance      string
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		"disabling cert-manager integration": {
+			instance: "my-instance",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, "DELETE", r.Method)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+
+		"when server returns an error": {
+			instance: "my-instance",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, `{"Msg": "some error"}`)
+			},
+			expectedError: `rpaasv2: unexpected status code: 404 Not Found, detail: {"Msg": "some error"}`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+
+			err := client.DeleteCertManager(context.TODO(), tt.instance)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+
 			assert.EqualError(t, err, tt.expectedError)
 		})
 	}

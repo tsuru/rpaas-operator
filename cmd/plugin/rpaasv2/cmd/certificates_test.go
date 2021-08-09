@@ -15,6 +15,7 @@ import (
 	"github.com/stretchr/testify/require"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func TestUpdateCertificate(t *testing.T) {
@@ -91,6 +92,37 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			},
 			expected: "certificate \"my-instance.example.com\" updated in my-instance\n",
 		},
+
+		{
+			name: "enabling cert-manager integration",
+			args: []string{"./rpaasv2", "certificates", "add", "-i", "my-instance", "--cert-manager", "--issuer", "lets-encrypt", "--dns", "my-instance.example.com", "--dns", "foo.example.com", "--ip", "169.196.100.100", "--ip", "2001:db8:dead:beef::"},
+			client: &fake.FakeClient{
+				FakeUpdateCertManager: func(args rpaasclient.UpdateCertManagerArgs) error {
+					assert.Equal(t, rpaasclient.UpdateCertManagerArgs{
+						Instance: "my-instance",
+						CertManager: types.CertManager{
+							Issuer:      "lets-encrypt",
+							DNSNames:    []string{"my-instance.example.com", "foo.example.com"},
+							IPAddresses: []string{"169.196.100.100", "2001:db8:dead:beef::"},
+						},
+					}, args)
+					return nil
+				},
+			},
+			expected: "cert manager certificate was updated\n",
+		},
+
+		{
+			name: "passing DNS names without cert manager flag",
+			args: []string{"./rpaasv2", "certificates", "add", "-i", "my-instance", "--dns", "my-instance.example.com"},
+			client: &fake.FakeClient{
+				FakeUpdateCertManager: func(args rpaasclient.UpdateCertManagerArgs) error {
+					require.FailNow(t, "should not invoke this method")
+					return fmt.Errorf("some error")
+				},
+			},
+			expectedError: "issuer, DNS names and IP addresses require --cert-manager=true",
+		},
 	}
 
 	for _, tt := range tests {
@@ -148,6 +180,17 @@ func TestDeleteCertificate(t *testing.T) {
 				},
 			},
 			expected: "certificate \"my-instance.example.com\" successfully deleted on my-instance\n",
+		},
+		{
+			name: "disabling Cert Manager integration",
+			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--cert-manager"},
+			client: &fake.FakeClient{
+				FakeDeleteCertManager: func(instance string) error {
+					assert.Equal(t, "my-instance", instance)
+					return nil
+				},
+			},
+			expected: "cert manager integration was disabled\n",
 		},
 	}
 

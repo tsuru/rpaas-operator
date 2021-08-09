@@ -1,3 +1,10 @@
+apiVersion: cert-manager.io/v1
+kind: ClusterIssuer
+metadata:
+  name: self-signed
+spec:
+  selfSigned: {}
+---
 apiVersion: extensions.tsuru.io/v1alpha1
 kind: RpaasPlan
 metadata:
@@ -68,6 +75,15 @@ spec:
       certificatePath: my-custom-name.crt
       keyField: default.key
       keyPath: my-custom-name.key
+  dynamicCertificates:
+    certManager:
+      issuer: self-signed
+      dnsNames:
+      - my-instance.example.com
+      - app.example.com
+      ipAddresses:
+      - 169.196.254.254
+      - "2001:db8:dead:beef::"
   service:
     type: LoadBalancer
     loadBalancerIP: 127.0.0.1

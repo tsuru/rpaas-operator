@@ -22,6 +22,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
 
@@ -29,6 +30,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/config"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
+	rpaasruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 var (
@@ -638,43 +640,6 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 				require.Error(t, err)
 			},
 		},
-		{
-			name:         "deleting one certificate but keeping another",
-			instanceName: "another-instance",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				require.NoError(t, err)
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      "another-instance",
-					Namespace: getServiceName(),
-				}, &instance)
-				require.NoError(t, err)
-
-				assert.NotNil(t, instance.Spec.Certificates)
-				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
-
-				expectedCertificates := &nginxv1alpha1.TLSSecret{
-					SecretName: instance.Spec.Certificates.SecretName,
-					Items: []nginxv1alpha1.TLSSecretItem{
-						{CertificateField: "junda.crt", KeyField: "junda.key"},
-					},
-				}
-				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
-
-				secret := corev1.Secret{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: getServiceName(),
-				}, &secret)
-				require.NoError(t, err)
-
-				expectedSecretData := map[string][]byte{
-					"junda.crt": []byte(ecdsaCertPem),
-					"junda.key": []byte(ecdsaKeyPem),
-				}
-				assert.Equal(t, expectedSecretData, secret.Data)
-			},
-		},
 	}
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
@@ -947,8 +912,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			instanceName: "another-instance",
 			certificate:  rsaCertificate,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, &ConflictError{Msg: "certificate \"default\" already is deployed"}, err)
+				assert.NoError(t, err)
 			},
 		},
 		{
@@ -958,6 +922,16 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 			certificateName: `../not@valid.config_map~key`,
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.EqualError(t, err, `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`)
+			},
+		},
+
+		{
+			name:            `setting certificate with name "cert-manager"`,
+			instanceName:    "my-instance",
+			certificate:     ecdsaCertificate,
+			certificateName: "cert-manager",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.EqualError(t, err, `certificate name is forbidden: you cannot use a certificate named as "cert-manager"`)
 			},
 		},
 	}
@@ -4959,6 +4933,174 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			instance, err := manager.GetUpstreams(context.Background(), tt.instance)
 			tt.assertion(t, err, instance, manager)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-1",
+				Namespace: "rpaasv2",
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		instanceName  string
+		certManager   clientTypes.CertManager
+		cfg           config.RpaasConfig
+		expectedError string
+		assert        func(t *testing.T, cli client.Client)
+	}{
+		"cert-manager integration disabled": {
+			expectedError: "cert-manager integration is not enabled",
+		},
+
+		"request without issuer and no default issuer": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames: []string{"my-instance-1.example.com"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager: true,
+			},
+			expectedError: "cert-manager issuer cannot be empty",
+		},
+
+		"request without DNSes and IP addresses, should return error": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Issuer: "issuer-1",
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager: true,
+			},
+			expectedError: "you should provide a list of DNS names or IP addresses",
+		},
+
+		"using default certificate issuer from configs": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames:    []string{"my-instance-1.example.com"},
+				IPAddresses: []string{"169.196.100.1"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "default-issuer",
+			},
+			assert: func(t *testing.T, cli client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-1",
+					Namespace: "rpaasv2",
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.Equal(t, &v1alpha1.CertManager{
+					Issuer:      "default-issuer",
+					DNSNames:    []string{"my-instance-1.example.com"},
+					IPAddresses: []string{"169.196.100.1"},
+				}, instance.Spec.DynamicCertificates.CertManager)
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			cfg := config.Get()
+			config.Set(tt.cfg)
+			defer func() { config.Set(cfg) }()
+
+			client := fake.NewClientBuilder().
+				WithScheme(rpaasruntime.NewScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			manager := &k8sRpaasManager{cli: client}
+
+			err := manager.UpdateCertManagerRequest(context.TODO(), tt.instanceName, tt.certManager)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NotNil(t, tt.assert)
+			tt.assert(t, client)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-1",
+				Namespace: "rpaasv2",
+			},
+		},
+
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-2",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				DynamicCertificates: &v1alpha1.DynamicCertificates{
+					CertManager: &v1alpha1.CertManager{
+						Issuer:   "my-issuer",
+						DNSNames: []string{"my-instance-2.example.com"},
+					},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		instanceName  string
+		expectedError string
+		assert        func(*testing.T, client.Client)
+	}{
+		"cert-manager field is not set": {
+			instanceName:  "my-instance-1",
+			expectedError: "cert-manager integration has already been removed",
+		},
+
+		"removing integration of cert-manager": {
+			instanceName: "my-instance-2",
+			assert: func(t *testing.T, cli client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-2",
+					Namespace: "rpaasv2",
+				}, &instance)
+				require.NoError(t, err)
+				require.NotNil(t, instance.Spec.DynamicCertificates)
+				assert.Nil(t, instance.Spec.DynamicCertificates.CertManager)
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := fake.NewClientBuilder().
+				WithScheme(rpaasruntime.NewScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			manager := &k8sRpaasManager{cli: client}
+
+			err := manager.DeleteCertManagerRequest(context.TODO(), tt.instanceName)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, tt.assert)
+
+			tt.assert(t, client)
 		})
 	}
 }

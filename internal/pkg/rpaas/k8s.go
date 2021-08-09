@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"reflect"
 	"regexp"
 	"sort"
 	"strings"
@@ -50,6 +49,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/config"
+	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/tsuru/rpaas-operator/pkg/util"
@@ -555,96 +555,28 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 	return certList, nil
 }
 
-func searchCertificate(certificates []nginxv1alpha1.TLSSecretItem, target string) (int, bool) {
-	for i, c := range certificates {
-		if strings.TrimSuffix(c.CertificateField, ".crt") == target {
-			return i, true
-		}
-	}
-
-	return -1, false
-}
-
 func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, name string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
-	originalInstance := instance.DeepCopy()
-
 	if instance.Spec.Certificates == nil {
 		return &NotFoundError{Msg: fmt.Sprintf("no certificate bound to instance %q", instanceName)}
 	}
 
-	var oldSecret corev1.Secret
-	err = m.cli.Get(ctx, types.NamespacedName{
-		Name:      instance.Spec.Certificates.SecretName,
-		Namespace: instance.Namespace,
-	}, &oldSecret)
-	if err != nil {
-		return err
-	}
-
 	name = certificateName(name)
-	if index, found := searchCertificate(instance.Spec.Certificates.Items, name); found {
-		items := instance.Spec.Certificates.Items
-		item := items[index]
-		instance.Spec.Certificates.Items = append(items[:index], items[index+1:]...)
 
-		// deleting secret data
-		delete(oldSecret.Data, item.CertificateField)
-		delete(oldSecret.Data, item.KeyField)
-		err = m.cli.Update(ctx, &oldSecret)
-		if err != nil {
-			return err
-		}
-
-	} else {
-		return &NotFoundError{Msg: "certificate not found"}
+	err = certificates.DeleteCertificate(ctx, m.cli, instance, name)
+	if err != nil && err == fmt.Errorf("certificate %q not found", name) {
+		return &NotFoundError{Msg: err.Error()}
 	}
 
-	if len(oldSecret.Data) == 0 {
-		err = m.cli.Delete(ctx, &oldSecret)
-		if err != nil {
-			return err
-		}
-	}
-
-	if len(instance.Spec.Certificates.Items) == 0 {
-		instance.Spec.Certificates = nil
-	}
-
-	return m.patchInstance(ctx, originalInstance, instance)
+	return err
 }
 
 func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
 	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-
-	originalInstance := instance.DeepCopy()
-
-	var oldSecret corev1.Secret
-	if instance.Spec.Certificates != nil && instance.Spec.Certificates.SecretName != "" {
-		err = m.cli.Get(ctx, types.NamespacedName{
-			Name:      instance.Spec.Certificates.SecretName,
-			Namespace: instance.Namespace,
-		}, &oldSecret)
-
-		if err != nil {
-			return err
-		}
-	}
-
-	newSecretData := map[string][]byte{}
-	// copying the whole old secret's data to newSecretData to safely compare them after
-	for key, value := range oldSecret.Data {
-		newSecretData[key] = value
-	}
-
-	rawCertificate, rawKey, err := getRawCertificateAndKey(c)
 	if err != nil {
 		return err
 	}
@@ -654,43 +586,16 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return ValidationError{Msg: fmt.Sprintf("certificate name is not valid: %s", strings.Join(errs, ": "))}
 	}
 
-	newCertificateField := fmt.Sprintf("%s.crt", name)
-	newKeyField := fmt.Sprintf("%s.key", name)
-
-	newSecretData[newCertificateField] = rawCertificate
-	newSecretData[newKeyField] = rawKey
-
-	if reflect.DeepEqual(newSecretData, oldSecret.Data) {
-		return &ConflictError{Msg: fmt.Sprintf("certificate %q already is deployed", name)}
+	if name == certificates.CertManagerCertificateName {
+		return &ValidationError{Msg: fmt.Sprintf("certificate name is forbidden: you cannot use a certificate named as %q", certificates.CertManagerCertificateName)}
 	}
 
-	newSecret := newSecretForCertificates(*instance, newSecretData)
-	if err = m.cli.Create(ctx, newSecret); err != nil {
+	rawCertificate, rawKey, err := getRawCertificateAndKey(c)
+	if err != nil {
 		return err
 	}
 
-	if instance.Spec.Certificates == nil {
-		instance.Spec.Certificates = &nginxv1alpha1.TLSSecret{}
-	}
-
-	instance.Spec.Certificates.SecretName = newSecret.Name
-
-	isNewCertificate := true
-	for _, item := range instance.Spec.Certificates.Items {
-		if item.CertificateField == newCertificateField && item.KeyField == newKeyField {
-			isNewCertificate = false
-			break
-		}
-	}
-
-	if isNewCertificate {
-		instance.Spec.Certificates.Items = append(instance.Spec.Certificates.Items, nginxv1alpha1.TLSSecretItem{
-			CertificateField: newCertificateField,
-			KeyField:         newKeyField,
-		})
-	}
-
-	return m.patchInstance(ctx, originalInstance, instance)
+	return certificates.UpdateCertificate(ctx, m.cli, instance, name, rawCertificate, rawKey)
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {
@@ -2316,4 +2221,55 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 
 	instance.Spec.AllowedUpstreams = upstreams
 	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error {
+	if !config.Get().EnableCertManager {
+		return ConflictError{Msg: "cert-manager integration is not enabled"}
+	}
+
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if instance.Spec.DynamicCertificates == nil {
+		instance.Spec.DynamicCertificates = &v1alpha1.DynamicCertificates{}
+	}
+
+	issuer := in.Issuer
+	if defaultIssuer := config.Get().DefaultCertManagerIssuer; defaultIssuer != "" {
+		issuer = defaultIssuer
+	}
+
+	if issuer == "" {
+		return &ValidationError{Msg: "cert-manager issuer cannot be empty"}
+	}
+
+	if len(in.DNSNames) == 0 && len(in.IPAddresses) == 0 {
+		return &ValidationError{Msg: "you should provide a list of DNS names or IP addresses"}
+	}
+
+	instance.Spec.DynamicCertificates.CertManager = &v1alpha1.CertManager{
+		Issuer:      issuer,
+		DNSNames:    in.DNSNames,
+		IPAddresses: in.IPAddresses,
+	}
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instanceName string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if instance.Spec.DynamicCertificates == nil || instance.Spec.DynamicCertificates.CertManager == nil {
+		return &NotFoundError{Msg: "cert-manager integration has already been removed"}
+	}
+
+	instance.Spec.DynamicCertificates.CertManager = nil
+
+	return m.cli.Update(ctx, instance)
 }

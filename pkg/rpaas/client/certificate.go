@@ -7,6 +7,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
@@ -108,6 +109,65 @@ func (c *client) DeleteCertificate(ctx context.Context, args DeleteCertificateAr
 	args.Name = url.QueryEscape(args.Name)
 	pathName := fmt.Sprintf("/resources/%s/certificate/%s", args.Instance, args.Name)
 	req, err := c.newRequest("DELETE", pathName, nil, args.Instance)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	return nil
+}
+
+func (args *UpdateCertManagerArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
+func (c *client) UpdateCertManager(ctx context.Context, args UpdateCertManagerArgs) error {
+	if err := args.Validate(); err != nil {
+		return err
+	}
+
+	var body bytes.Buffer
+	if err := json.NewEncoder(&body).Encode(&args.CertManager); err != nil {
+		return err
+	}
+
+	req, err := c.newRequest("POST", fmt.Sprintf("/resources/%s/cert-manager", args.Instance), &body, args.Instance)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Content-Type", "application/json")
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	return nil
+}
+
+func (c *client) DeleteCertManager(ctx context.Context, instance string) error {
+	if instance == "" {
+		return ErrMissingInstance
+	}
+
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, instance)
 	if err != nil {
 		return err
 	}

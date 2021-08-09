@@ -2,9 +2,6 @@
 
 set -euo pipefail
 
-
-
-
 get_os() {
   local os="$(uname -s)"
   case ${os} in
@@ -56,6 +53,7 @@ run_nginx_operator() {
     mkdir -p $(dirname ${nginx_operator_dir})
     git clone https://github.com/tsuru/nginx-operator.git ${nginx_operator_dir}
   fi
+
   pushd ${nginx_operator_dir}
   git fetch --all
   git checkout ${nginx_operator_revision}
@@ -91,14 +89,23 @@ run_rpaas_operator() {
 
   kustomize build ./config/default | kubectl -n ${namespace} apply -f -
 
-  kubectl rollout status deployment/rpaas-api -n ${namespace}
+  kubectl rollout status deployment/rpaas-api -n ${namespace} || \
+    kubectl describe deployment/rpaas-api -n ${namespace} && \
+    kubectl get pods -n ${namespace}
+
   kubectl rollout status deployment/rpaas-operator-controller-manager -n ${namespace}
 }
 
+install_cert_manager() {
+  local namespace=$1
+
+  helm repo add jetstack https://charts.jetstack.io || helm repo update
+
+  helm install -n ${namespace} cert-manager jetstack/cert-manager \
+   --set installCRDs=true
+}
+
 [[ -n ${DEBUG:-} ]] && set -x
-
-
-export GO111MODULE=on
 
 # show some info about Kubernetes cluster
 kubectl cluster-info
@@ -109,6 +116,8 @@ rpaas_system_namespace="rpaas-system"
 echo "Using namespace \"${rpaas_system_namespace}\" to run \"nginx-operator\" and \"rpaas-operator\"..."
 kubectl delete namespace "${rpaas_system_namespace}" || true
 kubectl create namespace "${rpaas_system_namespace}"
+
+install_cert_manager "${rpaas_system_namespace}"
 
 run_nginx_operator "${rpaas_system_namespace}" 
 run_rpaas_operator "${rpaas_system_namespace}"

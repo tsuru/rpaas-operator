@@ -97,6 +97,11 @@ type ExecArgs struct {
 	TTY            bool
 }
 
+type UpdateCertManagerArgs struct {
+	types.CertManager
+	Instance string
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, error)
@@ -120,4 +125,7 @@ type Client interface {
 	RemoveAccessControlList(ctx context.Context, instance, host string, port int) error
 
 	SetService(service string) (Client, error)
+
+	UpdateCertManager(ctx context.Context, args UpdateCertManagerArgs) error
+	DeleteCertManager(ctx context.Context, instance string) error
 }
