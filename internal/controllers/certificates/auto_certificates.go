@@ -59,7 +59,7 @@ func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 		Namespace: instance.Namespace,
 	}, &s)
 
-	if err != nil && k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		s = *new(corev1.Secret)
 		newSecretForCertificates(instance).DeepCopyInto(&s)
 

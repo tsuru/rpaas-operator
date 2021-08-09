@@ -49,7 +49,7 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance *v
 
 func deleteCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
 	cert, err := getCertificate(ctx, client, instance)
-	if err != nil && k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		return nil
 	}
 
@@ -142,16 +142,16 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v
 		Namespace: instance.Namespace,
 	}, &issuer)
 
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, err
+	}
+
 	if err == nil {
 		return &cmmeta.ObjectReference{
 			Group: cmv1.SchemeGroupVersion.Group,
 			Kind:  issuer.Kind,
 			Name:  issuer.Name,
 		}, nil
-	}
-
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil, err
 	}
 
 	var clusterIssuer cmv1.ClusterIssuer
