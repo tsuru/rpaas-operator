@@ -57,15 +57,13 @@ func deleteCertManager(ctx context.Context, client client.Client, instance *v1al
 		return err
 	}
 
-	certmanagerSecretName := cert.Spec.SecretName
-
 	if err = client.Delete(ctx, cert); err != nil {
 		return err
 	}
 
 	var s corev1.Secret
 	err = client.Get(ctx, types.NamespacedName{
-		Name:      certmanagerSecretName,
+		Name:      cert.Spec.SecretName,
 		Namespace: cert.Namespace,
 	}, &s)
 
