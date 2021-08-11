@@ -1824,23 +1824,39 @@ func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginx
 		return nil, err
 	}
 
-	var addresses []clientTypes.InstanceAddress
+	var externalAddresses []clientTypes.InstanceAddress
+	var internalAddresses []clientTypes.InstanceAddress
+
 	for _, svc := range services {
-		switch svc.Spec.Type {
-		case corev1.ServiceTypeLoadBalancer:
+		if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
 			lbAddresses, err := m.loadBalancerInstanceAddresses(ctx, &svc)
 			if err != nil {
 				return nil, err
 			}
-			addresses = append(addresses, lbAddresses...)
-		default:
-			addresses = append(addresses, clientTypes.InstanceAddress{
+			externalAddresses = append(externalAddresses, lbAddresses...)
+		}
+
+		if svc.Spec.ClusterIP != "" {
+			internalAddresses = append(internalAddresses, clientTypes.InstanceAddress{
+				Type:        clientTypes.InstanceAddressTypeClusterInternal,
 				ServiceName: svc.ObjectMeta.Name,
+				Hostname:    fmt.Sprintf("%s.%s.svc.cluster.local", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace),
 				IP:          svc.Spec.ClusterIP,
 			})
 		}
 	}
 
+	sortAddresses(externalAddresses)
+	sortAddresses(internalAddresses)
+
+	var addresses []clientTypes.InstanceAddress
+	addresses = append(addresses, externalAddresses...)
+	addresses = append(addresses, internalAddresses...)
+
+	return addresses, nil
+}
+
+func sortAddresses(addresses []clientTypes.InstanceAddress) {
 	sort.SliceStable(addresses, func(i, j int) bool {
 		if addresses[i].IP != addresses[j].IP {
 			return addresses[i].IP < addresses[j].IP
@@ -1848,8 +1864,6 @@ func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginx
 
 		return addresses[i].Hostname < addresses[j].Hostname
 	})
-
-	return addresses, nil
 }
 
 func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc *v1.Service) ([]clientTypes.InstanceAddress, error) {
@@ -1863,6 +1877,7 @@ func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc
 				hostname = vhost
 			}
 			addresses = append(addresses, clientTypes.InstanceAddress{
+				Type:        clientTypes.InstanceAddressTypeClusterExternal,
 				ServiceName: svc.ObjectMeta.Name,
 				IP:          lbIngress.IP,
 				Hostname:    hostname,
@@ -1876,6 +1891,7 @@ func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc
 			return nil, err
 		}
 		addresses = append(addresses, clientTypes.InstanceAddress{
+			Type:        clientTypes.InstanceAddressTypeClusterExternal,
 			ServiceName: svc.ObjectMeta.Name,
 			Status:      "pending: " + formatEventsToString(events),
 		})

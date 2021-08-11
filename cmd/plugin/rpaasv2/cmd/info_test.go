@@ -54,10 +54,12 @@ func TestInfo(t *testing.T) {
 						Dashboard: "https://grafana.mycompany.io/my-instance",
 						Addresses: []clientTypes.InstanceAddress{
 							{
+								Type:     clientTypes.InstanceAddressTypeClusterExternal,
 								Hostname: "some-host",
 								IP:       "0.0.0.0",
 							},
 							{
+								Type:     clientTypes.InstanceAddressTypeClusterExternal,
 								Hostname: "some-host2",
 								IP:       "0.0.0.1",
 							},
@@ -629,11 +631,13 @@ Pods: 3
 						Name: "my-instance",
 						Addresses: []clientTypes.InstanceAddress{
 							{
+								Type:     clientTypes.InstanceAddressTypeClusterExternal,
 								Hostname: "some-host",
 								IP:       "0.0.0.0",
 								Status:   "ready",
 							},
 							{
+								Type:     clientTypes.InstanceAddressTypeClusterExternal,
 								Hostname: "some-host2",
 								IP:       "0.0.0.1",
 								Status:   "ready",
@@ -663,7 +667,7 @@ Pods: 3
 					}, nil
 				},
 			},
-			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"serviceName\": \"\",\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\",\n\t\t\t\"status\": \"ready\"\n\t\t},\n\t\t{\n\t\t\t\"serviceName\": \"\",\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\",\n\t\t\t\"status\": \"ready\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t]\n}\n",
+			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"serviceName\": \"\",\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\",\n\t\t\t\"status\": \"ready\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"serviceName\": \"\",\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\",\n\t\t\t\"status\": \"ready\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t]\n}\n",
 		},
 	}
 

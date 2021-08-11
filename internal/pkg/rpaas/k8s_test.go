@@ -4148,7 +4148,8 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			UID:       types.UID("service-3-ui3"),
 		},
 		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
+			Type:      corev1.ServiceTypeLoadBalancer,
+			ClusterIP: "10.10.10.100",
 		},
 		Status: corev1.ServiceStatus{
 			LoadBalancer: corev1.LoadBalancerStatus{
@@ -4491,8 +4492,15 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				},
 				Addresses: []clientTypes.InstanceAddress{
 					{
+						Type:        clientTypes.InstanceAddressTypeClusterExternal,
 						ServiceName: "instance3-service",
 						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Some error to set up loadbalancer\n",
+					},
+					{
+						Type:        clientTypes.InstanceAddressTypeClusterInternal,
+						ServiceName: "instance3-service",
+						Hostname:    "instance3-service.rpaasv2.svc.cluster.local",
+						IP:          "10.10.10.100",
 					},
 				},
 				Certificates: []clientTypes.CertificateInfo{
@@ -4528,6 +4536,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Flavors:     []string{"mango", "milk"},
 				Addresses: []clientTypes.InstanceAddress{
 					{
+						Type:        clientTypes.InstanceAddressTypeClusterExternal,
 						ServiceName: "instance4-service",
 						IP:          "192.168.10.10",
 						Hostname:    "instance4.zone1",

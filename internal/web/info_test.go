@@ -36,12 +36,14 @@ func Test_instanceInfo(t *testing.T) {
 					return &clientTypes.InstanceInfo{
 						Addresses: []clientTypes.InstanceAddress{
 							{
+								Type:        clientTypes.InstanceAddressTypeClusterExternal,
 								ServiceName: "my-instance-service",
 								Hostname:    "some host name",
 								IP:          "0.0.0.0",
 								Status:      "ready",
 							},
 							{
+								Type:        clientTypes.InstanceAddressTypeClusterExternal,
 								ServiceName: "my-instance-service",
 								Hostname:    "some host name 2",
 								IP:          "0.0.0.1",
@@ -87,7 +89,7 @@ func Test_instanceInfo(t *testing.T) {
 				},
 			},
 			expectedCode: http.StatusOK,
-			expectedBody: "{\"addresses\":[{\"serviceName\":\"my-instance-service\",\"hostname\":\"some host name\",\"ip\":\"0.0.0.0\",\"status\":\"ready\"},{\"serviceName\":\"my-instance-service\",\"hostname\":\"some host name 2\",\"ip\":\"0.0.0.1\",\"status\":\"ready\"}],\"replicas\":5,\"plan\":\"basic\",\"routes\":[{\"path\":\"some location path\",\"destination\":\"some destination\"},{\"path\":\"some location path 2\",\"destination\":\"some destination 2\"}],\"autoscale\":{\"minReplicas\":1,\"maxReplicas\":3,\"cpu\":70,\"memory\":1024},\"binds\":[{\"name\":\"app-default\",\"host\":\"some host ip address\"},{\"name\":\"app-backup\",\"host\":\"some host backup ip address\"}],\"team\":\"some team\",\"name\":\"some rpaas instance name\",\"description\":\"some description\",\"tags\":[\"tag1\",\"tag2\"]}",
+			expectedBody: "{\"addresses\":[{\"type\":\"cluster-external\",\"serviceName\":\"my-instance-service\",\"hostname\":\"some host name\",\"ip\":\"0.0.0.0\",\"status\":\"ready\"},{\"type\":\"cluster-external\",\"serviceName\":\"my-instance-service\",\"hostname\":\"some host name 2\",\"ip\":\"0.0.0.1\",\"status\":\"ready\"}],\"replicas\":5,\"plan\":\"basic\",\"routes\":[{\"path\":\"some location path\",\"destination\":\"some destination\"},{\"path\":\"some location path 2\",\"destination\":\"some destination 2\"}],\"autoscale\":{\"minReplicas\":1,\"maxReplicas\":3,\"cpu\":70,\"memory\":1024},\"binds\":[{\"name\":\"app-default\",\"host\":\"some host ip address\"},{\"name\":\"app-backup\",\"host\":\"some host backup ip address\"}],\"team\":\"some team\",\"name\":\"some rpaas instance name\",\"description\":\"some description\",\"tags\":[\"tag1\",\"tag2\"]}",
 		},
 		{
 			name:         "when some error occurs while creating the info Payload",

@@ -43,7 +43,16 @@ type Plan struct {
 	Default     bool   `json:"default"`
 }
 
+type InstanceAddressType string
+
+var (
+	InstanceAddressTypeClusterExternal = InstanceAddressType("cluster-external")
+	InstanceAddressTypeClusterInternal = InstanceAddressType("cluster-internal")
+)
+
 type InstanceAddress struct {
+	Type InstanceAddressType `json:"type"`
+
 	ServiceName string `json:"serviceName"`
 	Hostname    string `json:"hostname,omitempty"`
 	IP          string `json:"ip,omitempty"`
