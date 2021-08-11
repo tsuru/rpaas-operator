@@ -59,8 +59,8 @@ func TestInfo(t *testing.T) {
 								IP:       "0.0.0.0",
 							},
 							{
-								Type:     clientTypes.InstanceAddressTypeClusterExternal,
-								Hostname: "some-host2",
+								Type:     clientTypes.InstanceAddressTypeClusterInternal,
+								Hostname: "some-host.namespace.svc.cluster.local",
 								IP:       "0.0.0.1",
 							},
 						},
@@ -366,13 +366,13 @@ Binds:
 +------------+------------+
 
 Addresses:
-+------------+---------+--------+
-| Hostname   | IP      | Status |
-+------------+---------+--------+
-| some-host  | 0.0.0.0 |        |
-+------------+---------+--------+
-| some-host2 | 0.0.0.1 |        |
-+------------+---------+--------+
++------------------+---------------------------------------+---------+--------+
+| Type             | Hostname                              | IP      | Status |
++------------------+---------------------------------------+---------+--------+
+| cluster-external | some-host                             | 0.0.0.0 |        |
++------------------+---------------------------------------+---------+--------+
+| cluster-internal | some-host.namespace.svc.cluster.local | 0.0.0.1 |        |
++------------------+---------------------------------------+---------+--------+
 
 Certificates:
 +---------------+--------------------+----------------------+----------------------------+
