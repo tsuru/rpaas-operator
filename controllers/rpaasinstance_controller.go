@@ -60,7 +60,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	_ = r.Log.WithValues("rpaasinstance", req.NamespacedName)
 
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
-	if err != nil && k8serrors.IsNotFound(err) {
+	if k8serrors.IsNotFound(err) {
 		_, err = r.reconcileDedicatedPorts(ctx, nil, 0)
 		return reconcile.Result{}, err
 	}
@@ -90,6 +90,15 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	if err = certificates.RencocileDynamicCertificates(ctx, r.Client, instance); err != nil {
+		return reconcile.Result{}, err
+	}
+
+	instanceMergedWithFlavors, err := r.mergeWithFlavors(ctx, instance.DeepCopy())
+	if err != nil {
+		return reconcile.Result{}, nil
+	}
+
 	dedicatedPorts, err := r.reconcileDedicatedPorts(ctx, instance, 3)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -97,7 +106,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if len(dedicatedPorts) == 0 {
 		// nginx-operator will allocate http and https ports by hostNetwork setting
-		instance.Spec.PodTemplate.Ports = []corev1.ContainerPort{
+		instanceMergedWithFlavors.Spec.PodTemplate.Ports = []corev1.ContainerPort{
 			{
 				Name:          nginx.PortNameManagement,
 				ContainerPort: nginx.DefaultManagePort,
@@ -106,7 +115,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	} else if len(dedicatedPorts) == 3 {
 		sort.Ints(dedicatedPorts)
-		instance.Spec.PodTemplate.Ports = []corev1.ContainerPort{
+		instanceMergedWithFlavors.Spec.PodTemplate.Ports = []corev1.ContainerPort{
 			{
 				Name:          nginx.PortNameHTTP,
 				ContainerPort: int32(dedicatedPorts[0]),
@@ -125,46 +134,42 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if err = certificates.RencocileDynamicCertificates(ctx, r.Client, instance); err != nil {
-		return reconcile.Result{}, err
-	}
-
-	rendered, err := r.renderTemplate(ctx, instance, plan)
+	rendered, err := r.renderTemplate(ctx, instanceMergedWithFlavors, plan)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	configMap := newConfigMap(instance, rendered)
+	configMap := newConfigMap(instanceMergedWithFlavors, rendered)
 	err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	configList, err := r.listConfigs(ctx, instance)
+	configList, err := r.listConfigs(ctx, instanceMergedWithFlavors)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
 
-	if shouldDeleteOldConfig(instance, configList) {
-		if err = r.deleteOldConfig(ctx, instance, configList); err != nil {
+	if shouldDeleteOldConfig(instanceMergedWithFlavors, configList) {
+		if err = r.deleteOldConfig(ctx, instanceMergedWithFlavors, configList); err != nil {
 			return ctrl.Result{}, err
 		}
 	}
 
-	nginx := newNginx(instance, plan, configMap)
-	if err = r.reconcileNginx(ctx, instance, nginx); err != nil {
+	nginx := newNginx(instanceMergedWithFlavors, plan, configMap)
+	if err = r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcileTLSSessionResumption(ctx, instance); err != nil {
+	if err = r.reconcileTLSSessionResumption(ctx, instanceMergedWithFlavors); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcileCacheSnapshot(ctx, instance, plan); err != nil {
+	if err = r.reconcileCacheSnapshot(ctx, instanceMergedWithFlavors, plan); err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcileHPA(ctx, instance); err != nil {
+	if err = r.reconcileHPA(ctx, instanceMergedWithFlavors); err != nil {
 		return ctrl.Result{}, err
 	}
 

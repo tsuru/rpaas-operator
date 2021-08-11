@@ -399,8 +399,6 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      instance1.Name,
 					Namespace: instance1.Namespace,
-
-					ResourceVersion: "999",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					PlanName:               "my-plan",
@@ -441,8 +439,6 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      instance2.Name,
 					Namespace: instance2.Namespace,
-
-					ResourceVersion: "999",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Flavors:                []string{"mint"},
@@ -504,8 +500,6 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      instance3.Name,
 					Namespace: instance3.Namespace,
-
-					ResourceVersion: "999",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Flavors:                []string{"mint", "mango"},
@@ -564,8 +558,6 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						"rpaas_instance": "my-instance-name",
 						"rpaas_service":  "my-service-name",
 					},
-
-					ResourceVersion: "999",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					PlanName:               "my-plan",
@@ -607,8 +599,6 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      instance5.Name,
 					Namespace: instance5.Namespace,
-
-					ResourceVersion: "999",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					PlanName:               "my-plan",
@@ -650,8 +640,6 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      instance6.Name,
 					Namespace: instance6.Namespace,
-
-					ResourceVersion: "999",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					PlanName:               "my-plan",
@@ -691,9 +679,8 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Kind:       "RpaasInstance",
 				},
 				ObjectMeta: metav1.ObjectMeta{
-					Name:            instance7.Name,
-					Namespace:       instance7.Namespace,
-					ResourceVersion: "999",
+					Name:      instance7.Name,
+					Namespace: instance7.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					PlanName:               "my-plan",
@@ -731,8 +718,9 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			reconciler := newRpaasInstanceReconciler(resources...)
 			instance, err := reconciler.getRpaasInstance(context.TODO(), tt.objectKey)
+			merged, _ := reconciler.mergeWithFlavors(context.TODO(), instance.DeepCopy())
 			require.NoError(t, err)
-			assert.Equal(t, tt.expected, *instance)
+			assert.Equal(t, tt.expected, *merged)
 		})
 	}
 }

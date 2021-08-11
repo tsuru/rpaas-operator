@@ -180,7 +180,11 @@ func (r *RpaasInstanceReconciler) getRpaasInstance(ctx context.Context, objKey t
 		return nil, err
 	}
 
-	mergedInstance, err := r.mergeInstanceWithFlavors(ctx, instance.DeepCopy())
+	return &instance, nil
+}
+
+func (r *RpaasInstanceReconciler) mergeWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) (*extensionsv1alpha1.RpaasInstance, error) {
+	mergedInstance, err := r.mergeInstanceWithFlavors(ctx, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -188,6 +192,9 @@ func (r *RpaasInstanceReconciler) getRpaasInstance(ctx context.Context, objKey t
 	if err = renderCustomValues(mergedInstance); err != nil {
 		return nil, err
 	}
+
+	// NOTE: preventing this merged resource be persisted on k8s api server.
+	mergedInstance.ResourceVersion = ""
 
 	return mergedInstance, nil
 }
