@@ -39,7 +39,7 @@ type RpaasConfig struct {
 	TeamAffinity                         map[string]corev1.Affinity `json:"team-affinity"`
 	SyncInterval                         time.Duration              `json:"sync-interval"`
 	DashboardTemplate                    string                     `json:"dashboard-template"`
-	DefaultCertManagerIssuer             string                     `json:"defaultCertManagerIssuer"`
+	DefaultCertManagerIssuer             string                     `json:"default-cert-manager-issuer"`
 	LoadBalancerNameLabelKey             string                     `json:"loadbalancer-name-label-key"`
 	WebSocketHandshakeTimeout            time.Duration              `json:"websocket-handshake-timeout"`
 	WebSocketReadBufferSize              int                        `json:"websocket-read-buffer-size"`
@@ -50,7 +50,7 @@ type RpaasConfig struct {
 	SuppressPrivateKeyOnCertificatesList bool                       `json:"suppress-private-key-on-certificates-list"`
 	MultiCluster                         bool                       `json:"multi-cluster"`
 	NamespacedInstances                  bool                       `json:"namespaced-instances"`
-	EnableCertManager                    bool                       `json:"enableCertManager"`
+	EnableCertManager                    bool                       `json:"enable-cert-manager"`
 }
 
 type ClusterConfig struct {
