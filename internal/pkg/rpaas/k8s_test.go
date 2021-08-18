@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/imdario/mergo"
+	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -4954,6 +4955,16 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				Namespace: "rpaasv2",
 			},
 		},
+		&cmv1.ClusterIssuer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "issuer-1",
+			},
+		},
+		&cmv1.ClusterIssuer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "default-issuer",
+			},
+		},
 	}
 
 	tests := map[string]struct {
@@ -5014,6 +5025,19 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				}, instance.Spec.DynamicCertificates.CertManager)
 			},
 		},
+
+		"using wrong certificate issuer from configs": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Issuer:      "not-found-issuer",
+				DNSNames:    []string{"my-instance-1.example.com"},
+				IPAddresses: []string{"169.196.100.1"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager: true,
+			},
+			expectedError: "there is no Issuer or ClusterIssuer with \"not-found-issuer\" name",
+		},
 	}
 
 	for name, tt := range tests {
@@ -5034,7 +5058,7 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				assert.EqualError(t, err, tt.expectedError)
 				return
 			}
-
+			require.NoError(t, err)
 			require.NotNil(t, tt.assert)
 			tt.assert(t, client)
 		})

@@ -25,6 +25,7 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
+	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -2262,6 +2263,11 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		return &ValidationError{Msg: "cert-manager issuer cannot be empty"}
 	}
 
+	_, _, err = m.GetIssuerMetadata(ctx, instance.ObjectMeta.Namespace, issuer)
+	if err != nil {
+		return err
+	}
+
 	if len(in.DNSNames) == 0 && len(in.IPAddresses) == 0 {
 		return &ValidationError{Msg: "you should provide a list of DNS names or IP addresses"}
 	}
@@ -2288,4 +2294,33 @@ func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instance
 	instance.Spec.DynamicCertificates.CertManager = nil
 
 	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) GetIssuerMetadata(ctx context.Context, namespace, issuerName string) (*metav1.ObjectMeta, *cmv1.IssuerSpec, error) {
+	var issuer cmv1.Issuer
+
+	err := m.cli.Get(ctx, types.NamespacedName{
+		Name:      issuerName,
+		Namespace: namespace,
+	}, &issuer)
+
+	if err != nil && !k8sErrors.IsNotFound(err) {
+		return nil, nil, err
+	}
+
+	if err == nil {
+		return &issuer.ObjectMeta, &issuer.Spec, nil
+	}
+
+	var clusterIssuer cmv1.ClusterIssuer
+
+	err = m.cli.Get(ctx, types.NamespacedName{
+		Name: issuerName,
+	}, &clusterIssuer)
+
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return nil, nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", issuerName)
+	}
+
+	return &clusterIssuer.ObjectMeta, &clusterIssuer.Spec, nil
 }
