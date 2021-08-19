@@ -35,9 +35,9 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance *v
 
 	cert, err := getCertificate(ctx, client, instance)
 	if err != nil && k8serrors.IsNotFound(err) {
-		cert, certErr := newCertificate(instance, issuer)
-		if certErr != nil {
-			return certErr
+		cert, err = newCertificate(instance, issuer)
+		if err != nil {
+			return err
 		}
 		return client.Create(ctx, cert)
 	}
