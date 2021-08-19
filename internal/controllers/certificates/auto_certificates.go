@@ -22,26 +22,10 @@ import (
 
 const CertificatesSHA256HashLabel = "rpaas.extensions.tsuru.io/certificates-sha256-hash"
 
-func RencocileDynamicCertificates(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
-	if ctx == nil {
-		return fmt.Errorf("context cannot be nil")
-	}
-
-	if client == nil {
-		return fmt.Errorf("kubernetes cliente cannot be nil")
-	}
-
-	if instance == nil {
-		return fmt.Errorf("rpaasinstance cannot be nil")
-	}
-
-	return reconcileDynamicCertificates(ctx, client, instance)
-}
-
-func reconcileDynamicCertificates(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
+func ReconcileDynamicCertificates(ctx context.Context, client client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
 	// NOTE: for now, we've only a way to obtain automatic certificates but it can
 	// be useful if we had more options in the future.
-	return reconcileCertManager(ctx, client, instance)
+	return reconcileCertManager(ctx, client, instance, instanceMergedWithFlavors)
 }
 
 func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string, certData, keyData []byte) error {

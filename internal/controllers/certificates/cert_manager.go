@@ -23,7 +23,7 @@ import (
 
 const CertManagerCertificateName string = "cert-manager"
 
-func reconcileCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
+func reconcileCertManager(ctx context.Context, client client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
 	if instance.Spec.DynamicCertificates == nil || instance.Spec.DynamicCertificates.CertManager == nil {
 		return deleteCertManager(ctx, client, instance)
 	}
@@ -35,14 +35,14 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance *v
 
 	cert, err := getCertificate(ctx, client, instance)
 	if err != nil && k8serrors.IsNotFound(err) {
-		cert, err = newCertificate(instance, issuer)
+		cert, err = newCertificate(instanceMergedWithFlavors, issuer)
 		if err != nil {
 			return err
 		}
 		return client.Create(ctx, cert)
 	}
 
-	newCert, err := newCertificate(instance, issuer)
+	newCert, err := newCertificate(instanceMergedWithFlavors, issuer)
 	if err != nil {
 		return err
 	}
@@ -120,25 +120,25 @@ func getCertificate(ctx context.Context, client client.Client, instance *v1alpha
 	return &cert, err
 }
 
-func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference) (*cmv1.Certificate, error) {
-	dnsNames := instance.Spec.DynamicCertificates.CertManager.DNSNames
+func newCertificate(instanceMergedWithFlavors *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference) (*cmv1.Certificate, error) {
+	dnsNames := instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.DNSNames
 
-	if instance.Spec.DynamicCertificates.CertManager.DNSNamesDefault {
-		if instance.Spec.DNS == nil {
+	if instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.DNSNamesDefault {
+		if instanceMergedWithFlavors.Spec.DNS == nil {
 			return nil, errors.New("DNS Spec is not specified")
 		}
 
 		dnsNames = []string{
-			fmt.Sprintf("%s.%s", instance.Name, instance.Spec.DNS.Zone),
+			fmt.Sprintf("%s.%s", instanceMergedWithFlavors.Name, instanceMergedWithFlavors.Spec.DNS.Zone),
 		}
 	}
 
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
-			Namespace: instance.Namespace,
+			Name:      instanceMergedWithFlavors.Name,
+			Namespace: instanceMergedWithFlavors.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+				*metav1.NewControllerRef(instanceMergedWithFlavors, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
 					Version: v1alpha1.GroupVersion.Version,
 					Kind:    "RpaasInstance",
@@ -148,8 +148,8 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		Spec: cmv1.CertificateSpec{
 			IssuerRef:   *issuer,
 			DNSNames:    dnsNames,
-			IPAddresses: instance.Spec.DynamicCertificates.CertManager.IPAddresses,
-			SecretName:  fmt.Sprintf("%s-cert-manager", instance.Name),
+			IPAddresses: instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.IPAddresses,
+			SecretName:  fmt.Sprintf("%s-cert-manager", instanceMergedWithFlavors.Name),
 		},
 	}, nil
 }

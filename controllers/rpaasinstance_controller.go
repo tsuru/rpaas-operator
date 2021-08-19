@@ -90,13 +90,13 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if err = certificates.RencocileDynamicCertificates(ctx, r.Client, instance); err != nil {
-		return reconcile.Result{}, err
-	}
-
 	instanceMergedWithFlavors, err := r.mergeWithFlavors(ctx, instance.DeepCopy())
 	if err != nil {
 		return reconcile.Result{}, nil
+	}
+
+	if err = certificates.ReconcileDynamicCertificates(ctx, r.Client, instance, instanceMergedWithFlavors); err != nil {
+		return reconcile.Result{}, err
 	}
 
 	dedicatedPorts, err := r.reconcileDedicatedPorts(ctx, instance, 3)

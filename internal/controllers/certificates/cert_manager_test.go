@@ -395,7 +395,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 				WithRuntimeObjects(allResources...).
 				Build()
 
-			err := reconcileCertManager(context.TODO(), cli, tt.instance)
+			err := reconcileCertManager(context.TODO(), cli, tt.instance, tt.instance)
 
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
