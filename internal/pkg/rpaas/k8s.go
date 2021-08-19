@@ -60,7 +60,8 @@ const (
 	defaultNamespace      = "rpaasv2"
 	defaultKeyLabelPrefix = "rpaas.extensions.tsuru.io"
 
-	externalDNSHostnameLabel = "external-dns.alpha.kubernetes.io/hostname"
+	externalDNSHostnameLabel  = "external-dns.alpha.kubernetes.io/hostname"
+	allowedDNSZonesAnnotation = "rpaas.extensions.tsuru.io/allowed-dns-zones"
 
 	nginxContainerName = "nginx"
 )
@@ -2264,13 +2265,20 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		return &ValidationError{Msg: "cert-manager issuer cannot be empty"}
 	}
 
-	_, _, err = m.GetIssuerMetadata(ctx, instance.ObjectMeta.Namespace, issuer)
+	issuerMeta, _, err := m.GetIssuerMetadata(ctx, instance.ObjectMeta.Namespace, issuer)
 	if err != nil {
 		return err
 	}
 
 	if len(in.DNSNames) == 0 && len(in.IPAddresses) == 0 {
 		return &ValidationError{Msg: "you should provide a list of DNS names or IP addresses"}
+	}
+
+	if annotation := issuerMeta.Annotations[allowedDNSZonesAnnotation]; annotation != "" {
+		err = allowDNSNames(in.DNSNames, strings.Split(annotation, ","))
+		if err != nil {
+			return err
+		}
 	}
 
 	instance.Spec.DynamicCertificates.CertManager = &v1alpha1.CertManager{
@@ -2324,4 +2332,32 @@ func (m *k8sRpaasManager) GetIssuerMetadata(ctx context.Context, namespace, issu
 	}
 
 	return &clusterIssuer.ObjectMeta, &clusterIssuer.Spec, nil
+}
+
+func allowDNSNames(dnsNames, dnsZones []string) error {
+	if len(dnsZones) == 0 {
+		return nil
+	}
+	match := func(dnsName string) bool {
+		for _, dnsZone := range dnsZones {
+			if strings.HasSuffix(dnsName, "."+dnsZone) {
+				return true
+			}
+		}
+
+		return false
+	}
+
+	unmatchedDNSNames := []string{}
+	for _, dnsName := range dnsNames {
+		if !match(dnsName) {
+			unmatchedDNSNames = append(unmatchedDNSNames, dnsName)
+		}
+	}
+
+	if len(unmatchedDNSNames) > 0 {
+		return fmt.Errorf("These DNS Names is not allowed: %s", strings.Join(unmatchedDNSNames, ", "))
+	}
+
+	return nil
 }

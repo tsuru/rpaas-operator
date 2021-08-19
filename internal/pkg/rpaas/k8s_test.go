@@ -4959,6 +4959,9 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 		&cmv1.ClusterIssuer{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "issuer-1",
+				Annotations: map[string]string{
+					allowedDNSZonesAnnotation: "example.com,example.org",
+				},
 			},
 		},
 		&cmv1.ClusterIssuer{
@@ -5025,6 +5028,18 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 					IPAddresses: []string{"169.196.100.1"},
 				}, instance.Spec.DynamicCertificates.CertManager)
 			},
+		},
+
+		"using unmanaged dns-names": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames: []string{"my-instance-1.example.com", "my-instance-1.example.org", "wrong.io", "wrong.com"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-1",
+			},
+			expectedError: "These DNS Names is not allowed: wrong.io, wrong.com",
 		},
 
 		"using wrong certificate issuer from configs": {
