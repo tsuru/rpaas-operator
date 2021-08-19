@@ -4502,6 +4502,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						ServiceName: "instance3-service",
 						Hostname:    "instance3-service.rpaasv2.svc.cluster.local",
 						IP:          "10.10.10.100",
+						Status:      "ready",
 					},
 				},
 				Certificates: []clientTypes.CertificateInfo{

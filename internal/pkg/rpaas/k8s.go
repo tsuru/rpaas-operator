@@ -1843,6 +1843,7 @@ func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginx
 				ServiceName: svc.ObjectMeta.Name,
 				Hostname:    fmt.Sprintf("%s.%s.svc.cluster.local", svc.ObjectMeta.Name, svc.ObjectMeta.Namespace),
 				IP:          svc.Spec.ClusterIP,
+				Status:      "ready",
 			})
 		}
 	}
