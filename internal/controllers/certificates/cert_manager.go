@@ -24,11 +24,11 @@ import (
 const CertManagerCertificateName string = "cert-manager"
 
 func reconcileCertManager(ctx context.Context, client client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
-	if instance.Spec.DynamicCertificates == nil || instance.Spec.DynamicCertificates.CertManager == nil {
+	if instanceMergedWithFlavors.Spec.DynamicCertificates == nil || instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager == nil {
 		return deleteCertManager(ctx, client, instance)
 	}
 
-	issuer, err := getCertManagerIssuer(ctx, client, instance)
+	issuer, err := getCertManagerIssuer(ctx, client, instanceMergedWithFlavors)
 	if err != nil {
 		return err
 	}
@@ -154,12 +154,12 @@ func newCertificate(instanceMergedWithFlavors *v1alpha1.RpaasInstance, issuer *c
 	}, nil
 }
 
-func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmmeta.ObjectReference, error) {
+func getCertManagerIssuer(ctx context.Context, client client.Client, instanceMergedWithFlavors *v1alpha1.RpaasInstance) (*cmmeta.ObjectReference, error) {
 	var issuer cmv1.Issuer
 
 	err := client.Get(ctx, types.NamespacedName{
-		Name:      instance.Spec.DynamicCertificates.CertManager.Issuer,
-		Namespace: instance.Namespace,
+		Name:      instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.Issuer,
+		Namespace: instanceMergedWithFlavors.Namespace,
 	}, &issuer)
 
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -177,11 +177,11 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v
 	var clusterIssuer cmv1.ClusterIssuer
 
 	err = client.Get(ctx, types.NamespacedName{
-		Name: instance.Spec.DynamicCertificates.CertManager.Issuer,
+		Name: instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.Issuer,
 	}, &clusterIssuer)
 
 	if err != nil && k8serrors.IsNotFound(err) {
-		return nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", instance.Spec.DynamicCertificates.CertManager.Issuer)
+		return nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.Issuer)
 	}
 
 	if err != nil {
