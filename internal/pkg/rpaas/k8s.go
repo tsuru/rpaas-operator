@@ -2356,7 +2356,7 @@ func allowDNSNames(dnsNames, dnsZones []string) error {
 	}
 
 	if len(unmatchedDNSNames) > 0 {
-		return fmt.Errorf("These DNS Names is not allowed: %s", strings.Join(unmatchedDNSNames, ", "))
+		return fmt.Errorf("These DNS Names are not allowed: %s", strings.Join(unmatchedDNSNames, ", "))
 	}
 
 	return nil
