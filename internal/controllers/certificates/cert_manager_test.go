@@ -176,6 +176,54 @@ func Test_ReconcileCertManager(t *testing.T) {
 			},
 		},
 
+		"when cert manager set to use dns zone, should create certificate": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "rpaasv2.example.org",
+					},
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
+						CertManager: &v1alpha1.CertManager{
+							Issuer:          "issuer-1",
+							DNSNamesDefault: true,
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				var cert cmv1.Certificate
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				}, &cert)
+				require.NoError(t, err)
+
+				assert.Equal(t, []metav1.OwnerReference{
+					{
+						APIVersion:         "extensions.tsuru.io/v1alpha1",
+						Kind:               "RpaasInstance",
+						Name:               "my-instance",
+						Controller:         func(b bool) *bool { return &b }(true),
+						BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+					},
+				}, cert.OwnerReferences)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: "my-instance-cert-manager",
+					DNSNames:   []string{"my-instance.rpaasv2.example.org"},
+				}, cert.Spec)
+			},
+		},
+
 		"when DNSes, ips and issuer are changed, certificate should be updated according to": {
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{

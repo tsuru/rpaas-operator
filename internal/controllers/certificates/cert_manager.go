@@ -6,6 +6,7 @@ package certificates
 
 import (
 	"context"
+	"errors"
 	"fmt"
 
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -34,10 +35,17 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance *v
 
 	cert, err := getCertificate(ctx, client, instance)
 	if err != nil && k8serrors.IsNotFound(err) {
-		return client.Create(ctx, newCertificate(instance, issuer))
+		cert, certErr := newCertificate(instance, issuer)
+		if certErr != nil {
+			return certErr
+		}
+		return client.Create(ctx, cert)
 	}
 
-	newCert := newCertificate(instance, issuer)
+	newCert, err := newCertificate(instance, issuer)
+	if err != nil {
+		return err
+	}
 	newCert.ResourceVersion = cert.ResourceVersion
 
 	if err = client.Update(ctx, newCert); err != nil {
@@ -112,7 +120,19 @@ func getCertificate(ctx context.Context, client client.Client, instance *v1alpha
 	return &cert, err
 }
 
-func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference) *cmv1.Certificate {
+func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference) (*cmv1.Certificate, error) {
+	dnsNames := instance.Spec.DynamicCertificates.CertManager.DNSNames
+
+	if instance.Spec.DynamicCertificates.CertManager.DNSNamesDefault {
+		if instance.Spec.DNS == nil {
+			return nil, errors.New("DNS Spec is not specified")
+		}
+
+		dnsNames = []string{
+			fmt.Sprintf("%s.%s", instance.Name, instance.Spec.DNS.Zone),
+		}
+	}
+
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
@@ -127,11 +147,11 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		},
 		Spec: cmv1.CertificateSpec{
 			IssuerRef:   *issuer,
-			DNSNames:    instance.Spec.DynamicCertificates.CertManager.DNSNames,
+			DNSNames:    dnsNames,
 			IPAddresses: instance.Spec.DynamicCertificates.CertManager.IPAddresses,
 			SecretName:  fmt.Sprintf("%s-cert-manager", instance.Name),
 		},
-	}
+	}, nil
 }
 
 func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmmeta.ObjectReference, error) {

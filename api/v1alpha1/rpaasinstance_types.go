@@ -133,6 +133,9 @@ type CertManager struct {
 	// IPAddresses is a list of IP addresses to be set in Subject Alternative Names.
 	// +optional
 	IPAddresses []string `json:"ipAddresses,omitempty"`
+
+	// DNSNamesDefault when is set use the provided DNSName from DNS Zone field
+	DNSNamesDefault bool `json:"dnsNamesDefault"`
 }
 
 type AllowedUpstream struct {
