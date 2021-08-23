@@ -9,6 +9,8 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/tls"
+	"crypto/x509"
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
@@ -838,10 +840,16 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
+	certs, err := r.getCertificates(ctx, instance.Namespace, instance.Spec.Certificates)
+	if err != nil {
+		return "", err
+	}
+
 	config := nginx.ConfigurationData{
-		Instance: instance,
-		Config:   &plan.Spec.Config,
-		Modules:  make(map[string]interface{}),
+		Instance:     instance,
+		Config:       &plan.Spec.Config,
+		Certificates: certs,
+		Modules:      make(map[string]interface{}),
 	}
 
 	for _, mod := range modules {
@@ -884,6 +892,48 @@ func (r *RpaasInstanceReconciler) getConfigurationBlocks(ctx context.Context, in
 	}
 
 	return blocks, nil
+}
+
+func (r *RpaasInstanceReconciler) getCertificates(ctx context.Context, namespace string, tlsSecret *nginxv1alpha1.TLSSecret) ([]nginx.CertificateData, error) {
+	if tlsSecret == nil || len(tlsSecret.Items) == 0 {
+		return nil, nil
+	}
+	cmName := types.NamespacedName{
+		Name:      tlsSecret.SecretName,
+		Namespace: namespace,
+	}
+	var secret corev1.Secret
+	if err := r.Client.Get(ctx, cmName, &secret); err != nil {
+		return nil, err
+	}
+
+	var certsData []nginx.CertificateData
+
+	for _, secretItem := range tlsSecret.Items {
+		if _, ok := secret.Data[secretItem.CertificateField]; !ok {
+			return nil, fmt.Errorf("certificate data not found")
+		}
+		if _, ok := secret.Data[secretItem.KeyField]; !ok {
+			return nil, fmt.Errorf("key data not found")
+		}
+
+		c, err := tls.X509KeyPair(secret.Data[secretItem.CertificateField], secret.Data[secretItem.KeyField])
+		if err != nil {
+			return nil, err
+		}
+
+		leaf, err := x509.ParseCertificate(c.Certificate[0])
+		if err != nil {
+			return nil, err
+		}
+
+		certsData = append(certsData, nginx.CertificateData{
+			Certificate: leaf,
+			SecretItem:  secretItem,
+		})
+	}
+
+	return certsData, nil
 }
 
 func (r *RpaasInstanceReconciler) updateLocationValues(ctx context.Context, instance *v1alpha1.RpaasInstance) error {

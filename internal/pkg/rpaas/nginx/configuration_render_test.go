@@ -5,6 +5,7 @@
 package nginx
 
 import (
+	"crypto/x509"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -199,6 +200,54 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 									KeyField:         "default.key",
 								},
 							},
+						},
+					},
+				},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `listen 8443 default_server ssl http2;`, result)
+				assert.Regexp(t, `ssl_certificate\s+certs/default.crt;`, result)
+				assert.Regexp(t, `ssl_certificate_key certs/default.key;`, result)
+			},
+		},
+		{
+			name: "with many certs actived",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						Certificates: &nginxv1alpha1.TLSSecret{
+							SecretName: "secret-name",
+							Items: []nginxv1alpha1.TLSSecretItem{
+								{
+									CertificateField: "example.crt",
+									KeyField:         "example.key",
+								},
+								{
+									CertificateField: "cert-manager.crt",
+									KeyField:         "cert-manager.key",
+								},
+							},
+						},
+					},
+				},
+				Certificates: []CertificateData{
+					{
+						Certificate: &x509.Certificate{
+							DNSNames: []string{"example.org", "example.io"},
+						},
+						SecretItem: nginxv1alpha1.TLSSecretItem{
+							CertificateField: "example.crt",
+							KeyField:         "example.key",
+						},
+					},
+					{
+						Certificate: &x509.Certificate{
+							DNSNames: []string{"example.namespace.system.internal.company.com"},
+						},
+						SecretItem: nginxv1alpha1.TLSSecretItem{
+							CertificateField: "cert-manager.crt",
+							KeyField:         "cert-manager.key",
 						},
 					},
 				},
