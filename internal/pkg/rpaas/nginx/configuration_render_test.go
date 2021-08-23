@@ -203,6 +203,17 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 						},
 					},
 				},
+				FullCertificates: []CertificateData{
+					{
+						Certificate: &x509.Certificate{
+							DNSNames: []string{"example.org"},
+						},
+						SecretItem: nginxv1alpha1.TLSSecretItem{
+							CertificateField: "default.crt",
+							KeyField:         "default.key",
+						},
+					},
+				},
 			},
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `listen 8443 default_server ssl http2;`, result)
@@ -231,7 +242,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 						},
 					},
 				},
-				Certificates: []CertificateData{
+				FullCertificates: []CertificateData{
 					{
 						Certificate: &x509.Certificate{
 							DNSNames: []string{"example.org", "example.io"},
@@ -254,8 +265,16 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `listen 8443 default_server ssl http2;`, result)
-				assert.Regexp(t, `ssl_certificate\s+certs/default.crt;`, result)
-				assert.Regexp(t, `ssl_certificate_key certs/default.key;`, result)
+				assert.Regexp(t, `listen 8443 ssl http2;`, result)
+
+				assert.Regexp(t, `ssl_certificate\s+certs/cert-manager.crt;`, result)
+				assert.Regexp(t, `ssl_certificate_key certs/cert-manager.key;`, result)
+
+				assert.Regexp(t, `ssl_certificate\s+certs/example.crt;`, result)
+				assert.Regexp(t, `ssl_certificate_key certs/example.key;`, result)
+
+				assert.Regexp(t, `server_name example.org example.io;`, result)
+				assert.Regexp(t, `server_name example.namespace.system.internal.company.com;`, result)
 			},
 		},
 		{
@@ -276,6 +295,19 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 									KeyPath:          "custom_key_name.key",
 								},
 							},
+						},
+					},
+				},
+				FullCertificates: []CertificateData{
+					{
+						Certificate: &x509.Certificate{
+							DNSNames: []string{"example.org"},
+						},
+						SecretItem: nginxv1alpha1.TLSSecretItem{
+							CertificateField: "default.crt",
+							CertificatePath:  "custom_certificate_name.crt",
+							KeyField:         "default.key",
+							KeyPath:          "custom_key_name.key",
 						},
 					},
 				},
@@ -453,6 +485,19 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 						},
 					},
 				},
+				FullCertificates: []CertificateData{
+					{
+						Certificate: &x509.Certificate{
+							DNSNames: []string{"example.org"},
+						},
+						SecretItem: nginxv1alpha1.TLSSecretItem{
+							CertificateField: "default.crt",
+							CertificatePath:  "custom_certificate_name.crt",
+							KeyField:         "default.key",
+							KeyPath:          "custom_key_name.key",
+						},
+					},
+				},
 			},
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `listen 80 default_server;`, result)
@@ -492,6 +537,19 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 									ContainerPort: 20003,
 								},
 							},
+						},
+					},
+				},
+				FullCertificates: []CertificateData{
+					{
+						Certificate: &x509.Certificate{
+							DNSNames: []string{"example.org"},
+						},
+						SecretItem: nginxv1alpha1.TLSSecretItem{
+							CertificateField: "default.crt",
+							CertificatePath:  "custom_certificate_name.crt",
+							KeyField:         "default.key",
+							KeyPath:          "custom_key_name.key",
 						},
 					},
 				},

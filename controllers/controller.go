@@ -840,16 +840,16 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
-	certs, err := r.getCertificates(ctx, instance.Namespace, instance.Spec.Certificates)
+	fullCerts, err := r.getCertificates(ctx, instance.Namespace, instance.Spec.Certificates)
 	if err != nil {
 		return "", err
 	}
 
 	config := nginx.ConfigurationData{
-		Instance:     instance,
-		Config:       &plan.Spec.Config,
-		Certificates: certs,
-		Modules:      make(map[string]interface{}),
+		Instance:         instance,
+		Config:           &plan.Spec.Config,
+		FullCertificates: fullCerts,
+		Modules:          make(map[string]interface{}),
 	}
 
 	for _, mod := range modules {

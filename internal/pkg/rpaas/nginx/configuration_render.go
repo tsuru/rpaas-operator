@@ -40,8 +40,8 @@ type ConfigurationData struct {
 	Instance *v1alpha1.RpaasInstance
 	// Modules is a map of installed modules, using a map instead of a slice
 	// allow us to use `hasKey` inside templates.
-	Modules      map[string]interface{}
-	Certificates []CertificateData
+	Modules          map[string]interface{}
+	FullCertificates []CertificateData
 }
 
 type CertificateData struct {
@@ -202,21 +202,23 @@ func tlsSessionTicketTimeout(instance *v1alpha1.RpaasInstance) int {
 }
 
 type nginxServer struct {
+	Default     bool
 	Certificate *x509.Certificate
 	SecretItem  nginxv1alpha1.TLSSecretItem
 }
 
 func nginxServers(c ConfigurationData) []nginxServer {
-	if len(c.Certificates) == 0 {
+	if len(c.FullCertificates) == 0 {
 		return []nginxServer{
-			{Certificate: nil},
+			{Certificate: nil, Default: true},
 		}
 	}
 
 	servers := []nginxServer{}
 
-	for _, cert := range c.Certificates {
+	for i, cert := range c.FullCertificates {
 		servers = append(servers, nginxServer{
+			Default:     i == 0,
 			Certificate: cert.Certificate,
 			SecretItem:  cert.SecretItem,
 		})
@@ -430,15 +432,15 @@ http {
 
     {{- range $_, $nginxServer := $nginxServers }}
     server {
-        listen {{ httpPort $instance }} default_server
+        listen {{ httpPort $instance }}{{ with $nginxServer.Default }} default_server{{ end }}
             {{- with $config.HTTPListenOptions }} {{ . }}{{ end }};
 
         {{- with $nginxServer.Certificate }}
-        listen {{ httpsPort $instance }} default_server ssl http2
+        listen {{ httpsPort $instance }}{{ with $nginxServer.Default }} default_server{{ end }} ssl http2
             {{- with $config.HTTPSListenOptions }} {{ . }}{{ end }};
 
-        {{- range $_, $dnsName := $nginxServer.Certificate.DNSNames }}
-        server_name {{ $dnsName }};
+        {{- with $nginxServer.Certificate.DNSNames}}
+        server_name {{- range $_, $dnsName := $nginxServer.Certificate.DNSNames }} {{ $dnsName }}{{- end }};
         {{- end }}
 
         ssl_certificate     certs/{{ with $nginxServer.SecretItem.CertificatePath }}{{ . }}{{ else }}{{ $nginxServer.SecretItem.CertificateField }}{{ end }};
