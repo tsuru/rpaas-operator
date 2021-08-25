@@ -3088,7 +3088,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
@@ -3142,7 +3141,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
@@ -3203,7 +3201,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					PlanName:      "plan1",
 					PlanNamespace: "rpaasv2",
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
@@ -3265,7 +3262,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					PlanName:      "plan1",
 					PlanNamespace: "my-rpaasv2",
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "my-rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
@@ -3318,7 +3314,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
@@ -3375,7 +3370,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					PlanName: "plan1",
 					Flavors:  []string{"strawberry"},
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
@@ -3426,7 +3420,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 							"rpaas.extensions.tsuru.io/instance-name": "r1",
@@ -3494,7 +3487,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Replicas: &one,
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
-						Type: corev1.ServiceTypeLoadBalancer,
 						Annotations: map[string]string{
 							"cloudprovider.example/lb-name": "my-example.example",
 						},

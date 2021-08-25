@@ -980,7 +980,7 @@ func mergeServiceWithDNS(instance *v1alpha1.RpaasInstance) *nginxv1alpha1.NginxS
 	return service
 }
 
-func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxv1alpha1.Nginx {
+func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxv1alpha1.Nginx {
 	var cacheConfig nginxv1alpha1.NginxCacheSpec
 	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = plan.Spec.Config.CachePath
@@ -990,20 +990,20 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		}
 	}
 
-	instance.Spec.Service = mergeServiceWithDNS(instance)
+	instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(instanceMergedWithFlavors)
 
 	n := &nginxv1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance.Name,
-			Namespace: instance.Namespace,
+			Name:      instanceMergedWithFlavors.Name,
+			Namespace: instanceMergedWithFlavors.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+				*metav1.NewControllerRef(instanceMergedWithFlavors, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
 					Version: v1alpha1.GroupVersion.Version,
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: labelsForRpaasInstance(instance),
+			Labels: labelsForRpaasInstance(instanceMergedWithFlavors),
 		},
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "Nginx",
@@ -1011,28 +1011,32 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		},
 		Spec: nginxv1alpha1.NginxSpec{
 			Image:    plan.Spec.Image,
-			Replicas: instance.Spec.Replicas,
+			Replicas: instanceMergedWithFlavors.Spec.Replicas,
 			Config: &nginxv1alpha1.ConfigRef{
 				Name: configMap.Name,
 				Kind: nginxv1alpha1.ConfigKindConfigMap,
 			},
 			Resources:       plan.Spec.Resources,
-			Service:         instance.Spec.Service,
+			Service:         instanceMergedWithFlavors.Spec.Service.DeepCopy(),
 			HealthcheckPath: "/_nginx_healthcheck",
-			ExtraFiles:      instance.Spec.ExtraFiles,
-			Certificates:    instance.Spec.Certificates,
+			ExtraFiles:      instanceMergedWithFlavors.Spec.ExtraFiles,
+			Certificates:    instanceMergedWithFlavors.Spec.Certificates,
 			Cache:           cacheConfig,
-			PodTemplate:     instance.Spec.PodTemplate,
-			Lifecycle:       instance.Spec.Lifecycle,
+			PodTemplate:     instanceMergedWithFlavors.Spec.PodTemplate,
+			Lifecycle:       instanceMergedWithFlavors.Spec.Lifecycle,
 		},
 	}
 
-	if isTLSSessionTicketEnabled(instance) {
+	if n.Spec.Service.Type == "" {
+		n.Spec.Service.Type = corev1.ServiceTypeLoadBalancer
+	}
+
+	if isTLSSessionTicketEnabled(instanceMergedWithFlavors) {
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
 			Name: sessionTicketsVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretNameForTLSSessionTickets(instance),
+					SecretName: secretNameForTLSSessionTickets(instanceMergedWithFlavors),
 				},
 			},
 		})
@@ -1057,7 +1061,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 		Name: "cache-snapshot-volume",
 		VolumeSource: corev1.VolumeSource{
 			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: instance.Name + cacheSnapshotVolumeSuffix,
+				ClaimName: instanceMergedWithFlavors.Name + cacheSnapshotVolumeSuffix,
 			},
 		},
 	})
@@ -1083,7 +1087,7 @@ func newNginx(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, config
 				MountPath: plan.Spec.Config.CachePath,
 			},
 		},
-		Env: append(cacheSnapshotEnvVars(instance, plan), corev1.EnvVar{
+		Env: append(cacheSnapshotEnvVars(instanceMergedWithFlavors, plan), corev1.EnvVar{
 			Name:  "POD_CMD",
 			Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPVCToPod, plan),
 		}),

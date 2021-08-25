@@ -1784,8 +1784,9 @@ func TestReconcile(t *testing.T) {
 		{Name: "nginx-metrics", ContainerPort: 8800, Protocol: "TCP"},
 	})
 	assert.Equal(t, resource.MustParse("100M"), *nginx.Spec.Cache.Size)
-	assert.Equal(t, nginx.Spec.Service.Annotations[externalDNSHostnameLabel], "my-instance.test-zone")
-	assert.Equal(t, nginx.Spec.Service.Annotations[externalDNSTTLLabel], "25")
+	assert.Equal(t, corev1.ServiceTypeLoadBalancer, nginx.Spec.Service.Type)
+	assert.Equal(t, "my-instance.test-zone", nginx.Spec.Service.Annotations[externalDNSHostnameLabel])
+	assert.Equal(t, "25", nginx.Spec.Service.Annotations[externalDNSTTLLabel])
 
 	initContainer := nginx.Spec.PodTemplate.InitContainers[0]
 	assert.Equal(t, "restore-snapshot", initContainer.Name)

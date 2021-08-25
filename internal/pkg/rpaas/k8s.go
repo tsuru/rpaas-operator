@@ -236,7 +236,6 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 		PlanName: plan.Name,
 		Flavors:  args.Flavors(),
 		Service: &nginxv1alpha1.NginxService{
-			Type:        corev1.ServiceTypeLoadBalancer,
 			Annotations: instance.Annotations,
 			Labels:      instance.Labels,
 		},
