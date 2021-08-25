@@ -9,8 +9,6 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
-	"crypto/tls"
-	"crypto/x509"
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
@@ -19,6 +17,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/jetstack/cert-manager/pkg/util/pki"
 
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
@@ -917,18 +917,17 @@ func (r *RpaasInstanceReconciler) getCertificates(ctx context.Context, namespace
 			return nil, fmt.Errorf("key data not found")
 		}
 
-		c, err := tls.X509KeyPair(secret.Data[secretItem.CertificateField], secret.Data[secretItem.KeyField])
+		certs, err := pki.DecodeX509CertificateChainBytes(secret.Data[secretItem.CertificateField])
 		if err != nil {
 			return nil, err
 		}
 
-		leaf, err := x509.ParseCertificate(c.Certificate[0])
-		if err != nil {
-			return nil, err
+		if len(certs) == 0 {
+			return nil, fmt.Errorf("no certificates found in pem file")
 		}
 
 		certsData = append(certsData, nginx.CertificateData{
-			Certificate: leaf,
+			Certificate: certs[0],
 			SecretItem:  secretItem,
 		})
 	}

@@ -26,6 +26,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/jetstack/cert-manager/pkg/util/pki"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -2005,15 +2006,16 @@ func (m *k8sRpaasManager) getCertificatesInfo(ctx context.Context, instance *v1a
 
 	var certsInfo []clientTypes.CertificateInfo
 	for _, cert := range certs {
-		c, err := tls.X509KeyPair([]byte(cert.Certificate), []byte(cert.Key))
+		certs, err := pki.DecodeX509CertificateChainBytes([]byte(cert.Certificate))
 		if err != nil {
 			return nil, err
 		}
 
-		leaf, err := x509.ParseCertificate(c.Certificate[0])
-		if err != nil {
-			return nil, err
+		if len(certs) == 0 {
+			return nil, fmt.Errorf("no certificates found in pem file")
 		}
+
+		leaf := certs[0]
 
 		certsInfo = append(certsInfo, clientTypes.CertificateInfo{
 			Name:               cert.Name,
