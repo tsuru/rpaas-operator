@@ -18,6 +18,8 @@ import (
 	"strings"
 	"text/template"
 
+	"github.com/jetstack/cert-manager/pkg/util/pki"
+
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -838,10 +840,16 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
+	fullCerts, err := r.getCertificates(ctx, instance.Namespace, instance.Spec.Certificates)
+	if err != nil {
+		return "", err
+	}
+
 	config := nginx.ConfigurationData{
-		Instance: instance,
-		Config:   &plan.Spec.Config,
-		Modules:  make(map[string]interface{}),
+		Instance:         instance,
+		Config:           &plan.Spec.Config,
+		FullCertificates: fullCerts,
+		Modules:          make(map[string]interface{}),
 	}
 
 	for _, mod := range modules {
@@ -884,6 +892,47 @@ func (r *RpaasInstanceReconciler) getConfigurationBlocks(ctx context.Context, in
 	}
 
 	return blocks, nil
+}
+
+func (r *RpaasInstanceReconciler) getCertificates(ctx context.Context, namespace string, tlsSecret *nginxv1alpha1.TLSSecret) ([]nginx.CertificateData, error) {
+	if tlsSecret == nil || len(tlsSecret.Items) == 0 {
+		return nil, nil
+	}
+	cmName := types.NamespacedName{
+		Name:      tlsSecret.SecretName,
+		Namespace: namespace,
+	}
+	var secret corev1.Secret
+	if err := r.Client.Get(ctx, cmName, &secret); err != nil {
+		return nil, err
+	}
+
+	var certsData []nginx.CertificateData
+
+	for _, secretItem := range tlsSecret.Items {
+		if _, ok := secret.Data[secretItem.CertificateField]; !ok {
+			return nil, fmt.Errorf("certificate data not found")
+		}
+		if _, ok := secret.Data[secretItem.KeyField]; !ok {
+			return nil, fmt.Errorf("key data not found")
+		}
+
+		certs, err := pki.DecodeX509CertificateChainBytes(secret.Data[secretItem.CertificateField])
+		if err != nil {
+			return nil, err
+		}
+
+		if len(certs) == 0 {
+			return nil, fmt.Errorf("no certificates found in pem file")
+		}
+
+		certsData = append(certsData, nginx.CertificateData{
+			Certificate: certs[0],
+			SecretItem:  secretItem,
+		})
+	}
+
+	return certsData, nil
 }
 
 func (r *RpaasInstanceReconciler) updateLocationValues(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
