@@ -596,6 +596,25 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 	if err != nil {
 		return err
 	}
+	certsInfo, err := m.getCertificatesInfo(ctx, instance)
+	if err != nil {
+		return err
+	}
+	certs, err := pki.DecodeX509CertificateChainBytes(rawCertificate)
+	if err != nil {
+		return err
+	}
+	if len(certs) > 0 {
+		for _, certInfo := range certsInfo {
+			if certInfo.Name == name {
+				continue
+			}
+
+			if hasIntersection(certInfo.DNSNames, certs[0].DNSNames) {
+				return &ValidationError{Msg: fmt.Sprintf("certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in %q certificate", certInfo.Name)}
+			}
+		}
+	}
 
 	return certificates.UpdateCertificate(ctx, m.cli, instance, name, rawCertificate, rawKey)
 }
@@ -2333,6 +2352,18 @@ func (m *k8sRpaasManager) GetIssuerMetadata(ctx context.Context, namespace, issu
 	}
 
 	return &clusterIssuer.ObjectMeta, &clusterIssuer.Spec, nil
+}
+
+func hasIntersection(a []string, b []string) bool {
+	for _, x := range a {
+		for _, y := range b {
+			if x == y {
+				return true
+			}
+		}
+	}
+
+	return false
 }
 
 func allowDNSNames(dnsNames, dnsZones []string) error {

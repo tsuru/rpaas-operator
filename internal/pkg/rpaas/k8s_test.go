@@ -677,34 +677,59 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	require.NoError(t, err)
 
 	rsaCertPem := `-----BEGIN CERTIFICATE-----
-MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
-EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
-MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
-AoGBAOIsM9LhHqI3oBhHDCGZkGKgiI72ghnLr5UpaA3I9U7np/LPzt/JpWRG4wjF
-5Var2IRPGoNwLcdybFW0YTqvw1wNY88q9BcpwS5PeV7uWyZqWafdSxxveaG6VeCH
-YFMqopOKri4kJ4sZB9WS3xMlGZXK6zHPwA4xPtuVEND+LI17AgMBAAGjSzBJMA4G
-A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
-MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
-4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
-yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
-7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
+MIIEYTCCAsmgAwIBAgIRAMpoigdN2QozxdUrgn3FqScwDQYJKoZIhvcNAQELBQAw
+gZExHjAcBgNVBAoTFW1rY2VydCBkZXZlbG9wbWVudCBDQTEzMDEGA1UECwwqd2ls
+c29uLmp1bmlvckBGVkZGSzAxMVE3MlggKFdpbHNvbiBKdW5pb3IpMTowOAYDVQQD
+DDFta2NlcnQgd2lsc29uLmp1bmlvckBGVkZGSzAxMVE3MlggKFdpbHNvbiBKdW5p
+b3IpMB4XDTIxMDgyNzE4MTkzM1oXDTIzMTEyNzE4MTkzM1owXjEnMCUGA1UEChMe
+bWtjZXJ0IGRldmVsb3BtZW50IGNlcnRpZmljYXRlMTMwMQYDVQQLDCp3aWxzb24u
+anVuaW9yQEZWRkZLMDExUTcyWCAoV2lsc29uIEp1bmlvcikwggEiMA0GCSqGSIb3
+DQEBAQUAA4IBDwAwggEKAoIBAQC1xLsiPA93LH+Xppz9MCgkAQEFzs0ajz+RKYww
+W9VHebeQlV8l6oRcY6WdsdZvcM9HdUlbvcQEmHrDE1dcWuablAc39agafTuSMBh+
+dlloZeM4z3lURP9lsf7uoLrw8aBbDZ9vkWr5XlqfROePjkMSUvTal4GwsodA/hcZ
+xVVetmf/CLimVefv5n5tE2X4UK5G26AjJVCkufh0lJabwWd51XRBmoVBhLn60O34
+lZOWsRKJHRn3Obwgg65pSIbwwIP6E95NUJvG+Z5xm7vSzXezJ+pUtdTvhRhnnvvl
+w4BJEFcSKmVrYXnC6Zncb5weQ6cSmfL2uJFYAgQjA1WyVMmRAgMBAAGjZjBkMA4G
+A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAfBgNVHSMEGDAWgBSp
+9D7s6aeJcjYxy4ql7ME3khsYyTAcBgNVHREEFTATghFycGFhcy1vcGVyYXRvci5p
+bzANBgkqhkiG9w0BAQsFAAOCAYEAqwqqWb8JGQPP2ubzFktNdUMr2KeIhkiBAsdA
+ff/QDZ4/5gzGw/irbsvPAowz7Y4Kn9vF7E2kfh5I8N6AQhVnrsAPmVH8PDdisf95
+71pVSfGz71b5noe4rqbOT1WYCqdLjt5qht5LKHSVgtm2xOESyoDuCQd20Vj808xV
+8vtsiK+B5TtD0V9v0Ckf9H0Ngk+jWSJLQUtODN8SSxzzMSBPIYoMQ6m5KcM6FKTW
+5J5MiHER7NraW284CtDSOG/2DBjW/9+iTzDlBZhgzpmWHkUQpS2RSox/b+giiYaz
+cbfqOhKusQonR7bcCyKphrAQkG/sjXJ6HcBj6WVQhVhrxhu939SWaJ3a6s35DHc+
+p8/zWWtbEat9jrFT83ej8GB5RbyIHRRncHQ51ymM/bAW/F7G74mPPHVfK0Y1sNdY
+ix3plWG7WNMHkxHT9IuU8/ieycCJp0jshm9obbM7MCMp3WrZmfUYq2cbuZiD0Upy
+xbFwana3DCXVZv8lJl4vPiGRV2wK
 -----END CERTIFICATE-----
 `
 
 	rsaKeyPem := `-----BEGIN RSA PRIVATE KEY-----
-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
+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
 -----END RSA PRIVATE KEY-----
 `
 
@@ -779,11 +804,19 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				}, &secret)
 				require.NoError(t, err)
 
-				expectedSecretData := map[string][]byte{
-					"default.crt": []byte(rsaCertPem),
-					"default.key": []byte(rsaKeyPem),
-				}
-				assert.Equal(t, expectedSecretData, secret.Data)
+				require.Len(t, secret.Data, 2)
+				assert.Equal(t, rsaCertPem, string(secret.Data["default.crt"]))
+				assert.Equal(t, rsaKeyPem, string(secret.Data["default.key"]))
+
+			},
+		},
+		{
+			name:            "adding a new certificate with duplicated dnsname",
+			instanceName:    "another-instance",
+			certificateName: "lets-duplicate",
+			certificate:     rsaCertificate,
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.EqualError(t, err, `certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in "default" certificate`)
 			},
 		},
 		{
