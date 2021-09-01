@@ -123,7 +123,7 @@ func getCertificate(ctx context.Context, client client.Client, instance *v1alpha
 func newCertificate(instanceMergedWithFlavors *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference) (*cmv1.Certificate, error) {
 	dnsNames := instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.DNSNames
 
-	if instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.DNSNamesDefault {
+	if len(dnsNames) == 0 && instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.DNSNamesDefault {
 		if instanceMergedWithFlavors.Spec.DNS == nil {
 			return nil, errors.New("DNS Spec is not specified")
 		}
