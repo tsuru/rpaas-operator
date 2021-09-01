@@ -196,6 +196,16 @@ type ExecArgs struct {
 	Stderr io.Writer
 }
 
+type LogArgs struct {
+	Pod           string
+	Container     string
+	Buffer        io.Writer
+	Lines         *int64
+	SinceSeconds  *int64
+	Follow        bool
+	WithTimestamp bool
+}
+
 type RpaasManager interface {
 	ConfigurationBlockHandler
 	ExtraFileHandler
@@ -219,6 +229,7 @@ type RpaasManager interface {
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
 	GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error)
 	Exec(ctx context.Context, instanceName string, args ExecArgs) error
+	Log(ctx context.Context, intanceName string, args LogArgs) error
 
 	AddUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error
 	GetUpstreams(ctx context.Context, name string) ([]v1alpha1.AllowedUpstream, error)

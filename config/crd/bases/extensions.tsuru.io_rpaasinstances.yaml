@@ -163,10 +163,6 @@ spec:
                       items:
                         type: string
                       type: array
-                    dnsNamesDefault:
-                      description: DNSNamesDefault when is set use the provided DNSName
-                        from DNS Zone field
-                      type: boolean
                     ipAddresses:
                       description: IPAddresses is a list of IP addresses to be set
                         in Subject Alternative Names.
@@ -178,8 +174,6 @@ spec:
                         resource. \n NOTE: when there's no Issuer on this name, it
                         tries using ClusterIssuer instead."
                       type: string
-                  required:
-                  - dnsNamesDefault
                   type: object
               type: object
             extraFiles:

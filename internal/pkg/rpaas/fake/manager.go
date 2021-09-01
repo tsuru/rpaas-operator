@@ -49,11 +49,19 @@ type RpaasManager struct {
 	FakeDeleteAutoscale          func(name string) error
 	FakeGetInstanceInfo          func(instanceName string) (*clientTypes.InstanceInfo, error)
 	FakeExec                     func(instanceName string, args rpaas.ExecArgs) error
+	FakeLog                      func(instanceName string, args rpaas.LogArgs) error
 	FakeAddUpstream              func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 	FakeGetUpstreams             func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
 	FakeDeleteUpstream           func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
 	FakeDeleteCertManagerRequest func(instanceName string) error
+}
+
+func (m *RpaasManager) Log(ctx context.Context, instanceName string, args rpaas.LogArgs) error {
+	if m.FakeLog != nil {
+		return m.FakeLog(instanceName, args)
+	}
+	return nil
 }
 
 func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {

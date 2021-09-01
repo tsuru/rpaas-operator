@@ -5,6 +5,7 @@
 package rpaas
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"crypto"
@@ -15,7 +16,9 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
+	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
@@ -125,6 +128,64 @@ type fixedSizeQueue struct {
 func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	defer func() { q.sz = nil }()
 	return q.sz
+}
+
+func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil {
+		return err
+	}
+
+	podsInfo, err := m.getPods(ctx, nginx)
+	if err != nil {
+		return err
+	}
+
+	var candidate v1.Pod
+	for _, pod := range podsInfo {
+		if pod.Name == args.Pod && pod.Status.Phase == "Running" {
+			candidate = pod
+			break
+		}
+		if pod.Status.Phase == "Running" {
+			candidate = pod
+			break
+		}
+	}
+	req := m.kcs.CoreV1().Pods(nginx.Namespace).GetLogs(candidate.Name, &corev1.PodLogOptions{
+		Follow:       args.Follow,
+		TailLines:    args.Lines,
+		Container:    args.Container,
+		SinceSeconds: args.SinceSeconds,
+		Timestamps:   args.WithTimestamp,
+	})
+	stream, err := req.Stream(ctx)
+	if err != nil {
+		return err
+	}
+	defer stream.Close()
+	reader := bufio.NewReader(stream)
+	for {
+		stringBytes, err := reader.ReadBytes('\n')
+		if err == io.EOF {
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		_, err = args.Buffer.Write(stringBytes)
+		if err != nil {
+			return err
+		}
+		if f, ok := args.Buffer.(http.Flusher); ok {
+			f.Flush()
+		}
+	}
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
