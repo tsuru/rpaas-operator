@@ -29,6 +29,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/config"
+	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	rpaasruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
@@ -324,8 +325,29 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 }
 
 func Test_k8sRpaasManager_GetCertificates(t *testing.T) {
-	scheme := newScheme()
-	rsaCertPem := `-----BEGIN CERTIFICATE-----
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-1",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				TLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-instance-certs-abc123"},
+				},
+			},
+		},
+
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-certs-abc123",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					certificates.CertificateNameLabel: "default",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(`-----BEGIN CERTIFICATE-----
 MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
 EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
 MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
@@ -337,10 +359,8 @@ MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
 4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
 yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
 7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
------END CERTIFICATE-----
-`
-
-	rsaKeyPem := `-----BEGIN RSA PRIVATE KEY-----
+-----END CERTIFICATE-----`),
+				"tls.key": []byte(`-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
 yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
 b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
@@ -354,115 +374,68 @@ XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
 chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
 WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
 sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
------END RSA PRIVATE KEY-----
-`
+-----END RSA PRIVATE KEY-----`),
+			},
+		},
 
-	// rsaCertificate
-	rsaCertificate, err := tls.X509KeyPair([]byte(rsaCertPem), []byte(rsaKeyPem))
-	require.NoError(t, err)
-
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "another-instance"
-	instance2.Spec.Certificates = &nginxv1alpha1.TLSSecret{
-		SecretName: "another-instance-certificates",
-		Items: []nginxv1alpha1.TLSSecretItem{
-			{CertificateField: "default.crt", KeyField: "default.key"},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-certs-abc456",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					certificates.CertificateNameLabel: "www.example.com",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(`-----BEGIN CERTIFICATE-----
+MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
+EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
+MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
+AoGBAOIsM9LhHqI3oBhHDCGZkGKgiI72ghnLr5UpaA3I9U7np/LPzt/JpWRG4wjF
+5Var2IRPGoNwLcdybFW0YTqvw1wNY88q9BcpwS5PeV7uWyZqWafdSxxveaG6VeCH
+YFMqopOKri4kJ4sZB9WS3xMlGZXK6zHPwA4xPtuVEND+LI17AgMBAAGjSzBJMA4G
+A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
+MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
+4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
+yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
+7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
+-----END CERTIFICATE-----`),
+				"tls.key": []byte(`-----BEGIN RSA PRIVATE KEY-----
+MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
+yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
+b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
+AoGBAI05gJqayyALj8HZCzAnzUpoZxytvAsTbm27TyfcZaCBchNhwxFlvgphYP5n
+Y468+xOSuUF9WHiDcDYLzfJxMZAqmuS+D/IREYDkcrGVT1MXfSCkNaFVqG52+hLZ
+GmGsy8+KsJnDJ1HYmwfSnaTj3L8+Bf2Hg291Yb1caRH9+5vBAkEA7P5N3cSN73Fa
+HwaWzqkaY75mCR4TpRi27YWGA3wdQek2G71HiSbCOxrWOymvgoNRi6M/sdrP5PTt
+JAFxC+pd8QJBAPRPvS0Tm/0lMIZ0q7jxyoW/gKDzokmSszopdlvSU53lN06vaYdK
+XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
+3vjXh8O9vOqFyWy/i9Ri0XDXJVbzxH/0WPObld+BB9sJTRHTKyPFhS7GIlECQDZ8
+chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
+WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
+sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
+-----END RSA PRIVATE KEY-----`),
+			},
 		},
 	}
 
-	instance3 := newEmptyRpaasInstance()
-	instance3.Name = "no-certificate"
-
-	instance4 := newEmptyRpaasInstance()
-	instance4.Name = "no-cert-data"
-	instance4.Spec.Certificates = &nginxv1alpha1.TLSSecret{
-		SecretName: "no-cert-secret",
-		Items: []nginxv1alpha1.TLSSecretItem{
-			{KeyField: "default.key"},
-		},
-	}
-
-	instance5 := newEmptyRpaasInstance()
-	instance5.Name = "no-key-data"
-	instance5.Spec.Certificates = &nginxv1alpha1.TLSSecret{
-		SecretName: "no-key-secret",
-		Items: []nginxv1alpha1.TLSSecretItem{
-			{CertificateField: "default.crt"},
-		},
-	}
-
-	secret := newEmptySecret()
-	secret.Name = "another-instance-certificates"
-	secret.Data = map[string][]byte{
-		"default.crt": []byte(rsaCertPem),
-		"default.key": []byte(rsaKeyPem),
-	}
-
-	secret2 := newEmptySecret()
-	secret2.Name = "no-cert-secret"
-	secret2.Data = map[string][]byte{
-		"default.key": []byte(rsaKeyPem),
-	}
-
-	secret3 := newEmptySecret()
-	secret3.Name = "no-key-secret"
-	secret3.Data = map[string][]byte{
-		"default.crt": []byte(rsaCertPem),
-	}
-
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, secret, secret2, secret3}
-
-	testCases := []struct {
-		name         string
-		certificate  tls.Certificate
-		instanceName string
-		assertion    func(*testing.T, error, *k8sRpaasManager, []CertificateData)
+	tests := map[string]struct {
+		name          string
+		instanceName  string
+		expectedError string
+		expected      []CertificateData
 	}{
-		{
-			name:         "instance not found",
-			instanceName: "instance-not-found",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
-				assert.Error(t, err)
-				assert.True(t, IsNotFoundError(err))
-			},
+		"instance not found": {
+			instanceName:  "instance-not-found",
+			expectedError: "rpaas instance \"instance-not-found\" not found",
 		},
-		{
-			name:         "no certificates bound to the instance",
-			instanceName: "no-certificate",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
-				assert.NoError(t, err)
-				assert.Nil(t, certData)
-			},
-		},
-		{
-			name:         "certificate-data-not-found-test",
-			instanceName: "no-cert-data",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
-				assert.Error(t, err)
-				assert.Equal(t, "certificate data not found", err.Error())
-			},
-		},
-		{
-			name:         "key-data-not-found-test",
-			instanceName: "no-key-data",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
-				assert.Error(t, err)
-				assert.Equal(t, "key data not found", err.Error())
-			},
-		},
-		{
-			name:         "getting an existing certificate",
-			instanceName: "another-instance",
-			certificate:  rsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, certData []CertificateData) {
 
-				require.NoError(t, err)
-				expectedCertList := []CertificateData{
-					{
-						Name: "default",
-						Certificate: `-----BEGIN CERTIFICATE-----
+		"getting an existing certificate": {
+			instanceName: "my-instance-1",
+			expected: []CertificateData{
+				{
+					Name: "default",
+					Certificate: `-----BEGIN CERTIFICATE-----
 MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
 EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
 MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
@@ -474,9 +447,8 @@ MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
 4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
 yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
 7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
------END CERTIFICATE-----
-`,
-						Key: `-----BEGIN RSA PRIVATE KEY-----
+-----END CERTIFICATE-----`,
+					Key: `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
 yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
 b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
@@ -490,27 +462,31 @@ XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
 chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
 WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
 sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
------END RSA PRIVATE KEY-----
-`,
-					},
-				}
-
-				assert.Equal(t, expectedCertList, certData)
+-----END RSA PRIVATE KEY-----`,
+				},
 			},
 		},
 	}
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			certData, err := manager.GetCertificates(context.Background(), tt.instanceName)
-			tt.assertion(t, err, manager, certData)
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := fake.NewClientBuilder().
+				WithScheme(newScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			got, err := (&k8sRpaasManager{cli: client}).GetCertificates(context.TODO(), tt.instanceName)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			assert.Equal(t, tt.expected, got)
 		})
 	}
-
 }
 
 func Test_k8sRpaasManager_DeleteCertificate(t *testing.T) {
-	scheme := newScheme()
 	rsaCertPem := `-----BEGIN CERTIFICATE-----
 MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
 EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
@@ -523,8 +499,7 @@ MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
 4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
 yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
 7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
------END CERTIFICATE-----
-`
+-----END CERTIFICATE-----`
 
 	rsaKeyPem := `-----BEGIN RSA PRIVATE KEY-----
 MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
@@ -540,119 +515,140 @@ XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
 chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
 WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
 sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
------END RSA PRIVATE KEY-----
-`
+-----END RSA PRIVATE KEY-----`
 
 	ecdsaCertPem := `-----BEGIN CERTIFICATE-----
 JUNDACERTJUNDACERT
------END CERTIFICATE-----
-`
+-----END CERTIFICATE-----`
 
 	ecdsaKeyPem := `-----BEGIN EC PRIVATE KEY-----
 JUNDAKEYJUNDAKEYJUNDAKEY
------END EC PRIVATE KEY-----
-`
+-----END EC PRIVATE KEY-----`
 
 	instance1 := newEmptyRpaasInstance()
 
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "another-instance"
-	instance2.Spec.Certificates = &nginxv1alpha1.TLSSecret{
-		SecretName: "another-instance-certificates",
-		Items: []nginxv1alpha1.TLSSecretItem{
-			{CertificateField: "default.crt", KeyField: "default.key"},
-			{CertificateField: "junda.crt", KeyField: "junda.key"},
+	instance2.Spec.TLS = []nginxv1alpha1.NginxTLS{
+		{SecretName: "another-instance-certs-01"},
+		{SecretName: "another-instance-certs-02"},
+	}
+
+	secret1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "another-instance-certs-01",
+			Namespace: instance2.Namespace,
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/certificate-name": "default",
+				"rpaas.extensions.tsuru.io/instance-name":    "another-instance",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte(rsaCertPem),
+			"tls.key": []byte(rsaKeyPem),
+		},
+	}
+
+	secret2 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "another-instance-certs-02",
+			Namespace: instance2.Namespace,
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/certificate-name": "junda",
+				"rpaas.extensions.tsuru.io/instance-name":    "another-instance",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte(ecdsaCertPem),
+			"tls.key": []byte(ecdsaKeyPem),
 		},
 	}
 
 	instance3 := newEmptyRpaasInstance()
 	instance3.Name = "no-spec-cert"
-	instance3.Spec.Certificates = nil
 
 	instance4 := newEmptyRpaasInstance()
 	instance4.Name = "one-cert"
-	instance4.Spec.Certificates = &nginxv1alpha1.TLSSecret{
-		SecretName: "one-cert-secret",
-		Items: []nginxv1alpha1.TLSSecretItem{
-			{CertificateField: "default.crt", KeyField: "default.key"},
+	instance4.Spec.TLS = []nginxv1alpha1.NginxTLS{
+		{SecretName: "one-cert-secret-certs-02"},
+	}
+
+	secret3 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "one-cert-secret-certs-02",
+			Namespace: instance4.Namespace,
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/certificate-name": "default",
+				"rpaas.extensions.tsuru.io/instance-name":    "one-cert",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte(rsaCertPem),
+			"tls.key": []byte(rsaKeyPem),
 		},
 	}
 
-	secret := newEmptySecret()
-	secret.Name = "another-instance-certificates"
-	secret.Data = map[string][]byte{
-		"default.crt": []byte(rsaCertPem),
-		"default.key": []byte(rsaKeyPem),
-		"junda.crt":   []byte(ecdsaCertPem),
-		"junda.key":   []byte(ecdsaKeyPem),
-	}
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, secret1, secret2, secret3}
 
-	secret2 := newEmptySecret()
-	secret2.Name = "one-cert-secret"
-	secret2.Data = map[string][]byte{
-		"default.crt": []byte(rsaCertPem),
-		"default.key": []byte(rsaKeyPem),
-	}
-
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, secret, secret2}
-
-	testCases := []struct {
-		name         string
-		certName     string
-		instanceName string
-		assertion    func(*testing.T, error, *k8sRpaasManager)
+	tests := map[string]struct {
+		certName      string
+		instanceName  string
+		expectedError string
+		assert        func(t *testing.T, c client.Client)
 	}{
-		{
-			name:         "instance not found",
-			instanceName: "instance-not-found",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.True(t, IsNotFoundError(err))
-			},
+		"instance not found": {
+			instanceName:  "instance-not-found",
+			expectedError: "rpaas instance \"instance-not-found\" not found",
 		},
-		{
-			name:         "instance without certificate",
-			instanceName: "no-spec-cert",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.True(t, IsNotFoundError(err))
-				assert.Equal(t, "no certificate bound to instance \"no-spec-cert\"", err.Error())
-			},
+
+		"instance without certificates": {
+			instanceName:  "no-spec-cert",
+			expectedError: "no certificate bound to instance \"no-spec-cert\"",
 		},
-		{
-			name:         "instance with only one, default certificate",
+
+		"instance with only one, default certificate": {
 			instanceName: "one-cert",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "one-cert", Namespace: getServiceName()}, &instance)
 				require.NoError(t, err)
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      "one-cert",
-					Namespace: getServiceName(),
-				}, &instance)
+				assert.Nil(t, instance.Spec.TLS)
+			},
+		},
+
+		"instance with two certificates, should remain one": {
+			instanceName: "another-instance",
+			certName:     "junda",
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
 				require.NoError(t, err)
-
-				assert.Nil(t, instance.Spec.Certificates)
-
-				secret := corev1.Secret{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      secret2.Name,
-					Namespace: getServiceName(),
-				}, &secret)
-				require.Error(t, err)
+				assert.Equal(t, []nginxv1alpha1.NginxTLS{{SecretName: "another-instance-certs-01"}}, instance.Spec.TLS)
 			},
 		},
 	}
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			err := manager.DeleteCertificate(context.Background(), tt.instanceName, tt.certName)
-			tt.assertion(t, err, manager)
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := fake.NewClientBuilder().
+				WithScheme(newScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			err := (&k8sRpaasManager{cli: client}).DeleteCertificate(context.TODO(), tt.instanceName, tt.certName)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, tt.assert, "you should pass an assert func")
+			tt.assert(t, client)
 		})
 	}
 }
 
 func Test_k8sRpaasManager_UpdateCertificate(t *testing.T) {
-	scheme := newScheme()
 	ecdsaCertPem := `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
 DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
@@ -663,15 +659,13 @@ BgEFBQcDATAPBgNVHRMBAf8EBTADAQH/MCkGA1UdEQQiMCCCDmxvY2FsaG9zdDo1
 NDUzgg4xMjcuMC4wLjE6NTQ1MzAKBggqhkjOPQQDAgNIADBFAiEA2zpJEPQyz6/l
 Wf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
 6MF9+Yw1Yy0t
------END CERTIFICATE-----
-`
+-----END CERTIFICATE-----`
 
 	ecdsaKeyPem := `-----BEGIN EC PRIVATE KEY-----
 MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
 AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
 EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
------END EC PRIVATE KEY-----
-`
+-----END EC PRIVATE KEY-----`
 
 	ecdsaCertificate, err := tls.X509KeyPair([]byte(ecdsaCertPem), []byte(ecdsaKeyPem))
 	require.NoError(t, err)
@@ -701,8 +695,7 @@ cbfqOhKusQonR7bcCyKphrAQkG/sjXJ6HcBj6WVQhVhrxhu939SWaJ3a6s35DHc+
 p8/zWWtbEat9jrFT83ej8GB5RbyIHRRncHQ51ymM/bAW/F7G74mPPHVfK0Y1sNdY
 ix3plWG7WNMHkxHT9IuU8/ieycCJp0jshm9obbM7MCMp3WrZmfUYq2cbuZiD0Upy
 xbFwana3DCXVZv8lJl4vPiGRV2wK
------END CERTIFICATE-----
-`
+-----END CERTIFICATE-----`
 
 	rsaKeyPem := `-----BEGIN RSA PRIVATE KEY-----
 MIIEpQIBAAKCAQEAtcS7IjwPdyx/l6ac/TAoJAEBBc7NGo8/kSmMMFvVR3m3kJVf
@@ -730,251 +723,152 @@ dyH2GqT8zdO6hdnR1bG9eAfd2gtA33pF1CA7l817hIAeEriEfXUv29d3Z0dO9RnT
 ofTG1/ECgYEA3IHIZS3zEMgKmMAAHme6UvxJxQOiz+CUAKQUUTB+3YSBT3NOtonV
 sR2uspXuam+kC900f+vXJPVcNI4rtoSelYIbmdGt4Pn/TqUKGk1qRrs7paLI8Iw0
 x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
------END RSA PRIVATE KEY-----
-`
+-----END RSA PRIVATE KEY-----`
 
 	rsaCertificate, err := tls.X509KeyPair([]byte(rsaCertPem), []byte(rsaKeyPem))
 	require.NoError(t, err)
 
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "another-instance"
-	instance2.Spec.Certificates = &nginxv1alpha1.TLSSecret{
-		SecretName: "another-instance-certificates",
-		Items: []nginxv1alpha1.TLSSecretItem{
-			{CertificateField: "default.crt", KeyField: "default.key"},
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-1",
+				Namespace: "rpaasv2",
+			},
+		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-2",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				TLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-instance-2-certs-abc123", Hosts: []string{"rpaas-operator.io"}},
+				},
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-2-certs-abc123",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "default",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-2",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPem),
+				"tls.key": []byte(rsaKeyPem),
+			},
 		},
 	}
 
-	secret := newEmptySecret()
-	secret.Name = "another-instance-certificates"
-	secret.Data = map[string][]byte{
-		"default.crt": []byte(rsaCertPem),
-		"default.key": []byte(rsaKeyPem),
-	}
-
-	resources := []runtime.Object{instance1, instance2, secret}
-
-	testCases := []struct {
-		name            string
+	tests := map[string]struct {
 		instanceName    string
 		certificateName string
 		certificate     tls.Certificate
-		assertion       func(*testing.T, error, *k8sRpaasManager)
+		expectedError   string
+		assert          func(t *testing.T, c client.Client)
 	}{
-		{
-			name:         "instance not found",
-			instanceName: "instance-not-found",
-			certificate:  ecdsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.True(t, IsNotFoundError(err))
-			},
+		"instance not found": {
+			instanceName:  "instance-not-found",
+			certificate:   ecdsaCertificate,
+			expectedError: "rpaas instance \"instance-not-found\" not found",
 		},
-		{
-			name:         "adding a new certificate without name, should use default name \"default\"",
-			instanceName: "my-instance",
+
+		"adding a new certificate without name, should use default name \"default\"": {
+			instanceName: "my-instance-1",
 			certificate:  rsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-1", Namespace: "rpaasv2"}, &instance)
 				require.NoError(t, err)
 
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      "my-instance",
-					Namespace: getServiceName(),
-				}, &instance)
-				require.NoError(t, err)
-
-				assert.NotNil(t, instance.Spec.Certificates)
-				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
-
-				expectedCertificates := &nginxv1alpha1.TLSSecret{
-					SecretName: instance.Spec.Certificates.SecretName,
-					Items: []nginxv1alpha1.TLSSecretItem{
-						{CertificateField: "default.crt", KeyField: "default.key"},
-					},
-				}
-				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
-
-				secret := corev1.Secret{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: getServiceName(),
-				}, &secret)
-				require.NoError(t, err)
-
-				require.Len(t, secret.Data, 2)
-				assert.Equal(t, rsaCertPem, string(secret.Data["default.crt"]))
-				assert.Equal(t, rsaKeyPem, string(secret.Data["default.key"]))
-
+				require.Len(t, instance.Spec.TLS, 1)
+				tls := instance.Spec.TLS[0]
+				assert.Regexp(t, `^my-instance-1-certs-`, tls.SecretName)
+				assert.Equal(t, []string{"rpaas-operator.io"}, tls.Hosts)
 			},
 		},
-		{
-			name:            "adding a new certificate with duplicated dnsname",
-			instanceName:    "another-instance",
+
+		"adding a new certificate with duplicated DNS name": {
+			instanceName:    "my-instance-2",
 			certificateName: "lets-duplicate",
 			certificate:     rsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.EqualError(t, err, `certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in "default" certificate`)
-			},
-		},
-		{
-			name:            "adding a new certificate with a custom name",
-			instanceName:    "my-instance",
-			certificateName: "custom-name",
-			certificate:     ecdsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				require.NoError(t, err)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      "my-instance",
-					Namespace: getServiceName(),
-				}, &instance)
-				require.NoError(t, err)
-
-				assert.NotNil(t, instance.Spec.Certificates)
-				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
-
-				expectedCertificates := &nginxv1alpha1.TLSSecret{
-					SecretName: instance.Spec.Certificates.SecretName,
-					Items: []nginxv1alpha1.TLSSecretItem{
-						{CertificateField: "custom-name.crt", KeyField: "custom-name.key"},
-					},
-				}
-				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
-
-				secret := corev1.Secret{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: getServiceName(),
-				}, &secret)
-				require.NoError(t, err)
-
-				expectedSecretData := map[string][]byte{
-					"custom-name.crt": []byte(ecdsaCertPem),
-					"custom-name.key": []byte(ecdsaKeyPem),
-				}
-				assert.Equal(t, expectedSecretData, secret.Data)
-
-			},
-		},
-		{
-			name:         "updating an existing certificate from RSA to ECDSA",
-			instanceName: "another-instance",
-			certificate:  ecdsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				require.NoError(t, err)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      "another-instance",
-					Namespace: getServiceName(),
-				}, &instance)
-				require.NoError(t, err)
-
-				assert.NotNil(t, instance.Spec.Certificates)
-				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
-
-				expectedCertificates := &nginxv1alpha1.TLSSecret{
-					SecretName: instance.Spec.Certificates.SecretName,
-					Items: []nginxv1alpha1.TLSSecretItem{
-						{CertificateField: "default.crt", KeyField: "default.key"},
-					},
-				}
-				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
-
-				secret := corev1.Secret{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: getServiceName(),
-				}, &secret)
-				require.NoError(t, err)
-
-				expectedSecretData := map[string][]byte{
-					"default.crt": []byte(ecdsaCertPem),
-					"default.key": []byte(ecdsaKeyPem),
-				}
-				assert.Equal(t, expectedSecretData, secret.Data)
-			},
-		},
-		{
-			name:            "adding multiple certificates",
-			instanceName:    "another-instance",
-			certificateName: "custom-name",
-			certificate:     ecdsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				require.NoError(t, err)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      "another-instance",
-					Namespace: getServiceName(),
-				}, &instance)
-				require.NoError(t, err)
-				assert.NotNil(t, instance.Spec.Certificates)
-				assert.NotEmpty(t, instance.Spec.Certificates.SecretName)
-
-				expectedCertificates := &nginxv1alpha1.TLSSecret{
-					SecretName: instance.Spec.Certificates.SecretName,
-					Items: []nginxv1alpha1.TLSSecretItem{
-						{CertificateField: "default.crt", KeyField: "default.key"},
-						{CertificateField: "custom-name.crt", KeyField: "custom-name.key"},
-					},
-				}
-				assert.Equal(t, expectedCertificates, instance.Spec.Certificates)
-
-				secret := corev1.Secret{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{
-					Name:      instance.Spec.Certificates.SecretName,
-					Namespace: getServiceName(),
-				}, &secret)
-				require.NoError(t, err)
-
-				expectedSecretData := map[string][]byte{
-					"default.crt":     []byte(rsaCertPem),
-					"default.key":     []byte(rsaKeyPem),
-					"custom-name.crt": []byte(ecdsaCertPem),
-					"custom-name.key": []byte(ecdsaKeyPem),
-				}
-				assert.Equal(t, expectedSecretData, secret.Data)
-			},
-		},
-		{
-			name:         "updating to the same certificate, should do nothing",
-			instanceName: "another-instance",
-			certificate:  rsaCertificate,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.NoError(t, err)
-			},
-		},
-		{
-			name:            "invalid certificate name",
-			instanceName:    "my-instance",
-			certificate:     ecdsaCertificate,
-			certificateName: `../not@valid.config_map~key`,
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.EqualError(t, err, `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`)
-			},
+			expectedError:   `certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in "default" certificate`,
 		},
 
-		{
-			name:            `setting certificate with name "cert-manager"`,
-			instanceName:    "my-instance",
-			certificate:     ecdsaCertificate,
-			certificateName: "cert-manager",
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.EqualError(t, err, `certificate name is forbidden: you cannot use a certificate named as "cert-manager"`)
+		/*
+			"adding a new certificate with a custom name": {
+				instanceName:    "my-instance",
+				certificateName: "custom-name",
+				certificate:     ecdsaCertificate,
+				assert: func(t *testing.T, c client.Client) {
+					var instance v1alpha1.RpaasInstance
+					err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, &instance)
+					require.NoError(t, err)
+					assert.NotNil(t, instance.Spec.TLS)
+				},
 			},
-		},
+
+			"updating an existing certificate from RSA to ECDSA": {
+				instanceName: "another-instance",
+				certificate:  ecdsaCertificate,
+				assert: func(t *testing.T, c client.Client) {
+					var instance v1alpha1.RpaasInstance
+					err := c.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
+					require.NoError(t, err)
+				},
+			},
+
+			"adding multiple certificates": {
+				instanceName:    "another-instance",
+				certificateName: "custom-name",
+				certificate:     ecdsaCertificate,
+				assert: func(t *testing.T, c client.Client) {
+					var instance v1alpha1.RpaasInstance
+					err := c.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
+					require.NoError(t, err)
+					assert.NotNil(t, instance.Spec.TLS)
+				},
+			},
+
+			"updating to the same certificate, should do nothing": {
+				instanceName:  "another-instance",
+				certificate:   rsaCertificate,
+				expectedError: "ffooooo",
+			},
+
+			"invalid certificate name": {
+				instanceName:    "my-instance",
+				certificate:     ecdsaCertificate,
+				certificateName: `../not@valid.config_map~key`,
+				expectedError:   `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`,
+			},
+
+			`setting certificate with name "cert-manager"`: {
+				instanceName:    "my-instance",
+				certificate:     ecdsaCertificate,
+				certificateName: "cert-manager",
+				expectedError:   `certificate name is forbidden: you cannot use a certificate named as "cert-manager"`,
+			},
+		*/
 	}
 
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			err := manager.UpdateCertificate(context.Background(), tt.instanceName, tt.certificateName, tt.certificate)
-			tt.assertion(t, err, manager)
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := fake.NewClientBuilder().
+				WithScheme(newScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			err := (&k8sRpaasManager{cli: client}).UpdateCertificate(context.TODO(), tt.instanceName, tt.certificateName, tt.certificate)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			assert.NoError(t, err)
+			tt.assert(t, client)
 		})
 	}
 }
@@ -1001,19 +895,6 @@ func newEmptyExtraFiles() *corev1.ConfigMap {
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance-extra-files",
-			Namespace: getServiceName(),
-		},
-	}
-}
-
-func newEmptySecret() *corev1.Secret {
-	return &corev1.Secret{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "Secret",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-secrets",
 			Namespace: getServiceName(),
 		},
 	}
@@ -4143,20 +4024,41 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			ForceHTTPS:  true,
 		},
 	}
-	instance3.Spec.Certificates = &nginxv1alpha1.TLSSecret{
-		Items: []nginxv1alpha1.TLSSecretItem{
-			{CertificateField: "default.crt", KeyField: "default.key"},
-			{CertificateField: "instance3.example.com.crt", KeyField: "instance3.example.com.key"},
+
+	instance3.Spec.TLS = []nginxv1alpha1.NginxTLS{
+		{SecretName: "instance3-certs-01"},
+		{SecretName: "instance3-certs-02"},
+	}
+
+	s1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance3-certs-01",
+			Namespace: instance3.Namespace,
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/certificate-name": "default",
+				"rpaas.extensions.tsuru.io/instance-name":    "instance3",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte(rsaCertificateInPEM),
+			"tls.key": []byte(rsaPrivateKeyInPEM),
 		},
 	}
 
-	s1 := newSecretForCertificates(*instance3, map[string][]byte{
-		"default.crt":               []byte(rsaCertificateInPEM),
-		"default.key":               []byte(rsaPrivateKeyInPEM),
-		"instance3.example.com.crt": []byte(ecdsaCertificateInPEM),
-		"instance3.example.com.key": []byte(ecdsaPrivateKeyInPEM),
-	})
-	instance3.Spec.Certificates.SecretName = s1.Name
+	s2 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance3-certs-02",
+			Namespace: instance3.Namespace,
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/certificate-name": "instance3.example.com",
+				"rpaas.extensions.tsuru.io/instance-name":    "instance3",
+			},
+		},
+		Data: map[string][]byte{
+			"tls.crt": []byte(ecdsaCertificateInPEM),
+			"tls.key": []byte(ecdsaPrivateKeyInPEM),
+		},
+	}
 
 	instance4 := instance1.DeepCopy()
 	instance4.Name = "instance4"
@@ -4441,10 +4343,10 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		pod1, pod2,
 		pod2Metrics,
 		event1, event2, event3, event4,
-		s1,
+		s1, s2,
 	}
 
-	testCases := []struct {
+	tests := []struct {
 		instance string
 		expected clientTypes.InstanceInfo
 	}{
@@ -4637,15 +4539,15 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		},
 	}
 
-	for _, tt := range testCases {
+	for _, tt := range tests {
 		t.Run(tt.instance, func(t *testing.T) {
-			fakeCli := fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build()
-			manager := &k8sRpaasManager{
-				cli: fakeCli,
-			}
-			got, err := manager.GetInstanceInfo(context.Background(), tt.instance)
+			client := fake.NewClientBuilder().
+				WithScheme(newScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			got, err := (&k8sRpaasManager{cli: client}).GetInstanceInfo(context.Background(), tt.instance)
 			require.NoError(t, err)
-			require.NotNil(t, got)
 			assert.Equal(t, tt.expected, *got)
 		})
 	}

@@ -524,34 +524,18 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
-	if instance.Spec.Certificates == nil {
-		return nil, nil
-	}
-
-	var secret corev1.Secret
-	err = m.cli.Get(ctx, types.NamespacedName{
-		Name:      instance.Spec.Certificates.SecretName,
-		Namespace: instance.Namespace,
-	}, &secret)
-	if err != nil {
-		return nil, err
-	}
-
 	var certList []CertificateData
-	for _, item := range instance.Spec.Certificates.Items {
-		if _, ok := secret.Data[item.CertificateField]; !ok {
-			return nil, fmt.Errorf("certificate data not found")
-		}
-		if _, ok := secret.Data[item.KeyField]; !ok {
-			return nil, fmt.Errorf("key data not found")
-		}
-		certItem := CertificateData{
-			Name:        strings.TrimSuffix(item.CertificateField, ".crt"),
-			Certificate: string(secret.Data[item.CertificateField]),
-			Key:         string(secret.Data[item.KeyField]),
+	for _, tls := range instance.Spec.TLS {
+		var s corev1.Secret
+		if err = m.cli.Get(ctx, types.NamespacedName{Name: tls.SecretName, Namespace: instance.Namespace}, &s); err != nil {
+			return nil, err
 		}
 
-		certList = append(certList, certItem)
+		certList = append(certList, CertificateData{
+			Name:        s.Labels[certificates.CertificateNameLabel],
+			Certificate: string(s.Data[corev1.TLSCertKey]),
+			Key:         string(s.Data[corev1.TLSPrivateKeyKey]),
+		})
 	}
 
 	return certList, nil
@@ -563,14 +547,14 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 		return err
 	}
 
-	if instance.Spec.Certificates == nil {
+	if len(instance.Spec.TLS) == 0 {
 		return &NotFoundError{Msg: fmt.Sprintf("no certificate bound to instance %q", instanceName)}
 	}
 
 	name = certificateName(name)
 
 	err = certificates.DeleteCertificate(ctx, m.cli, instance, name)
-	if err != nil && err == fmt.Errorf("certificate %q not found", name) {
+	if err != nil && err == fmt.Errorf("certificate %q does not exist", name) {
 		return &NotFoundError{Msg: err.Error()}
 	}
 
@@ -596,23 +580,24 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 	if err != nil {
 		return err
 	}
+
 	certsInfo, err := m.getCertificatesInfo(ctx, instance)
 	if err != nil {
 		return err
 	}
-	certs, err := pki.DecodeX509CertificateChainBytes(rawCertificate)
+
+	leaf, err := x509.ParseCertificate(c.Certificate[0])
 	if err != nil {
 		return err
 	}
-	if len(certs) > 0 {
-		for _, certInfo := range certsInfo {
-			if certInfo.Name == name {
-				continue
-			}
 
-			if hasIntersection(certInfo.DNSNames, certs[0].DNSNames) {
-				return &ValidationError{Msg: fmt.Sprintf("certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in %q certificate", certInfo.Name)}
-			}
+	for _, ci := range certsInfo {
+		if ci.Name == name {
+			continue
+		}
+
+		if hasIntersection(ci.DNSNames, leaf.DNSNames) {
+			return &ValidationError{Msg: fmt.Sprintf("certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in %q certificate", ci.Name)}
 		}
 	}
 
@@ -1256,10 +1241,12 @@ func getRawCertificateAndKey(c tls.Certificate) ([]byte, []byte, error) {
 	if err != nil {
 		return []byte{}, []byte{}, err
 	}
+
 	keyPem, err := convertPrivateKeyToPem(c.PrivateKey)
 	if err != nil {
 		return []byte{}, []byte{}, err
 	}
+
 	return certificatePem, keyPem, err
 }
 
@@ -1447,27 +1434,6 @@ func (m *k8sRpaasManager) eventsForObject(ctx context.Context, namespace, kind s
 	})
 
 	return events, nil
-}
-
-func newSecretForCertificates(instance v1alpha1.RpaasInstance, data map[string][]byte) *corev1.Secret {
-	hash := util.SHA256(data)
-	return &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-certificates-%s", instance.Name, hash[:10]),
-			Namespace: instance.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
-					Group:   v1alpha1.GroupVersion.Group,
-					Version: v1alpha1.GroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-			Annotations: map[string]string{
-				"rpaas.extensions.tsuru.io/sha256-hash": hash,
-			},
-		},
-		Data: data,
-	}
 }
 
 func formatPodEvents(events []corev1.Event) string {

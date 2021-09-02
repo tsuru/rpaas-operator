@@ -90,35 +90,10 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.Contains(t, "# My custom HTTP block", nginxConf.Data["nginx-conf"])
 		assert.Contains(t, "# My custom server block", nginxConf.Data["nginx-conf"])
 
-		tlsSecret := &nginxv1alpha1.TLSSecret{
-			SecretName: "my-instance-certificates",
-			Items: []nginxv1alpha1.TLSSecretItem{
-				{
-					CertificateField: "default.crt",
-					CertificatePath:  "my-custom-name.crt",
-					KeyField:         "default.key",
-					KeyPath:          "my-custom-name.key",
-				},
-				{
-					CertificateField: "cert-manager.crt",
-					KeyField:         "cert-manager.key",
-				},
-			},
-		}
-		assert.Equal(t, tlsSecret, nginx.Spec.Certificates)
-
-		certificatesSecret := &corev1.Secret{
-			TypeMeta: metav1.TypeMeta{
-				APIVersion: "v1",
-				Kind:       "Secret",
-			},
-		}
-		err = get(certificatesSecret, nginx.Spec.Certificates.SecretName, namespaceName)
-		require.NoError(t, err)
-		assert.NotEmpty(t, certificatesSecret.Data["default.crt"])
-		assert.NotEmpty(t, certificatesSecret.Data["default.key"])
-		assert.NotEmpty(t, certificatesSecret.Data["cert-manager.crt"])
-		assert.NotEmpty(t, certificatesSecret.Data["cert-manager.key"])
+		require.Len(t, nginx.Spec.TLS, 2)
+		assert.Equal(t, nginxv1alpha1.NginxTLS{SecretName: "my-instance-certificates", Hosts: []string{"www.example.com"}}, nginx.Spec.TLS[0])
+		assert.Regexp(t, `^my-instance-certs-\w+`, nginx.Spec.TLS[1].SecretName)
+		assert.Equal(t, []string{"my-instance.example.com", "app.example.com"}, nginx.Spec.TLS[1].Hosts)
 
 		nginxService := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{

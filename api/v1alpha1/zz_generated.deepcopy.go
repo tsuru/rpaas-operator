@@ -468,10 +468,12 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 		*out = new(DNSConfig)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.Certificates != nil {
-		in, out := &in.Certificates, &out.Certificates
-		*out = new(apiv1alpha1.TLSSecret)
-		(*in).DeepCopyInto(*out)
+	if in.TLS != nil {
+		in, out := &in.TLS, &out.TLS
+		*out = make([]apiv1alpha1.NginxTLS, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
 	}
 	if in.Service != nil {
 		in, out := &in.Service, &out.Service

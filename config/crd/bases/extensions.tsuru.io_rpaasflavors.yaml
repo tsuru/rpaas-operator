@@ -139,49 +139,6 @@ spec:
                   description: Blocks are configuration file fragments added to the
                     generated nginx config.
                   type: object
-                certificates:
-                  description: Certificates are a set of attributes that relate the
-                    certificate's location in the cluster (Secret resource name) and
-                    its destination into Pods.
-                  properties:
-                    items:
-                      description: Items maps the key and path where the certificate-key
-                        pairs should be mounted on nginx container.
-                      items:
-                        description: TLSSecretItem maps each certificate and key pair
-                          against a key-value data from a Secret object.
-                        properties:
-                          certificateField:
-                            description: CertificateField is the field name that contains
-                              the certificate.
-                            type: string
-                          certificatePath:
-                            description: CertificatePath holds the path where the
-                              certificate should be stored inside the nginx container.
-                              Defaults to same as CertificatedField.
-                            type: string
-                          keyField:
-                            description: KeyField is the field name that contains
-                              the key.
-                            type: string
-                          keyPath:
-                            description: KeyPath holds the path where the key should
-                              be store inside the nginx container. Defaults to same
-                              as KeyField.
-                            type: string
-                        required:
-                        - certificateField
-                        - keyField
-                        type: object
-                      type: array
-                    secretName:
-                      description: SecretName refers to the Secret holding the certificates
-                        and keys pairs.
-                      type: string
-                  required:
-                  - items
-                  - secretName
-                  type: object
                 configHistoryLimit:
                   description: The number of old Configs to retain to allow rollback.
                   type: integer
@@ -214,6 +171,10 @@ spec:
                           items:
                             type: string
                           type: array
+                        dnsNamesDefault:
+                          description: DNSNamesDefault when is set use the provided
+                            DNSName from DNS Zone field
+                          type: boolean
                         ipAddresses:
                           description: IPAddresses is a list of IP addresses to be
                             set in Subject Alternative Names.
@@ -225,6 +186,8 @@ spec:
                             resource. \n NOTE: when there's no Issuer on this name,
                             it tries using ClusterIssuer instead."
                           type: string
+                      required:
+                      - dnsNamesDefault
                       type: object
                   type: object
                 extraFiles:
@@ -4381,6 +4344,26 @@ spec:
                         to true.
                       type: boolean
                   type: object
+                tls:
+                  description: TLS configuration.
+                  items:
+                    properties:
+                      hosts:
+                        description: 'Hosts are a list of hosts included in the TLS
+                          certificate. Defaults to the wildcard of hosts: "*".'
+                        items:
+                          type: string
+                        type: array
+                      secretName:
+                        description: "SecretName is the name of the Secret which contains
+                          the certificate-key pair. It must reside in the same Namespace
+                          as the Nginx resource. \n NOTE: The Secret should follow
+                          the Kubernetes TLS secrets type. More info: https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets."
+                        type: string
+                    required:
+                    - secretName
+                    type: object
+                  type: array
                 tlsSessionResumption:
                   description: TLSSessionResumption configures the instance to support
                     session resumption using either session tickets or session ID

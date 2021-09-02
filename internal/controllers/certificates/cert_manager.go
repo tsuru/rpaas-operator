@@ -39,6 +39,7 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance, i
 		if err != nil {
 			return err
 		}
+
 		return client.Create(ctx, cert)
 	}
 
