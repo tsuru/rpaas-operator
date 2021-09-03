@@ -43,28 +43,24 @@ func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 	}
 
 	s, err := getTLSSecretByCertificateName(ctx, c, instance, certificateName)
-
-	if err != nil && err == ErrTLSSecretNotFound {
-		s = new(corev1.Secret)
-		newSecretForCertificates(instance, certificateName).DeepCopyInto(s)
-
+	switch err {
+	case ErrTLSSecretNotFound:
+		s = newSecretForCertificates(instance, certificateName, certData, keyData)
 		if err = c.Create(ctx, s); err != nil {
 			return err
 		}
-	}
 
-	if err != nil {
-		return err
-	}
+	case nil:
+		s.Data = map[string][]byte{
+			corev1.TLSCertKey:       certData,
+			corev1.TLSPrivateKeyKey: keyData,
+		}
 
-	if s.Data == nil {
-		s.Data = make(map[string][]byte)
-	}
+		if err = c.Update(ctx, s); err != nil {
+			return err
+		}
 
-	s.Data[corev1.TLSCertKey] = certData
-	s.Data[corev1.TLSPrivateKeyKey] = keyData
-
-	if err = c.Update(ctx, s); err != nil {
+	default:
 		return err
 	}
 
@@ -155,7 +151,7 @@ func getTLSSecretByCertificateName(ctx context.Context, c client.Client, instanc
 	}
 }
 
-func newSecretForCertificates(instance *v1alpha1.RpaasInstance, certName string) *corev1.Secret {
+func newSecretForCertificates(instance *v1alpha1.RpaasInstance, certName string, certData, keyData []byte) *corev1.Secret {
 	return &corev1.Secret{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "v1",
@@ -177,6 +173,10 @@ func newSecretForCertificates(instance *v1alpha1.RpaasInstance, certName string)
 			},
 		},
 		Type: corev1.SecretTypeTLS,
+		Data: map[string][]byte{
+			corev1.TLSCertKey:       certData,
+			corev1.TLSPrivateKeyKey: keyData,
+		},
 	}
 }
 
