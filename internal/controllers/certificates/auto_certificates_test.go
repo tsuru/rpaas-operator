@@ -84,6 +84,108 @@ kCC8Q0Xx1HY3y8c9deEiHL8OKy/Yf4rbyY8=
 -----END PRIVATE KEY-----`,
 			},
 		},
+
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-3",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{},
+		},
+
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-3-cert-manager",
+				Namespace: "rpaasv2",
+			},
+			Type: corev1.SecretTypeTLS,
+			Data: map[string][]byte{
+				// Generated with:
+				//   go run $(go env GOROOT)/src/crypto/tls/generate_cert.go -duration 8760h -host *.example.com,*.example.org -ecdsa-curve P224
+				"tls.crt": []byte(`-----BEGIN CERTIFICATE-----
+MIIBbjCCARugAwIBAgIQWRF65AU1tWeZczAq3aqDjzAKBggqhkjOPQQDAjASMRAw
+DgYDVQQKEwdBY21lIENvMB4XDTIxMDkwMzIxMTcyNFoXDTIyMDkwMzIxMTcyNFow
+EjEQMA4GA1UEChMHQWNtZSBDbzBOMBAGByqGSM49AgEGBSuBBAAhAzoABN836A1F
+Hku1le2ZgtgNZFsRr8ylOpzhQT5k8XQk9vlOSRqv40O0ku/AZoY9bsR9dmH6jDXR
+CasIo14wXDAOBgNVHQ8BAf8EBAMCB4AwEwYDVR0lBAwwCgYIKwYBBQUHAwEwDAYD
+VR0TAQH/BAIwADAnBgNVHREEIDAegg0qLmV4YW1wbGUuY29tgg0qLmV4YW1wbGUu
+b3JnMAoGCCqGSM49BAMCA0EAMD4CHQDoVyjfDdtJ523kkNZA8ryt+H2ztUI8Vr8N
+nneDAh0AqwHZyubwD3GE2eOTyC7DbmG9PbQA9g1Zeq8BVw==
+-----END CERTIFICATE-----`),
+				"tls.key": []byte(`-----BEGIN PRIVATE KEY-----
+MHgCAQAwEAYHKoZIzj0CAQYFK4EEACEEYTBfAgEBBBwjAF6qPoiGd7BCj28Cg//t
+cHPInBo/AIYDW+WuoTwDOgAE3zfoDUUeS7WV7ZmC2A1kWxGvzKU6nOFBPmTxdCT2
++U5JGq/jQ7SS78Bmhj1uxH12YfqMNdEJqwg=
+-----END PRIVATE KEY-----`),
+			},
+		},
+	}
+}
+
+func TestUpdateCertificateFromSecret(t *testing.T) {
+	tests := map[string]struct {
+		instance        string
+		certificateName string
+		secretName      string
+		expectedError   string
+		assert          func(t *testing.T, c client.Client)
+	}{
+		"adding a certificate from secret (e.g. cert manager)": {
+			instance:        "my-instance-3",
+			certificateName: "cert-manager",
+			secretName:      "my-instance-3-cert-manager",
+			assert: func(t *testing.T, c client.Client) {
+				var s corev1.Secret
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-3-cert-manager", Namespace: "rpaasv2"}, &s)
+				require.NoError(t, err)
+
+				assert.Equal(t, "cert-manager", s.Labels["rpaas.extensions.tsuru.io/certificate-name"])
+				assert.Equal(t, "my-instance-3", s.Labels["rpaas.extensions.tsuru.io/instance-name"])
+
+				var i v1alpha1.RpaasInstance
+				err = c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-3", Namespace: "rpaasv2"}, &i)
+				assert.NoError(t, err)
+
+				assert.Equal(t, []nginxv1alpha1.NginxTLS{{
+					SecretName: "my-instance-3-cert-manager",
+					Hosts:      []string{"*.example.com", "*.example.org"},
+				}}, i.Spec.TLS)
+				assert.Equal(t, "b08063b4653a313c028d44e6e0ceebbc38efa961b2178a30d930c02da438c984", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-certificate-sha256"])
+				assert.Equal(t, "c0a86dc8278f233cff1f90833b486db20b00b31879b8dec395f9e7f6ba556f8b", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-key-sha256"])
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			resources := k8sResources()
+
+			client := fake.NewClientBuilder().
+				WithScheme(runtime.NewScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			var instance *v1alpha1.RpaasInstance
+			for _, object := range resources {
+				if i, found := object.(*v1alpha1.RpaasInstance); found && i.Name == tt.instance {
+					instance = i
+					break
+				}
+			}
+
+			require.NotNil(t, instance, "you should select a RpaasInstance from resources")
+
+			err := certificates.UpdateCertificateFromSecret(context.TODO(), client, instance, tt.certificateName, tt.secretName)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+
+			require.NotNil(t, tt.assert, "you must provide an assert function")
+			tt.assert(t, client)
+		})
 	}
 }
 
@@ -278,11 +380,12 @@ XAxt2lNKAdfGYZX7q09WpbbxoLk43FJfHPg=
 			require.NotNil(t, instance, "you should select a RpaasInstance from resources")
 
 			err := certificates.UpdateCertificate(context.TODO(), client, instance, tt.certificateName, []byte(tt.certificate), []byte(tt.certificateKey))
-
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
 			}
+
+			require.NoError(t, err)
 
 			require.NotNil(t, tt.assert, "you must provide an assert function")
 			tt.assert(t, client)
@@ -356,11 +459,12 @@ func Test_DeleteCertificate(t *testing.T) {
 			require.NotNil(t, instance, "you should select a RpaasInstance from resources")
 
 			err := certificates.DeleteCertificate(context.TODO(), client, instance, tt.certificateName)
-
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
 			}
+
+			require.NoError(t, err)
 
 			require.NotNil(t, tt.assert, "you must provide an assert function")
 			tt.assert(t, client)

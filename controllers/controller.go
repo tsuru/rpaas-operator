@@ -1027,7 +1027,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		},
 	}
 
-	if n.Spec.Service.Type == "" {
+	if n.Spec.Service != nil && n.Spec.Service.Type == "" {
 		n.Spec.Service.Type = corev1.ServiceTypeLoadBalancer
 	}
 

@@ -53,7 +53,11 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance, i
 		return err
 	}
 
-	return reconcileCertificateSecret(ctx, client, instance, cert)
+	if !isCertificateReady(cert) {
+		return nil
+	}
+
+	return UpdateCertificateFromSecret(ctx, client, instance, CertManagerCertificateName, newCert.Spec.SecretName)
 }
 
 func deleteCertManager(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) error {
@@ -87,27 +91,6 @@ func deleteCertManager(ctx context.Context, client client.Client, instance *v1al
 	}
 
 	return DeleteCertificate(ctx, client, instance, CertManagerCertificateName)
-}
-
-func reconcileCertificateSecret(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance, cert *cmv1.Certificate) error {
-	if !isCertificateReady(cert) {
-		return nil
-	}
-
-	var s corev1.Secret
-
-	err := client.Get(ctx, types.NamespacedName{
-		Name:      cert.Spec.SecretName,
-		Namespace: cert.Namespace,
-	}, &s)
-
-	if err != nil {
-		return err
-	}
-
-	var rawCert, rawKey []byte = s.Data["tls.crt"], s.Data["tls.key"]
-
-	return UpdateCertificate(ctx, client, instance, CertManagerCertificateName, rawCert, rawKey)
 }
 
 func getCertificate(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmv1.Certificate, error) {

@@ -7,6 +7,7 @@ package certificates
 import (
 	"context"
 	"fmt"
+	"reflect"
 
 	"github.com/jetstack/cert-manager/pkg/util/pki"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -14,6 +15,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -31,6 +33,39 @@ func ReconcileDynamicCertificates(ctx context.Context, client client.Client, ins
 	// NOTE: for now, we've only a way to obtain automatic certificates but it can
 	// be useful if we had more options in the future.
 	return reconcileCertManager(ctx, client, instance, instanceMergedWithFlavors)
+}
+
+func UpdateCertificateFromSecret(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName, secretName string) error {
+	if c == nil {
+		return fmt.Errorf("kubernetes client cannot be nil")
+	}
+
+	if instance == nil {
+		return fmt.Errorf("rpaasinstance cannot be nil")
+	}
+
+	var s corev1.Secret
+	err := c.Get(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, &s)
+	if err != nil {
+		return err
+	}
+
+	originalSecret := s.DeepCopy()
+
+	if s.Labels == nil {
+		s.Labels = make(map[string]string)
+	}
+
+	s.Labels[CertificateNameLabel] = certificateName
+	s.Labels["rpaas.extensions.tsuru.io/instance-name"] = instance.Name
+
+	if !reflect.DeepEqual(originalSecret.Labels, s.Labels) {
+		if err = c.Update(ctx, &s); err != nil {
+			return err
+		}
+	}
+
+	return updateInstanceWithCertificateInfos(ctx, c, instance, &s)
 }
 
 func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string, certData, keyData []byte) error {
@@ -51,9 +86,22 @@ func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 		}
 
 	case nil:
+		originalSecret := s.DeepCopy()
+
+		if s.Labels == nil {
+			s.Labels = make(map[string]string)
+		}
+
+		s.Labels[CertificateNameLabel] = certificateName
+		s.Labels["rpaas.extensions.tsuru.io/instance-name"] = instance.Name
+
 		s.Data = map[string][]byte{
 			corev1.TLSCertKey:       certData,
 			corev1.TLSPrivateKeyKey: keyData,
+		}
+
+		if reflect.DeepEqual(s.Labels, originalSecret.Labels) && reflect.DeepEqual(s.Data, originalSecret.Data) {
+			break
 		}
 
 		if err = c.Update(ctx, s); err != nil {
@@ -64,29 +112,8 @@ func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 		return err
 	}
 
-	hosts, err := extractDNSNames(certData)
-	if err != nil {
-		return err
-	}
+	return updateInstanceWithCertificateInfos(ctx, c, instance, s)
 
-	if index, found := findCertificate(instance, s.Name); found {
-		instance.Spec.TLS[index].Hosts = hosts
-
-	} else {
-		instance.Spec.TLS = append(instance.Spec.TLS, nginxv1alpha1.NginxTLS{
-			SecretName: s.Name,
-			Hosts:      hosts,
-		})
-	}
-
-	if instance.Spec.PodTemplate.Annotations == nil {
-		instance.Spec.PodTemplate.Annotations = make(map[string]string)
-	}
-
-	instance.Spec.PodTemplate.Annotations[fmt.Sprintf("rpaas.extensions.tsuru.io/%s-certificate-sha256", certificateName)] = util.SHA256(certData)
-	instance.Spec.PodTemplate.Annotations[fmt.Sprintf("rpaas.extensions.tsuru.io/%s-key-sha256", certificateName)] = util.SHA256(keyData)
-
-	return c.Update(ctx, instance)
 }
 
 func DeleteCertificate(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string) error {
@@ -123,6 +150,39 @@ func DeleteCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 	}
 
 	return c.Delete(ctx, s)
+}
+
+func updateInstanceWithCertificateInfos(ctx context.Context, c client.Client, i *v1alpha1.RpaasInstance, s *corev1.Secret) error {
+	hosts, err := extractDNSNames(s.Data[corev1.TLSCertKey])
+	if err != nil {
+		return err
+	}
+
+	original := i.DeepCopy()
+
+	if index, found := findCertificate(i, s.Name); found {
+		i.Spec.TLS[index].Hosts = hosts
+	} else {
+		i.Spec.TLS = append(i.Spec.TLS, nginxv1alpha1.NginxTLS{
+			SecretName: s.Name,
+			Hosts:      hosts,
+		})
+	}
+
+	if i.Spec.PodTemplate.Annotations == nil {
+		i.Spec.PodTemplate.Annotations = make(map[string]string)
+	}
+
+	certName := s.Labels[CertificateNameLabel]
+
+	i.Spec.PodTemplate.Annotations[fmt.Sprintf("rpaas.extensions.tsuru.io/%s-certificate-sha256", certName)] = util.SHA256(s.Data[corev1.TLSCertKey])
+	i.Spec.PodTemplate.Annotations[fmt.Sprintf("rpaas.extensions.tsuru.io/%s-key-sha256", certName)] = util.SHA256(s.Data[corev1.TLSPrivateKeyKey])
+
+	if reflect.DeepEqual(i.Spec.PodTemplate.Annotations, original.Spec.PodTemplate.Annotations) && reflect.DeepEqual(i.Spec.TLS, original.Spec.TLS) {
+		return nil
+	}
+
+	return c.Update(ctx, i)
 }
 
 func getTLSSecretByCertificateName(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certName string) (*corev1.Secret, error) {
