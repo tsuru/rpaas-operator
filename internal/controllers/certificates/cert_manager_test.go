@@ -4,7 +4,6 @@
 
 package certificates
 
-/*
 import (
 	"context"
 	"testing"
@@ -24,6 +23,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/runtime"
+	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
 func Test_ReconcileCertManager(t *testing.T) {
@@ -53,19 +53,12 @@ func Test_ReconcileCertManager(t *testing.T) {
 
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-instance-2-certificates",
+				Name:      "my-instance-2-abc123",
 				Namespace: "rpaasv2",
-			},
-			Data: map[string][]byte{
-				"cert-manager.crt": []byte(`--- some cert here ---`),
-				"cert-manager.key": []byte(`--- some key here ---`),
-			},
-		},
-
-		&corev1.Secret{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-instance-2-cert-manager",
-				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-2",
+				},
 			},
 			Data: map[string][]byte{
 				"tls.crt": []byte(`--- some cert here ---`),
@@ -117,10 +110,35 @@ func Test_ReconcileCertManager(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-instance-3-cert-manager",
 				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-3",
+				},
 			},
 			Data: map[string][]byte{
-				"tls.crt": []byte(`--- some cert here ---`),
-				"tls.key": []byte(`--- some key here ---`),
+				// Generated with:
+				//  go run $(go env GOROOT)/src/crypto/tls/generate_cert.go -duration 8760h -host www.example.com,www.example.org,www.example.test -rsa-bits 512
+				"tls.crt": []byte(`-----BEGIN CERTIFICATE-----
+MIIBmDCCAUKgAwIBAgIQRr737j1vwFND83io4IliEzANBgkqhkiG9w0BAQsFADAS
+MRAwDgYDVQQKEwdBY21lIENvMB4XDTIxMDgzMDE4MTgxNVoXDTIyMDgzMDE4MTgx
+NVowEjEQMA4GA1UEChMHQWNtZSBDbzBcMA0GCSqGSIb3DQEBAQUAA0sAMEgCQQC+
+0Zlmis2JigXdmCRKF+sZqBuVSPbpBsy4cP7eUBkcyxRir3jwPNoahd6Qv57Tr1vO
+ZAj+hb5Rf75T7NgRzrQVAgMBAAGjdDByMA4GA1UdDwEB/wQEAwIFoDATBgNVHSUE
+DDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAAMD0GA1UdEQQ2MDSCD3d3dy5leGFt
+cGxlLmNvbYIPd3d3LmV4YW1wbGUub3JnghB3d3cuZXhhbXBsZS50ZXN0MA0GCSqG
+SIb3DQEBCwUAA0EAc/GgmuRfov3QD+RAXcHYQKvmG9WxBRvOK8ALB+l4ibak0rS2
+RBUhFyKxlZEjXu5Fhv9PgYBzEA2AcWtiM7j8lA==
+-----END CERTIFICATE-----`),
+				"tls.key": []byte(`-----BEGIN PRIVATE KEY-----
+MIIBVAIBADANBgkqhkiG9w0BAQEFAASCAT4wggE6AgEAAkEAvtGZZorNiYoF3Zgk
+ShfrGagblUj26QbMuHD+3lAZHMsUYq948DzaGoXekL+e069bzmQI/oW+UX++U+zY
+Ec60FQIDAQABAkB1W83f/lBpXgU7g54WH93NetH0H9sT+MWiToTCUDsRtFkOFpJf
+ayKQpriEtcJjW1s/BIW5ldYYi4uJo9rHm+MFAiEA1xwbuJUm+JrlkfrDPsV9fb3p
+02hr3cOuC9rVFYPfBzsCIQDjF2pEt0vNmFZLE/EwpiGQ+HB5d8UxCn8cfKqEB52c
+7wIgYzTacBGRzJwbfmzJORz52FELEu4YuUky7tK47VhJNtsCIQCRRhhoby3iD1Mc
+4lwIOC7+87/YJOOUFNfuHF5k6g5NJwIgYYt7B4pbCW5092Z5M2lDPvujEAr7quDI
+wg4cGbIbBPs=
+-----END PRIVATE KEY-----`),
 			},
 		},
 	}
@@ -278,17 +296,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 					Name:      "my-instance-2",
 					Namespace: "rpaasv2",
 				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					Certificates: &nginxv1alpha1.TLSSecret{
-						SecretName: "my-instance-2-certificates",
-						Items: []nginxv1alpha1.TLSSecretItem{
-							{
-								CertificateField: "cert-manager.crt",
-								KeyField:         "cert-manager.key",
-							},
-						},
-					},
-				},
+				Spec: v1alpha1.RpaasInstanceSpec{},
 			},
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				var cert cmv1.Certificate
@@ -299,8 +307,8 @@ func Test_ReconcileCertManager(t *testing.T) {
 				assert.Error(t, err)
 				assert.True(t, k8serrors.IsNotFound(err))
 
-				assert.Nil(t, instance.Spec.Certificates)
-				_, found := instance.Spec.PodTemplate.Annotations[CertificatesSHA256HashLabel]
+				assert.Nil(t, instance.Spec.TLS)
+				_, found := instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-certificate-sha256"]
 				assert.False(t, found)
 
 				var s corev1.Secret
@@ -353,18 +361,11 @@ func Test_ReconcileCertManager(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
-				assert.NotNil(t, instance.Spec.Certificates)
-				assert.Equal(t, &nginxv1alpha1.TLSSecret{
-					SecretName: "my-instance-3-certificates",
-					Items: []nginxv1alpha1.TLSSecretItem{
-						{
-							CertificateField: "cert-manager.crt",
-							KeyField:         "cert-manager.key",
-						},
-					},
-				}, instance.Spec.Certificates)
-				require.NotNil(t, instance.Spec.PodTemplate.Annotations)
-				assert.Equal(t, "9a47733699de9ddcc177b90d1d170e927a4a9061c0880483db57c2999f0af84b", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/certificates-sha256-hash"])
+				assert.Equal(t, []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-instance-3-cert-manager", Hosts: []string{"www.example.com", "www.example.org", "www.example.test"}},
+				}, instance.Spec.TLS)
+				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-certificate-sha256"])
+				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-key-sha256"])
 
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
@@ -375,14 +376,15 @@ func Test_ReconcileCertManager(t *testing.T) {
 
 				var s corev1.Secret
 				err = cli.Get(context.TODO(), types.NamespacedName{
-					Name:      instance.Spec.Certificates.SecretName,
+					Name:      instance.Spec.TLS[0].SecretName,
 					Namespace: instance.Namespace,
 				}, &s)
 				require.NoError(t, err)
-				assert.Equal(t, map[string][]byte{
-					"cert-manager.crt": []byte(`--- some cert here ---`),
-					"cert-manager.key": []byte(`--- some key here ---`),
-				}, s.Data)
+
+				assert.Equal(t, "my-instance-3", s.Labels["rpaas.extensions.tsuru.io/instance-name"])
+				assert.Equal(t, "cert-manager", s.Labels["rpaas.extensions.tsuru.io/certificate-name"])
+				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", util.SHA256(s.Data["tls.crt"]))
+				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", util.SHA256(s.Data["tls.key"]))
 			},
 		},
 	}
@@ -408,4 +410,3 @@ func Test_ReconcileCertManager(t *testing.T) {
 		})
 	}
 }
-*/
