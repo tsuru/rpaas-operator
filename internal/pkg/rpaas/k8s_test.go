@@ -5,8 +5,13 @@
 package rpaas
 
 import (
+	"bytes"
 	"context"
 	"crypto/tls"
+	"fmt"
+	"io"
+	"net/http"
+	"net/http/httptest"
 	"regexp"
 	"testing"
 	"time"
@@ -17,12 +22,15 @@ import (
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -5204,6 +5212,162 @@ func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
 			require.NotNil(t, tt.assert)
 
 			tt.assert(t, client)
+		})
+	}
+}
+
+func TestK8sRpaasManager_Log(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-1",
+			Namespace: "rpaasv2",
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/instance-name": "my-instance-1",
+				"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+				"rpaas.extensions.tsuru.io/team-owner":    "admin",
+				"rpaas_instance":                          "my-instance-1",
+				"rpaas_service":                           "rpaasv2",
+			},
+		},
+		TypeMeta: metav1.TypeMeta{
+			Kind: "RpaasInstance",
+		},
+	}
+	nginx := &nginxv1alpha1.Nginx{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-1",
+			Namespace: "rpaasv2",
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/instance-name": "my-instance-1",
+				"rpaas.extensions.tsuru.io/plan-name":     "basic",
+			},
+		},
+		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance-1",
+			Pods: []nginxv1alpha1.PodStatus{
+				{
+					Name:   "my-instance-1-b67766d74-t7zc8",
+					PodIP:  "172.17.0.7",
+					HostIP: "192.168.99.104",
+				},
+			},
+		},
+		Spec: nginxv1alpha1.NginxSpec{
+			Replicas: func() *int32 { ret := int32(1); return &ret }(),
+		},
+	}
+	pod := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-1-b67766d74-t7zc8",
+			Namespace: "rpaasv2",
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":                      "nginx",
+				"nginx.tsuru.io/resource-name":            "my-instance-1",
+				"rpaas.extensions.tsuru.io/instance-name": "my-instance-1",
+				"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+				"rpaas.extensions.tsuru.io/team-owner":    "admin",
+				"rpaas_instance":                          "my-instance-1",
+				"rpaas_service":                           "rpaasv2",
+			},
+		},
+		Status: v1.PodStatus{
+			Phase: "Running",
+		},
+		Spec: v1.PodSpec{
+			Containers: []v1.Container{
+				{
+					Name: "c1",
+				},
+			},
+		},
+	}
+	resources := []runtime.Object{
+		instance,
+		nginx,
+		pod,
+	}
+
+	tests := map[string]struct {
+		instanceName  string
+		expectedError string
+		handler       http.HandlerFunc
+		args          LogArgs
+		assert        func(*testing.T, io.Writer)
+	}{
+		"instance not found": {
+			expectedError: "rpaas instance \"\" not found",
+		},
+		"when specified pod doesn't exist": {
+			instanceName: "my-instance-1",
+			args: LogArgs{
+				Buffer:        &bytes.Buffer{},
+				WithTimestamp: true,
+				Pod:           "junda",
+			},
+			expectedError: "pod candidate not found",
+		},
+		"when specified container doesn't exist": {
+			instanceName: "my-instance-1",
+			args: LogArgs{
+				Buffer:        &bytes.Buffer{},
+				WithTimestamp: true,
+				Pod:           "my-instance-1-b67766d74-t7zc8",
+				Container:     "junda",
+			},
+			expectedError: "pod candidate not found",
+		},
+		"simple": {
+			instanceName: "my-instance-1",
+			args: LogArgs{
+				Buffer: &bytes.Buffer{},
+			},
+			handler: func(rw http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(rw, "%v\n", r.URL.String())
+			},
+			assert: func(t *testing.T, w io.Writer) {
+				assert.EqualValues(t, fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log\n", pod.Namespace, pod.Name), w.(*bytes.Buffer).String())
+			},
+		},
+		"with every options set": {
+			instanceName: "my-instance-1",
+			args: LogArgs{
+				Buffer:        &bytes.Buffer{},
+				Lines:         func() *int64 { v := int64(2); return &v }(),
+				SinceSeconds:  func() *int64 { v := int64(3); return &v }(),
+				Follow:        true,
+				WithTimestamp: true,
+				Pod:           "my-instance-1-b67766d74-t7zc8",
+				Container:     "c1",
+			},
+			handler: func(rw http.ResponseWriter, r *http.Request) {
+				fmt.Fprintf(rw, "%v\n", r.URL.String())
+			},
+			assert: func(t *testing.T, w io.Writer) {
+				assert.EqualValues(t, fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log?container=c1&follow=true&sinceSeconds=3&tailLines=2&timestamps=true\n", pod.Namespace, pod.Name), w.(*bytes.Buffer).String())
+			},
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := fake.NewClientBuilder().
+				WithScheme(rpaasruntime.NewScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+			sv := httptest.NewServer(tt.handler)
+			defer sv.Close()
+			kcs, err := kubernetes.NewForConfig(&rest.Config{
+				Host: sv.URL,
+			})
+			require.NoError(t, err)
+
+			manager := &k8sRpaasManager{cli: client, kcs: kcs}
+			err = manager.Log(context.TODO(), tt.instanceName, tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+			require.NoError(t, err)
+			tt.assert(t, tt.args.Buffer)
 		})
 	}
 }

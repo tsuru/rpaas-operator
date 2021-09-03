@@ -77,7 +77,7 @@ type k8sRpaasManager struct {
 	cli          client.Client
 	cacheManager CacheManager
 	restConfig   *rest.Config
-	kcs          *kubernetes.Clientset
+	kcs          kubernetes.Interface
 	clusterName  string
 	poolName     string
 }
@@ -130,6 +130,15 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	return q.sz
 }
 
+func hasContainer(containerName string, containers []v1.Container) bool {
+	for _, c := range containers {
+		if strings.Compare(containerName, c.Name) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -145,17 +154,36 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 	if err != nil {
 		return err
 	}
+	if len(podsInfo) == 0 {
+		return ValidationError{Msg: "nginx instance has no pods associated to it"}
+	}
 
 	var candidate v1.Pod
+	found := false
 	for _, pod := range podsInfo {
-		if pod.Name == args.Pod && pod.Status.Phase == "Running" {
+		if args.Pod != "" {
+			switch args.Container == "" {
+			case true:
+				if args.Pod == pod.Name && pod.Status.Phase == "Running" {
+					found = true
+					candidate = pod
+					break
+				}
+			case false:
+				if args.Pod == pod.Name && hasContainer(args.Container, pod.Spec.Containers) && pod.Status.Phase == "Running" {
+					found = true
+					candidate = pod
+					break
+				}
+			}
+		} else if pod.Status.Phase == "Running" {
+			found = true
 			candidate = pod
 			break
 		}
-		if pod.Status.Phase == "Running" {
-			candidate = pod
-			break
-		}
+	}
+	if !found {
+		return NotFoundError{"pod candidate not found"}
 	}
 	req := m.kcs.CoreV1().Pods(nginx.Namespace).GetLogs(candidate.Name, &corev1.PodLogOptions{
 		Follow:       args.Follow,
@@ -2515,7 +2543,7 @@ func allowDNSNames(dnsNames, dnsZones []string) error {
 	}
 
 	if len(unmatchedDNSNames) > 0 {
-		return fmt.Errorf("These DNS Names are not allowed: %s", strings.Join(unmatchedDNSNames, ", "))
+		return fmt.Errorf("these DNS Names are not allowed: %s", strings.Join(unmatchedDNSNames, ", "))
 	}
 
 	return nil
