@@ -414,64 +414,7 @@ http {
         listen {{ httpPort $instance }} default_server
             {{- with $config.HTTPListenOptions }} {{ . }}{{ end }};
 
-        {{- if boolValue $config.CacheEnabled }}
-        proxy_cache rpaas;
-        {{- end }}
-
-        location = /_nginx_healthcheck {
-            {{- if boolValue $config.VTSEnabled }}
-            vhost_traffic_status_bypass_limit on;
-            vhost_traffic_status_bypass_stats on;
-            {{- end }}
-
-            access_log off;
-
-            default_type "text/plain";
-            return 200 "WORKING\n";
-        }
-
-        {{- if $instance.Spec.Locations }}
-        {{- range $_, $location := $instance.Spec.Locations }}
-        location {{ $location.Path }} {
-        {{- if $location.Destination }}
-            {{- if $location.ForceHTTPS }}
-            if ($scheme = 'http') {
-                return 301 https://$http_host$request_uri;
-            }
-            {{- end }}
-
-            proxy_set_header Connection "";
-            proxy_set_header Host {{ $location.Destination }};
-
-            proxy_pass http://{{ buildLocationKey "" $location.Path }}/;
-            proxy_redirect ~^http://{{ buildLocationKey "" $location.Path }}(:\d+)?/(.*)$ {{ $location.Path }}$2;
-        {{- else }}
-        {{- with $location.Content.Value }}
-            {{ . }}
-        {{- end }}
-        {{- end }}
-        }
-        {{- end }}
-        {{- end }}
-
-        {{- if not (hasRootPath $instance.Spec.Locations) }}
-        {{- if $instance.Spec.Binds }}
-        location / {
-            proxy_set_header Connection "";
-            proxy_set_header Host {{ (index $instance.Spec.Binds 0).Host }};
-
-            proxy_pass http://rpaas_default_upstream/;
-            proxy_redirect ~^http://rpaas_default_upstream(:\d+)?/(.*)$ /$2;
-        }
-        {{- else }}
-        location / {
-            default_type "text/plain";
-            return 404 "instance not bound\n";
-        }
-        {{- end}}
-        {{- end}}
-
-        {{ template "server" .}}
+        {{- template "rpaasv2.internal.server" $all }}
     }
 
     {{- range $_, $tls := $instance.Spec.TLS }}
@@ -484,6 +427,16 @@ http {
         ssl_certificate     certs/{{ $tls.SecretName }}/tls.crt;
         ssl_certificate_key certs/{{ $tls.SecretName }}/tls.key;
 
+        {{ template "rpaasv2.internal.server" $all }}
+    }
+    {{- end }}
+}
+
+{{- define "rpaasv2.internal.server" }}
+        {{- $all := . -}}
+        {{- $config := .Config -}}
+        {{- $instance := .Instance -}}
+
         {{- if boolValue $config.CacheEnabled }}
         proxy_cache rpaas;
         {{- end }}
@@ -513,7 +466,7 @@ http {
             proxy_set_header Connection "";
             proxy_set_header Host {{ $location.Destination }};
 
-            proxy_pass http://{{ buildLocationKey "" $location.Path }}/;
+            proxy_pass     http://{{ buildLocationKey "" $location.Path }}/;
             proxy_redirect ~^http://{{ buildLocationKey "" $location.Path }}(:\d+)?/(.*)$ {{ $location.Path }}$2;
         {{- else }}
         {{- with $location.Content.Value }}
@@ -530,7 +483,7 @@ http {
             proxy_set_header Connection "";
             proxy_set_header Host {{ (index $instance.Spec.Binds 0).Host }};
 
-            proxy_pass http://rpaas_default_upstream/;
+            proxy_pass     http://rpaas_default_upstream/;
             proxy_redirect ~^http://rpaas_default_upstream(:\d+)?/(.*)$ /$2;
         }
         {{- else }}
@@ -541,8 +494,6 @@ http {
         {{- end}}
         {{- end}}
 
-        {{ template "server" .}}
-    }
-    {{- end }}
-}
+        {{ template "server" $all }}
+{{- end }}
 `

@@ -289,7 +289,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app1.tsuru.example.com;
 
-\s+proxy_pass http://rpaas_default_upstream/;
+\s+proxy_pass     http://rpaas_default_upstream/;
 \s+proxy_redirect ~\^http://rpaas_default_upstream\(:\\d\+\)\?/\(\.\*\)\$ /\$2;
 \s+}`, result)
 			},
@@ -315,7 +315,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app1.tsuru.example.com;
 
-\s+proxy_pass http://rpaas_default_upstream/;
+\s+proxy_pass     http://rpaas_default_upstream/;
 \s+proxy_redirect ~\^http://rpaas_default_upstream\(:\\d\+\)\?/\(\.\*\)\$ /\$2;
 \s+}`, result)
 			},
@@ -361,7 +361,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app1\.tsuru\.example\.com;
 
-\s+proxy_pass http://rpaas_locations__path1/;
+\s+proxy_pass     http://rpaas_locations__path1/;
 \s+proxy_redirect ~\^http://rpaas_locations__path1\(:\\d\+\)\?/\(\.\*\)\$ /path1\$2;
 \s+}`, result)
 				assert.Regexp(t, `location /path2 {
@@ -372,7 +372,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app2\.tsuru\.example\.com;
 
-\s+proxy_pass http://rpaas_locations__path2/;
+\s+proxy_pass     http://rpaas_locations__path2/;
 \s+proxy_redirect ~\^http://rpaas_locations__path2\(:\\d\+\)\?/\(\.\*\)\$ /path2\$2;
 \s+}`, result)
 				assert.Regexp(t, `location /path3 {
