@@ -269,14 +269,15 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
-	if err := m.validateUpdateInstanceArgs(ctx, args); err != nil {
-		return err
-	}
-
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
+
+	if err := m.validateUpdateInstanceArgs(ctx, instance, args); err != nil {
+		return err
+	}
+
 	originalInstance := instance.DeepCopy()
 	if args.Plan != "" && args.Plan != instance.Spec.PlanName {
 		plan, err := m.getPlan(ctx, args.Plan)
@@ -1317,22 +1318,22 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 		return ConflictError{Msg: fmt.Sprintf("rpaas instance named %q already exists", args.Name)}
 	}
 
-	if err = m.validateFlavors(ctx, args.Flavors(), true); err != nil {
+	if err = m.validateFlavors(ctx, nil, args.Flavors()); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m *k8sRpaasManager) validateUpdateInstanceArgs(ctx context.Context, args UpdateInstanceArgs) error {
-	if err := m.validateFlavors(ctx, args.Flavors(), false); err != nil {
+func (m *k8sRpaasManager) validateUpdateInstanceArgs(ctx context.Context, instance *v1alpha1.RpaasInstance, args UpdateInstanceArgs) error {
+	if err := m.validateFlavors(ctx, instance, args.Flavors()); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string, creation bool) error {
+func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, flavors []string) error {
 	encountered := map[string]bool{}
 	allFlavors, err := m.getFlavors(ctx)
 	if err != nil {
@@ -1345,7 +1346,7 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string,
 			return ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
 		}
 
-		if flavorObj.Spec.CreationOnly && !creation {
+		if flavorObj.Spec.CreationOnly && instance != nil {
 			return ValidationError{Msg: fmt.Sprintf("flavor %q can used only in the creation of instance", f)}
 		}
 
@@ -1354,6 +1355,22 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string,
 		}
 
 		encountered[f] = true
+	}
+
+	if instance == nil {
+		return nil
+	}
+
+	for _, f := range instance.Spec.Flavors {
+		flavorObj := m.selectFlavor(ctx, allFlavors, f)
+
+		if flavorObj == nil {
+			continue
+		}
+
+		if flavorObj.Spec.CreationOnly && !encountered[f] {
+			return ValidationError{Msg: fmt.Sprintf("flavor %q can unset, cause it is a creation only flavor", f)}
+		}
 	}
 
 	return nil

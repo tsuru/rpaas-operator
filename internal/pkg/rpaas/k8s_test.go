@@ -3607,6 +3607,12 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 	}
 	instance1.Spec.PlanName = "plan1"
 
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "instance2"
+	instance2.Labels = labelsForRpaasInstance(instance1.Name)
+	instance2.Spec.PlanName = "plan1"
+	instance2.Spec.Flavors = []string{"feature-create-only"}
+
 	podLabels := mergeMap(instance1.Labels, map[string]string{"pod-label-1": "v1"})
 
 	instance1.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
@@ -3647,7 +3653,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, plan1, plan2, creationOnlyFlavor}
+	resources := []runtime.Object{instance1, instance2, plan1, plan2, creationOnlyFlavor}
 
 	tests := []struct {
 		name      string
@@ -3683,6 +3689,23 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
 				require.Error(t, err)
 				assert.Equal(t, `flavor "feature-create-only" can used only in the creation of instance`, err.Error())
+			},
+		},
+		{
+			name:     "when tries to remove a creationOnly flavor",
+			instance: "instance2",
+			args: UpdateInstanceArgs{
+				Description: "Another description",
+				Plan:        "plan2",
+				Tags:        []string{},
+				Team:        "team-two",
+				Parameters: map[string]interface{}{
+					"lb-name": "my-instance.example",
+				},
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Equal(t, `flavor "feature-create-only" can unset, cause it is a creation only flavor`, err.Error())
 			},
 		},
 		{
