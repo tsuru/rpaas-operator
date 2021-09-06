@@ -3636,7 +3636,18 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, plan1, plan2}
+	creationOnlyFlavor := &v1alpha1.RpaasFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "feature-create-only",
+			Namespace: getServiceName(),
+		},
+		Spec: v1alpha1.RpaasFlavorSpec{
+			CreationOnly: true,
+			Description:  "aaaaa",
+		},
+	}
+
+	resources := []runtime.Object{instance1, plan1, plan2, creationOnlyFlavor}
 
 	tests := []struct {
 		name      string
@@ -3655,6 +3666,23 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				assert.Error(t, NotFoundError{
 					Msg: `plan "not-found" not found`,
 				}, err)
+			},
+		},
+		{
+			name:     "when tries to add creationOnly flavor",
+			instance: "instance1",
+			args: UpdateInstanceArgs{
+				Description: "Another description",
+				Plan:        "plan2",
+				Tags:        []string{"flavor:feature-create-only"},
+				Team:        "team-two",
+				Parameters: map[string]interface{}{
+					"lb-name": "my-instance.example",
+				},
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Equal(t, `flavor "feature-create-only" can used only in the creation of instance`, err.Error())
 			},
 		},
 		{

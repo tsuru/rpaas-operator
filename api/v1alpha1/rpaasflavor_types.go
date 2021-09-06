@@ -23,6 +23,10 @@ type RpaasFlavorSpec struct {
 	// every service instance. Default flavors cannot be listed on RpaasFlavorList.
 	// +optional
 	Default bool `json:"default,omitempty"`
+
+	// CreationOnly defines if the flavor could be used only in the moment of creation of instance
+	// +optional
+	CreationOnly bool `json:"creationOnly,omitempty"`
 }
 
 // +kubebuilder:object:root=true

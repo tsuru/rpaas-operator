@@ -756,19 +756,14 @@ func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavo
 	return flavorList.Items, nil
 }
 
-func (m *k8sRpaasManager) isFlavorAvailable(ctx context.Context, name string) bool {
-	flavors, err := m.getFlavors(ctx)
-	if err != nil {
-		return false
-	}
-
-	for _, f := range flavors {
-		if f.Name == name {
-			return true
+func (m *k8sRpaasManager) selectFlavor(ctx context.Context, flavors []v1alpha1.RpaasFlavor, name string) *v1alpha1.RpaasFlavor {
+	for i := range flavors {
+		if flavors[i].Name == name {
+			return &flavors[i]
 		}
 	}
 
-	return false
+	return nil
 }
 
 func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
@@ -1322,7 +1317,7 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 		return ConflictError{Msg: fmt.Sprintf("rpaas instance named %q already exists", args.Name)}
 	}
 
-	if err = m.validateFlavors(ctx, args.Flavors()); err != nil {
+	if err = m.validateFlavors(ctx, args.Flavors(), true); err != nil {
 		return err
 	}
 
@@ -1330,18 +1325,28 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) validateUpdateInstanceArgs(ctx context.Context, args UpdateInstanceArgs) error {
-	if err := m.validateFlavors(ctx, args.Flavors()); err != nil {
+	if err := m.validateFlavors(ctx, args.Flavors(), false); err != nil {
 		return err
 	}
 
 	return nil
 }
 
-func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string) error {
+func (m *k8sRpaasManager) validateFlavors(ctx context.Context, flavors []string, creation bool) error {
 	encountered := map[string]bool{}
+	allFlavors, err := m.getFlavors(ctx)
+	if err != nil {
+		return err
+	}
 	for _, f := range flavors {
-		if !m.isFlavorAvailable(ctx, f) {
+		flavorObj := m.selectFlavor(ctx, allFlavors, f)
+
+		if flavorObj == nil {
 			return ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
+		}
+
+		if flavorObj.Spec.CreationOnly && !creation {
+			return ValidationError{Msg: fmt.Sprintf("flavor %q can used only in the creation of instance", f)}
 		}
 
 		if _, duplicated := encountered[f]; duplicated {
