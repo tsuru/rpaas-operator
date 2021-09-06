@@ -15,15 +15,7 @@ patches:
     group: apiextensions.k8s.io
     version: v1beta1
     kind: CustomResourceDefinition
-    name: .*rpaasinstances.*
-  patch: |-
-    - op: remove
-      path: /spec/validation
-- target:
-    group: apiextensions.k8s.io
-    version: v1beta1
-    kind: CustomResourceDefinition
-    name: .*flavors.*
+    name: .*
   patch: |-
     - op: remove
       path: /spec/validation
