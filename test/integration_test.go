@@ -91,9 +91,10 @@ func Test_RpaasOperator(t *testing.T) {
 		assert.Contains(t, "# My custom server block", nginxConf.Data["nginx-conf"])
 
 		require.Len(t, nginx.Spec.TLS, 2)
-		assert.Equal(t, nginxv1alpha1.NginxTLS{SecretName: "my-instance-certificates", Hosts: []string{"www.example.com"}}, nginx.Spec.TLS[0])
-		assert.Regexp(t, `^my-instance-certs-\w+`, nginx.Spec.TLS[1].SecretName)
-		assert.Equal(t, []string{"my-instance.example.com", "app.example.com"}, nginx.Spec.TLS[1].Hosts)
+		assert.Equal(t, []nginxv1alpha1.NginxTLS{
+			{SecretName: "my-instance-certificates", Hosts: []string{"www.example.com"}},
+			{SecretName: "my-instance-cert-manager", Hosts: []string{"my-instance.example.com", "app.example.com"}},
+		}, nginx.Spec.TLS)
 
 		nginxService := &corev1.Service{
 			TypeMeta: metav1.TypeMeta{
