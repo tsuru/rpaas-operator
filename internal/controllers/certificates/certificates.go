@@ -250,7 +250,9 @@ func extractDNSNames(rawCert []byte) ([]string, error) {
 		return nil, err
 	}
 
-	leaf := certs[len(certs)-1]
+	// NOTE: following Nginx documentation, first certificate sent in the chain
+	// should be the leaf.
+	leaf := certs[0]
 
 	return leaf.DNSNames, nil
 }
