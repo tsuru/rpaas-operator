@@ -49,11 +49,9 @@ type RpaasInstanceSpec struct {
 	// +optional
 	DNS *DNSConfig `json:"dns,omitempty"`
 
-	// Certificates are a set of attributes that relate the certificate's
-	// location in the cluster (Secret resource name) and its destination into
-	// Pods.
+	// TLS configuration.
 	// +optional
-	Certificates *nginxv1alpha1.TLSSecret `json:"certificates,omitempty"`
+	TLS []nginxv1alpha1.NginxTLS `json:"tls,omitempty"`
 
 	// Service to expose the nginx instance
 	// +optional

@@ -5,7 +5,6 @@
 package nginx
 
 import (
-	"crypto/x509"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -91,9 +90,9 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+}
 \s+}`, result)
 				assert.Regexp(t, `proxy_cache rpaas;`, result)
-
 			},
 		},
+
 		{
 			name: "with cache enabled and custom loader_files, inactive, and max cache size",
 			data: ConfigurationData{
@@ -192,33 +191,17 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						Certificates: &nginxv1alpha1.TLSSecret{
-							SecretName: "secret-name",
-							Items: []nginxv1alpha1.TLSSecretItem{
-								{
-									CertificateField: "default.crt",
-									KeyField:         "default.key",
-								},
-							},
-						},
-					},
-				},
-				FullCertificates: []CertificateData{
-					{
-						Certificate: &x509.Certificate{
-							DNSNames: []string{"example.org"},
-						},
-						SecretItem: nginxv1alpha1.TLSSecretItem{
-							CertificateField: "default.crt",
-							KeyField:         "default.key",
+						TLS: []nginxv1alpha1.NginxTLS{
+							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 						},
 					},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `listen 8443 default_server ssl http2;`, result)
-				assert.Regexp(t, `ssl_certificate\s+certs/default.crt;`, result)
-				assert.Regexp(t, `ssl_certificate_key certs/default.key;`, result)
+				assert.Regexp(t, `listen 8443 ssl http2;`, result)
+				assert.Regexp(t, `ssl_certificate\s+certs/my-cert-01/tls.crt;`, result)
+				assert.Regexp(t, `ssl_certificate_key certs/my-cert-01/tls.key;`, result)
+				assert.Regexp(t, `server_name \*.example.com;`, result)
 			},
 		},
 		{
@@ -227,54 +210,23 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						Certificates: &nginxv1alpha1.TLSSecret{
-							SecretName: "secret-name",
-							Items: []nginxv1alpha1.TLSSecretItem{
-								{
-									CertificateField: "example.crt",
-									KeyField:         "example.key",
-								},
-								{
-									CertificateField: "cert-manager.crt",
-									KeyField:         "cert-manager.key",
-								},
-							},
-						},
-					},
-				},
-				FullCertificates: []CertificateData{
-					{
-						Certificate: &x509.Certificate{
-							DNSNames: []string{"example.org", "example.io"},
-						},
-						SecretItem: nginxv1alpha1.TLSSecretItem{
-							CertificateField: "example.crt",
-							KeyField:         "example.key",
-						},
-					},
-					{
-						Certificate: &x509.Certificate{
-							DNSNames: []string{"example.namespace.system.internal.company.com"},
-						},
-						SecretItem: nginxv1alpha1.TLSSecretItem{
-							CertificateField: "cert-manager.crt",
-							KeyField:         "cert-manager.key",
+						TLS: []nginxv1alpha1.NginxTLS{
+							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
+							{SecretName: "my-cert-02", Hosts: []string{"www.example.org", "blog.example.org", "shop.example.org"}},
 						},
 					},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `listen 8443 default_server ssl http2;`, result)
-				assert.Regexp(t, `listen 8443 ssl http2;`, result)
+				assert.Regexp(t, `listen 8443 ssl http2;
+\s+server_name \*.example.com;
+\s+ssl_certificate     certs/my-cert-01/tls.crt;
+\s+ssl_certificate_key certs/my-cert-01/tls.key;`, result)
 
-				assert.Regexp(t, `ssl_certificate\s+certs/cert-manager.crt;`, result)
-				assert.Regexp(t, `ssl_certificate_key certs/cert-manager.key;`, result)
-
-				assert.Regexp(t, `ssl_certificate\s+certs/example.crt;`, result)
-				assert.Regexp(t, `ssl_certificate_key certs/example.key;`, result)
-
-				assert.Regexp(t, `server_name example.org example.io;`, result)
-				assert.Regexp(t, `server_name example.namespace.system.internal.company.com;`, result)
+				assert.Regexp(t, `listen 8443 ssl http2;
+\s+server_name www.example.org blog.example.org shop.example.org;
+\s+ssl_certificate     certs/my-cert-02/tls.crt;
+\s+ssl_certificate_key certs/my-cert-02/tls.key;`, result)
 			},
 		},
 		{
@@ -285,37 +237,17 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						Certificates: &nginxv1alpha1.TLSSecret{
-							SecretName: "secret-name",
-							Items: []nginxv1alpha1.TLSSecretItem{
-								{
-									CertificateField: "default.crt",
-									CertificatePath:  "custom_certificate_name.crt",
-									KeyField:         "default.key",
-									KeyPath:          "custom_key_name.key",
-								},
-							},
-						},
-					},
-				},
-				FullCertificates: []CertificateData{
-					{
-						Certificate: &x509.Certificate{
-							DNSNames: []string{"example.org"},
-						},
-						SecretItem: nginxv1alpha1.TLSSecretItem{
-							CertificateField: "default.crt",
-							CertificatePath:  "custom_certificate_name.crt",
-							KeyField:         "default.key",
-							KeyPath:          "custom_key_name.key",
+						TLS: []nginxv1alpha1.NginxTLS{
+							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 						},
 					},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `listen 8443 default_server ssl http2 backlog=2048 deferred reuseport;`, result)
-				assert.Regexp(t, `ssl_certificate\s+certs/custom_certificate_name.crt;`, result)
-				assert.Regexp(t, `ssl_certificate_key certs/custom_key_name.key;`, result)
+				assert.Regexp(t, `listen 8443 ssl http2 backlog=2048 deferred reuseport;
+\s+server_name \*.example.com;
+\s+ssl_certificate     certs/my-cert-01/tls.crt;
+\s+ssl_certificate_key certs/my-cert-01/tls.key;`, result)
 			},
 		},
 		{
@@ -357,7 +289,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app1.tsuru.example.com;
 
-\s+proxy_pass http://rpaas_default_upstream/;
+\s+proxy_pass     http://rpaas_default_upstream/;
 \s+proxy_redirect ~\^http://rpaas_default_upstream\(:\\d\+\)\?/\(\.\*\)\$ /\$2;
 \s+}`, result)
 			},
@@ -383,7 +315,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app1.tsuru.example.com;
 
-\s+proxy_pass http://rpaas_default_upstream/;
+\s+proxy_pass     http://rpaas_default_upstream/;
 \s+proxy_redirect ~\^http://rpaas_default_upstream\(:\\d\+\)\?/\(\.\*\)\$ /\$2;
 \s+}`, result)
 			},
@@ -429,7 +361,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app1\.tsuru\.example\.com;
 
-\s+proxy_pass http://rpaas_locations__path1/;
+\s+proxy_pass     http://rpaas_locations__path1/;
 \s+proxy_redirect ~\^http://rpaas_locations__path1\(:\\d\+\)\?/\(\.\*\)\$ /path1\$2;
 \s+}`, result)
 				assert.Regexp(t, `location /path2 {
@@ -440,7 +372,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+proxy_set_header Connection "";
 \s+proxy_set_header Host app2\.tsuru\.example\.com;
 
-\s+proxy_pass http://rpaas_locations__path2/;
+\s+proxy_pass     http://rpaas_locations__path2/;
 \s+proxy_redirect ~\^http://rpaas_locations__path2\(:\\d\+\)\?/\(\.\*\)\$ /path2\$2;
 \s+}`, result)
 				assert.Regexp(t, `location /path3 {
@@ -469,39 +401,21 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						Certificates: &nginxv1alpha1.TLSSecret{
-							SecretName: "secret-name",
-							Items: []nginxv1alpha1.TLSSecretItem{
-								{
-									CertificateField: "default.crt",
-									CertificatePath:  "custom_certificate_name.crt",
-									KeyField:         "default.key",
-									KeyPath:          "custom_key_name.key",
-								},
-							},
+						TLS: []nginxv1alpha1.NginxTLS{
+							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 						},
 						PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 							HostNetwork: true,
 						},
 					},
 				},
-				FullCertificates: []CertificateData{
-					{
-						Certificate: &x509.Certificate{
-							DNSNames: []string{"example.org"},
-						},
-						SecretItem: nginxv1alpha1.TLSSecretItem{
-							CertificateField: "default.crt",
-							CertificatePath:  "custom_certificate_name.crt",
-							KeyField:         "default.key",
-							KeyPath:          "custom_key_name.key",
-						},
-					},
-				},
 			},
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `listen 80 default_server;`, result)
-				assert.Regexp(t, `listen 443 default_server ssl http2;`, result)
+				assert.Regexp(t, `listen 443 ssl http2;
+\s+server_name \*.example.com;
+\s+ssl_certificate     certs/my-cert-01/tls.crt;
+\s+ssl_certificate_key certs/my-cert-01/tls.key;`, result)
 				assert.Regexp(t, `listen 8800;`, result)
 			},
 		},
@@ -511,16 +425,8 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						Certificates: &nginxv1alpha1.TLSSecret{
-							SecretName: "secret-name",
-							Items: []nginxv1alpha1.TLSSecretItem{
-								{
-									CertificateField: "default.crt",
-									CertificatePath:  "custom_certificate_name.crt",
-									KeyField:         "default.key",
-									KeyPath:          "custom_key_name.key",
-								},
-							},
+						TLS: []nginxv1alpha1.NginxTLS{
+							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 						},
 						PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 							Ports: []corev1.ContainerPort{
@@ -540,23 +446,13 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 						},
 					},
 				},
-				FullCertificates: []CertificateData{
-					{
-						Certificate: &x509.Certificate{
-							DNSNames: []string{"example.org"},
-						},
-						SecretItem: nginxv1alpha1.TLSSecretItem{
-							CertificateField: "default.crt",
-							CertificatePath:  "custom_certificate_name.crt",
-							KeyField:         "default.key",
-							KeyPath:          "custom_key_name.key",
-						},
-					},
-				},
 			},
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `listen 20001 default_server;`, result)
-				assert.Regexp(t, `listen 20002 default_server ssl http2;`, result)
+				assert.Regexp(t, `listen 20002 ssl http2;
+\s+server_name \*.example.com;
+\s+ssl_certificate     certs/my-cert-01/tls.crt;
+\s+ssl_certificate_key certs/my-cert-01/tls.key;`, result)
 				assert.Regexp(t, `listen 20003;`, result)
 			},
 		},
