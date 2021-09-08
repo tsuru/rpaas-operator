@@ -9,21 +9,21 @@ import (
 
 func extractLogArgs(c echo.Context) rpaas.LogArgs {
 	var pLines *int64
-	lines, err := strconv.ParseInt(c.FormValue("lines"), 10, 64)
+	lines, err := strconv.ParseInt(c.QueryParam("lines"), 10, 64)
 	if err == nil && lines > 0 {
 		pLines = &lines
 	}
 	var pSince *int64
-	since, err := strconv.ParseInt(c.FormValue("since"), 10, 64)
+	since, err := strconv.ParseInt(c.QueryParam("since"), 10, 64)
 	if err == nil && since > 0 {
 		pSince = &since
 	}
-	follow, _ := strconv.ParseBool(c.FormValue("follow"))
-	withTimestamp, _ := strconv.ParseBool(c.FormValue("timestamp"))
+	follow, _ := strconv.ParseBool(c.QueryParam("follow"))
+	withTimestamp, _ := strconv.ParseBool(c.QueryParam("timestamp"))
 
 	args := rpaas.LogArgs{
-		Pod:           c.FormValue("pod"),
-		Container:     c.FormValue("container"),
+		Pod:           c.QueryParam("pod"),
+		Container:     c.QueryParam("container"),
 		Lines:         pLines,
 		Follow:        follow,
 		SinceSeconds:  pSince,

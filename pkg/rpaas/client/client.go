@@ -97,6 +97,16 @@ type ExecArgs struct {
 	TTY            bool
 }
 
+type LogArgs struct {
+	Instance      string
+	Lines         int
+	Since         int
+	Follow        bool
+	WithTimestamp bool
+	Pod           string
+	Container     string
+}
+
 type UpdateCertManagerArgs struct {
 	types.CertManager
 	Instance string
@@ -119,6 +129,7 @@ type Client interface {
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
+	Log(ctx context.Context, args LogArgs) error
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)

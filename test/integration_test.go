@@ -487,7 +487,7 @@ func Test_RpaasApi(t *testing.T) {
 		assert.Equal(t, expectedConfigSize, len(configList.Items))
 	})
 
-	t.Run("exec an remote command in instance", func(t *testing.T) {
+	t.Run("exec a remote command inside the instance", func(t *testing.T) {
 		instanceName := generateRandomName("my-instance")
 		teamName := generateRandomName("team-one")
 		planName := "basic"
@@ -503,6 +503,28 @@ func Test_RpaasApi(t *testing.T) {
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, fmt.Sprintf("exec was not successful. Returned output: %s", string(out)))
 		assert.Contains(t, string(out), "WORKING\n")
+	})
+
+	t.Run("generate an output inside the instance and log it", func(t *testing.T) {
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
+		planName := "basic"
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		execCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "curl", "localhost:80")
+		execOut, err := execCmd.CombinedOutput()
+		require.NoError(t, err, fmt.Sprintf("exec was not successful. Returned output: %s", string(execOut)))
+		assert.Contains(t, string(execOut), "WORKING\n")
+		logCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "log", "-i", instanceName)
+		logOut, err := logCmd.CombinedOutput()
+		require.NoError(t, err, fmt.Sprintf("log was not successful. Returned output: %s", string(logOut)))
+		assert.Equal(t, string(execOut), string(logOut))
 	})
 }
 
