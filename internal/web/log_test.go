@@ -21,7 +21,7 @@ func Test_log(t *testing.T) {
 		manager      rpaas.RpaasManager
 	}{
 		{
-			name:         "when log is successfull",
+			name:         "when log is successful",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
 			queryString:  "pod=my-pod&container=my-container&lines=15&since=5&follow=true",
