@@ -110,6 +110,11 @@ type RpaasInstanceSpec struct {
 	// DynamicCertificates enables automatic issuing and renewal for TLS certificates.
 	// +optional
 	DynamicCertificates *DynamicCertificates `json:"dynamicCertificates,omitempty"`
+
+	// Ingress defines a minimal set of configurations to expose the instance over
+	// an Ingress.
+	// +optional
+	Ingress *nginxv1alpha1.NginxIngress `json:"ingress,omitempty"`
 }
 
 type DynamicCertificates struct {

@@ -1024,6 +1024,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 			Cache:           cacheConfig,
 			PodTemplate:     instanceMergedWithFlavors.Spec.PodTemplate,
 			Lifecycle:       instanceMergedWithFlavors.Spec.Lifecycle,
+			Ingress:         instanceMergedWithFlavors.Spec.Ingress,
 		},
 	}
 

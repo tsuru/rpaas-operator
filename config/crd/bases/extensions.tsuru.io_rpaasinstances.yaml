@@ -205,6 +205,24 @@ spec:
               items:
                 type: string
               type: array
+            ingress:
+              description: Ingress defines a minimal set of configurations to expose
+                the instance over an Ingress.
+              properties:
+                annotations:
+                  additionalProperties:
+                    type: string
+                  description: Annotations are extra annotations for the Ingress resource.
+                  type: object
+                ingressClassName:
+                  description: IngressClassName is the class to be set on Ingress.
+                  type: string
+                labels:
+                  additionalProperties:
+                    type: string
+                  description: Labels are extra labels for the Ingress resource.
+                  type: object
+              type: object
             lifecycle:
               description: Lifecycle describes actions that should be executed when
                 some event happens to nginx container.

@@ -34,6 +34,10 @@ spec:
         spec:
           description: RpaasFlavorSpec defines the desired state of RpaasFlavor
           properties:
+            creationOnly:
+              description: CreationOnly defines if the flavor could be used only in
+                the moment of creation of instance
+              type: boolean
             default:
               description: Default defines if the flavor should be applied by default
                 on every service instance. Default flavors cannot be listed on RpaasFlavorList.
@@ -214,6 +218,25 @@ spec:
                   items:
                     type: string
                   type: array
+                ingress:
+                  description: Ingress defines a minimal set of configurations to
+                    expose the instance over an Ingress.
+                  properties:
+                    annotations:
+                      additionalProperties:
+                        type: string
+                      description: Annotations are extra annotations for the Ingress
+                        resource.
+                      type: object
+                    ingressClassName:
+                      description: IngressClassName is the class to be set on Ingress.
+                      type: string
+                    labels:
+                      additionalProperties:
+                        type: string
+                      description: Labels are extra labels for the Ingress resource.
+                      type: object
+                  type: object
                 lifecycle:
                   description: Lifecycle describes actions that should be executed
                     when some event happens to nginx container.

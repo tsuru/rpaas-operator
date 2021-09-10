@@ -215,7 +215,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 
 	instance3 := newEmptyRpaasInstance()
 	instance3.Name = "instance3"
-	instance3.Spec.Flavors = []string{"mint", "mango"}
+	instance3.Spec.Flavors = []string{"mint", "mango", "blueberry"}
 	instance3.Spec.Service = &nginxv1alpha1.NginxService{
 		Annotations: map[string]string{
 			"some-instance-annotation-key": "blah",
@@ -378,9 +378,23 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 		},
 	}
 
+	blueberry := newRpaasFlavor()
+	blueberry.Name = "blueberry"
+	blueberry.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		Ingress: &nginxv1alpha1.NginxIngress{
+			IngressClassName: func(s string) *string { return &s }("custom-ingress"),
+			Annotations: map[string]string{
+				"custom.example.com/flavor": "blueberry",
+			},
+			Labels: map[string]string{
+				"flavor.custom.example.com": "blueberry",
+			},
+		},
+	}
+
 	resources := []runtime.Object{
 		instance1, instance2, instance3, instance4, instance5, instance6, instance7,
-		mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor, defaultFlavorNamespaced, poolNameSpacedFlavor, raspberryFlavor,
+		mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor, defaultFlavorNamespaced, poolNameSpacedFlavor, raspberryFlavor, blueberry,
 	}
 
 	tests := []struct {
@@ -502,7 +516,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					Namespace: instance3.Namespace,
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors:                []string{"mint", "mango"},
+					Flavors:                []string{"mint", "mango", "blueberry"},
 					PlanName:               "my-plan",
 					AllocateContainerPorts: v1alpha1.Bool(true),
 					Service: &nginxv1alpha1.NginxService{
@@ -536,6 +550,15 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					DNS: &v1alpha1.DNSConfig{
 						Zone: "test-zone",
 						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+					},
+					Ingress: &nginxv1alpha1.NginxIngress{
+						IngressClassName: func(s string) *string { return &s }("custom-ingress"),
+						Annotations: map[string]string{
+							"custom.example.com/flavor": "blueberry",
+						},
+						Labels: map[string]string{
+							"flavor.custom.example.com": "blueberry",
+						},
 					},
 				},
 			},
