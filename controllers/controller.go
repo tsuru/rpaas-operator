@@ -966,18 +966,35 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 }
 
 func mergeServiceWithDNS(instance *v1alpha1.RpaasInstance) *nginxv1alpha1.NginxService {
-	service := instance.Spec.Service
-	if instance.Spec.DNS != nil && service != nil {
-		if service.Annotations == nil {
-			service.Annotations = make(map[string]string)
-		}
-		service.Annotations[externalDNSHostnameLabel] = fmt.Sprintf("%s.%s", instance.Name, instance.Spec.DNS.Zone)
-		if instance.Spec.DNS.TTL != nil {
-			service.Annotations[externalDNSTTLLabel] = strconv.Itoa(int(*instance.Spec.DNS.TTL))
-		}
+	if instance == nil {
+		return nil
 	}
 
-	return service
+	s := instance.Spec.Service
+	if s == nil {
+		return nil
+	}
+
+	if instance.Spec.DNS == nil {
+		return s
+	}
+
+	if s.Annotations == nil {
+		s.Annotations = make(map[string]string)
+	}
+
+	hostname := fmt.Sprintf("%s.%s", instance.Name, instance.Spec.DNS.Zone)
+	if custom, found := s.Annotations[externalDNSHostnameLabel]; found {
+		hostname = strings.Join([]string{hostname, custom}, ",")
+	}
+
+	s.Annotations[externalDNSHostnameLabel] = hostname
+
+	if instance.Spec.DNS.TTL != nil {
+		s.Annotations[externalDNSTTLLabel] = strconv.Itoa(int(*instance.Spec.DNS.TTL))
+	}
+
+	return s
 }
 
 func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxv1alpha1.Nginx {

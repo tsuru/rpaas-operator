@@ -2222,6 +2222,87 @@ func Test_nameForCronJob(t *testing.T) {
 	}
 }
 
+func Test_mergeServiceWithDNS(t *testing.T) {
+	tests := []struct {
+		instance *v1alpha1.RpaasInstance
+		expected *nginxv1alpha1.NginxService
+	}{
+		{},
+
+		{
+			instance: &v1alpha1.RpaasInstance{},
+		},
+
+		{
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-instance",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "apps.example.com",
+					},
+				},
+			},
+		},
+
+		{
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-instance",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Service: &nginxv1alpha1.NginxService{},
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "apps.example.com",
+						TTL:  func(n int32) *int32 { return &n }(int32(600)),
+					},
+				},
+			},
+
+			expected: &nginxv1alpha1.NginxService{
+				Annotations: map[string]string{
+					"external-dns.alpha.kubernetes.io/hostname": "my-instance.apps.example.com",
+					"external-dns.alpha.kubernetes.io/ttl":      "600",
+				},
+			},
+		},
+
+		{
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "my-instance",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"external-dns.alpha.kubernetes.io/hostname": "www.example.com,www.example.org",
+						},
+					},
+
+					DNS: &v1alpha1.DNSConfig{
+						Zone: "apps.example.com",
+						TTL:  func(n int32) *int32 { return &n }(int32(600)),
+					},
+				},
+			},
+
+			expected: &nginxv1alpha1.NginxService{
+				Annotations: map[string]string{
+					"external-dns.alpha.kubernetes.io/hostname": "my-instance.apps.example.com,www.example.com,www.example.org",
+					"external-dns.alpha.kubernetes.io/ttl":      "600",
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			assert.Equal(t, tt.expected, mergeServiceWithDNS(tt.instance))
+		})
+	}
+}
+
 type fakeImageMetadata struct{}
 
 func (i *fakeImageMetadata) Modules(img string) ([]string, error) {
