@@ -1309,6 +1309,10 @@ func renderCustomValues(instance *v1alpha1.RpaasInstance) error {
 		return err
 	}
 
+	if err := renderIngressCustomAnnotations(instance); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -1333,6 +1337,32 @@ func renderServiceCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
 		}
 
 		instance.Spec.Service.Annotations[k] = buffer.String()
+	}
+
+	return nil
+}
+
+func renderIngressCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
+	if instance == nil {
+		return nil
+	}
+
+	if instance.Spec.Ingress == nil {
+		return nil
+	}
+
+	for k, v := range instance.Spec.Ingress.Annotations {
+		tmpl, err := template.New("rpaasv2.ingress.annotations").Parse(v)
+		if err != nil {
+			return err
+		}
+
+		var buffer bytes.Buffer
+		if err = tmpl.Execute(&buffer, instance); err != nil {
+			return err
+		}
+
+		instance.Spec.Ingress.Annotations[k] = buffer.String()
 	}
 
 	return nil

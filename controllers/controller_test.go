@@ -237,6 +237,11 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 			"some-instance-annotation-key": "my custom value: {{ .Labels.rpaas_service }}/{{ .Labels.rpaas_instance }}/{{ .Name }}",
 		},
 	}
+	instance4.Spec.Ingress = &nginxv1alpha1.NginxIngress{
+		Annotations: map[string]string{
+			"some-instance-annotation-key": "my custom value: {{ .Labels.rpaas_service }}/{{ .Name }}",
+		},
+	}
 
 	instance5 := newEmptyRpaasInstance()
 	instance5.Name = "instance5"
@@ -607,6 +612,11 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 					DNS: &v1alpha1.DNSConfig{
 						Zone: "test-zone",
 						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
+					},
+					Ingress: &nginxv1alpha1.NginxIngress{
+						Annotations: map[string]string{
+							"some-instance-annotation-key": "my custom value: my-service-name/instance4",
+						},
 					},
 				},
 			},
