@@ -34,7 +34,6 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	resp, err := c.do(ctx, req)
 	if err != nil {
