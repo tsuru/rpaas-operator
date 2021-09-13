@@ -10,6 +10,17 @@ import (
 	"strconv"
 )
 
+func writeOut(body io.ReadCloser) error {
+	writer := bufio.NewWriter(os.Stdout)
+	reader := bufio.NewReader(body)
+	defer body.Close()
+	_, err := io.Copy(writer, reader)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (c *client) Log(ctx context.Context, args LogArgs) error {
 	values := url.Values{
 		"follow": []string{strconv.FormatBool(args.Follow)},
@@ -25,13 +36,6 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	if err != nil {
 		return err
 	}
-	writer := bufio.NewWriter(os.Stdout)
-	reader := bufio.NewReader(resp.Body)
-	defer resp.Body.Close()
-	_, err = io.Copy(writer, reader)
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return writeOut(resp.Body)
 }

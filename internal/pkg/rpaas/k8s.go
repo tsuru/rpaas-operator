@@ -5,7 +5,6 @@
 package rpaas
 
 import (
-	"bufio"
 	"bytes"
 	"context"
 	"crypto"
@@ -16,9 +15,7 @@ import (
 	"encoding/json"
 	"encoding/pem"
 	"fmt"
-	"io"
 	"net"
-	"net/http"
 	"net/url"
 	"regexp"
 	"sort"
@@ -130,15 +127,6 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	return q.sz
 }
 
-func hasContainer(containerName string, containers []v1.Container) bool {
-	for _, c := range containers {
-		if strings.Compare(containerName, c.Name) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -158,61 +146,28 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 		return ValidationError{Msg: "nginx instance has no pods associated to it"}
 	}
 
-	var candidate v1.Pod
 	found := false
+	tm := NewTailManager()
 	for _, pod := range podsInfo {
-		if args.Pod != "" {
-			switch args.Container == "" {
-			case true:
-				if args.Pod == pod.Name && pod.Status.Phase == "Running" {
-					found = true
-					candidate = pod
-					break
-				}
-			case false:
-				if args.Pod == pod.Name && hasContainer(args.Container, pod.Spec.Containers) && pod.Status.Phase == "Running" {
-					found = true
-					candidate = pod
-					break
-				}
-			}
-		} else if pod.Status.Phase == "Running" {
+		tail := tail{LogArgs: args, Pod: pod, kcs: m.kcs}
+		if args.Pod == "" {
 			found = true
-			candidate = pod
+			go tm.Start(ctx, tail)
+		} else if strings.Compare(args.Pod, pod.Name) == 0 {
+			found = true
+			go tm.Start(ctx, tail)
 			break
 		}
 	}
 	if !found {
-		return NotFoundError{"pod candidate not found"}
+		return NotFoundError{Msg: "specified pod was not found inside the instance"}
 	}
-	req := m.kcs.CoreV1().Pods(nginx.Namespace).GetLogs(candidate.Name, &corev1.PodLogOptions{
-		Follow:       args.Follow,
-		TailLines:    args.Lines,
-		Container:    args.Container,
-		SinceSeconds: args.SinceSeconds,
-		Timestamps:   args.WithTimestamp,
-	})
-	stream, err := req.Stream(ctx)
-	if err != nil {
-		return err
-	}
-	defer stream.Close()
-	reader := bufio.NewReader(stream)
-	for {
-		stringBytes, err := reader.ReadBytes('\n')
-		if err == io.EOF {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		_, err = args.Buffer.Write(stringBytes)
-		if err != nil {
-			return err
-		}
-		if f, ok := args.Buffer.(http.Flusher); ok {
-			f.Flush()
-		}
+
+	select {
+	case <-ctx.Done():
+		return nil
+	case <-tm.done:
+		return nil
 	}
 }
 
