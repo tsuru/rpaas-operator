@@ -127,6 +127,15 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	return q.sz
 }
 
+func hasContainer(containerName string, pod v1.Pod) bool {
+	for _, c := range pod.Spec.Containers {
+		if strings.Compare(containerName, c.Name) == 0 {
+			return true
+		}
+	}
+	return false
+}
+
 func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -148,19 +157,34 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 
 	found := false
 	tm := NewTailManager()
+	defer close(tm.done)
 	for _, pod := range podsInfo {
-		tail := tail{LogArgs: args, Pod: pod, kcs: m.kcs}
+		t := tail{LogArgs: args, Pod: pod, kcs: m.kcs}
 		if args.Pod == "" {
-			found = true
-			go tm.Start(ctx, tail)
+			if args.Container == "" || hasContainer(args.Container, pod) {
+				found = true
+				go func() error {
+					if err := tm.Start(ctx, t); err != nil {
+						return err
+					}
+					return nil
+				}()
+			}
 		} else if strings.Compare(args.Pod, pod.Name) == 0 {
-			found = true
-			go tm.Start(ctx, tail)
-			break
+			if args.Container == "" || hasContainer(args.Container, pod) {
+				found = true
+				go func() error {
+					if err := tm.Start(ctx, t); err != nil {
+						return err
+					}
+					return nil
+				}()
+				break
+			}
 		}
 	}
 	if !found {
-		return NotFoundError{Msg: "specified pod was not found inside the instance"}
+		return NotFoundError{Msg: "specified pod/container was not found inside the instance"}
 	}
 
 	select {

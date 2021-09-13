@@ -5304,7 +5304,7 @@ func TestK8sRpaasManager_Log(t *testing.T) {
 				WithTimestamp: true,
 				Pod:           "junda",
 			},
-			expectedError: "pod candidate not found",
+			expectedError: "specified pod/container was not found inside the instance",
 		},
 		"when specified container doesn't exist": {
 			instanceName: "my-instance-1",
@@ -5314,7 +5314,7 @@ func TestK8sRpaasManager_Log(t *testing.T) {
 				Pod:           "my-instance-1-b67766d74-t7zc8",
 				Container:     "junda",
 			},
-			expectedError: "pod candidate not found",
+			expectedError: "specified pod/container was not found inside the instance",
 		},
 		"simple": {
 			instanceName: "my-instance-1",
@@ -5325,7 +5325,7 @@ func TestK8sRpaasManager_Log(t *testing.T) {
 				fmt.Fprintf(rw, "%v\n", r.URL.String())
 			},
 			assert: func(t *testing.T, w io.Writer) {
-				assert.EqualValues(t, fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log\n", pod.Namespace, pod.Name), w.(*bytes.Buffer).String())
+				assert.EqualValues(t, fmt.Sprintf("[%s]: /api/v1/namespaces/%s/pods/%s/log?container=nginx\n", pod.Name, pod.Namespace, pod.Name), w.(*bytes.Buffer).String())
 			},
 		},
 		"with every options set": {
@@ -5343,7 +5343,7 @@ func TestK8sRpaasManager_Log(t *testing.T) {
 				fmt.Fprintf(rw, "%v\n", r.URL.String())
 			},
 			assert: func(t *testing.T, w io.Writer) {
-				assert.EqualValues(t, fmt.Sprintf("/api/v1/namespaces/%s/pods/%s/log?container=c1&follow=true&sinceSeconds=3&tailLines=2&timestamps=true\n", pod.Namespace, pod.Name), w.(*bytes.Buffer).String())
+				assert.EqualValues(t, fmt.Sprintf("[%s]: /api/v1/namespaces/%s/pods/%s/log?container=c1&follow=true&sinceSeconds=3&tailLines=2&timestamps=true\n", pod.Name, pod.Namespace, pod.Name), w.(*bytes.Buffer).String())
 			},
 		},
 	}
