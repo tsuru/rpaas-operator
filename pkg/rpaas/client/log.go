@@ -27,7 +27,22 @@ func writeOut(body io.ReadCloser) error {
 
 func (c *client) Log(ctx context.Context, args LogArgs) error {
 	values := url.Values{
-		"follow": []string{strconv.FormatBool(args.Follow)},
+		"follow":    []string{strconv.FormatBool(args.Follow)},
+		"timestamp": []string{strconv.FormatBool(args.WithTimestamp)},
+		"states":    args.States,
+	}
+
+	if lines := strconv.FormatInt(int64(args.Lines), 10); lines != "" {
+		values.Set("lines", lines)
+	}
+	if since := strconv.FormatInt(int64(args.Since), 10); since != "" {
+		values.Set("since", since)
+	}
+	if args.Pod != "" {
+		values.Set("pod", args.Pod)
+	}
+	if args.Container != "" {
+		values.Set("container", args.Container)
 	}
 	pathName := fmt.Sprintf("/resources/%s/log?%s", args.Instance, values.Encode())
 	req, err := c.newRequest("GET", pathName, nil, args.Instance)

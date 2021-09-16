@@ -17,6 +17,7 @@ import (
 	"fmt"
 	"net"
 	"net/url"
+	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -29,6 +30,7 @@ import (
 	"github.com/jetstack/cert-manager/pkg/util/pki"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
+	"github.com/stern/stern/stern"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -127,15 +129,6 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	return q.sz
 }
 
-func hasContainer(containerName string, pod v1.Pod) bool {
-	for _, c := range pod.Spec.Containers {
-		if strings.Compare(containerName, c.Name) == 0 {
-			return true
-		}
-	}
-	return false
-}
-
 func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -147,52 +140,23 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 		return err
 	}
 
-	podsInfo, err := m.getPods(ctx, nginx)
-	if err != nil {
-		return err
-	}
-	if len(podsInfo) == 0 {
-		return ValidationError{Msg: "nginx instance has no pods associated to it"}
-	}
-
-	found := false
-	tm := NewTailManager()
-	defer close(tm.done)
-	for _, pod := range podsInfo {
-		t := tail{LogArgs: args, Pod: pod, kcs: m.kcs}
-		if args.Pod == "" {
-			if args.Container == "" || hasContainer(args.Container, pod) {
-				found = true
-				go func() error {
-					if err := tm.Start(ctx, t); err != nil {
-						return err
-					}
-					return nil
-				}()
-			}
-		} else if strings.Compare(args.Pod, pod.Name) == 0 {
-			if args.Container == "" || hasContainer(args.Container, pod) {
-				found = true
-				go func() error {
-					if err := tm.Start(ctx, t); err != nil {
-						return err
-					}
-					return nil
-				}()
-				break
-			}
-		}
-	}
-	if !found {
-		return NotFoundError{Msg: "specified pod/container was not found inside the instance"}
-	}
-
-	select {
-	case <-ctx.Done():
-		return nil
-	case <-tm.done:
-		return nil
-	}
+	return stern.Run(ctx, &stern.Config{
+		LabelSelector:  labels.SelectorFromSet(nginx.Spec.PodTemplate.Labels),
+		FieldSelector:  fields.Everything(),
+		Template:       args.Template,
+		Out:            args.Buffer,
+		ErrOut:         os.Stdout,
+		Namespaces:     []string{nginx.Namespace},
+		TailLines:      args.Lines,
+		Since:          args.Since,
+		PodQuery:       args.Pod,
+		ContainerQuery: args.Container,
+		ContainerStates: []stern.ContainerState{
+			"running",
+			"waiting",
+			"terminated",
+		},
+	})
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {

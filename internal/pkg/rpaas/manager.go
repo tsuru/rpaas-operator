@@ -11,8 +11,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"regexp"
 	"sort"
 	"strings"
+	"text/template"
+	"time"
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
@@ -197,13 +200,15 @@ type ExecArgs struct {
 }
 
 type LogArgs struct {
-	Pod           string
-	Container     string
-	Buffer        io.Writer
-	Lines         *int64
-	SinceSeconds  *int64
-	Follow        bool
-	WithTimestamp bool
+	Pod             *regexp.Regexp
+	Container       *regexp.Regexp
+	Buffer          io.Writer
+	Template        *template.Template
+	Lines           *int64
+	Since           time.Duration
+	Follow          bool
+	WithTimestamp   bool
+	ContainerStates []string
 }
 
 type RpaasManager interface {
