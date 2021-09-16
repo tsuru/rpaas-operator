@@ -95,7 +95,7 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		pLines = &lines
 	}
 
-	tSince := 15 * 60 * time.Second // last 15 minutes by default
+	tSince := 48 * time.Hour // last 15 minutes by default
 	since, _ := strconv.ParseInt(params.Get("since"), 10, 64)
 	if since > 0 {
 		tSince = time.Second * time.Duration(since)
