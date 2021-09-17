@@ -31,10 +31,9 @@ require (
 	github.com/sirupsen/logrus v1.7.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.8.1
-	github.com/stern/stern v1.20.1 // indirect
+	github.com/stern/stern v1.20.1
 	github.com/stretchr/testify v1.7.0
 	github.com/tsuru/nginx-operator v0.8.0
-	github.com/tsuru/stern v0.0.0
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	github.com/urfave/cli/v2 v2.1.1
@@ -50,4 +49,4 @@ require (
 	sigs.k8s.io/go-open-service-broker-client/v2 v2.0.0-20200925085050-ae25e62aaf10
 )
 
-replace github.com/tsuru/stern v0.0.0 => /Users/arthur.coelho/go/src/github.com/tsuru/stern
+replace github.com/stern/stern => github.com/tsuru/stern v1.20.2-0.20210916201636-9a55e620a9b6
