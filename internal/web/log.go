@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"regexp"
 	"strconv"
+	"sync"
 	"text/template"
 	"time"
 
@@ -20,14 +21,20 @@ import (
 )
 
 type flushWriter struct {
+	sync.Mutex
+
 	w io.Writer
 }
 
 func (fw *flushWriter) Write(p []byte) (int, error) {
+	fw.Lock()
+	defer fw.Unlock()
+
 	n, err := fw.w.Write(p)
 	if err != nil {
 		return n, err
 	}
+
 	if f, ok := fw.w.(http.Flusher); ok && fw.w != nil {
 		f.Flush()
 	}

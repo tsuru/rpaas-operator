@@ -17,7 +17,6 @@ import (
 	"fmt"
 	"net"
 	"net/url"
-	"os"
 	"regexp"
 	"sort"
 	"strings"
@@ -145,7 +144,7 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 		FieldSelector:  fields.Everything(),
 		Template:       args.Template,
 		Out:            args.Buffer,
-		ErrOut:         os.Stderr,
+		ErrOut:         args.Buffer,
 		Namespaces:     []string{nginx.Namespace},
 		TailLines:      args.Lines,
 		Since:          args.Since,
