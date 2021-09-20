@@ -23,13 +23,15 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/fatih/color"
+	"github.com/stern/stern/stern"
+
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/jetstack/cert-manager/pkg/util/pki"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
-	"github.com/stern/stern/stern"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
@@ -128,6 +130,23 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	return q.sz
 }
 
+func defaultSternTemplate() (*template.Template, error) {
+	t := "{{color .PodColor .PodName}} {{color .ContainerColor .ContainerName}} {{.Message}}\r\n"
+	funcs := map[string]interface{}{
+		"json": func(in interface{}) (string, error) {
+			b, err := json.Marshal(in)
+			if err != nil {
+				return "", err
+			}
+			return string(b), nil
+		},
+		"color": func(color color.Color, text string) string {
+			return color.SprintFunc()(text)
+		},
+	}
+	return template.New("log").Funcs(funcs).Parse(t)
+}
+
 func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -139,24 +158,17 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 		return err
 	}
 
-	return stern.Run(ctx, &stern.Config{
-		LabelSelector:  labels.SelectorFromSet(nginx.Spec.PodTemplate.Labels),
-		FieldSelector:  fields.Everything(),
-		Template:       args.Template,
-		Out:            args.Buffer,
-		ErrOut:         args.Buffer,
-		Namespaces:     []string{nginx.Namespace},
-		TailLines:      args.Lines,
-		Since:          args.Since,
-		PodQuery:       args.Pod,
-		ContainerQuery: args.Container,
-		Follow:         args.Follow,
-		ContainerStates: []stern.ContainerState{
-			"running",
-			"waiting",
-			"terminated",
-		},
-	})
+	sternStates := []stern.ContainerState{}
+	for _, state := range args.ContainerStates {
+		sternStates = append(sternStates, stern.ContainerState(state))
+	}
+
+	template, err := defaultSternTemplate()
+	if err != nil {
+		return err
+	}
+
+	return startTailing(ctx, args, nginx, m.kcs.CoreV1(), sternStates, template)
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {

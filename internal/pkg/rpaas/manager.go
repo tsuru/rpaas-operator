@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"text/template"
 	"time"
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -203,7 +202,6 @@ type LogArgs struct {
 	Pod             *regexp.Regexp
 	Container       *regexp.Regexp
 	Buffer          io.Writer
-	Template        *template.Template
 	Lines           *int64
 	Since           time.Duration
 	Follow          bool

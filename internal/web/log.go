@@ -5,16 +5,12 @@
 package web
 
 import (
-	"encoding/json"
 	"io"
 	"net/http"
 	"regexp"
 	"strconv"
 	"sync"
-	"text/template"
 	"time"
-
-	"github.com/fatih/color"
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
@@ -75,23 +71,6 @@ func parseQueries(pod, container string) (map[string]*regexp.Regexp, error) {
 	}, nil
 }
 
-func setTemplate() (*template.Template, error) {
-	t := "{{color .PodColor .PodName}} {{color .ContainerColor .ContainerName}} {{.Message}}\r\n"
-	funcs := map[string]interface{}{
-		"json": func(in interface{}) (string, error) {
-			b, err := json.Marshal(in)
-			if err != nil {
-				return "", err
-			}
-			return string(b), nil
-		},
-		"color": func(color color.Color, text string) string {
-			return color.SprintFunc()(text)
-		},
-	}
-	return template.New("log").Funcs(funcs).Parse(t)
-}
-
 func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 	params := c.Request().URL.Query()
 	var err error
@@ -121,11 +100,6 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		states = s
 	}
 
-	template, err := setTemplate()
-	if err != nil {
-		return rpaas.LogArgs{}, err
-	}
-
 	args := rpaas.LogArgs{
 		Pod:           queries["pod"],
 		Container:     queries["container"],
@@ -136,7 +110,6 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		Buffer: &flushWriter{
 			w: c.Response().Writer,
 		},
-		Template:        template,
 		ContainerStates: states,
 	}
 
