@@ -26,10 +26,11 @@ func writeOut(body io.ReadCloser) error {
 }
 
 func (c *client) Log(ctx context.Context, args LogArgs) error {
-	values := url.Values{
-		"follow":    []string{strconv.FormatBool(args.Follow)},
-		"timestamp": []string{strconv.FormatBool(args.WithTimestamp)},
-		"states":    args.States,
+	values := url.Values{}
+	values.Set("follow", fmt.Sprintf("%v", args.Follow))
+	values.Set("timestamp", fmt.Sprintf("%v", args.WithTimestamp))
+	for _, state := range args.States {
+		values.Add("states", state)
 	}
 
 	if lines := strconv.FormatInt(int64(args.Lines), 10); lines != "" {

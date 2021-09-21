@@ -180,6 +180,33 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 	}()
 
+	t.Run("generate output inside the instance and log it", func(t *testing.T) {
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
+		planName := "basic"
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+
+		execArgs := []string{"--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "/bin/sh", "-c", "echo \"WORKING\" > /proc/1/fd/1;"}
+		execCmd := exec.CommandContext(context.Background(), rpaasv2Bin, execArgs...)
+		err = execCmd.Run()
+		require.NoError(t, err)
+		// for i := 0; i < 3; i++ {
+		// 	err = execCmd.Run()
+		// 	require.NoError(t, err)
+		// }
+		logArgs := []string{"--rpaas-url", apiAddress, "log", "-i", instanceName}
+		logCmd := exec.CommandContext(context.Background(), rpaasv2Bin, logArgs...)
+		logOut, err := logCmd.CombinedOutput()
+		require.NoError(t, err, fmt.Sprintf("log was not successful. Returned output: %s", string(logOut)))
+		assert.Contains(t, string(logOut), "WORKING\n")
+	})
+
 	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := generateRandomName("my-instance")
 		teamName := generateRandomName("team-one")
@@ -503,29 +530,6 @@ func Test_RpaasApi(t *testing.T) {
 		out, err := cmd.CombinedOutput()
 		require.NoError(t, err, fmt.Sprintf("exec was not successful. Returned output: %s", string(out)))
 		assert.Contains(t, string(out), "WORKING\n")
-	})
-
-	t.Run("generate an output inside the instance and log it", func(t *testing.T) {
-		instanceName := generateRandomName("my-instance")
-		teamName := generateRandomName("team-one")
-		planName := "basic"
-
-		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
-		require.NoError(t, err)
-		defer cleanFunc()
-
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
-		require.NoError(t, err)
-
-		execArgs := "for i in {1..5}; do echo hello; done"
-		execCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", execArgs)
-		execOut, err := execCmd.CombinedOutput()
-		require.NoError(t, err, fmt.Sprintf("exec was not successful. Returned output: %s", string(execOut)))
-		assert.Contains(t, string(execOut), "hello\nhello\nhello\nhello\nhello\n")
-		// logCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "log", "-i", instanceName)
-		// logOut, err := logCmd.CombinedOutput()
-		// require.NoError(t, err, fmt.Sprintf("log was not successful. Returned output: %s", string(logOut)))
-		// assert.Contains(t, string(logOut), "GET / HTTP/1.1\" 404 19 \"-\" \"curl/7.64.0\"")
 	})
 }
 
