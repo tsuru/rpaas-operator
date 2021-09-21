@@ -192,19 +192,15 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
-		execArgs := []string{"--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "/bin/sh", "-c", "echo \"WORKING\" > /proc/1/fd/1;"}
+		execArgs := []string{"--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "/bin/sh", "-c", "echo \"--WORKING--\" > /proc/1/fd/1;"}
 		execCmd := exec.CommandContext(context.Background(), rpaasv2Bin, execArgs...)
 		err = execCmd.Run()
 		require.NoError(t, err)
-		// for i := 0; i < 3; i++ {
-		// 	err = execCmd.Run()
-		// 	require.NoError(t, err)
-		// }
 		logArgs := []string{"--rpaas-url", apiAddress, "log", "-i", instanceName}
 		logCmd := exec.CommandContext(context.Background(), rpaasv2Bin, logArgs...)
 		logOut, err := logCmd.CombinedOutput()
 		require.NoError(t, err, fmt.Sprintf("log was not successful. Returned output: %s", string(logOut)))
-		assert.Contains(t, string(logOut), "WORKING\n")
+		assert.Contains(t, string(logOut), "--WORKING--")
 	})
 
 	t.Run("creating and deleting an instance", func(t *testing.T) {
