@@ -10,7 +10,6 @@ import (
 	"regexp"
 	"strconv"
 	"sync"
-	"time"
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
@@ -81,10 +80,9 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		pLines = &lines
 	}
 
-	tSince := 48 * time.Hour // last 15 minutes by default
-	since, _ := strconv.ParseInt(params.Get("since"), 10, 64)
-	if since > 0 {
-		tSince = time.Second * time.Duration(since)
+	tSince := int64(172800) // last 48 hours by default -> 48 * 60(minutes) * 60(seconds)
+	if since, _ := strconv.ParseInt(params.Get("since"), 10, 64); since > 0 {
+		tSince = since
 	}
 
 	follow, _ := strconv.ParseBool(params.Get("follow"))

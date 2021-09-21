@@ -14,7 +14,6 @@ import (
 	"regexp"
 	"sort"
 	"strings"
-	"time"
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
@@ -203,7 +202,7 @@ type LogArgs struct {
 	Container       *regexp.Regexp
 	Buffer          io.Writer
 	Lines           *int64
-	Since           time.Duration
+	Since           int64
 	Follow          bool
 	WithTimestamp   bool
 	ContainerStates []string

@@ -25,7 +25,7 @@ func Test_log(t *testing.T) {
 		manager      rpaas.RpaasManager
 	}{
 		{
-			name:         "when log is successful",
+			name:         "with every option set",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
 			queryString:  "pod=my-pod&container=my-container&lines=15&since=5&follow=true",
@@ -33,11 +33,29 @@ func Test_log(t *testing.T) {
 				FakeLog: func(instance string, args rpaas.LogArgs) error {
 					assert.Equal(t, "my-instance", instance)
 					assert.NotNil(t, args.Buffer)
-					assert.Equal(t, "my-pod", args.Pod)
-					assert.Equal(t, "my-container", args.Container)
+					assert.Equal(t, "my-pod", args.Pod.String())
+					assert.Equal(t, "my-container", args.Container.String())
 					assert.Equal(t, int64(15), *args.Lines)
-					assert.Equal(t, int64(5), *args.SinceSeconds)
+					assert.Equal(t, int64(5), args.Since)
 					assert.True(t, args.Follow)
+					assert.False(t, args.WithTimestamp)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "test default values",
+			instance:     "my-instance",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeLog: func(instance string, args rpaas.LogArgs) error {
+					assert.Equal(t, "my-instance", instance)
+					assert.NotNil(t, args.Buffer)
+					assert.Equal(t, ".*", args.Pod.String())
+					assert.Equal(t, ".*", args.Container.String())
+					assert.Nil(t, args.Lines)
+					assert.Equal(t, int64(172800), args.Since)
+					assert.False(t, args.Follow)
 					assert.False(t, args.WithTimestamp)
 					return nil
 				},

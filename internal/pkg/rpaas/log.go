@@ -3,6 +3,7 @@ package rpaas
 import (
 	"context"
 	"fmt"
+	"regexp"
 	"text/template"
 
 	"github.com/stern/stern/stern"
@@ -17,10 +18,10 @@ func addTail(ctx context.Context, added chan *stern.Target, client v1.CoreV1Inte
 	for p := range added {
 		tail := stern.NewTail(client, p.Node, p.Namespace, p.Pod, p.Container, template, args.Buffer, args.Buffer, &stern.TailOptions{
 			Timestamps:   args.WithTimestamp,
-			SinceSeconds: int64(172800),
+			SinceSeconds: args.Since,
 			Namespace:    false,
 			TailLines:    args.Lines,
-			Follow:       args.Follow,
+			Follow:       true,
 		})
 
 		tails[p.GetID()] = tail
@@ -112,9 +113,10 @@ func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *ngi
 	for _, pod := range pods {
 		tailQueue = append(tailQueue, stern.NewTail(m.kcs.CoreV1(), pod.Spec.NodeName, pod.Namespace, pod.Name, "nginx", template, args.Buffer, args.Buffer, &stern.TailOptions{
 			Timestamps:   args.WithTimestamp,
-			SinceSeconds: int64(172800),
+			SinceSeconds: args.Since,
 			Namespace:    false,
 			TailLines:    args.Lines,
+			Include:      []*regexp.Regexp{args.Pod},
 			Follow:       false,
 		}))
 	}

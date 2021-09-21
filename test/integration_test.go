@@ -517,14 +517,15 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
 		require.NoError(t, err)
 
-		execCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "curl", "localhost:8080")
+		execArgs := "for i in {1..5}; do echo hello; done"
+		execCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", execArgs)
 		execOut, err := execCmd.CombinedOutput()
 		require.NoError(t, err, fmt.Sprintf("exec was not successful. Returned output: %s", string(execOut)))
-		assert.Contains(t, string(execOut), "instance not bound")
-		logCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "log", "-i", instanceName)
-		logOut, err := logCmd.CombinedOutput()
-		require.NoError(t, err, fmt.Sprintf("log was not successful. Returned output: %s", string(logOut)))
-		assert.Contains(t, string(logOut), "GET / HTTP/1.1\" 404 19 \"-\" \"curl/7.64.0\"")
+		assert.Contains(t, string(execOut), "hello\nhello\nhello\nhello\nhello\n")
+		// logCmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "log", "-i", instanceName)
+		// logOut, err := logCmd.CombinedOutput()
+		// require.NoError(t, err, fmt.Sprintf("log was not successful. Returned output: %s", string(logOut)))
+		// assert.Contains(t, string(logOut), "GET / HTTP/1.1\" 404 19 \"-\" \"curl/7.64.0\"")
 	})
 }
 
