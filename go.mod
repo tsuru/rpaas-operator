@@ -1,6 +1,6 @@
 module github.com/tsuru/rpaas-operator
 
-go 1.15
+go 1.16
 
 require (
 	github.com/HdrHistogram/hdrhistogram-go v1.0.0 // indirect
