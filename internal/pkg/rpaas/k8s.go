@@ -168,7 +168,7 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 		return err
 	}
 
-	return startTailing(ctx, args, nginx, m.kcs.CoreV1(), sternStates, template)
+	return m.log(ctx, args, nginx, sternStates, template)
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {

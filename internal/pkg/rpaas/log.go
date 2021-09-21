@@ -9,6 +9,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -61,7 +62,7 @@ func updateChannels(ctx context.Context, wAdded, wRemoved, toAdd, toRemove chan 
 	}
 }
 
-func startTailing(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, client v1.CoreV1Interface, sternStates []stern.ContainerState, template *template.Template) error {
+func (m *k8sRpaasManager) tail(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, sternStates []stern.ContainerState, template *template.Template) error {
 	added := make(chan *stern.Target)
 	removed := make(chan *stern.Target)
 	errCh := make(chan error)
@@ -72,29 +73,24 @@ func startTailing(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx,
 
 	var a, r chan *stern.Target
 	var err error
-	switch args.Follow {
-	case true:
-		a, r, err = stern.Watch(ctx,
-			client.Pods(nginx.Namespace),
-			args.Pod,
-			nil,
-			args.Container,
-			nil,
-			false,
-			false,
-			sternStates,
-			labels.SelectorFromSet(nginx.Spec.PodTemplate.Labels),
-			fields.Everything(),
-		)
-	case false:
-		fmt.Printf("TODO\n")
-	}
+	a, r, err = stern.Watch(ctx,
+		m.kcs.CoreV1().Pods(nginx.Namespace),
+		args.Pod,
+		nil,
+		args.Container,
+		nil,
+		false,
+		false,
+		sternStates,
+		labels.SelectorFromSet(nginx.Spec.PodTemplate.Labels),
+		fields.Everything(),
+	)
 	if err != nil {
 		return err
 	}
 
 	go updateChannels(ctx, a, r, added, removed, errCh)
-	go addTail(ctx, added, client, template, args, tails)
+	go addTail(ctx, added, m.kcs.CoreV1(), template, args, tails)
 	go removeTail(removed, tails)
 
 	select {
@@ -102,5 +98,40 @@ func startTailing(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx,
 		return e
 	case <-ctx.Done():
 		return nil
+	}
+}
+
+func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, sternStates []stern.ContainerState, template *template.Template) error {
+	pods, err := m.getPods(ctx, nginx)
+	if err != nil {
+		return err
+	}
+
+	tailQueue := []*stern.Tail{}
+
+	for _, pod := range pods {
+		tailQueue = append(tailQueue, stern.NewTail(m.kcs.CoreV1(), pod.Spec.NodeName, pod.Namespace, pod.Name, "nginx", template, args.Buffer, args.Buffer, &stern.TailOptions{
+			Timestamps:   args.WithTimestamp,
+			SinceSeconds: int64(172800),
+			Namespace:    false,
+			TailLines:    args.Lines,
+			Follow:       false,
+		}))
+	}
+
+	for _, tail := range tailQueue {
+		if err := tail.Start(ctx); err != nil {
+			fmt.Fprintf(args.Buffer, "unexpected error: %v\n", err)
+		}
+	}
+	return nil
+}
+
+func (m *k8sRpaasManager) log(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, sternStates []stern.ContainerState, template *template.Template) error {
+	switch args.Follow {
+	case true:
+		return m.tail(ctx, args, nginx, sternStates, template)
+	default:
+		return m.listLogs(ctx, args, nginx, sternStates, template)
 	}
 }
