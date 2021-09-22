@@ -342,7 +342,7 @@ wg4cGbIbBPs=
 					},
 				},
 			},
-			expectedError: `there is no Issuer or ClusterIssuer with "not-found-issuer" name`,
+			expectedError: `there is no "not-found-issuer" certificate issuer`,
 		},
 
 		"when certificates is ready, should update the rpaasinstance's certificate secret with newer one": {

@@ -8,12 +8,14 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/jetstack/cert-manager/pkg/apis/meta/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -135,12 +137,15 @@ func newCertificate(instanceMergedWithFlavors *v1alpha1.RpaasInstance, issuer *c
 	}, nil
 }
 
-func getCertManagerIssuer(ctx context.Context, client client.Client, instanceMergedWithFlavors *v1alpha1.RpaasInstance) (*cmmeta.ObjectReference, error) {
-	var issuer cmv1.Issuer
+func getCertManagerIssuer(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmmeta.ObjectReference, error) {
+	if strings.Contains(instance.Spec.DynamicCertificates.CertManager.Issuer, ".") {
+		return getCustomCertManagerIssuer(ctx, client, instance)
+	}
 
+	var issuer cmv1.Issuer
 	err := client.Get(ctx, types.NamespacedName{
-		Name:      instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.Issuer,
-		Namespace: instanceMergedWithFlavors.Namespace,
+		Name:      instance.Spec.DynamicCertificates.CertManager.Issuer,
+		Namespace: instance.Namespace,
 	}, &issuer)
 
 	if err != nil && !k8serrors.IsNotFound(err) {
@@ -156,13 +161,12 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instanceMer
 	}
 
 	var clusterIssuer cmv1.ClusterIssuer
-
 	err = client.Get(ctx, types.NamespacedName{
-		Name: instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.Issuer,
+		Name: instance.Spec.DynamicCertificates.CertManager.Issuer,
 	}, &clusterIssuer)
 
-	if err != nil && k8serrors.IsNotFound(err) {
-		return nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", instanceMergedWithFlavors.Spec.DynamicCertificates.CertManager.Issuer)
+	if k8serrors.IsNotFound(err) {
+		return nil, fmt.Errorf("there is no %q certificate issuer", instance.Spec.DynamicCertificates.CertManager.Issuer)
 	}
 
 	if err != nil {
@@ -173,6 +177,56 @@ func getCertManagerIssuer(ctx context.Context, client client.Client, instanceMer
 		Group: cmv1.SchemeGroupVersion.Group,
 		Kind:  clusterIssuer.Kind,
 		Name:  clusterIssuer.Name,
+	}, nil
+}
+
+func getCustomCertManagerIssuer(ctx context.Context, client client.Client, instance *v1alpha1.RpaasInstance) (*cmmeta.ObjectReference, error) {
+	parts := strings.SplitN(instance.Spec.DynamicCertificates.CertManager.Issuer, ".", 3)
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("missing information to retrieve custom Cert Manager issuer: (requires <resource name>.<resource kind>.<resource group>, got %s)", instance.Spec.DynamicCertificates.CertManager.Issuer)
+	}
+
+	name, kind, group := parts[0], parts[1], parts[2]
+
+	mapping, err := client.RESTMapper().RESTMapping(schema.GroupKind{Group: group, Kind: kind})
+	if err != nil {
+		return nil, err
+	}
+
+	u := &unstructured.Unstructured{}
+	u.Object = map[string]interface{}{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   mapping.GroupVersionKind.Group,
+		Kind:    mapping.GroupVersionKind.Kind,
+		Version: mapping.GroupVersionKind.Version,
+	})
+
+	err = client.Get(ctx, types.NamespacedName{Name: name, Namespace: instance.Namespace}, u)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, err
+	}
+
+	if err == nil {
+		return &cmmeta.ObjectReference{
+			Group: mapping.GroupVersionKind.Group,
+			Kind:  mapping.GroupVersionKind.Kind,
+			Name:  name,
+		}, nil
+	}
+
+	err = client.Get(ctx, types.NamespacedName{Name: name}, u)
+	if err != nil && !k8serrors.IsNotFound(err) {
+		return nil, err
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return nil, fmt.Errorf("there is no %q certificate issuer", instance.Spec.DynamicCertificates.CertManager.Issuer)
+	}
+
+	return &cmmeta.ObjectReference{
+		Group: mapping.GroupVersionKind.Group,
+		Kind:  mapping.GroupVersionKind.Kind,
+		Name:  name,
 	}, nil
 }
 
