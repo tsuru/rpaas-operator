@@ -9,6 +9,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"net/http"
 	"net/url"
 	"os"
 	"strconv"
@@ -25,8 +26,26 @@ func writeOut(body io.ReadCloser) error {
 	return nil
 }
 
+func (args LogArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	return nil
+}
+
 func (c *client) Log(ctx context.Context, args LogArgs) error {
-	qs := url.Values{}
+	if err := args.Validate(); err != nil {
+		return err
+	}
+
+	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/log", args.Instance), args.Instance)
+	u, err := url.Parse(serverAddress)
+	if err != nil {
+		return err
+	}
+
+	qs := u.Query()
 	qs.Set("follow", strconv.FormatBool(args.Follow))
 	qs.Set("timestamp", strconv.FormatBool(args.WithTimestamp))
 	for _, state := range args.States {
@@ -44,15 +63,13 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	if args.Container != "" {
 		qs.Set("container", args.Container)
 	}
+	u.RawQuery = qs.Encode()
 
-	// for some reason the echo api escapes the first & character to ?
-	// the "sane" uri should be: pathName := fmt.Sprintf("/resources/%s/log?%s", args.Instance, qs.Encode())
-	pathName := fmt.Sprintf("/resources/%s/log?%s", args.Instance, qs.Encode())
-
-	req, err := c.newRequest("GET", pathName, nil, args.Instance)
+	req, err := http.NewRequest("GET", u.String(), nil)
 	if err != nil {
 		return err
 	}
+	c.baseAuthHeader(req.Header)
 
 	resp, err := c.do(ctx, req)
 	if err != nil {
