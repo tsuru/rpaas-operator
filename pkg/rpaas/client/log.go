@@ -26,26 +26,29 @@ func writeOut(body io.ReadCloser) error {
 }
 
 func (c *client) Log(ctx context.Context, args LogArgs) error {
-	values := url.Values{}
-	values.Set("follow", fmt.Sprintf("%v", args.Follow))
-	values.Set("timestamp", fmt.Sprintf("%v", args.WithTimestamp))
+	qs := url.Values{}
+	qs.Set("follow", strconv.FormatBool(args.Follow))
+	qs.Set("timestamp", strconv.FormatBool(args.WithTimestamp))
 	for _, state := range args.States {
-		values.Add("states", state)
+		qs.Add("states", state)
 	}
-
-	if lines := strconv.FormatInt(int64(args.Lines), 10); lines != "" {
-		values.Set("lines", lines)
+	if args.Lines > 0 {
+		qs.Set("lines", strconv.FormatInt(int64(args.Lines), 10))
 	}
-	if since := strconv.FormatInt(int64(args.Since), 10); since != "" {
-		values.Set("since", since)
+	if args.Since > 0 {
+		qs.Set("since", strconv.FormatInt(int64(args.Since), 10))
 	}
 	if args.Pod != "" {
-		values.Set("pod", args.Pod)
+		qs.Set("pod", args.Pod)
 	}
 	if args.Container != "" {
-		values.Set("container", args.Container)
+		qs.Set("container", args.Container)
 	}
-	pathName := fmt.Sprintf("/resources/%s/log?%s", args.Instance, values.Encode())
+
+	// for some reason the echo api escapes the first & character to ?
+	// the "sane" uri should be: pathName := fmt.Sprintf("/resources/%s/log?%s", args.Instance, qs.Encode())
+	pathName := fmt.Sprintf("/resources/%s/log?%s", args.Instance, qs.Encode())
+
 	req, err := c.newRequest("GET", pathName, nil, args.Instance)
 	if err != nil {
 		return err

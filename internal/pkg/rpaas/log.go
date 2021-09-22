@@ -3,7 +3,6 @@ package rpaas
 import (
 	"context"
 	"fmt"
-	"regexp"
 	"text/template"
 
 	"github.com/stern/stern/stern"
@@ -11,6 +10,7 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 
+	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -102,6 +102,26 @@ func (m *k8sRpaasManager) tail(ctx context.Context, args LogArgs, nginx *nginxv1
 	}
 }
 
+func matchState(states []string, container corev1.ContainerStatus) bool {
+	for _, state := range states {
+		switch state {
+		case "running":
+			if container.State.Running != nil {
+				return true
+			}
+		case "terminated":
+			if container.State.Terminated != nil {
+				return true
+			}
+		case "waiting":
+			if container.State.Waiting != nil {
+				return true
+			}
+		}
+	}
+	return false
+}
+
 func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, sternStates []stern.ContainerState, template *template.Template) error {
 	pods, err := m.getPods(ctx, nginx)
 	if err != nil {
@@ -111,14 +131,22 @@ func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *ngi
 	tailQueue := []*stern.Tail{}
 
 	for _, pod := range pods {
-		tailQueue = append(tailQueue, stern.NewTail(m.kcs.CoreV1(), pod.Spec.NodeName, pod.Namespace, pod.Name, "nginx", template, args.Buffer, args.Buffer, &stern.TailOptions{
-			Timestamps:   args.WithTimestamp,
-			SinceSeconds: args.Since,
-			Namespace:    false,
-			TailLines:    args.Lines,
-			Include:      []*regexp.Regexp{args.Pod},
-			Follow:       false,
-		}))
+		if args.Pod.MatchString(pod.Name) {
+			for _, c := range pod.Status.ContainerStatuses {
+				t := stern.NewTail(m.kcs.CoreV1(), pod.Spec.NodeName, pod.Namespace, pod.Name, c.Name, template, args.Buffer, args.Buffer, &stern.TailOptions{
+					Timestamps:   args.WithTimestamp,
+					SinceSeconds: args.Since,
+					Namespace:    false,
+					TailLines:    args.Lines,
+					Follow:       false,
+				})
+				if args.Container.MatchString(c.Name) {
+					if matchState(args.ContainerStates, c) {
+						tailQueue = append(tailQueue, t)
+					}
+				}
+			}
+		}
 	}
 
 	for _, tail := range tailQueue {
