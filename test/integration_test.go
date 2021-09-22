@@ -5,6 +5,7 @@
 package test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io/ioutil"
@@ -203,39 +204,48 @@ func Test_RpaasApi(t *testing.T) {
 		assert.Contains(t, string(logOut), "--WORKING--", logCmd.String())
 	})
 
-	// t.Run("generate output inside the instance and log it interactively", func(t *testing.T) {
-	// 	instanceName := generateRandomName("my-instance")
-	// 	teamName := generateRandomName("team-one")
-	// 	planName := "basic"
+	t.Run("generate output inside the instance and log it interactively", func(t *testing.T) {
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
+		planName := "basic"
 
-	// 	cleanFunc, err := api.createInstance(instanceName, planName, teamName)
-	// 	require.NoError(t, err)
-	// 	defer cleanFunc()
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
 
-	// 	_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
-	// 	require.NoError(t, err)
-	// 	ctx := context.Background()
+		_, err = getReadyNginx(instanceName, namespaceName, 1, 1)
+		require.NoError(t, err)
+		ctx := context.Background()
 
-	// 	execArgs := []string{"--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "/bin/sh", "-c", "echo \"--WORKING--\" > /proc/1/fd/1;"}
-	// 	execCmd := exec.CommandContext(ctx, rpaasv2Bin, execArgs...)
-	// 	err = execCmd.Run()
-	// 	require.NoError(t, err)
-	// 	logArgs := []string{"--rpaas-url", apiAddress, "log", "-i", instanceName, "--follow"}
-	// 	logCmd := exec.CommandContext(ctx, rpaasv2Bin, logArgs...)
-	// 	stdout, err := logCmd.StdoutPipe()
-	// 	require.NoError(t, err)
-	// 	err = logCmd.Start()
-	// 	require.NoError(t, err)
-	// 	buffer := new(bytes.Buffer)
-	// 	buffer.ReadFrom(stdout)
-	// 	firstOut := buffer.String()
-	// 	assert.Contains(t, firstOut, "--WORKING--")
-	// 	assert.NotContains(t, firstOut, "::WORKING::")
-	// 	_, cancel := context.WithCancel(ctx)
-	// 	cancel()
-	// 	err = logCmd.Wait()
-	// 	require.NoError(t, err)
-	// })
+		execArgs := []string{"--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "/bin/sh", "-c", "echo \"--WORKING--\" > /proc/1/fd/1;"}
+		execCmd := exec.CommandContext(ctx, rpaasv2Bin, execArgs...)
+		err = execCmd.Run()
+		require.NoError(t, err)
+		logArgs := []string{"--rpaas-url", apiAddress, "log", "-i", instanceName, "--follow"}
+		logCmd := exec.CommandContext(ctx, rpaasv2Bin, logArgs...)
+		stdout, err := logCmd.StdoutPipe()
+		require.NoError(t, err)
+		err = logCmd.Start()
+		require.NoError(t, err)
+		buffer := new(bytes.Buffer)
+		_, err = buffer.ReadFrom(stdout)
+		require.NoError(t, err)
+		firstOut := buffer.String()
+		assert.Contains(t, firstOut, "--WORKING--")
+		assert.NotContains(t, firstOut, "::WORKING::")
+		go func() {
+			_, cancel := context.WithCancel(ctx)
+			exec2Args := []string{"--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "/bin/sh", "-c", "echo \"::WORKING::\" > /proc/1/fd/1;"}
+			exec2Cmd := exec.CommandContext(ctx, rpaasv2Bin, exec2Args...)
+			err = exec2Cmd.Run()
+			require.NoError(t, err)
+			secondOut := buffer.String()
+			assert.Contains(t, secondOut, "::WORKING::")
+			cancel()
+		}()
+		err = logCmd.Wait()
+		require.NoError(t, err)
+	})
 
 	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := generateRandomName("my-instance")
