@@ -132,13 +132,6 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 func defaultSternTemplate() (*template.Template, error) {
 	t := "{{color .PodColor .PodName}} {{color .ContainerColor .ContainerName}} {{.Message}}\r\n"
 	funcs := map[string]interface{}{
-		"json": func(in interface{}) (string, error) {
-			b, err := json.Marshal(in)
-			if err != nil {
-				return "", err
-			}
-			return string(b), nil
-		},
 		"color": func(color color.Color, text string) string {
 			return color.SprintFunc()(text)
 		},

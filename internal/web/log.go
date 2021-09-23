@@ -80,7 +80,7 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		pLines = &lines
 	}
 
-	tSince := int64(172800) // last 48 hours by default -> 48 * 60(minutes) * 60(seconds)
+	tSince := int64(24 * 60 * 60) // last 24 hours by default
 	if since, _ := strconv.ParseInt(params.Get("since"), 10, 64); since > 0 {
 		tSince = since
 	}

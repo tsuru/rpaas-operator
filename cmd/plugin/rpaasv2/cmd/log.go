@@ -12,7 +12,7 @@ import (
 func NewCmdLogs() *cli.Command {
 	return &cli.Command{
 		Name:    "logs",
-		Usage:   "Fetches logs from a rpaasv2 instance pod",
+		Usage:   "Fetches and prints logs from instance pods",
 		Aliases: []string{"log"},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -46,7 +46,7 @@ func NewCmdLogs() *cli.Command {
 			},
 			&cli.IntFlag{
 				Name:     "since",
-				Usage:    "only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to all logs.",
+				Usage:    "only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to last 24 hours.",
 				Required: false,
 			},
 			&cli.BoolFlag{
