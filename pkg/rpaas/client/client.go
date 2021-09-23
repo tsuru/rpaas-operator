@@ -7,6 +7,7 @@ package client
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -100,7 +101,7 @@ type ExecArgs struct {
 type LogArgs struct {
 	Instance      string
 	Lines         int
-	Since         int
+	Since         time.Duration
 	Follow        bool
 	WithTimestamp bool
 	Pod           string

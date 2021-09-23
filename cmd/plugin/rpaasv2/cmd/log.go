@@ -44,7 +44,7 @@ func NewCmdLogs() *cli.Command {
 				Usage:    "number of earlier log lines to show",
 				Required: false,
 			},
-			&cli.IntFlag{
+			&cli.DurationFlag{
 				Name:     "since",
 				Usage:    "only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to last 24 hours.",
 				Required: false,
@@ -60,6 +60,7 @@ func NewCmdLogs() *cli.Command {
 				Aliases:  []string{"with-timestamp"},
 				Usage:    "include timestamps on each line in the log output",
 				Required: false,
+				Value:    true,
 			},
 		},
 		Before: setupClient,
@@ -76,7 +77,7 @@ func runLogRpaas(c *cli.Context) error {
 	return client.Log(c.Context, rpaasclient.LogArgs{
 		Instance:      c.String("instance"),
 		Lines:         c.Int("lines"),
-		Since:         c.Int("since"),
+		Since:         c.Duration("since"),
 		Follow:        c.Bool("follow"),
 		WithTimestamp: c.Bool("timestamp"),
 		Pod:           c.String("pod"),

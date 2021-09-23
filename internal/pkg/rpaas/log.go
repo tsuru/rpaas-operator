@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"text/template"
+	"time"
 
 	"github.com/stern/stern/stern"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -21,6 +22,7 @@ func addTail(ctx context.Context, added chan *stern.Target, client v1.CoreV1Inte
 			Namespace:    false,
 			TailLines:    args.Lines,
 			Follow:       true,
+			Location:     time.Now().Location(),
 		})
 
 		tails[p.GetID()] = tail
@@ -118,6 +120,7 @@ func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *ngi
 					Namespace:    false,
 					TailLines:    args.Lines,
 					Follow:       false,
+					Location:     time.Now().Location(),
 				})
 				if args.Container.MatchString(c.Name) {
 					tailQueue = append(tailQueue, t)
