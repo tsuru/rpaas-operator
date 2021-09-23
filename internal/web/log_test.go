@@ -54,7 +54,7 @@ func Test_log(t *testing.T) {
 					assert.Equal(t, ".*", args.Pod.String())
 					assert.Equal(t, ".*", args.Container.String())
 					assert.Nil(t, args.Lines)
-					assert.Equal(t, int64(172800), args.Since)
+					assert.Equal(t, int64(86400), args.Since)
 					assert.False(t, args.Follow)
 					assert.False(t, args.WithTimestamp)
 					return nil

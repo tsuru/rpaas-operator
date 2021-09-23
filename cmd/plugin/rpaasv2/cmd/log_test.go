@@ -8,6 +8,7 @@ import (
 	"bytes"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -30,7 +31,9 @@ func TestLog(t *testing.T) {
 			client: &fake.FakeClient{
 				FakeLog: func(args rpaasclient.LogArgs) error {
 					expected := rpaasclient.LogArgs{
-						Instance: "my-instance",
+						Instance:      "my-instance",
+						Color:         true,
+						WithTimestamp: true,
 					}
 					assert.Equal(t, expected, args)
 					return fmt.Errorf("some error")
@@ -39,17 +42,18 @@ func TestLog(t *testing.T) {
 		},
 		{
 			name: "when Log returns no error",
-			args: []string{"./rpaasv2", "logs", "-i", "my-instance", "--since", "2", "--follow", "--pod", "some-pod", "--container", "some-container", "--with-timestamp", "--lines", "15"},
+			args: []string{"./rpaasv2", "logs", "-i", "my-instance", "--since", "2s", "--follow", "--pod", "some-pod", "--container", "some-container", "--with-timestamp", "--lines", "15"},
 			client: &fake.FakeClient{
 				FakeLog: func(args rpaasclient.LogArgs) error {
 					expected := rpaasclient.LogArgs{
 						Instance:      "my-instance",
-						Since:         2,
+						Since:         time.Second * 2,
 						Follow:        true,
 						Pod:           "some-pod",
 						Container:     "some-container",
 						WithTimestamp: true,
 						Lines:         15,
+						Color:         true,
 					}
 					assert.Equal(t, expected, args)
 					return nil
