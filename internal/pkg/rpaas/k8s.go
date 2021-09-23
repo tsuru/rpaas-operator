@@ -32,6 +32,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -1823,6 +1824,25 @@ func (m *k8sRpaasManager) getServices(ctx context.Context, nginx *nginxv1alpha1.
 	return services, nil
 }
 
+func (m *k8sRpaasManager) getIngresses(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]networkingv1.Ingress, error) {
+	if nginx == nil {
+		return nil, fmt.Errorf("nginx cannot be nil")
+	}
+
+	var ingresses []networkingv1.Ingress
+	for _, si := range nginx.Status.Ingresses {
+		var ing networkingv1.Ingress
+		err := m.cli.Get(ctx, types.NamespacedName{Name: si.Name, Namespace: nginx.Namespace}, &ing)
+		if err != nil {
+			return nil, err
+		}
+
+		ingresses = append(ingresses, ing)
+	}
+
+	return ingresses, nil
+}
+
 func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]clientTypes.InstanceAddress, error) {
 	if nginx == nil {
 		return nil, fmt.Errorf("nginx cannot be nil")
@@ -1835,10 +1855,10 @@ func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginx
 
 	var externalAddresses []clientTypes.InstanceAddress
 	var internalAddresses []clientTypes.InstanceAddress
-
 	for _, svc := range services {
 		if svc.Spec.Type == corev1.ServiceTypeLoadBalancer {
-			lbAddresses, err := m.loadBalancerInstanceAddresses(ctx, &svc)
+			var lbAddresses []clientTypes.InstanceAddress
+			lbAddresses, err = m.loadBalancerInstanceAddresses(ctx, &svc)
 			if err != nil {
 				return nil, err
 			}
@@ -1854,6 +1874,20 @@ func (m *k8sRpaasManager) getInstanceAddresses(ctx context.Context, nginx *nginx
 				Status:      "ready",
 			})
 		}
+	}
+
+	ingresses, err := m.getIngresses(ctx, nginx)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, ing := range ingresses {
+		addrs, err := m.ingressAddresses(ctx, &ing)
+		if err != nil {
+			return nil, err
+		}
+
+		externalAddresses = append(externalAddresses, addrs...)
 	}
 
 	sortAddresses(externalAddresses)
@@ -1879,13 +1913,18 @@ func sortAddresses(addresses []clientTypes.InstanceAddress) {
 func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc *v1.Service) ([]clientTypes.InstanceAddress, error) {
 	var addresses []clientTypes.InstanceAddress
 
-	if isLoadBalancerReady(svc) {
+	if isLoadBalancerReady(svc.Status.LoadBalancer.Ingress) {
 		status := "ready"
 		for _, lbIngress := range svc.Status.LoadBalancer.Ingress {
 			hostname := lbIngress.Hostname
 			if vhost, ok := svc.Annotations[externalDNSHostnameLabel]; ok {
-				hostname = vhost
+				if hostname != "" {
+					hostname += ","
+				}
+
+				hostname += vhost
 			}
+
 			addresses = append(addresses, clientTypes.InstanceAddress{
 				Type:        clientTypes.InstanceAddressTypeClusterExternal,
 				ServiceName: svc.ObjectMeta.Name,
@@ -1910,6 +1949,44 @@ func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc
 	return addresses, nil
 }
 
+func (m *k8sRpaasManager) ingressAddresses(ctx context.Context, ing *networkingv1.Ingress) ([]clientTypes.InstanceAddress, error) {
+	var addresses []clientTypes.InstanceAddress
+
+	if isLoadBalancerReady(ing.Status.LoadBalancer.Ingress) {
+		for _, lbIngress := range ing.Status.LoadBalancer.Ingress {
+			hostname := lbIngress.Hostname
+			if h, ok := ing.Annotations[externalDNSHostnameLabel]; ok {
+				if hostname != "" {
+					hostname += ","
+				}
+
+				hostname += h
+			}
+
+			addresses = append(addresses, clientTypes.InstanceAddress{
+				Type:        clientTypes.InstanceAddressTypeClusterExternal,
+				IngressName: ing.Name,
+				Hostname:    hostname,
+				IP:          lbIngress.IP,
+				Status:      "ready",
+			})
+		}
+	} else {
+		events, err := m.eventsForObject(ctx, ing.Namespace, "Ingress", ing.UID)
+		if err != nil {
+			return nil, err
+		}
+
+		addresses = append(addresses, clientTypes.InstanceAddress{
+			Type:        clientTypes.InstanceAddressTypeClusterExternal,
+			IngressName: ing.Name,
+			Status:      fmt.Sprintf("pending: %s", formatEventsToString(events)),
+		})
+	}
+
+	return addresses, nil
+}
+
 func formatEventsToString(events []v1.Event) string {
 	var buf bytes.Buffer
 	reasonMap := map[string]bool{}
@@ -1926,12 +2003,13 @@ func formatEventsToString(events []v1.Event) string {
 	return buf.String()
 }
 
-func isLoadBalancerReady(service *v1.Service) bool {
-	if len(service.Status.LoadBalancer.Ingress) == 0 {
+func isLoadBalancerReady(ings []v1.LoadBalancerIngress) bool {
+	if len(ings) == 0 {
 		return false
 	}
-	// NOTE: aws load-balancers does not have IP
-	return service.Status.LoadBalancer.Ingress[0].IP != "" || service.Status.LoadBalancer.Ingress[0].Hostname != ""
+
+	// NOTE: AWS load balancers does not have IP
+	return ings[0].IP != "" || ings[0].Hostname != ""
 }
 
 func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]clientTypes.Pod, error) {

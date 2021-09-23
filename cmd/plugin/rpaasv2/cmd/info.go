@@ -317,7 +317,25 @@ func writeAutoscaleOnTableFormat(autoscale *clientTypes.Autoscale) string {
 func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string {
 	data := [][]string{}
 	for _, address := range adresses {
-		data = append(data, []string{string(address.Type), address.Hostname, address.IP, address.Status})
+		var hostnames strings.Builder
+		for _, h := range strings.Split(address.Hostname, ",") {
+			if hostnames.Len() != 0 {
+				hostnames.WriteByte('\n')
+			}
+
+			hostnames.WriteString(h)
+		}
+
+		var ips strings.Builder
+		for _, ip := range strings.Split(address.IP, ",") {
+			if ips.Len() != 0 {
+				ips.WriteByte('\n')
+			}
+
+			ips.WriteString(ip)
+		}
+
+		data = append(data, []string{string(address.Type), hostnames.String(), ips.String(), address.Status})
 	}
 	var buffer bytes.Buffer
 	table := tablewriter.NewWriter(&buffer)

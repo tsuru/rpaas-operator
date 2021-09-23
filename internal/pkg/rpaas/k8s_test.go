@@ -17,6 +17,7 @@ import (
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -3705,6 +3706,7 @@ func Test_k8sRpaasManager_GetFlavors(t *testing.T) {
 func newScheme() *runtime.Scheme {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
+	networkingv1.AddToScheme(scheme)
 	v1alpha1.SchemeBuilder.AddToScheme(scheme)
 	metricsv1beta1.SchemeBuilder.AddToScheme(scheme)
 	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
@@ -4157,6 +4159,16 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		},
 	}
 
+	ingress3 := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance3.Name,
+			Namespace: instance3.Namespace,
+			Annotations: map[string]string{
+				"external-dns.alpha.kubernetes.io/hostname": "example.com,www.example.com",
+			},
+		},
+	}
+
 	nginx3 := &nginxv1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance3.Name,
@@ -4166,6 +4178,28 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance3",
 			Services: []nginxv1alpha1.ServiceStatus{
 				{Name: service3.Name},
+			},
+			Ingresses: []nginxv1alpha1.IngressStatus{
+				{Name: ingress3.Name},
+			},
+		},
+	}
+
+	ingress4 := &networkingv1.Ingress{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance4.Name,
+			Namespace: instance4.Namespace,
+			Annotations: map[string]string{
+				"external-dns.alpha.kubernetes.io/hostname": "example.com,www.example.com",
+			},
+		},
+		Spec: networkingv1.IngressSpec{},
+		Status: networkingv1.IngressStatus{
+			LoadBalancer: corev1.LoadBalancerStatus{
+				Ingress: []corev1.LoadBalancerIngress{
+					{IP: "192.168.200.200"},
+					{Hostname: "abc.lb.example.com"},
+				},
 			},
 		},
 	}
@@ -4179,6 +4213,9 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance4",
 			Services: []nginxv1alpha1.ServiceStatus{
 				{Name: service4.Name},
+			},
+			Ingresses: []nginxv1alpha1.IngressStatus{
+				{Name: ingress4.Name},
 			},
 		},
 	}
@@ -4387,14 +4424,35 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		Message:        "Some error to set up loadbalancer",
 	}
 
+	event5 := &corev1.Event{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:              ingress3.Name + ".123",
+			Namespace:         ingress3.Namespace,
+			CreationTimestamp: metav1.NewTime(t0),
+		},
+		InvolvedObject: corev1.ObjectReference{
+			Kind:      "Ingress",
+			Name:      ingress3.Name,
+			Namespace: ingress3.Namespace,
+			UID:       ingress3.UID,
+		},
+		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
+		Count:          42,
+		Type:           corev1.EventTypeWarning,
+		Reason:         "InvalidIngressRule",
+		Message:        "Failed to valid some rule in the Ingress",
+	}
+
 	resources := []runtime.Object{
 		instance1, instance2, instance3, instance4,
 		nginx3, nginx4,
 		service3, service4,
 		pod1, pod2,
 		pod2Metrics,
-		event1, event2, event3, event4,
+		event1, event2, event3, event4, event5,
 		s1, s2,
+		ingress3, ingress4,
 	}
 
 	tests := []struct {
@@ -4476,6 +4534,11 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Some error to set up loadbalancer\n",
 					},
 					{
+						Type:        clientTypes.InstanceAddressTypeClusterExternal,
+						IngressName: "instance3",
+						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Failed to valid some rule in the Ingress\n",
+					},
+					{
 						Type:        clientTypes.InstanceAddressTypeClusterInternal,
 						ServiceName: "instance3-service",
 						Hostname:    "instance3-service.rpaasv2.svc.cluster.local",
@@ -4517,9 +4580,22 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Addresses: []clientTypes.InstanceAddress{
 					{
 						Type:        clientTypes.InstanceAddressTypeClusterExternal,
+						IngressName: "instance4",
+						Hostname:    "abc.lb.example.com,example.com,www.example.com",
+						Status:      "ready",
+					},
+					{
+						Type:        clientTypes.InstanceAddressTypeClusterExternal,
 						ServiceName: "instance4-service",
 						IP:          "192.168.10.10",
 						Hostname:    "instance4.zone1",
+						Status:      "ready",
+					},
+					{
+						Type:        clientTypes.InstanceAddressTypeClusterExternal,
+						IngressName: "instance4",
+						Hostname:    "example.com,www.example.com",
+						IP:          "192.168.200.200",
 						Status:      "ready",
 					},
 				},

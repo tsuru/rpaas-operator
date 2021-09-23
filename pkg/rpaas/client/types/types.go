@@ -51,12 +51,12 @@ var (
 )
 
 type InstanceAddress struct {
-	Type InstanceAddressType `json:"type"`
-
-	ServiceName string `json:"serviceName"`
-	Hostname    string `json:"hostname,omitempty"`
-	IP          string `json:"ip,omitempty"`
-	Status      string `json:"status"`
+	Type        InstanceAddressType `json:"type"`
+	ServiceName string              `json:"serviceName,omitempty"`
+	IngressName string              `json:"ingressName,omitempty"`
+	Hostname    string              `json:"hostname,omitempty"`
+	IP          string              `json:"ip,omitempty"`
+	Status      string              `json:"status"`
 }
 
 type PodPort corev1.ContainerPort

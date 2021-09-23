@@ -59,6 +59,11 @@ func TestInfo(t *testing.T) {
 								IP:       "0.0.0.0",
 							},
 							{
+								Type:     clientTypes.InstanceAddressTypeClusterExternal,
+								Hostname: "www.example.com,foo.example.com,bar.example.test",
+								IP:       "192.168.200.200,2001:db8::1",
+							},
+							{
 								Type:     clientTypes.InstanceAddressTypeClusterInternal,
 								Hostname: "some-host.namespace.svc.cluster.local",
 								IP:       "0.0.0.1",
@@ -366,13 +371,17 @@ Binds:
 +------------+------------+
 
 Addresses:
-+------------------+---------------------------------------+---------+--------+
-| Type             | Hostname                              | IP      | Status |
-+------------------+---------------------------------------+---------+--------+
-| cluster-external | some-host                             | 0.0.0.0 |        |
-+------------------+---------------------------------------+---------+--------+
-| cluster-internal | some-host.namespace.svc.cluster.local | 0.0.0.1 |        |
-+------------------+---------------------------------------+---------+--------+
++------------------+---------------------------------------+-----------------+--------+
+| Type             | Hostname                              | IP              | Status |
++------------------+---------------------------------------+-----------------+--------+
+| cluster-external | some-host                             | 0.0.0.0         |        |
++------------------+---------------------------------------+-----------------+--------+
+| cluster-external | www.example.com                       | 192.168.200.200 |        |
+|                  | foo.example.com                       | 2001:db8::1     |        |
+|                  | bar.example.test                      |                 |        |
++------------------+---------------------------------------+-----------------+--------+
+| cluster-internal | some-host.namespace.svc.cluster.local | 0.0.0.1         |        |
++------------------+---------------------------------------+-----------------+--------+
 
 Certificates:
 +---------------+--------------------+----------------------+----------------------------+
@@ -667,7 +676,7 @@ Pods: 3
 					}, nil
 				},
 			},
-			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"serviceName\": \"\",\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\",\n\t\t\t\"status\": \"ready\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"serviceName\": \"\",\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\",\n\t\t\t\"status\": \"ready\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t]\n}\n",
+			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\",\n\t\t\t\"status\": \"ready\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\",\n\t\t\t\"status\": \"ready\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t]\n}\n",
 		},
 	}
 
