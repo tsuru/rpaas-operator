@@ -102,10 +102,10 @@ type LogArgs struct {
 	Instance      string
 	Lines         int
 	Since         time.Duration
-	Follow        bool
-	WithTimestamp bool
 	Pod           string
 	Container     string
+	Follow        bool
+	WithTimestamp bool
 	Color         bool
 }
 
