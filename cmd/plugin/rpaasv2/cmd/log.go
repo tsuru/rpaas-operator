@@ -62,6 +62,12 @@ func NewCmdLogs() *cli.Command {
 				Required: false,
 				Value:    true,
 			},
+			&cli.BoolFlag{
+				Name:     "color",
+				Usage:    "defines whether or not to display colorful output. Defaults to true.",
+				Required: false,
+				Value:    true,
+			},
 		},
 		Before: setupClient,
 		Action: runLogRpaas,
@@ -82,5 +88,6 @@ func runLogRpaas(c *cli.Context) error {
 		WithTimestamp: c.Bool("timestamp"),
 		Pod:           c.String("pod"),
 		Container:     c.String("container"),
+		Color:         c.Bool("color"),
 	})
 }

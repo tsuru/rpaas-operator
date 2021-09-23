@@ -87,6 +87,7 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 
 	follow, _ := strconv.ParseBool(params.Get("follow"))
 	withTimestamp, _ := strconv.ParseBool(params.Get("timestamp"))
+	color, _ := strconv.ParseBool(params.Get("color"))
 
 	queries, err := parseQueries(params.Get("pod"), params.Get("container"))
 	if err != nil {
@@ -103,6 +104,7 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		Buffer: &flushWriter{
 			w: c.Response().Writer,
 		},
+		Color: color,
 	}
 
 	return args, nil

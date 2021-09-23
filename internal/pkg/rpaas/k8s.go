@@ -129,14 +129,21 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	return q.sz
 }
 
-func defaultSternTemplate() (*template.Template, error) {
-	t := "{{color .PodColor .PodName}} {{color .ContainerColor .ContainerName}} {{.Message}}\r\n"
-	funcs := map[string]interface{}{
-		"color": func(color color.Color, text string) string {
-			return color.SprintFunc()(text)
-		},
+func setSternTemplate(withColor bool) (*template.Template, error) {
+	var t string
+	switch withColor {
+	case true:
+		t = "{{color .PodColor .PodName}} {{color .ContainerColor .ContainerName}} {{.Message}}\r\n"
+		funcs := map[string]interface{}{
+			"color": func(color color.Color, text string) string {
+				return color.SprintFunc()(text)
+			},
+		}
+		return template.New("log").Funcs(funcs).Parse(t)
+	default:
+		t = "{{.PodName}} {{.ContainerName}} {{.Message}}\r\n"
+		return template.New("log").Parse(t)
 	}
-	return template.New("log").Funcs(funcs).Parse(t)
 }
 
 func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
@@ -150,7 +157,7 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 		return err
 	}
 
-	template, err := defaultSternTemplate()
+	template, err := setSternTemplate(args.Color)
 	if err != nil {
 		return err
 	}

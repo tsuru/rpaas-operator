@@ -205,6 +205,7 @@ type LogArgs struct {
 	Since         int64
 	Follow        bool
 	WithTimestamp bool
+	Color         bool
 }
 
 type RpaasManager interface {
