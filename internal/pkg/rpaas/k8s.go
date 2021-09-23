@@ -24,7 +24,6 @@ import (
 	"time"
 
 	"github.com/fatih/color"
-	"github.com/stern/stern/stern"
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
@@ -158,17 +157,12 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 		return err
 	}
 
-	sternStates := []stern.ContainerState{}
-	for _, state := range args.ContainerStates {
-		sternStates = append(sternStates, stern.ContainerState(state))
-	}
-
 	template, err := defaultSternTemplate()
 	if err != nil {
 		return err
 	}
 
-	return m.log(ctx, args, nginx, sternStates, template)
+	return m.log(ctx, args, nginx, template)
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {

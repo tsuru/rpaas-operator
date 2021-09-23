@@ -61,11 +61,6 @@ func NewCmdLogs() *cli.Command {
 				Usage:    "include timestamps on each line in the log output",
 				Required: false,
 			},
-			&cli.StringSliceFlag{
-				Name:     "states",
-				Usage:    "specify the exact container states to log from",
-				Required: false,
-			},
 		},
 		Before: setupClient,
 		Action: runLogRpaas,
@@ -86,6 +81,5 @@ func runLogRpaas(c *cli.Context) error {
 		WithTimestamp: c.Bool("timestamp"),
 		Pod:           c.String("pod"),
 		Container:     c.String("container"),
-		States:        c.StringSlice("states"),
 	})
 }

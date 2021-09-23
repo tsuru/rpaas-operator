@@ -198,14 +198,13 @@ type ExecArgs struct {
 }
 
 type LogArgs struct {
-	Pod             *regexp.Regexp
-	Container       *regexp.Regexp
-	Buffer          io.Writer
-	Lines           *int64
-	Since           int64
-	Follow          bool
-	WithTimestamp   bool
-	ContainerStates []string
+	Pod           *regexp.Regexp
+	Container     *regexp.Regexp
+	Buffer        io.Writer
+	Lines         *int64
+	Since         int64
+	Follow        bool
+	WithTimestamp bool
 }
 
 type RpaasManager interface {

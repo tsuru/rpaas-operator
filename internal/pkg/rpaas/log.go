@@ -10,7 +10,6 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 
-	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
@@ -63,7 +62,7 @@ func updateChannels(ctx context.Context, wAdded, wRemoved, toAdd, toRemove chan 
 	}
 }
 
-func (m *k8sRpaasManager) tail(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, sternStates []stern.ContainerState, template *template.Template) error {
+func (m *k8sRpaasManager) tail(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, template *template.Template) error {
 	added := make(chan *stern.Target)
 	removed := make(chan *stern.Target)
 	errCh := make(chan error)
@@ -82,7 +81,7 @@ func (m *k8sRpaasManager) tail(ctx context.Context, args LogArgs, nginx *nginxv1
 		nil,
 		false,
 		false,
-		sternStates,
+		[]stern.ContainerState{"running", "waiting", "terminated"},
 		labels.SelectorFromSet(nginx.Spec.PodTemplate.Labels),
 		fields.Everything(),
 	)
@@ -102,27 +101,7 @@ func (m *k8sRpaasManager) tail(ctx context.Context, args LogArgs, nginx *nginxv1
 	}
 }
 
-func matchState(states []string, container corev1.ContainerStatus) bool {
-	for _, state := range states {
-		switch state {
-		case "running":
-			if container.State.Running != nil {
-				return true
-			}
-		case "terminated":
-			if container.State.Terminated != nil {
-				return true
-			}
-		case "waiting":
-			if container.State.Waiting != nil {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, sternStates []stern.ContainerState, template *template.Template) error {
+func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, template *template.Template) error {
 	pods, err := m.getPods(ctx, nginx)
 	if err != nil {
 		return err
@@ -141,9 +120,7 @@ func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *ngi
 					Follow:       false,
 				})
 				if args.Container.MatchString(c.Name) {
-					if matchState(args.ContainerStates, c) {
-						tailQueue = append(tailQueue, t)
-					}
+					tailQueue = append(tailQueue, t)
 				}
 			}
 		}
@@ -157,11 +134,11 @@ func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *ngi
 	return nil
 }
 
-func (m *k8sRpaasManager) log(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, sternStates []stern.ContainerState, template *template.Template) error {
+func (m *k8sRpaasManager) log(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, template *template.Template) error {
 	switch args.Follow {
 	case true:
-		return m.tail(ctx, args, nginx, sternStates, template)
+		return m.tail(ctx, args, nginx, template)
 	default:
-		return m.listLogs(ctx, args, nginx, sternStates, template)
+		return m.listLogs(ctx, args, nginx, template)
 	}
 }

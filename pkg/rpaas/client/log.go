@@ -48,9 +48,6 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	qs := u.Query()
 	qs.Set("follow", strconv.FormatBool(args.Follow))
 	qs.Set("timestamp", strconv.FormatBool(args.WithTimestamp))
-	for _, state := range args.States {
-		qs.Add("states", state)
-	}
 	if args.Lines > 0 {
 		qs.Set("lines", strconv.FormatInt(int64(args.Lines), 10))
 	}

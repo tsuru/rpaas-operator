@@ -93,11 +93,6 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		return rpaas.LogArgs{}, err
 	}
 
-	states := []string{"running", "waiting", "terminated"}
-	if s, ok := params["states"]; ok && len(s) > 0 {
-		states = s
-	}
-
 	args := rpaas.LogArgs{
 		Pod:           queries["pod"],
 		Container:     queries["container"],
@@ -108,7 +103,6 @@ func extractLogArgs(c echo.Context) (rpaas.LogArgs, error) {
 		Buffer: &flushWriter{
 			w: c.Response().Writer,
 		},
-		ContainerStates: states,
 	}
 
 	return args, nil

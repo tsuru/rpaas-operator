@@ -105,7 +105,6 @@ type LogArgs struct {
 	WithTimestamp bool
 	Pod           string
 	Container     string
-	States        []string
 }
 
 type UpdateCertManagerArgs struct {
