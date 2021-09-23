@@ -35,6 +35,7 @@ type FakeClient struct {
 	FakeSetService              func(service string) error
 	FakeUpdateCertManager       func(args client.UpdateCertManagerArgs) error
 	FakeDeleteCertManager       func(instance string) error
+	FakeLog                     func(args client.LogArgs) error
 }
 
 var _ client.Client = &FakeClient{}
@@ -205,6 +206,14 @@ func (f *FakeClient) UpdateCertManager(ctx context.Context, args client.UpdateCe
 func (f *FakeClient) DeleteCertManager(ctx context.Context, instance string) error {
 	if f.FakeDeleteCertManager != nil {
 		return f.FakeDeleteCertManager(instance)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) Log(ctx context.Context, args client.LogArgs) error {
+	if f.FakeLog != nil {
+		return f.FakeLog(args)
 	}
 
 	return nil

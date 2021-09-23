@@ -16,7 +16,6 @@ import (
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
-	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -91,7 +90,7 @@ func TestInfo(t *testing.T) {
 								Content: "# some nginx config at server context",
 							},
 						},
-						Routes: []types.Route{
+						Routes: []clientTypes.Route{
 							{
 								Path:        "/app1",
 								Destination: "app1.tsuru.example.com",
@@ -432,7 +431,7 @@ Routes:
 						Binds:       []v1alpha1.Bind{},
 						Replicas:    int32Ptr(3),
 						Blocks:      []clientTypes.Block{},
-						Routes:      []types.Route{},
+						Routes:      []clientTypes.Route{},
 						Team:        "some-team",
 						Cluster:     "my-dedicated-cluster",
 						Description: "some description",
@@ -544,7 +543,7 @@ Ports:
 						Binds:       []v1alpha1.Bind{},
 						Replicas:    int32Ptr(3),
 						Blocks:      []clientTypes.Block{},
-						Routes:      []types.Route{},
+						Routes:      []clientTypes.Route{},
 						Team:        "some-team",
 						Cluster:     "my-dedicated-cluster",
 						Description: "some description",
@@ -664,7 +663,7 @@ Pods: 3
 							},
 						},
 						Replicas: int32Ptr(5),
-						Routes: []types.Route{
+						Routes: []clientTypes.Route{
 							{
 								Path:        "some-path",
 								Destination: "some-destination",

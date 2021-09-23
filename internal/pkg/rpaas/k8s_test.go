@@ -5093,7 +5093,7 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				EnableCertManager:        true,
 				DefaultCertManagerIssuer: "issuer-1",
 			},
-			expectedError: "These DNS Names are not allowed: wrong.io, wrong.com",
+			expectedError: "these DNS Names are not allowed: wrong.io, wrong.com",
 		},
 
 		"using wrong certificate issuer from configs": {

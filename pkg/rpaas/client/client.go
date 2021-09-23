@@ -7,6 +7,7 @@ package client
 import (
 	"context"
 	"io"
+	"time"
 
 	"github.com/gorilla/websocket"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -97,6 +98,17 @@ type ExecArgs struct {
 	TTY            bool
 }
 
+type LogArgs struct {
+	Instance      string
+	Lines         int
+	Since         time.Duration
+	Pod           string
+	Container     string
+	Follow        bool
+	WithTimestamp bool
+	Color         bool
+}
+
 type UpdateCertManagerArgs struct {
 	types.CertManager
 	Instance string
@@ -119,6 +131,7 @@ type Client interface {
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
+	Log(ctx context.Context, args LogArgs) error
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)
