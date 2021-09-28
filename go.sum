@@ -930,8 +930,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1
 github.com/tommy-muehle/go-mnd v1.3.1-0.20200224220436-e6f9a994e8fa/go.mod h1:dSUh0FtTP8VhvkL1S+gUR1OKd9ZnSaozuI6r3m6wOig=
 github.com/tsuru/nginx-operator v0.8.0 h1:PLirMZ323Z5OuGcKGKBWqhCG/NelXL/NTU86dmKuHtY=
 github.com/tsuru/nginx-operator v0.8.0/go.mod h1:0nwFM/IZA55wz4/DxpgbjUROnYTEEG225V+6rZsZU5Q=
-github.com/tsuru/stern v1.20.2-0.20210916201636-9a55e620a9b6 h1:E2ofjftGJYLTbjYLYNifuLpYHVQ9/h17ZOS+z2W5umY=
-github.com/tsuru/stern v1.20.2-0.20210916201636-9a55e620a9b6/go.mod h1:SUQKJ3CLsVARBwkz5z9IIL8Pj008JNj4U8eF50kkm2c=
+github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f h1:9dTZI6bQUVkKAsCnqaDl4V7fKAc5ErVpmX+bzevz3Cg=
+github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f/go.mod h1:SUQKJ3CLsVARBwkz5z9IIL8Pj008JNj4U8eF50kkm2c=
 github.com/uber/jaeger-client-go v2.25.0+incompatible h1:IxcNZ7WRY1Y3G4poYlx24szfsn/3LvK9QHCq9oQw8+U=
 github.com/uber/jaeger-client-go v2.25.0+incompatible/go.mod h1:WVhlPFC8FDjOFMMWRy2pZqQJSXxYSwNYOkTr/Z6d3Kk=
 github.com/uber/jaeger-lib v2.4.0+incompatible h1:fY7QsGQWiCt8pajv4r7JEvmATdCVaWxXbjwyYwsNaLQ=

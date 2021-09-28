@@ -49,4 +49,4 @@ require (
 	sigs.k8s.io/go-open-service-broker-client/v2 v2.0.0-20200925085050-ae25e62aaf10
 )
 
-replace github.com/stern/stern => github.com/tsuru/stern v1.20.2-0.20210916201636-9a55e620a9b6
+replace github.com/stern/stern => github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f

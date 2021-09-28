@@ -28,8 +28,9 @@ rules:
   resources:
     - pods/log
   verbs:
-    - get
     - list
+    - get
+    - watch
 - apiGroups:
   - ""
   resources:
@@ -56,6 +57,8 @@ rules:
   - pods
   verbs:
   - list
+  - get
+  - watch
 - apiGroups:
   - nginx.tsuru.io
   resources:
