@@ -407,6 +407,9 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 							Annotations: map[string]string{
 								rotateTLSSessionTicketsScriptFilename: rotateTLSSessionTicketsScript,
 							},
+							Labels: map[string]string{
+								"rpaas.extensions.tsuru.io/component": "session-tickets",
+							},
 						},
 						Spec: corev1.PodSpec{
 							ServiceAccountName: rotateTLSSessionTicketsServiceAccountName,

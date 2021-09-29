@@ -1992,6 +1992,9 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 						Annotations: map[string]string{
 							rotateTLSSessionTicketsScriptFilename: rotateTLSSessionTicketsScript,
 						},
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/component": "session-tickets",
+						},
 					},
 					Spec: corev1.PodSpec{
 						ServiceAccountName: rotateTLSSessionTicketsServiceAccountName,
