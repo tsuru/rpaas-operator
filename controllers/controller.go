@@ -25,7 +25,6 @@ import (
 	"github.com/willf/bitset"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -326,7 +325,7 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 
 	newCronJob := newCronJobForSessionTickets(instance)
 
-	var cj batchv1beta1.CronJob
+	var cj batchv1.CronJob
 	cjName := types.NamespacedName{
 		Name:      newCronJob.Name,
 		Namespace: newCronJob.Namespace,
@@ -359,7 +358,7 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 	return r.Client.Update(ctx, newCronJob)
 }
 
-func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1.CronJob {
+func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.CronJob {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	keyLength := v1alpha1.DefaultSessionTicketKeyLength
@@ -376,10 +375,10 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.Image != "" {
 		image = instance.Spec.TLSSessionResumption.SessionTicket.Image
 	}
-
-	return &batchv1beta1.CronJob{
+	var jobsHistoryLimit int32 = 1
+	return &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1beta1",
+			APIVersion: "batch/v1",
 			Kind:       "CronJob",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -394,9 +393,11 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 			},
 			Labels: labelsForRpaasInstance(instance),
 		},
-		Spec: batchv1beta1.CronJobSpec{
-			Schedule: minutesIntervalToSchedule(rotationInterval),
-			JobTemplate: batchv1beta1.JobTemplateSpec{
+		Spec: batchv1.CronJobSpec{
+			Schedule:                   minutesIntervalToSchedule(rotationInterval),
+			SuccessfulJobsHistoryLimit: &jobsHistoryLimit,
+			FailedJobsHistoryLimit:     &jobsHistoryLimit,
+			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 					Labels:      labelsForRpaasInstance(instance),
@@ -704,7 +705,7 @@ func (r *RpaasInstanceReconciler) reconcileCacheSnapshot(ctx context.Context, in
 }
 
 func (r *RpaasInstanceReconciler) reconcileCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	foundCronJob := &batchv1beta1.CronJob{}
+	foundCronJob := &batchv1.CronJob{}
 	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
 	err := r.Client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
 	if err != nil && !k8sErrors.IsNotFound(err) {
@@ -726,7 +727,7 @@ func (r *RpaasInstanceReconciler) reconcileCacheSnapshotCronJob(ctx context.Cont
 
 func (r *RpaasInstanceReconciler) destroyCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
-	cronJob := &batchv1beta1.CronJob{}
+	cronJob := &batchv1.CronJob{}
 
 	err := r.Client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
 	isNotFound := k8sErrors.IsNotFound(err)
@@ -1195,7 +1196,7 @@ func newHPA(instance *v1alpha1.RpaasInstance) autoscalingv2beta2.HorizontalPodAu
 	}
 }
 
-func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
+func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1.CronJob {
 	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
 
 	schedule := defaultCacheSnapshotSchedule
@@ -1216,7 +1217,9 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 	jobLabels["log-app-name"] = instance.Name
 	jobLabels["log-process-name"] = "cache-synchronize"
 
-	return &batchv1beta1.CronJob{
+	var jobsHistoryLimit int32 = 1
+
+	return &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      cronName,
 			Namespace: instance.Namespace,
@@ -1230,13 +1233,15 @@ func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *bat
 			Labels: labelsForRpaasInstance(instance),
 		},
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1beta1",
+			APIVersion: "batch/v1",
 			Kind:       "CronJob",
 		},
-		Spec: batchv1beta1.CronJobSpec{
-			Schedule:          schedule,
-			ConcurrencyPolicy: batchv1beta1.ForbidConcurrent,
-			JobTemplate: batchv1beta1.JobTemplateSpec{
+		Spec: batchv1.CronJobSpec{
+			Schedule:                   schedule,
+			ConcurrencyPolicy:          batchv1.ForbidConcurrent,
+			SuccessfulJobsHistoryLimit: &jobsHistoryLimit,
+			FailedJobsHistoryLimit:     &jobsHistoryLimit,
+			JobTemplate: batchv1.JobTemplateSpec{
 				Spec: batchv1.JobSpec{
 					Template: corev1.PodTemplateSpec{
 						ObjectMeta: metav1.ObjectMeta{

@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1073,7 +1073,7 @@ func Test_reconcileCacheSnapshotCronJobCreation(t *testing.T) {
 	err := reconciler.reconcileCacheSnapshotCronJob(ctx, instance1, plan)
 	require.NoError(t, err)
 
-	cronJob := &batchv1beta1.CronJob{}
+	cronJob := &batchv1.CronJob{}
 	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
 	require.NoError(t, err)
 
@@ -1098,11 +1098,11 @@ func Test_reconcileCacheSnapshotCronJobUpdate(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
-	previousCronJob := &batchv1beta1.CronJob{
+	previousCronJob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: instance1.Name + "-snapshot-cronjob",
 		},
-		Spec: batchv1beta1.CronJobSpec{
+		Spec: batchv1.CronJobSpec{
 			Schedule: "old-schedule",
 		},
 	}
@@ -1122,7 +1122,7 @@ func Test_reconcileCacheSnapshotCronJobUpdate(t *testing.T) {
 	err := reconciler.reconcileCacheSnapshotCronJob(ctx, instance1, plan)
 	require.NoError(t, err)
 
-	cronJob := &batchv1beta1.CronJob{}
+	cronJob := &batchv1.CronJob{}
 	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
 	require.NoError(t, err)
 
@@ -1136,7 +1136,7 @@ func Test_destroySnapshotCronJob(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance-1"
 
-	cronJob := &batchv1beta1.CronJob{
+	cronJob := &batchv1.CronJob{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance1.Name + "-snapshot-cron-job",
 			Namespace: instance1.Namespace,
@@ -1148,7 +1148,7 @@ func Test_destroySnapshotCronJob(t *testing.T) {
 	err := reconciler.destroyCacheSnapshotCronJob(ctx, instance1)
 	require.NoError(t, err)
 
-	cronJob = &batchv1beta1.CronJob{}
+	cronJob = &batchv1.CronJob{}
 
 	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: instance1.Name + "-snapshot-cron-job", Namespace: instance1.Namespace}, cronJob)
 	require.True(t, k8sErrors.IsNotFound(err))
@@ -1840,7 +1840,7 @@ func TestReconcile(t *testing.T) {
 		{Name: "cache-vol", MountPath: "/var/cache/nginx/rpaas"},
 	}, initContainer.VolumeMounts)
 
-	cronJob := &batchv1beta1.CronJob{}
+	cronJob := &batchv1.CronJob{}
 	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: "my-instance-snapshot-cron-job", Namespace: rpaas.Namespace}, cronJob)
 	require.NoError(t, err)
 
@@ -1950,7 +1950,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 		name     string
 		instance *v1alpha1.RpaasInstance
 		objects  []runtime.Object
-		assert   func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob)
+		assert   func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob)
 	}{
 		{
 			name: "when no TLS session resumption is enabled",
@@ -1974,7 +1974,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 				require.NotNil(t, gotSecret)
 
@@ -2066,7 +2066,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 						Namespace: "default",
 					},
 				},
-				&batchv1beta1.CronJob{
+				&batchv1.CronJob{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "my-instance-session-tickets",
 						Namespace: "default",
@@ -2089,7 +2089,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 				require.NotNil(t, gotSecret)
 				require.NotNil(t, gotCronJob)
@@ -2116,7 +2116,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 						Namespace: "default",
 					},
 				},
-				&batchv1beta1.CronJob{
+				&batchv1.CronJob{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "my-instance-session-tickets",
 						Namespace: "default",
@@ -2132,7 +2132,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					TLSSessionResumption: &v1alpha1.TLSSessionResumption{},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 				assert.Empty(t, gotSecret.Name)
 				assert.Empty(t, gotCronJob.Name)
@@ -2167,7 +2167,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 
 				expectedKeys := 2
@@ -2200,7 +2200,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 			}
 			r.Client.Get(context.TODO(), secretName, &secret)
 
-			var cronJob batchv1beta1.CronJob
+			var cronJob batchv1.CronJob
 			cronJobName := types.NamespacedName{
 				Name:      tt.instance.Name + sessionTicketsCronJobSuffix,
 				Namespace: tt.instance.Namespace,
