@@ -12,7 +12,7 @@ import (
 func NewCmdLogs() *cli.Command {
 	return &cli.Command{
 		Name:    "logs",
-		Usage:   "Fetches and prints logs from instance pods",
+		Usage:   "Shows the log entries from instance pods",
 		Aliases: []string{"log"},
 		Flags: []cli.Flag{
 			&cli.StringFlag{
@@ -21,52 +21,38 @@ func NewCmdLogs() *cli.Command {
 				Usage:   "the Tsuru service name",
 			},
 			&cli.StringFlag{
-				Name:     "instance",
-				Aliases:  []string{"tsuru-service-instance", "i"},
-				Usage:    "the reverse proxy instance name",
-				Required: true,
+				Name:    "instance",
+				Aliases: []string{"tsuru-service-instance", "i"},
+				Usage:   "the reverse proxy instance name",
 			},
 			&cli.StringFlag{
-				Name:     "pod",
-				Aliases:  []string{"p"},
-				Usage:    "specific pod to log from",
-				Required: false,
+				Name:    "pod",
+				Aliases: []string{"p"},
+				Usage:   "specific pod to log from (default: all pods from instance)",
 			},
 			&cli.PathFlag{
-				Name:     "container",
-				Aliases:  []string{"c"},
-				Usage:    "specific container to log from",
-				Required: false,
+				Name:    "container",
+				Aliases: []string{"c"},
+				Usage:   "specific container to log from (default: all containers from pods)",
 			},
 			&cli.IntFlag{
-				Name:     "lines",
-				Aliases:  []string{"l"},
-				Usage:    "number of earlier log lines to show",
-				Required: false,
+				Name:    "lines",
+				Aliases: []string{"l"},
+				Usage:   "number of earlier log lines to show",
 			},
 			&cli.DurationFlag{
-				Name:     "since",
-				Usage:    "only return logs newer than a relative duration like 5s, 2m, or 3h. Defaults to last 24 hours.",
-				Required: false,
+				Name:  "since",
+				Usage: "only return logs newer than a relative duration like 5s, 2m, or 3h",
 			},
 			&cli.BoolFlag{
-				Name:     "follow",
-				Aliases:  []string{"f"},
-				Usage:    "specify if the logs should be streamed",
-				Required: false,
+				Name:    "follow",
+				Aliases: []string{"f"},
+				Usage:   "specify if the logs should be streamed",
 			},
 			&cli.BoolFlag{
-				Name:     "timestamp",
-				Aliases:  []string{"with-timestamp"},
-				Usage:    "include timestamps on each line in the log output",
-				Required: false,
-				Value:    true,
-			},
-			&cli.BoolFlag{
-				Name:     "color",
-				Usage:    "defines whether or not to display colorful output. Defaults to true.",
-				Required: false,
-				Value:    true,
+				Name:    "without-color",
+				Aliases: []string{"no-color"},
+				Usage:   "defines whether or not to display colorful output.",
 			},
 		},
 		Before: setupClient,
@@ -81,13 +67,13 @@ func runLogRpaas(c *cli.Context) error {
 	}
 
 	return client.Log(c.Context, rpaasclient.LogArgs{
-		Instance:      c.String("instance"),
-		Lines:         c.Int("lines"),
-		Since:         c.Duration("since"),
-		Follow:        c.Bool("follow"),
-		WithTimestamp: c.Bool("timestamp"),
-		Pod:           c.String("pod"),
-		Container:     c.String("container"),
-		Color:         c.Bool("color"),
+		Out:       c.App.Writer,
+		Instance:  c.String("instance"),
+		Lines:     c.Int("lines"),
+		Since:     c.Duration("since"),
+		Follow:    c.Bool("follow"),
+		Pod:       c.String("pod"),
+		Container: c.String("container"),
+		Color:     !c.Bool("without-color"),
 	})
 }

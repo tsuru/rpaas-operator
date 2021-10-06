@@ -31,9 +31,9 @@ func TestLog(t *testing.T) {
 			client: &fake.FakeClient{
 				FakeLog: func(args rpaasclient.LogArgs) error {
 					expected := rpaasclient.LogArgs{
-						Instance:      "my-instance",
-						Color:         true,
-						WithTimestamp: true,
+						Out:      &bytes.Buffer{},
+						Instance: "my-instance",
+						Color:    true,
 					}
 					assert.Equal(t, expected, args)
 					return fmt.Errorf("some error")
@@ -42,18 +42,18 @@ func TestLog(t *testing.T) {
 		},
 		{
 			name: "when Log returns no error",
-			args: []string{"./rpaasv2", "logs", "-i", "my-instance", "--since", "2s", "--follow", "--pod", "some-pod", "--container", "some-container", "--with-timestamp", "--lines", "15"},
+			args: []string{"./rpaasv2", "logs", "-i", "my-instance", "--since", "2s", "--follow", "--pod", "some-pod", "--container", "some-container", "--lines", "15"},
 			client: &fake.FakeClient{
 				FakeLog: func(args rpaasclient.LogArgs) error {
 					expected := rpaasclient.LogArgs{
-						Instance:      "my-instance",
-						Since:         time.Second * 2,
-						Follow:        true,
-						Pod:           "some-pod",
-						Container:     "some-container",
-						WithTimestamp: true,
-						Lines:         15,
-						Color:         true,
+						Out:       &bytes.Buffer{},
+						Instance:  "my-instance",
+						Since:     time.Second * 2,
+						Follow:    true,
+						Pod:       "some-pod",
+						Container: "some-container",
+						Lines:     15,
+						Color:     true,
 					}
 					assert.Equal(t, expected, args)
 					return nil

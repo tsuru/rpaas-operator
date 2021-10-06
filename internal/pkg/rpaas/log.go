@@ -7,9 +7,13 @@ package rpaas
 import (
 	"context"
 	"fmt"
+	"regexp"
+	"sort"
+	"strings"
 	"text/template"
 	"time"
 
+	"github.com/fatih/color"
 	"github.com/stern/stern/stern"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -18,36 +22,172 @@ import (
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 
-func addTail(ctx context.Context, added chan *stern.Target, client v1.CoreV1Interface, template *template.Template, args LogArgs, tails map[string]*stern.Tail) {
+var (
+	logFuncs = map[string]interface{}{
+		"color": func(color color.Color, text string) string {
+			return color.SprintFunc()(text)
+		},
+
+		"time": func(msg string) string {
+			idx := strings.IndexRune(msg, ' ')
+			return msg[:idx]
+		},
+
+		"message": func(msg string) string {
+			idx := strings.IndexRune(msg, ' ')
+			return msg[idx+1:]
+		},
+	}
+
+	logsTemplate = template.Must(template.New("rpaasv2.log").
+			Funcs(logFuncs).
+			Parse("{{ printf `%s [%s][%s]` (time .Message) .PodName .ContainerName }}: {{ message .Message }}"))
+
+	logsWithColor = template.Must(template.New("rpaasv2.log").
+			Funcs(logFuncs).
+			Parse("{{ color .PodColor (printf `%s [%s][%s]` (time .Message) .PodName .ContainerName) }}: {{ message .Message }}"))
+)
+
+func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args LogArgs) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil {
+		return err
+	}
+
+	if args.Since == nil {
+		args.Since = func(n int64) *int64 { return &n }(60 * 60 * 24) // last 24 hours
+	}
+
+	args.template = logsTemplate
+	if args.Color {
+		args.template = logsWithColor
+	}
+
+	if args.Follow {
+		return m.watchLogs(ctx, nginx, args)
+	}
+
+	return m.listLogs(ctx, nginx, args)
+}
+
+func (m *k8sRpaasManager) listLogs(ctx context.Context, nginx *nginxv1alpha1.Nginx, args LogArgs) error {
+	pods, err := m.getPods(ctx, nginx)
+	if err != nil {
+		return err
+	}
+
+	sort.Slice(pods, func(i, j int) bool { return pods[i].Name < pods[j].Name })
+
+	var tails []*stern.Tail
+	for _, p := range pods {
+		if args.Pod != "" && args.Pod != p.Name {
+			continue
+		}
+
+		for _, c := range p.Spec.Containers {
+			if args.Container != "" && args.Container != c.Name {
+				continue
+			}
+
+			tails = append(tails, stern.NewTail(m.kcs.CoreV1(), p.Spec.NodeName, p.Namespace, p.Name, c.Name, args.template, args.Stdout, args.Stderr, &stern.TailOptions{
+				Timestamps:   true,
+				SinceSeconds: *args.Since,
+				TailLines:    args.Lines,
+				Location:     time.UTC,
+			}))
+		}
+	}
+
+	for _, t := range tails {
+		t.Start(ctx)
+	}
+
+	return nil
+}
+
+func (m *k8sRpaasManager) watchLogs(ctx context.Context, nginx *nginxv1alpha1.Nginx, args LogArgs) error {
+	added := make(chan *stern.Target)
+	removed := make(chan *stern.Target)
+	errCh := make(chan error)
+	defer close(added)
+	defer close(errCh)
+	defer close(removed)
+
+	podRegexp := regexp.MustCompile(`.*`)
+	if args.Pod != "" {
+		podRegexp = regexp.MustCompile(fmt.Sprintf("^%s$", regexp.QuoteMeta(args.Pod)))
+	}
+
+	containerRegexp := regexp.MustCompile(`.*`)
+	if args.Container != "" {
+		containerRegexp = regexp.MustCompile(fmt.Sprintf("^%s$", regexp.QuoteMeta(args.Container)))
+	}
+
+	labelSet, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
+	if err != nil {
+		return err
+	}
+
+	tails := make(map[string]*stern.Tail)
+	a, r, err := stern.Watch(ctx, m.kcs.CoreV1().Pods(nginx.Namespace),
+		podRegexp, nil,
+		containerRegexp, nil,
+		false, false,
+		[]stern.ContainerState{stern.RUNNING, stern.WAITING, stern.TERMINATED},
+		labelSet.AsSelector(),
+		fields.Everything(),
+	)
+	if err != nil {
+		return err
+	}
+
+	go routeTarget(ctx, a, r, added, removed, errCh)
+	go addTail(ctx, m.kcs.CoreV1(), added, tails, args)
+	go removeTail(removed, tails)
+
+	select {
+	case e := <-errCh:
+		return e
+
+	case <-ctx.Done():
+		return nil
+	}
+}
+
+func addTail(ctx context.Context, client v1.CoreV1Interface, added chan *stern.Target, tails map[string]*stern.Tail, args LogArgs) {
 	for p := range added {
-		tail := stern.NewTail(client, p.Node, p.Namespace, p.Pod, p.Container, template, args.Buffer, args.Buffer, &stern.TailOptions{
-			Timestamps:   args.WithTimestamp,
-			SinceSeconds: args.Since,
-			Namespace:    false,
+		tail := stern.NewTail(client, p.Node, p.Namespace, p.Pod, p.Container, args.template, args.Stdout, args.Stderr, &stern.TailOptions{
+			Timestamps:   true,
+			SinceSeconds: *args.Since,
 			TailLines:    args.Lines,
 			Follow:       true,
-			Location:     time.Now().Location(),
+			Location:     time.UTC,
 		})
 
 		tails[p.GetID()] = tail
-		go func(tail *stern.Tail) {
-			if err := tail.Start(ctx); err != nil {
-				fmt.Fprintf(args.Buffer, "unexpected error: %v\n", err)
-			}
-		}(tail)
+
+		go func(t *stern.Tail) { t.Start(ctx) }(tail)
 	}
 }
 
 func removeTail(removed chan *stern.Target, tails map[string]*stern.Tail) {
 	for p := range removed {
-		targetID := p.GetID()
-		if tail, ok := tails[targetID]; ok {
-			tail.Close()
+		t, ok := tails[p.GetID()]
+		if !ok {
+			continue
 		}
+
+		t.Close()
+		delete(tails, p.GetID())
 	}
 }
 
-func updateChannels(ctx context.Context, wAdded, wRemoved, toAdd, toRemove chan *stern.Target, errCh chan error) {
+func routeTarget(ctx context.Context, wAdded, wRemoved, toAdd, toRemove chan *stern.Target, errCh chan error) {
 	for {
 		select {
 		case v, ok := <-wAdded:
@@ -56,96 +196,16 @@ func updateChannels(ctx context.Context, wAdded, wRemoved, toAdd, toRemove chan 
 				return
 			}
 			toAdd <- v
+
 		case v, ok := <-wRemoved:
 			if !ok {
 				errCh <- fmt.Errorf("lost watch connection")
 				return
 			}
 			toRemove <- v
+
 		case <-ctx.Done():
 			return
 		}
-	}
-}
-
-func (m *k8sRpaasManager) tail(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, template *template.Template) error {
-	added := make(chan *stern.Target)
-	removed := make(chan *stern.Target)
-	errCh := make(chan error)
-	defer close(added)
-	defer close(errCh)
-	defer close(removed)
-	tails := make(map[string]*stern.Tail)
-
-	var a, r chan *stern.Target
-	var err error
-	a, r, err = stern.Watch(ctx,
-		m.kcs.CoreV1().Pods(nginx.Namespace),
-		args.Pod,
-		nil,
-		args.Container,
-		nil,
-		false,
-		false,
-		[]stern.ContainerState{"running", "waiting", "terminated"},
-		labels.SelectorFromSet(nginx.Spec.PodTemplate.Labels),
-		fields.Everything(),
-	)
-	if err != nil {
-		return err
-	}
-
-	go updateChannels(ctx, a, r, added, removed, errCh)
-	go addTail(ctx, added, m.kcs.CoreV1(), template, args, tails)
-	go removeTail(removed, tails)
-
-	select {
-	case e := <-errCh:
-		return e
-	case <-ctx.Done():
-		return nil
-	}
-}
-
-func (m *k8sRpaasManager) listLogs(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, template *template.Template) error {
-	pods, err := m.getPods(ctx, nginx)
-	if err != nil {
-		return err
-	}
-
-	tailQueue := []*stern.Tail{}
-
-	for _, pod := range pods {
-		if args.Pod.MatchString(pod.Name) {
-			for _, c := range pod.Status.ContainerStatuses {
-				t := stern.NewTail(m.kcs.CoreV1(), pod.Spec.NodeName, pod.Namespace, pod.Name, c.Name, template, args.Buffer, args.Buffer, &stern.TailOptions{
-					Timestamps:   args.WithTimestamp,
-					SinceSeconds: args.Since,
-					Namespace:    false,
-					TailLines:    args.Lines,
-					Follow:       false,
-					Location:     time.Now().Location(),
-				})
-				if args.Container.MatchString(c.Name) {
-					tailQueue = append(tailQueue, t)
-				}
-			}
-		}
-	}
-
-	for _, tail := range tailQueue {
-		if err := tail.Start(ctx); err != nil {
-			fmt.Fprintf(args.Buffer, "unexpected error: %v\n", err)
-		}
-	}
-	return nil
-}
-
-func (m *k8sRpaasManager) log(ctx context.Context, args LogArgs, nginx *nginxv1alpha1.Nginx, template *template.Template) error {
-	switch args.Follow {
-	case true:
-		return m.tail(ctx, args, nginx, template)
-	default:
-		return m.listLogs(ctx, args, nginx, template)
 	}
 }

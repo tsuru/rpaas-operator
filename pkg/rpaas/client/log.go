@@ -5,26 +5,14 @@
 package client
 
 import (
-	"bufio"
 	"context"
 	"fmt"
 	"io"
 	"net/http"
 	"net/url"
-	"os"
 	"strconv"
+	"time"
 )
-
-func writeOut(body io.ReadCloser) error {
-	writer := bufio.NewWriter(os.Stdout)
-	reader := bufio.NewReader(body)
-	defer body.Close()
-	_, err := io.Copy(writer, reader)
-	if err != nil {
-		return err
-	}
-	return nil
-}
 
 func (args LogArgs) Validate() error {
 	if args.Instance == "" {
@@ -39,6 +27,9 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 		return err
 	}
 
+	httpClient := *c.client
+	httpClient.Timeout = time.Duration(0)
+
 	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/log", args.Instance), args.Instance)
 	u, err := url.Parse(serverAddress)
 	if err != nil {
@@ -48,12 +39,12 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	qs := u.Query()
 	qs.Set("color", strconv.FormatBool(args.Color))
 	qs.Set("follow", strconv.FormatBool(args.Follow))
-	qs.Set("timestamp", strconv.FormatBool(args.WithTimestamp))
 	if args.Lines > 0 {
 		qs.Set("lines", strconv.FormatInt(int64(args.Lines), 10))
 	}
 	if args.Since > 0 {
-		qs.Set("since", strconv.FormatInt(int64(args.Since), 10))
+		sinceSeconds := int64(args.Since.Seconds())
+		qs.Set("since", strconv.FormatInt(sinceSeconds, 10))
 	}
 	if args.Pod != "" {
 		qs.Set("pod", args.Pod)
@@ -63,16 +54,21 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	}
 	u.RawQuery = qs.Encode()
 
-	req, err := http.NewRequest("GET", u.String(), nil)
+	req, err := http.NewRequestWithContext(ctx, "GET", u.String(), nil)
 	if err != nil {
 		return err
 	}
 	c.baseAuthHeader(req.Header)
 
-	resp, err := c.do(ctx, req)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return err
 	}
+	defer resp.Body.Close()
 
-	return writeOut(resp.Body)
+	if _, err = io.Copy(args.Out, resp.Body); err != io.EOF {
+		return err
+	}
+
+	return nil
 }

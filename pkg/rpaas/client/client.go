@@ -99,14 +99,14 @@ type ExecArgs struct {
 }
 
 type LogArgs struct {
-	Instance      string
-	Lines         int
-	Since         time.Duration
-	Pod           string
-	Container     string
-	Follow        bool
-	WithTimestamp bool
-	Color         bool
+	Out       io.Writer
+	Instance  string
+	Pod       string
+	Container string
+	Since     time.Duration
+	Lines     int
+	Follow    bool
+	Color     bool
 }
 
 type UpdateCertManagerArgs struct {

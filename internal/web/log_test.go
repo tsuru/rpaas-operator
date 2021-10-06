@@ -32,13 +32,13 @@ func Test_log(t *testing.T) {
 			manager: &fake.RpaasManager{
 				FakeLog: func(instance string, args rpaas.LogArgs) error {
 					assert.Equal(t, "my-instance", instance)
-					assert.NotNil(t, args.Buffer)
-					assert.Equal(t, "my-pod", args.Pod.String())
-					assert.Equal(t, "my-container", args.Container.String())
+					assert.NotNil(t, args.Stdout)
+					assert.NotNil(t, args.Stderr)
+					assert.Equal(t, "my-pod", args.Pod)
+					assert.Equal(t, "my-container", args.Container)
 					assert.Equal(t, int64(15), *args.Lines)
-					assert.Equal(t, int64(5), args.Since)
+					assert.Equal(t, func(n int64) *int64 { return &n }(int64(5)), args.Since)
 					assert.True(t, args.Follow)
-					assert.False(t, args.WithTimestamp)
 					return nil
 				},
 			},
@@ -50,13 +50,14 @@ func Test_log(t *testing.T) {
 			manager: &fake.RpaasManager{
 				FakeLog: func(instance string, args rpaas.LogArgs) error {
 					assert.Equal(t, "my-instance", instance)
-					assert.NotNil(t, args.Buffer)
-					assert.Equal(t, ".*", args.Pod.String())
-					assert.Equal(t, ".*", args.Container.String())
+					assert.NotNil(t, args.Stdout)
+					assert.NotNil(t, args.Stderr)
+					assert.Empty(t, args.Pod)
+					assert.Empty(t, args.Container)
 					assert.Nil(t, args.Lines)
-					assert.Equal(t, int64(86400), args.Since)
+					assert.Nil(t, args.Since)
 					assert.False(t, args.Follow)
-					assert.False(t, args.WithTimestamp)
+					assert.False(t, args.Color)
 					return nil
 				},
 			},
