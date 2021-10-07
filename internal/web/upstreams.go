@@ -6,6 +6,7 @@ package web
 
 import (
 	"net/http"
+	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -18,9 +19,7 @@ func getUpstreams(c echo.Context) error {
 		return err
 	}
 
-	instance := c.Param("instance")
-
-	upstreams, err := manager.GetUpstreams(ctx, instance)
+	upstreams, err := manager.GetUpstreams(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}
@@ -35,15 +34,12 @@ func addUpstream(c echo.Context) error {
 		return err
 	}
 
-	instance := c.Param("instance")
-
-	upstream := v1alpha1.AllowedUpstream{}
-	err = c.Bind(&upstream)
-	if err != nil {
+	var upstream v1alpha1.AllowedUpstream
+	if err = c.Bind(&upstream); err != nil {
 		return err
 	}
 
-	err = manager.AddUpstream(ctx, instance, upstream)
+	err = manager.AddUpstream(ctx, c.Param("instance"), upstream)
 	if err != nil {
 		return err
 	}
@@ -58,15 +54,17 @@ func deleteUpstream(c echo.Context) error {
 		return err
 	}
 
-	instance := c.Param("instance")
-
-	upstream := v1alpha1.AllowedUpstream{}
-	err = c.Bind(&upstream)
+	port, err := strconv.Atoi(c.QueryParam("port"))
 	if err != nil {
 		return err
 	}
 
-	if err := manager.DeleteUpstream(ctx, instance, upstream); err != nil {
+	upstream := v1alpha1.AllowedUpstream{
+		Host: c.QueryParam("host"),
+		Port: port,
+	}
+
+	if err := manager.DeleteUpstream(ctx, c.Param("instance"), upstream); err != nil {
 		return err
 	}
 
