@@ -1,7 +1,7 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: api
+  name: rpaas-api
   labels:
     name: rpaas-api
 spec:
@@ -15,13 +15,11 @@ spec:
         name: rpaas-api
     spec:
       containers:
-      - command:
-        - rpaas-api
-        image: tsuru/rpaas-api:latest
-        name: rpaas-api
+      - name: rpaas-api
+        image: tsuru/rpaas-api
         ports:
-          - name: api
-            containerPort: 9999
+        - name: api
+          containerPort: 9999
         resources:
           limits:
             cpu: 100m
@@ -29,5 +27,9 @@ spec:
           requests:
             cpu: 100m
             memory: 20Mi
+        readinessProbe:
+          httpGet:
+            path: /healthcheck
+            port: api
       serviceAccountName: api
       terminationGracePeriodSeconds: 10

@@ -1,144 +1,128 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
-set -euo pipefail
+# Copyright 2020 tsuru authors. All rights reserved.
+# Use of this source code is governed by a BSD-style
+# license that can be found in the LICENSE file.
+set -eu -o pipefail
 
-get_os() {
-  local os="$(uname -s)"
-  case ${os} in
-    Linux)
-      echo -n "linux";;
-    Darwin)
-      echo -n "darwin";;
-    *)
-      echo "Unsupported operating system. (supported: Linux or Darwin)"
-      exit 1;;
-  esac
-}
+[[ -n ${DEBUG:-} ]] && set -x
 
-get_arch() {
-  local arch="$(uname -m)"
-  case ${arch} in
-    amd64|x86_64)
-      echo -n "amd64";;
-    *)
-      echo "Unsupported machine architecture. (supported: x86_64 and amd64)"
-      exit 1;;
-  esac
-}
+readonly DOCKER=${DOCKER:-docker}
+readonly HELM=${HELM:-helm}
+readonly KIND=${KIND:-kind}
+readonly KUBECTL=${KUBECTL:-kubectl}
+readonly KUSTOMIZE=${KUSTOMIZE:-kustomize}
+readonly MINIKUBE=${MINIKUBE:-minikube}
+
+readonly CLUSTER_PROVIDER=${CLUSTER_PROVIDER:-kind}
+readonly NAMESPACE=${NAMESPACE:-rpaasv2-system}
+
+readonly INSTALL_CERT_MANAGER=${INSTALL_CERT_MANAGER:-}
+readonly CHART_VERSION_CERT_MANAGER=${CHART_VERSION_CERT_MANAGER:-1.5.3}
+readonly CHART_VERSION_RPAAS_OPERATOR=${CHART_VERSION_RPAAS_OPERATOR:-0.5.0}
 
 function onerror() {
   echo
   echo "RPAAS OPERATOR LOGS:"
-  kubectl logs deploy/rpaas-operator-controller-manager -n ${rpaas_system_namespace} || true
+  ${KUBECTL} logs -n ${NAMESPACE} deploy/rpaas-operator || true
   echo
   echo "NGINX OPERATOR LOGS:"
-  kubectl logs deploy/nginx-operator-controller -n ${rpaas_system_namespace} || true
+  ${KUBECTL} logs -n ${NAMESPACE} deploy/rpaas-operator-nginx-operator || true
   echo
   echo "RPAAS API LOGS:"
-  kubectl logs deploy/rpaas-api -n ${rpaas_system_namespace} || true
+  ${KUBECTL} logs -n ${NAMESPACE} deploy/rpaas-api|| true
   echo
 
   [[ -n ${kubectl_port_forward_pid} ]] && kill ${kubectl_port_forward_pid}
 }
 
-trap onerror ERR
-
-run_nginx_operator() {
-  local namespace="${1}"
-  local nginx_operator_dir="${GOPATH}/src/github.com/tsuru/nginx-operator"
-  local nginx_operator_revision=$(go mod download -json github.com/tsuru/nginx-operator | jq .Version -r | awk -F '-' '{print $NF}')
-  local tag=$(echo ${nginx_operator_revision} | tr v '\0')
-
-  if [[ ! -d ${nginx_operator_dir} ]]; then
-    mkdir -p $(dirname ${nginx_operator_dir})
-    git clone https://github.com/tsuru/nginx-operator.git ${nginx_operator_dir}
-  fi
-
-  pushd ${nginx_operator_dir}
-  git fetch --all
-  git checkout ${nginx_operator_revision}
-  popd
-
-  echo "Pulling image of NGINX operator using tag \"${tag}\"..."
-  docker pull tsuru/nginx-operator:${tag}
-
-  kind load docker-image tsuru/nginx-operator:${tag}
-
-  (cd ${nginx_operator_dir}/config/default && kustomize edit set namespace ${namespace})
-  (cd ${nginx_operator_dir}/config/default && kustomize edit set image tsuru/nginx-operator=tsuru/nginx-operator:${tag})
-
-  kustomize build ${nginx_operator_dir}/config/default | kubectl -n ${namespace} apply -f -
-
-  kubectl rollout status deployment/nginx-operator-controller -n ${namespace}
-}
-
-run_rpaas_operator() {
-  local namespace="${1}"
-  local tag="${2:-"integration"}"
-
-  echo "Building container images of RPaaS operator and API using tag \"${tag}\"..."
-  docker build -t "tsuru/rpaas-operator:${tag}" -f Dockerfile.operator .
-  docker build -t "tsuru/rpaas-api:${tag}" -f Dockerfile.api .
-
-  echo tsuru/rpaas-{api,operator}:${tag} | tr ' ' '\n' |
-  xargs -I{} kind load docker-image {}
-
-  (cd ./config/default && kustomize edit set namespace ${namespace})
-  (cd ./config/default && kustomize edit set image tsuru/rpaas-operator=tsuru/rpaas-operator:${tag})
-  (cd ./config/default && kustomize edit set image tsuru/rpaas-api=tsuru/rpaas-api:${tag})
-
-  kustomize build ./config/default | kubectl -n ${namespace} apply -f -
-
-  kubectl rollout status deployment/rpaas-api -n ${namespace} || \
-    kubectl describe deployment/rpaas-api -n ${namespace} && \
-    kubectl get pods -n ${namespace}
-
-  kubectl rollout status deployment/rpaas-operator-controller-manager -n ${namespace}
-}
-
 install_cert_manager() {
-  local namespace=$1
+  [[ -z ${INSTALL_CERT_MANAGER} ]] && return
 
-  helm repo add jetstack https://charts.jetstack.io || helm repo update
+  ${HELM} repo add --force-update jetstack https://charts.jetstack.io
 
-  helm install -n ${namespace} cert-manager jetstack/cert-manager \
-   --set installCRDs=true
+  ${HELM} upgrade --install --atomic \
+    --namespace ${NAMESPACE} --version ${CHART_VERSION_CERT_MANAGER} \
+    --set installCRDs=true \
+    cert-manager jetstack/cert-manager
 }
 
-[[ -n ${DEBUG:-} ]] && set -x
+install_rpaas_operator() {
+  ${HELM} repo add --force-update tsuru https://tsuru.github.io/charts
 
-# show some info about Kubernetes cluster
-kubectl cluster-info
-kubectl get all
+  ${HELM} upgrade --install --atomic \
+    --namespace ${NAMESPACE} --version ${CHART_VERSION_RPAAS_OPERATOR} \
+    --set image.repository=localhost/tsuru/rpaas-operator \
+    --set image.tag=integration \
+    --set image.pullPolicy=Never \
+    rpaas-operator tsuru/rpaas-operator
+}
 
-rpaas_system_namespace="rpaas-system"
+install_rpaas_api() {
+  (
+    cd config/api
+    ${KUSTOMIZE} edit set image tsuru/rpaas-api=localhost/tsuru/rpaas-api:integration
+    ${KUSTOMIZE} edit set namespace rpaasv2-system
+  )
 
-echo "Using namespace \"${rpaas_system_namespace}\" to run \"nginx-operator\" and \"rpaas-operator\"..."
-kubectl delete namespace "${rpaas_system_namespace}" || true
-kubectl create namespace "${rpaas_system_namespace}"
+  ${KUBECTL} apply -n ${NAMESPACE} -k config/api
+}
 
-install_cert_manager "${rpaas_system_namespace}"
+build_rpaasv2_container_images() {
+  ${DOCKER} build -t localhost/tsuru/rpaas-operator:integration -f Dockerfile.operator .
+  ${DOCKER} build -t localhost/tsuru/rpaas-api:integration -f Dockerfile.api .
 
-run_nginx_operator "${rpaas_system_namespace}" 
-run_rpaas_operator "${rpaas_system_namespace}"
+  case ${CLUSTER_PROVIDER} in
+    minikube)
+      ${DOCKER} save localhost/tsuru/rpaas-operator:integration | ${MINIKUBE} image load -
+      ${DOCKER} save localhost/tsuru/rpaas-api:integration | ${MINIKUBE} image load -
+      ;;
 
-sleep 30s
+    kind)
+      for image in "rpaas-operator" "rpaas-api"; do
+        ${DOCKER} save "localhost/tsuru/${image}:integration" -o "${image}.tar"
+        ${KIND} load image-archive "${image}.tar"
+        rm "${image}.tar"
+      done
+      ;;
 
-kubectl get deployment --all-namespaces
-kubectl get pods --all-namespaces
+    *)
+      print "Invalid local cluster provider (got ${CLUSTER_PROVIDER}, supported: kind, minikube)" >&2
+      exit 1;;
+  esac
+}
 
-local_rpaas_api_port=39999
+main() {
+  ${KUBECTL} cluster-info
+  ${KUBECTL} get all
 
-kubectl -n "${rpaas_system_namespace}" port-forward svc/rpaas-api ${local_rpaas_api_port}:9999 --address=127.0.0.1 &
-kubectl_port_forward_pid=${!}
+  ${KUBECTL} get namespace ${NAMESPACE} >/dev/null 2>&1 || \
+    ${KUBECTL} create namespace ${NAMESPACE}
 
-sleep 10s
+  build_rpaasv2_container_images
 
-make build/plugin/rpaasv2
+  install_cert_manager
+  install_rpaas_operator
+  install_rpaas_api
 
-RPAAS_PLUGIN_BIN=$(pwd)/build/_output/bin/rpaasv2            \
-RPAAS_API_ADDRESS="http://127.0.0.1:${local_rpaas_api_port}" \
-RPAAS_OPERATOR_INTEGRATION=1                                 \
-go test -test.v ./test/...
+  sleep 5s
 
-kill ${kubectl_port_forward_pid}
+  trap onerror ERR
+
+  local_rpaas_api_port=39999
+  ${KUBECTL} -n ${NAMESPACE} port-forward svc/rpaas-api ${local_rpaas_api_port}:9999 --address=127.0.0.1 &
+  kubectl_port_forward_pid=${!}
+
+  sleep 5s
+
+  make build/plugin/rpaasv2
+
+  RPAAS_PLUGIN_BIN=$(pwd)/build/_output/bin/rpaasv2            \
+  RPAAS_API_ADDRESS="http://127.0.0.1:${local_rpaas_api_port}" \
+  RPAAS_OPERATOR_INTEGRATION=1                                 \
+  go test -v ./test/...
+
+  kill ${kubectl_port_forward_pid}
+}
+
+main $@

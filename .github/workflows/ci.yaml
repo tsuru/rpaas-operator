@@ -54,6 +54,8 @@ jobs:
       - name: Run integration tests
         env:
           GOPATH: /tmp/go
+          INSTALL_CERT_MANAGER: "true"
+          DEBUG: "true"
         run: |
           go install github.com/helm/helm@v3.6.3 && helm version
           ./scripts/localkube-integration.sh
