@@ -1,10 +1,10 @@
 
 ---
-apiVersion: apiextensions.k8s.io/v1beta1
+apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.3.0
+    controller-gen.kubebuilder.io/version: v0.7.0
   creationTimestamp: null
   name: rpaasplans.extensions.tsuru.io
 spec:
@@ -15,187 +15,186 @@ spec:
     plural: rpaasplans
     singular: rpaasplan
   scope: Namespaced
-  subresources:
-    status: {}
-  validation:
-    openAPIV3Schema:
-      description: RpaasPlan is the Schema for the rpaasplans API
-      properties:
-        apiVersion:
-          description: 'APIVersion defines the versioned schema of this representation
-            of an object. Servers should convert recognized schemas to the latest
-            internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
-          type: string
-        kind:
-          description: 'Kind is a string value representing the REST resource this
-            object represents. Servers may infer this from the endpoint the client
-            submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
-          type: string
-        metadata:
-          type: object
-        spec:
-          description: RpaasPlanSpec defines the desired state of RpaasPlan
-          properties:
-            config:
-              description: Config defines some NGINX configurations values that can
-                be used in the configuration template.
-              properties:
-                cacheEnabled:
-                  type: boolean
-                cacheInactive:
-                  type: string
-                cacheLoaderFiles:
-                  type: integer
-                cachePath:
-                  type: string
-                cacheSize:
-                  anyOf:
-                  - type: integer
-                  - type: string
-                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                  x-kubernetes-int-or-string: true
-                cacheSnapshotEnabled:
-                  type: boolean
-                cacheSnapshotStorage:
-                  properties:
-                    storageClassName:
-                      type: string
-                    storageSize:
+  versions:
+  - name: v1alpha1
+    schema:
+      openAPIV3Schema:
+        description: RpaasPlan is the Schema for the rpaasplans API
+        properties:
+          apiVersion:
+            description: 'APIVersion defines the versioned schema of this representation
+              of an object. Servers should convert recognized schemas to the latest
+              internal value, and may reject unrecognized values. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#resources'
+            type: string
+          kind:
+            description: 'Kind is a string value representing the REST resource this
+              object represents. Servers may infer this from the endpoint the client
+              submits requests to. Cannot be updated. In CamelCase. More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds'
+            type: string
+          metadata:
+            type: object
+          spec:
+            description: RpaasPlanSpec defines the desired state of RpaasPlan
+            properties:
+              config:
+                description: Config defines some NGINX configurations values that
+                  can be used in the configuration template.
+                properties:
+                  cacheEnabled:
+                    type: boolean
+                  cacheInactive:
+                    type: string
+                  cacheLoaderFiles:
+                    type: integer
+                  cachePath:
+                    type: string
+                  cacheSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  cacheSnapshotEnabled:
+                    type: boolean
+                  cacheSnapshotStorage:
+                    properties:
+                      storageClassName:
+                        type: string
+                      storageSize:
+                        anyOf:
+                        - type: integer
+                        - type: string
+                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                        x-kubernetes-int-or-string: true
+                      volumeLabels:
+                        additionalProperties:
+                          type: string
+                        type: object
+                    type: object
+                  cacheSnapshotSync:
+                    properties:
+                      cmdPVCToPod:
+                        description: CmdPVCToPod is used to customize command used
+                          to sync persistent storage (PVC) to memory cache (POD)
+                        items:
+                          type: string
+                        type: array
+                      cmdPodToPVC:
+                        description: CmdPodToPVC is used to customize command used
+                          to sync memory cache (POD) to persistent storage (PVC)
+                        items:
+                          type: string
+                        type: array
+                      image:
+                        description: Container is the image used to sync the containers
+                          default is bitnami/kubectl:latest
+                        type: string
+                      schedule:
+                        description: Schedule is the the cron time string format,
+                          see https://en.wikipedia.org/wiki/Cron.
+                        type: string
+                    type: object
+                  cacheZoneSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  httpListenOptions:
+                    type: string
+                  httpsListenOptions:
+                    type: string
+                  syslogEnabled:
+                    type: boolean
+                  syslogFacility:
+                    type: string
+                  syslogServerAddress:
+                    type: string
+                  syslogTag:
+                    type: string
+                  upstreamKeepalive:
+                    type: integer
+                  user:
+                    type: string
+                  vtsEnabled:
+                    type: boolean
+                  vtsStatusHistogramBuckets:
+                    type: string
+                  workerConnections:
+                    type: integer
+                  workerProcesses:
+                    type: integer
+                type: object
+              default:
+                description: Default indicates whether plan is default.
+                type: boolean
+              description:
+                description: Description describes the plan.
+                type: string
+              image:
+                description: Image is the NGINX container image name. Defaults to
+                  Nginx image value.
+                type: string
+              resources:
+                description: Resources requirements to be set on the NGINX container.
+                properties:
+                  limits:
+                    additionalProperties:
                       anyOf:
                       - type: integer
                       - type: string
                       pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                       x-kubernetes-int-or-string: true
-                    volumeLabels:
-                      additionalProperties:
+                    description: 'Limits describes the maximum amount of compute resources
+                      allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                  requests:
+                    additionalProperties:
+                      anyOf:
+                      - type: integer
+                      - type: string
+                      pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                      x-kubernetes-int-or-string: true
+                    description: 'Requests describes the minimum amount of compute
+                      resources required. If Requests is omitted for a container,
+                      it defaults to Limits if that is explicitly specified, otherwise
+                      to an implementation-defined value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
+                    type: object
+                type: object
+              template:
+                description: Template contains the main NGINX configuration template.
+                properties:
+                  value:
+                    type: string
+                  valueFrom:
+                    properties:
+                      configMapKeyRef:
+                        description: Selects a key from a ConfigMap.
+                        properties:
+                          key:
+                            description: The key to select.
+                            type: string
+                          name:
+                            description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                              TODO: Add other useful fields. apiVersion, kind, uid?'
+                            type: string
+                          optional:
+                            description: Specify whether the ConfigMap or its key
+                              must be defined
+                            type: boolean
+                        required:
+                        - key
+                        type: object
+                      namespace:
                         type: string
-                      type: object
-                  type: object
-                cacheSnapshotSync:
-                  properties:
-                    cmdPVCToPod:
-                      description: CmdPVCToPod is used to customize command used to
-                        sync persistent storage (PVC) to memory cache (POD)
-                      items:
-                        type: string
-                      type: array
-                    cmdPodToPVC:
-                      description: CmdPodToPVC is used to customize command used to
-                        sync memory cache (POD) to persistent storage (PVC)
-                      items:
-                        type: string
-                      type: array
-                    image:
-                      description: Container is the image used to sync the containers
-                        default is bitnami/kubectl:latest
-                      type: string
-                    schedule:
-                      description: Schedule is the the cron time string format, see
-                        https://en.wikipedia.org/wiki/Cron.
-                      type: string
-                  type: object
-                cacheZoneSize:
-                  anyOf:
-                  - type: integer
-                  - type: string
-                  pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                  x-kubernetes-int-or-string: true
-                httpListenOptions:
-                  type: string
-                httpsListenOptions:
-                  type: string
-                syslogEnabled:
-                  type: boolean
-                syslogFacility:
-                  type: string
-                syslogServerAddress:
-                  type: string
-                syslogTag:
-                  type: string
-                upstreamKeepalive:
-                  type: integer
-                user:
-                  type: string
-                vtsEnabled:
-                  type: boolean
-                vtsStatusHistogramBuckets:
-                  type: string
-                workerConnections:
-                  type: integer
-                workerProcesses:
-                  type: integer
-              type: object
-            default:
-              description: Default indicates whether plan is default.
-              type: boolean
-            description:
-              description: Description describes the plan.
-              type: string
-            image:
-              description: Image is the NGINX container image name. Defaults to Nginx
-                image value.
-              type: string
-            resources:
-              description: Resources requirements to be set on the NGINX container.
-              properties:
-                limits:
-                  additionalProperties:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  description: 'Limits describes the maximum amount of compute resources
-                    allowed. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
-                  type: object
-                requests:
-                  additionalProperties:
-                    anyOf:
-                    - type: integer
-                    - type: string
-                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                    x-kubernetes-int-or-string: true
-                  description: 'Requests describes the minimum amount of compute resources
-                    required. If Requests is omitted for a container, it defaults
-                    to Limits if that is explicitly specified, otherwise to an implementation-defined
-                    value. More info: https://kubernetes.io/docs/concepts/configuration/manage-resources-containers/'
-                  type: object
-              type: object
-            template:
-              description: Template contains the main NGINX configuration template.
-              properties:
-                value:
-                  type: string
-                valueFrom:
-                  properties:
-                    configMapKeyRef:
-                      description: Selects a key from a ConfigMap.
-                      properties:
-                        key:
-                          description: The key to select.
-                          type: string
-                        name:
-                          description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            TODO: Add other useful fields. apiVersion, kind, uid?'
-                          type: string
-                        optional:
-                          description: Specify whether the ConfigMap or its key must
-                            be defined
-                          type: boolean
-                      required:
-                      - key
-                      type: object
-                    namespace:
-                      type: string
-                  type: object
-              type: object
-          type: object
-      type: object
-  version: v1alpha1
-  versions:
-  - name: v1alpha1
+                    type: object
+                type: object
+            type: object
+        type: object
     served: true
     storage: true
+    subresources:
+      status: {}
 status:
   acceptedNames:
     kind: ""
