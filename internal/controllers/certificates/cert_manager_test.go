@@ -438,3 +438,26 @@ wg4cGbIbBPs=
 		})
 	}
 }
+
+func Test_CertManagerCertificateName(t *testing.T) {
+	tests := []struct {
+		request  v1alpha1.CertManager
+		expected string
+	}{
+		{
+			request:  v1alpha1.CertManager{Issuer: "my-issuer-01"},
+			expected: "cert-manager-my-issuer-01",
+		},
+		{
+			request:  v1alpha1.CertManager{Issuer: "my-custom-issuer.kind.example.com"},
+			expected: "cert-manager-my-custom-issuer_kind_example_com",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(fmt.Sprintf("%v == %q", tt.request, tt.expected), func(t *testing.T) {
+			got := cmCertificateName(tt.request)
+			assert.Equal(t, tt.expected, got)
+		})
+	}
+}
