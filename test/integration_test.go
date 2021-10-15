@@ -93,7 +93,7 @@ func Test_RpaasOperator(t *testing.T) {
 		require.Len(t, nginx.Spec.TLS, 2)
 		assert.Equal(t, []nginxv1alpha1.NginxTLS{
 			{SecretName: "my-instance-certificates", Hosts: []string{"www.example.com"}},
-			{SecretName: "my-instance-cert-manager", Hosts: []string{"my-instance.example.com", "app.example.com"}},
+			{SecretName: "my-instance-cert-manager-self-signed", Hosts: []string{"my-instance.example.com", "app.example.com"}},
 		}, nginx.Spec.TLS)
 
 		nginxService := &corev1.Service{
