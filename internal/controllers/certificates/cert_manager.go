@@ -246,25 +246,8 @@ func getCustomCertManagerIssuer(ctx context.Context, client client.Client, req v
 	})
 
 	err = client.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, u)
-	if err != nil && !k8serrors.IsNotFound(err) {
+	if err != nil {
 		return nil, err
-	}
-
-	if err == nil {
-		return &cmmeta.ObjectReference{
-			Group: mapping.GroupVersionKind.Group,
-			Kind:  mapping.GroupVersionKind.Kind,
-			Name:  name,
-		}, nil
-	}
-
-	err = client.Get(ctx, types.NamespacedName{Name: name}, u)
-	if err != nil && !k8serrors.IsNotFound(err) {
-		return nil, err
-	}
-
-	if k8serrors.IsNotFound(err) {
-		return nil, fmt.Errorf("there is no %q certificate issuer", req.Issuer)
 	}
 
 	return &cmmeta.ObjectReference{

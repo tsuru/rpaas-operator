@@ -14,7 +14,8 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/config"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -41,12 +42,12 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		return &ValidationError{Msg: "you should provide a list of DNS names or IP addresses"}
 	}
 
-	issuerMeta, _, err := m.getIssuerMetadata(ctx, instance.Namespace, issuer)
+	issuerAnnotations, err := m.getIssuerMetadata(ctx, instance.Namespace, issuer)
 	if err != nil {
 		return err
 	}
 
-	allowed := strings.Split(issuerMeta.Annotations[allowedDNSZonesAnnotation], ",")
+	allowed := strings.Split(issuerAnnotations[allowedDNSZonesAnnotation], ",")
 	if err = areDNSNamesAllowed(allowed, in.DNSNames); err != nil {
 		return err
 	}
@@ -103,33 +104,64 @@ func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instance
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) getIssuerMetadata(ctx context.Context, namespace, issuerName string) (*metav1.ObjectMeta, *cmv1.IssuerSpec, error) {
-	var issuer cmv1.Issuer
+func (m *k8sRpaasManager) getIssuerMetadata(ctx context.Context, namespace, issuerName string) (map[string]string, error) {
+	if strings.Contains(issuerName, ".") {
+		return m.getCustomIssuerMetadata(ctx, namespace, issuerName)
+	}
 
+	var issuer cmv1.Issuer
 	err := m.cli.Get(ctx, types.NamespacedName{
 		Name:      issuerName,
 		Namespace: namespace,
 	}, &issuer)
 
 	if err != nil && !k8sErrors.IsNotFound(err) {
-		return nil, nil, err
+		return nil, err
 	}
 
 	if err == nil {
-		return &issuer.ObjectMeta, &issuer.Spec, nil
+		return issuer.Annotations, nil
 	}
 
 	var clusterIssuer cmv1.ClusterIssuer
-
 	err = m.cli.Get(ctx, types.NamespacedName{
 		Name: issuerName,
 	}, &clusterIssuer)
 
 	if err != nil && k8sErrors.IsNotFound(err) {
-		return nil, nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", issuerName)
+		return nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", issuerName)
 	}
 
-	return &clusterIssuer.ObjectMeta, &clusterIssuer.Spec, nil
+	return clusterIssuer.Annotations, nil
+}
+
+func (m *k8sRpaasManager) getCustomIssuerMetadata(ctx context.Context, namespace, issuer string) (map[string]string, error) {
+	parts := strings.SplitN(issuer, ".", 3)
+	if len(parts) < 3 {
+		return nil, fmt.Errorf("missing information to retrieve custom Cert Manager issuer: (requires <resource name>.<resource kind>.<resource group>, got %s)", issuer)
+	}
+
+	name, kind, group := parts[0], parts[1], parts[2]
+
+	mapping, err := m.cli.RESTMapper().RESTMapping(schema.GroupKind{Group: group, Kind: kind})
+	if err != nil {
+		return nil, err
+	}
+
+	u := &unstructured.Unstructured{}
+	u.Object = map[string]interface{}{}
+	u.SetGroupVersionKind(schema.GroupVersionKind{
+		Group:   mapping.GroupVersionKind.Group,
+		Kind:    mapping.GroupVersionKind.Kind,
+		Version: mapping.GroupVersionKind.Version,
+	})
+
+	err = m.cli.Get(ctx, types.NamespacedName{Name: name, Namespace: namespace}, u)
+	if err != nil {
+		return nil, err
+	}
+
+	return u.GetAnnotations(), nil
 }
 
 func findCertManagerRequestByIssuer(instance *v1alpha1.RpaasInstance, issuer string) (int, bool) {
