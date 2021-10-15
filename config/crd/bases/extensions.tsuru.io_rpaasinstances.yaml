@@ -161,7 +161,7 @@ spec:
                         type: array
                       dnsNamesDefault:
                         description: DNSNamesDefault when is set use the provided
-                          DNSName from DNS Zone field
+                          DNSName from DNS Zone field.
                         type: boolean
                       ipAddresses:
                         description: IPAddresses is a list of IP addresses to be set
@@ -174,9 +174,35 @@ spec:
                           resource. \n NOTE: when there's no Issuer on this name,
                           it tries using ClusterIssuer instead."
                         type: string
-                    required:
-                    - dnsNamesDefault
                     type: object
+                  certManagerRequests:
+                    description: CertManagerRequests is similar to CertManager field
+                      but for several requests.
+                    items:
+                      properties:
+                        dnsNames:
+                          description: DNSNames is a list of DNS names to be set in
+                            Subject Alternative Names.
+                          items:
+                            type: string
+                          type: array
+                        dnsNamesDefault:
+                          description: DNSNamesDefault when is set use the provided
+                            DNSName from DNS Zone field.
+                          type: boolean
+                        ipAddresses:
+                          description: IPAddresses is a list of IP addresses to be
+                            set in Subject Alternative Names.
+                          items:
+                            type: string
+                          type: array
+                        issuer:
+                          description: "Issuer refers either to Issuer or ClusterIssuer
+                            resource. \n NOTE: when there's no Issuer on this name,
+                            it tries using ClusterIssuer instead."
+                          type: string
+                      type: object
+                    type: array
                 type: object
               extraFiles:
                 description: ExtraFiles points to a ConfigMap where the files are

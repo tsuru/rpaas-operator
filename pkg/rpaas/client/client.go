@@ -140,5 +140,5 @@ type Client interface {
 	SetService(service string) (Client, error)
 
 	UpdateCertManager(ctx context.Context, args UpdateCertManagerArgs) error
-	DeleteCertManager(ctx context.Context, instance string) error
+	DeleteCertManager(ctx context.Context, instance, issuer string) error
 }

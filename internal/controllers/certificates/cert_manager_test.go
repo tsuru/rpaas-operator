@@ -6,6 +6,7 @@ package certificates
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -70,6 +71,15 @@ func Test_ReconcileCertManager(t *testing.T) {
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-instance-2",
 				Namespace: "rpaasv2",
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion:         "extensions.tsuru.io/v1alpha1",
+						Kind:               "RpaasInstance",
+						Name:               "my-instance-2",
+						Controller:         func(b bool) *bool { return &b }(true),
+						BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+					},
+				},
 			},
 			Spec: cmv1.CertificateSpec{
 				IssuerRef: cmmeta.ObjectReference{
@@ -84,7 +94,7 @@ func Test_ReconcileCertManager(t *testing.T) {
 
 		&cmv1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-instance-3",
+				Name:      "my-instance-3-cert-manager-issuer-1",
 				Namespace: "rpaasv2",
 			},
 			Spec: cmv1.CertificateSpec{
@@ -108,10 +118,10 @@ func Test_ReconcileCertManager(t *testing.T) {
 
 		&corev1.Secret{
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-instance-3-cert-manager",
+				Name:      "my-instance-3-cert-manager-issuer-1",
 				Namespace: "rpaasv2",
 				Labels: map[string]string{
-					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager",
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
 					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-3",
 				},
 			},
@@ -167,7 +177,7 @@ wg4cGbIbBPs=
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
-					Name:      instance.Name,
+					Name:      fmt.Sprintf("%s-%s-%s", instance.Name, CertManagerCertificateName, "issuer-1"),
 					Namespace: instance.Namespace,
 				}, &cert)
 				require.NoError(t, err)
@@ -182,20 +192,25 @@ wg4cGbIbBPs=
 					},
 				}, cert.OwnerReferences)
 
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+				}, cert.Labels)
+
 				assert.Equal(t, cmv1.CertificateSpec{
 					IssuerRef: cmmeta.ObjectReference{
 						Name:  "issuer-1",
 						Group: "cert-manager.io",
 						Kind:  "Issuer",
 					},
-					SecretName:  "my-instance-cert-manager",
+					SecretName:  cert.Name,
 					DNSNames:    []string{"my-instance.example.com"},
 					IPAddresses: []string{"169.196.1.100"},
 				}, cert.Spec)
 			},
 		},
 
-		"when cert manager set to use dns zone, should create certificate": {
+		"when cert manager set to use DNS zone, should create certificate": {
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -216,7 +231,7 @@ wg4cGbIbBPs=
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
-					Name:      instance.Name,
+					Name:      fmt.Sprintf("%s-%s-%s", instance.Name, CertManagerCertificateName, "issuer-1"),
 					Namespace: instance.Namespace,
 				}, &cert)
 				require.NoError(t, err)
@@ -231,19 +246,24 @@ wg4cGbIbBPs=
 					},
 				}, cert.OwnerReferences)
 
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+				}, cert.Labels)
+
 				assert.Equal(t, cmv1.CertificateSpec{
 					IssuerRef: cmmeta.ObjectReference{
 						Name:  "issuer-1",
 						Group: "cert-manager.io",
 						Kind:  "Issuer",
 					},
-					SecretName: "my-instance-cert-manager",
+					SecretName: cert.Name,
 					DNSNames:   []string{"my-instance.rpaasv2.example.org"},
 				}, cert.Spec)
 			},
 		},
 
-		"when DNSes, ips and issuer are changed, certificate should be updated according to": {
+		"when DNSes, ips and issuer are changed, should delete the former certificate and create a new one": {
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance-2",
@@ -262,7 +282,14 @@ wg4cGbIbBPs=
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
-					Name:      instance.Name,
+					Name:      fmt.Sprintf("%s-%s-%s", instance.Name, CertManagerCertificateName, "issuer-1"),
+					Namespace: instance.Namespace,
+				}, &cert)
+				require.Error(t, err)
+				assert.True(t, k8serrors.IsNotFound(err))
+
+				err = cli.Get(context.TODO(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-%s-%s", instance.Name, CertManagerCertificateName, "cluster-issuer-1"),
 					Namespace: instance.Namespace,
 				}, &cert)
 				require.NoError(t, err)
@@ -283,7 +310,7 @@ wg4cGbIbBPs=
 						Group: "cert-manager.io",
 						Kind:  "ClusterIssuer",
 					},
-					SecretName:  "my-instance-2-cert-manager",
+					SecretName:  cert.Name,
 					DNSNames:    []string{"my-instance-2.example.com", "app1.example.com"},
 					IPAddresses: []string{"2001:db8:dead:beef::"},
 				}, cert.Spec)
@@ -304,6 +331,7 @@ wg4cGbIbBPs=
 					Name:      instance.Name,
 					Namespace: instance.Namespace,
 				}, &cert)
+
 				assert.Error(t, err)
 				assert.True(t, k8serrors.IsNotFound(err))
 
@@ -345,7 +373,7 @@ wg4cGbIbBPs=
 			expectedError: `there is no "not-found-issuer" certificate issuer`,
 		},
 
-		"when certificates is ready, should update the rpaasinstance's certificate secret with newer one": {
+		"when certificate is ready, should update the rpaasinstance's certificate secret with newer one": {
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance-3",
@@ -362,14 +390,14 @@ wg4cGbIbBPs=
 			},
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				assert.Equal(t, []nginxv1alpha1.NginxTLS{
-					{SecretName: "my-instance-3-cert-manager", Hosts: []string{"www.example.com", "www.example.org", "www.example.test"}},
+					{SecretName: "my-instance-3-cert-manager-issuer-1", Hosts: []string{"www.example.com", "www.example.org", "www.example.test"}},
 				}, instance.Spec.TLS)
-				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-certificate-sha256"])
-				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-key-sha256"])
+				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-issuer-1-certificate-sha256"])
+				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-issuer-1-key-sha256"])
 
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
-					Name:      instance.Name,
+					Name:      "my-instance-3-cert-manager-issuer-1",
 					Namespace: instance.Namespace,
 				}, &cert)
 				require.NoError(t, err)
@@ -382,7 +410,7 @@ wg4cGbIbBPs=
 				require.NoError(t, err)
 
 				assert.Equal(t, "my-instance-3", s.Labels["rpaas.extensions.tsuru.io/instance-name"])
-				assert.Equal(t, "cert-manager", s.Labels["rpaas.extensions.tsuru.io/certificate-name"])
+				assert.Equal(t, "cert-manager-issuer-1", s.Labels["rpaas.extensions.tsuru.io/certificate-name"])
 				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", util.SHA256(s.Data["tls.crt"]))
 				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", util.SHA256(s.Data["tls.key"]))
 			},

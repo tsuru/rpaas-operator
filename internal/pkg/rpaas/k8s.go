@@ -25,7 +25,6 @@ import (
 
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
-	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/jetstack/cert-manager/pkg/util/pki"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
@@ -2328,98 +2327,6 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 	return m.patchInstance(ctx, originalInstance, instance)
 }
 
-func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error {
-	if !config.Get().EnableCertManager {
-		return ConflictError{Msg: "cert-manager integration is not enabled"}
-	}
-
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-
-	if instance.Spec.DynamicCertificates == nil {
-		instance.Spec.DynamicCertificates = &v1alpha1.DynamicCertificates{}
-	}
-
-	issuer := in.Issuer
-	if defaultIssuer := config.Get().DefaultCertManagerIssuer; defaultIssuer != "" {
-		issuer = defaultIssuer
-	}
-
-	if issuer == "" {
-		return &ValidationError{Msg: "cert-manager issuer cannot be empty"}
-	}
-
-	issuerMeta, _, err := m.GetIssuerMetadata(ctx, instance.ObjectMeta.Namespace, issuer)
-	if err != nil {
-		return err
-	}
-
-	if len(in.DNSNames) == 0 && len(in.IPAddresses) == 0 {
-		return &ValidationError{Msg: "you should provide a list of DNS names or IP addresses"}
-	}
-
-	if annotation := issuerMeta.Annotations[allowedDNSZonesAnnotation]; annotation != "" {
-		err = allowDNSNames(in.DNSNames, strings.Split(annotation, ","))
-		if err != nil {
-			return err
-		}
-	}
-
-	instance.Spec.DynamicCertificates.CertManager = &v1alpha1.CertManager{
-		Issuer:      issuer,
-		DNSNames:    in.DNSNames,
-		IPAddresses: in.IPAddresses,
-	}
-
-	return m.cli.Update(ctx, instance)
-}
-
-func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instanceName string) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-
-	if instance.Spec.DynamicCertificates == nil || instance.Spec.DynamicCertificates.CertManager == nil {
-		return &NotFoundError{Msg: "cert-manager integration has already been removed"}
-	}
-
-	instance.Spec.DynamicCertificates.CertManager = nil
-
-	return m.cli.Update(ctx, instance)
-}
-
-func (m *k8sRpaasManager) GetIssuerMetadata(ctx context.Context, namespace, issuerName string) (*metav1.ObjectMeta, *cmv1.IssuerSpec, error) {
-	var issuer cmv1.Issuer
-
-	err := m.cli.Get(ctx, types.NamespacedName{
-		Name:      issuerName,
-		Namespace: namespace,
-	}, &issuer)
-
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return nil, nil, err
-	}
-
-	if err == nil {
-		return &issuer.ObjectMeta, &issuer.Spec, nil
-	}
-
-	var clusterIssuer cmv1.ClusterIssuer
-
-	err = m.cli.Get(ctx, types.NamespacedName{
-		Name: issuerName,
-	}, &clusterIssuer)
-
-	if err != nil && k8sErrors.IsNotFound(err) {
-		return nil, nil, fmt.Errorf("there is no Issuer or ClusterIssuer with %q name", issuerName)
-	}
-
-	return &clusterIssuer.ObjectMeta, &clusterIssuer.Spec, nil
-}
-
 func hasIntersection(a []string, b []string) bool {
 	for _, x := range a {
 		for _, y := range b {
@@ -2430,32 +2337,4 @@ func hasIntersection(a []string, b []string) bool {
 	}
 
 	return false
-}
-
-func allowDNSNames(dnsNames, dnsZones []string) error {
-	if len(dnsZones) == 0 {
-		return nil
-	}
-	match := func(dnsName string) bool {
-		for _, dnsZone := range dnsZones {
-			if strings.HasSuffix(dnsName, "."+dnsZone) {
-				return true
-			}
-		}
-
-		return false
-	}
-
-	unmatchedDNSNames := []string{}
-	for _, dnsName := range dnsNames {
-		if !match(dnsName) {
-			unmatchedDNSNames = append(unmatchedDNSNames, dnsName)
-		}
-	}
-
-	if len(unmatchedDNSNames) > 0 {
-		return fmt.Errorf("these DNS Names are not allowed: %s", strings.Join(unmatchedDNSNames, ", "))
-	}
-
-	return nil
 }

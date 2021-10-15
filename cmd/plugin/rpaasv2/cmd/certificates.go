@@ -169,6 +169,10 @@ func NewCmdDeleteCertitifcate() *cli.Command {
 				Name:  "cert-manager",
 				Usage: "whether Cert Manager integration should be disabled",
 			},
+			&cli.StringFlag{
+				Name:  "issuer",
+				Usage: "a Cert Manager Issuer name (its usage requires --cert-manager)",
+			},
 		},
 		Before: setupClient,
 		Action: runDeleteCertificate,
@@ -182,7 +186,7 @@ func runDeleteCertificate(c *cli.Context) error {
 	}
 
 	if c.Bool("cert-manager") {
-		if err = client.DeleteCertManager(c.Context, c.String("instance")); err != nil {
+		if err = client.DeleteCertManager(c.Context, c.String("instance"), c.String("issuer")); err != nil {
 			return err
 		}
 

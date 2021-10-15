@@ -152,7 +152,7 @@ func TestDeleteCertificate(t *testing.T) {
 		client        rpaasclient.Client
 	}{
 		{
-			name:          "when Delete certificate returns an error",
+			name:          "when delete certificate returns an error",
 			args:          []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--name", "my-instance.example.com"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
@@ -167,7 +167,7 @@ func TestDeleteCertificate(t *testing.T) {
 			},
 		},
 		{
-			name: "when DeleteCertificate returns no error",
+			name: "when delete certificate returns no error",
 			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--name", "my-instance.example.com"},
 			client: &fake.FakeClient{
 				FakeDeleteCertificate: func(args rpaasclient.DeleteCertificateArgs) error {
@@ -182,11 +182,12 @@ func TestDeleteCertificate(t *testing.T) {
 			expected: "certificate \"my-instance.example.com\" successfully deleted on my-instance\n",
 		},
 		{
-			name: "disabling Cert Manager integration",
-			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--cert-manager"},
+			name: "removing a certificate request for Cert Manager",
+			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--cert-manager", "--issuer", "some-issuer"},
 			client: &fake.FakeClient{
-				FakeDeleteCertManager: func(instance string) error {
+				FakeDeleteCertManager: func(instance, issuer string) error {
 					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "some-issuer", issuer)
 					return nil
 				},
 			},

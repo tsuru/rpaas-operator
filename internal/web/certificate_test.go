@@ -377,13 +377,30 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 func Test_DeleteCertManagerRequest(t *testing.T) {
 	tests := map[string]struct {
 		manager      rpaas.RpaasManager
+		instance     string
+		issuer       string
 		expectedCode int
 		expectedBody string
 	}{
-		"doing a correct request": {
+		"remove Cert Manager request without issuer": {
+			instance: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeDeleteCertManagerRequest: func(instanceName string) error {
+				FakeDeleteCertManagerRequest: func(instanceName, issuer string) error {
 					assert.Equal(t, "my-instance", instanceName)
+					assert.Empty(t, issuer)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+
+		"remove Cert Manager request from a specific issuer": {
+			instance: "my-instance",
+			issuer:   "my-cert-issuer",
+			manager: &fake.RpaasManager{
+				FakeDeleteCertManagerRequest: func(instanceName, issuer string) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "my-cert-issuer", issuer)
 					return nil
 				},
 			},
@@ -392,7 +409,7 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 
 		"when some error is returned": {
 			manager: &fake.RpaasManager{
-				FakeDeleteCertManagerRequest: func(instanceName string) error {
+				FakeDeleteCertManagerRequest: func(instanceName, issuer string) error {
 					return &rpaas.ValidationError{Msg: "some error"}
 				},
 			},
@@ -405,7 +422,7 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/my-instance/cert-manager", srv.URL)
+			path := fmt.Sprintf("%s/resources/%s/cert-manager?issuer=%s", srv.URL, tt.instance, tt.issuer)
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
 			require.NoError(t, err)
 			rsp, err := srv.Client().Do(request)

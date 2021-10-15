@@ -34,7 +34,7 @@ type FakeClient struct {
 	FakeRemoveAccessControlList func(instance, host string, port int) error
 	FakeSetService              func(service string) error
 	FakeUpdateCertManager       func(args client.UpdateCertManagerArgs) error
-	FakeDeleteCertManager       func(instance string) error
+	FakeDeleteCertManager       func(instance, issuer string) error
 	FakeLog                     func(args client.LogArgs) error
 }
 
@@ -203,9 +203,9 @@ func (f *FakeClient) UpdateCertManager(ctx context.Context, args client.UpdateCe
 	return nil
 }
 
-func (f *FakeClient) DeleteCertManager(ctx context.Context, instance string) error {
+func (f *FakeClient) DeleteCertManager(ctx context.Context, instance, issuer string) error {
 	if f.FakeDeleteCertManager != nil {
-		return f.FakeDeleteCertManager(instance)
+		return f.FakeDeleteCertManager(instance, issuer)
 	}
 
 	return nil

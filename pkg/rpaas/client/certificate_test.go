@@ -241,13 +241,24 @@ func TestClientThroughTsuru_DeleteUpdateCertManager(t *testing.T) {
 func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
 	tests := map[string]struct {
 		instance      string
+		issuer        string
 		expectedError string
 		handler       http.HandlerFunc
 	}{
-		"disabling cert-manager integration": {
+		"when removing a Cert Manager request with no issuer provided": {
 			instance: "my-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager?"), r.URL.RequestURI())
+				assert.Equal(t, "DELETE", r.Method)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+
+		"when removing a Cert Manager request from a specific issuer": {
+			instance: "my-instance",
+			issuer:   "lets-encrypt",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager?issuer=lets-encrypt"), r.URL.RequestURI())
 				assert.Equal(t, "DELETE", r.Method)
 				w.WriteHeader(http.StatusOK)
 			},
@@ -268,7 +279,7 @@ func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
 
-			err := client.DeleteCertManager(context.TODO(), tt.instance)
+			err := client.DeleteCertManager(context.TODO(), tt.instance, tt.issuer)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 				return
