@@ -450,7 +450,7 @@ func Test_CertManagerCertificateName(t *testing.T) {
 		},
 		{
 			request:  v1alpha1.CertManager{Issuer: "my-custom-issuer.kind.example.com"},
-			expected: "cert-manager-my-custom-issuer_kind_example_com",
+			expected: "cert-manager-my-custom-issuer-kind-example-com",
 		},
 	}
 
