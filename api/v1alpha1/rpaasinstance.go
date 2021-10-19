@@ -9,6 +9,20 @@ const (
 	clusterNameLabel = "rpaas.extensions.tsuru.io/cluster-name"
 )
 
+func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
+	if i == nil || i.Spec.DynamicCertificates == nil {
+		return
+	}
+
+	if req := i.Spec.DynamicCertificates.CertManager; req != nil {
+		reqs = append(reqs, *req)
+	}
+
+	reqs = append(reqs, i.Spec.DynamicCertificates.CertManagerRequests...)
+
+	return
+}
+
 func (i *RpaasInstance) SetTeamOwner(team string) {
 	newLabels := map[string]string{teamOwnerLabel: team}
 	i.appendNewLabels(newLabels)

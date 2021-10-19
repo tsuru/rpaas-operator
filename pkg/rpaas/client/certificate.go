@@ -162,12 +162,17 @@ func (c *client) UpdateCertManager(ctx context.Context, args UpdateCertManagerAr
 	return nil
 }
 
-func (c *client) DeleteCertManager(ctx context.Context, instance string) error {
+func (c *client) DeleteCertManager(ctx context.Context, instance, issuer string) error {
 	if instance == "" {
 		return ErrMissingInstance
 	}
 
-	req, err := c.newRequest("DELETE", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, instance)
+	data := url.Values{}
+	if issuer != "" {
+		data.Set("issuer", issuer)
+	}
+
+	req, err := c.newRequest("DELETE", fmt.Sprintf("/resources/%s/cert-manager?%s", instance, data.Encode()), nil, instance)
 	if err != nil {
 		return err
 	}

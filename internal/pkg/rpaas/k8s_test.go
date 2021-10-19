@@ -12,7 +12,6 @@ import (
 	"time"
 
 	"github.com/imdario/mergo"
-	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -33,7 +32,6 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
-	rpaasruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 var (
@@ -798,61 +796,53 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 			expectedError:   `certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in "default" certificate`,
 		},
 
-		/*
-			"adding a new certificate with a custom name": {
-				instanceName:    "my-instance",
-				certificateName: "custom-name",
-				certificate:     ecdsaCertificate,
-				assert: func(t *testing.T, c client.Client) {
-					var instance v1alpha1.RpaasInstance
-					err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, &instance)
-					require.NoError(t, err)
-					assert.NotNil(t, instance.Spec.TLS)
-				},
+		"adding a new certificate with a custom name": {
+			instanceName:    "my-instance-1",
+			certificateName: "custom-name",
+			certificate:     ecdsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-1", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
+				assert.NotNil(t, instance.Spec.TLS)
 			},
+		},
 
-			"updating an existing certificate from RSA to ECDSA": {
-				instanceName: "another-instance",
-				certificate:  ecdsaCertificate,
-				assert: func(t *testing.T, c client.Client) {
-					var instance v1alpha1.RpaasInstance
-					err := c.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
-					require.NoError(t, err)
-				},
+		"updating an existing certificate from RSA to ECDSA": {
+			instanceName: "my-instance-2",
+			certificate:  ecdsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.Background(), types.NamespacedName{Name: "my-instance-2", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
 			},
+		},
 
-			"adding multiple certificates": {
-				instanceName:    "another-instance",
-				certificateName: "custom-name",
-				certificate:     ecdsaCertificate,
-				assert: func(t *testing.T, c client.Client) {
-					var instance v1alpha1.RpaasInstance
-					err := c.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
-					require.NoError(t, err)
-					assert.NotNil(t, instance.Spec.TLS)
-				},
+		"adding multiple certificates": {
+			instanceName:    "my-instance-2",
+			certificateName: "custom-name",
+			certificate:     ecdsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.Background(), types.NamespacedName{Name: "my-instance-2", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
+				assert.NotNil(t, instance.Spec.TLS)
 			},
+		},
 
-			"updating to the same certificate, should do nothing": {
-				instanceName:  "another-instance",
-				certificate:   rsaCertificate,
-				expectedError: "ffooooo",
-			},
+		"invalid certificate name": {
+			instanceName:    "my-instance-1",
+			certificate:     ecdsaCertificate,
+			certificateName: `../not@valid.config_map~key`,
+			expectedError:   `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`,
+		},
 
-			"invalid certificate name": {
-				instanceName:    "my-instance",
-				certificate:     ecdsaCertificate,
-				certificateName: `../not@valid.config_map~key`,
-				expectedError:   `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`,
-			},
-
-			`setting certificate with name "cert-manager"`: {
-				instanceName:    "my-instance",
-				certificate:     ecdsaCertificate,
-				certificateName: "cert-manager",
-				expectedError:   `certificate name is forbidden: you cannot use a certificate named as "cert-manager"`,
-			},
-		*/
+		`setting certificate with name "cert-manager"`: {
+			instanceName:    "my-instance-1",
+			certificate:     ecdsaCertificate,
+			certificateName: "cert-manager",
+			expectedError:   `certificate name is forbidden: name should not begin with "cert-manager"`,
+		},
 	}
 
 	for name, tt := range tests {
@@ -4998,212 +4988,6 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
 			instance, err := manager.GetUpstreams(context.Background(), tt.instance)
 			tt.assertion(t, err, instance, manager)
-		})
-	}
-}
-
-func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
-	resources := []runtime.Object{
-		&v1alpha1.RpaasInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-instance-1",
-				Namespace: "rpaasv2",
-			},
-		},
-		&cmv1.ClusterIssuer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "issuer-1",
-				Annotations: map[string]string{
-					allowedDNSZonesAnnotation: "example.com,example.org",
-				},
-			},
-		},
-		&cmv1.ClusterIssuer{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "default-issuer",
-			},
-		},
-	}
-
-	tests := map[string]struct {
-		instanceName  string
-		certManager   clientTypes.CertManager
-		cfg           config.RpaasConfig
-		expectedError string
-		assert        func(t *testing.T, cli client.Client)
-	}{
-		"cert-manager integration disabled": {
-			expectedError: "cert-manager integration is not enabled",
-		},
-
-		"request without issuer and no default issuer": {
-			instanceName: "my-instance-1",
-			certManager: clientTypes.CertManager{
-				DNSNames: []string{"my-instance-1.example.com"},
-			},
-			cfg: config.RpaasConfig{
-				EnableCertManager: true,
-			},
-			expectedError: "cert-manager issuer cannot be empty",
-		},
-
-		"request without DNSes and IP addresses, should return error": {
-			instanceName: "my-instance-1",
-			certManager: clientTypes.CertManager{
-				Issuer: "issuer-1",
-			},
-			cfg: config.RpaasConfig{
-				EnableCertManager: true,
-			},
-			expectedError: "you should provide a list of DNS names or IP addresses",
-		},
-
-		"using default certificate issuer from configs": {
-			instanceName: "my-instance-1",
-			certManager: clientTypes.CertManager{
-				DNSNames:    []string{"my-instance-1.example.com"},
-				IPAddresses: []string{"169.196.100.1"},
-			},
-			cfg: config.RpaasConfig{
-				EnableCertManager:        true,
-				DefaultCertManagerIssuer: "default-issuer",
-			},
-			assert: func(t *testing.T, cli client.Client) {
-				var instance v1alpha1.RpaasInstance
-				err := cli.Get(context.TODO(), types.NamespacedName{
-					Name:      "my-instance-1",
-					Namespace: "rpaasv2",
-				}, &instance)
-				require.NoError(t, err)
-
-				assert.Equal(t, &v1alpha1.CertManager{
-					Issuer:      "default-issuer",
-					DNSNames:    []string{"my-instance-1.example.com"},
-					IPAddresses: []string{"169.196.100.1"},
-				}, instance.Spec.DynamicCertificates.CertManager)
-			},
-		},
-
-		"using unmanaged dns-names": {
-			instanceName: "my-instance-1",
-			certManager: clientTypes.CertManager{
-				DNSNames: []string{"my-instance-1.example.com", "my-instance-1.example.org", "wrong.io", "wrong.com"},
-			},
-			cfg: config.RpaasConfig{
-				EnableCertManager:        true,
-				DefaultCertManagerIssuer: "issuer-1",
-			},
-			expectedError: "these DNS Names are not allowed: wrong.io, wrong.com",
-		},
-
-		"using wrong certificate issuer from configs": {
-			instanceName: "my-instance-1",
-			certManager: clientTypes.CertManager{
-				Issuer:      "not-found-issuer",
-				DNSNames:    []string{"my-instance-1.example.com"},
-				IPAddresses: []string{"169.196.100.1"},
-			},
-			cfg: config.RpaasConfig{
-				EnableCertManager: true,
-			},
-			expectedError: "there is no Issuer or ClusterIssuer with \"not-found-issuer\" name",
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			cfg := config.Get()
-			config.Set(tt.cfg)
-			defer func() { config.Set(cfg) }()
-
-			client := fake.NewClientBuilder().
-				WithScheme(rpaasruntime.NewScheme()).
-				WithRuntimeObjects(resources...).
-				Build()
-
-			manager := &k8sRpaasManager{cli: client}
-
-			err := manager.UpdateCertManagerRequest(context.TODO(), tt.instanceName, tt.certManager)
-			if tt.expectedError != "" {
-				assert.EqualError(t, err, tt.expectedError)
-				return
-			}
-			require.NoError(t, err)
-			require.NotNil(t, tt.assert)
-			tt.assert(t, client)
-		})
-	}
-}
-
-func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
-	resources := []runtime.Object{
-		&v1alpha1.RpaasInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-instance-1",
-				Namespace: "rpaasv2",
-			},
-		},
-
-		&v1alpha1.RpaasInstance{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "my-instance-2",
-				Namespace: "rpaasv2",
-			},
-			Spec: v1alpha1.RpaasInstanceSpec{
-				DynamicCertificates: &v1alpha1.DynamicCertificates{
-					CertManager: &v1alpha1.CertManager{
-						Issuer:   "my-issuer",
-						DNSNames: []string{"my-instance-2.example.com"},
-					},
-				},
-			},
-		},
-	}
-
-	tests := map[string]struct {
-		instanceName  string
-		expectedError string
-		assert        func(*testing.T, client.Client)
-	}{
-		"cert-manager field is not set": {
-			instanceName:  "my-instance-1",
-			expectedError: "cert-manager integration has already been removed",
-		},
-
-		"removing integration of cert-manager": {
-			instanceName: "my-instance-2",
-			assert: func(t *testing.T, cli client.Client) {
-				var instance v1alpha1.RpaasInstance
-				err := cli.Get(context.TODO(), types.NamespacedName{
-					Name:      "my-instance-2",
-					Namespace: "rpaasv2",
-				}, &instance)
-				require.NoError(t, err)
-				require.NotNil(t, instance.Spec.DynamicCertificates)
-				assert.Nil(t, instance.Spec.DynamicCertificates.CertManager)
-			},
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			client := fake.NewClientBuilder().
-				WithScheme(rpaasruntime.NewScheme()).
-				WithRuntimeObjects(resources...).
-				Build()
-
-			manager := &k8sRpaasManager{cli: client}
-
-			err := manager.DeleteCertManagerRequest(context.TODO(), tt.instanceName)
-			if tt.expectedError != "" {
-				assert.EqualError(t, err, tt.expectedError)
-				return
-			}
-
-			require.NoError(t, err)
-			require.NotNil(t, tt.assert)
-
-			tt.assert(t, client)
 		})
 	}
 }

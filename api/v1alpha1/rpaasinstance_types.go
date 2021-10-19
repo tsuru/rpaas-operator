@@ -121,6 +121,10 @@ type DynamicCertificates struct {
 	// CertManager contains specific configurations to enable Cert Manager integration.
 	// +optional
 	CertManager *CertManager `json:"certManager,omitempty"`
+
+	// CertManagerRequests is similar to CertManager field but for several requests.
+	// +optional
+	CertManagerRequests []CertManager `json:"certManagerRequests,omitempty"`
 }
 
 type CertManager struct {
@@ -137,8 +141,9 @@ type CertManager struct {
 	// +optional
 	IPAddresses []string `json:"ipAddresses,omitempty"`
 
-	// DNSNamesDefault when is set use the provided DNSName from DNS Zone field
-	DNSNamesDefault bool `json:"dnsNamesDefault"`
+	// DNSNamesDefault when is set use the provided DNSName from DNS Zone field.
+	// +optional
+	DNSNamesDefault bool `json:"dnsNamesDefault,omitempty"`
 }
 
 type AllowedUpstream struct {
