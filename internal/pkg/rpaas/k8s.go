@@ -573,8 +573,8 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return ValidationError{Msg: fmt.Sprintf("certificate name is not valid: %s", strings.Join(errs, ": "))}
 	}
 
-	if name == certificates.CertManagerCertificateName {
-		return &ValidationError{Msg: fmt.Sprintf("certificate name is forbidden: you cannot use a certificate named as %q", certificates.CertManagerCertificateName)}
+	if strings.HasPrefix(name, certificates.CertManagerCertificateName) {
+		return &ValidationError{Msg: fmt.Sprintf("certificate name is forbidden: name should not begin with %q", certificates.CertManagerCertificateName)}
 	}
 
 	rawCertificate, rawKey, err := getRawCertificateAndKey(c)

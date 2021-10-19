@@ -796,61 +796,53 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 			expectedError:   `certificate DNS name is forbidden: you cannot use a already used dns name, currently in use use in "default" certificate`,
 		},
 
-		/*
-			"adding a new certificate with a custom name": {
-				instanceName:    "my-instance",
-				certificateName: "custom-name",
-				certificate:     ecdsaCertificate,
-				assert: func(t *testing.T, c client.Client) {
-					var instance v1alpha1.RpaasInstance
-					err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, &instance)
-					require.NoError(t, err)
-					assert.NotNil(t, instance.Spec.TLS)
-				},
+		"adding a new certificate with a custom name": {
+			instanceName:    "my-instance-1",
+			certificateName: "custom-name",
+			certificate:     ecdsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-1", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
+				assert.NotNil(t, instance.Spec.TLS)
 			},
+		},
 
-			"updating an existing certificate from RSA to ECDSA": {
-				instanceName: "another-instance",
-				certificate:  ecdsaCertificate,
-				assert: func(t *testing.T, c client.Client) {
-					var instance v1alpha1.RpaasInstance
-					err := c.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
-					require.NoError(t, err)
-				},
+		"updating an existing certificate from RSA to ECDSA": {
+			instanceName: "my-instance-2",
+			certificate:  ecdsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.Background(), types.NamespacedName{Name: "my-instance-2", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
 			},
+		},
 
-			"adding multiple certificates": {
-				instanceName:    "another-instance",
-				certificateName: "custom-name",
-				certificate:     ecdsaCertificate,
-				assert: func(t *testing.T, c client.Client) {
-					var instance v1alpha1.RpaasInstance
-					err := c.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
-					require.NoError(t, err)
-					assert.NotNil(t, instance.Spec.TLS)
-				},
+		"adding multiple certificates": {
+			instanceName:    "my-instance-2",
+			certificateName: "custom-name",
+			certificate:     ecdsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.Background(), types.NamespacedName{Name: "my-instance-2", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
+				assert.NotNil(t, instance.Spec.TLS)
 			},
+		},
 
-			"updating to the same certificate, should do nothing": {
-				instanceName:  "another-instance",
-				certificate:   rsaCertificate,
-				expectedError: "ffooooo",
-			},
+		"invalid certificate name": {
+			instanceName:    "my-instance-1",
+			certificate:     ecdsaCertificate,
+			certificateName: `../not@valid.config_map~key`,
+			expectedError:   `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`,
+		},
 
-			"invalid certificate name": {
-				instanceName:    "my-instance",
-				certificate:     ecdsaCertificate,
-				certificateName: `../not@valid.config_map~key`,
-				expectedError:   `certificate name is not valid: a valid config key must consist of alphanumeric characters, '-', '_' or '.' (e.g. 'key.name',  or 'KEY_NAME',  or 'key-name', regex used for validation is '[-._a-zA-Z0-9]+')`,
-			},
-
-			`setting certificate with name "cert-manager"`: {
-				instanceName:    "my-instance",
-				certificate:     ecdsaCertificate,
-				certificateName: "cert-manager",
-				expectedError:   `certificate name is forbidden: you cannot use a certificate named as "cert-manager"`,
-			},
-		*/
+		`setting certificate with name "cert-manager"`: {
+			instanceName:    "my-instance-1",
+			certificate:     ecdsaCertificate,
+			certificateName: "cert-manager",
+			expectedError:   `certificate name is forbidden: name should not begin with "cert-manager"`,
+		},
 	}
 
 	for name, tt := range tests {
