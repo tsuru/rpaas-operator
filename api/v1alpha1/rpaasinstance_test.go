@@ -54,3 +54,43 @@ func Test_BelongsToCluster(t *testing.T) {
 	belongs = instance.BelongsToCluster("cluster01")
 	assert.Equal(t, true, belongs)
 }
+
+func TestCertManagerRequests(t *testing.T) {
+	instance := &RpaasInstance{
+		Spec: RpaasInstanceSpec{
+			// this is a default certificate
+			DynamicCertificates: &DynamicCertificates{
+				CertManager: &CertManager{
+					Issuer: "my-issuer",
+					DNSNames: []string{
+						"default-domain.my-company.io",
+					},
+					IPAddresses: []string{
+						"10.1.1.1",
+					},
+				},
+				CertManagerRequests: []CertManager{
+					{
+						Issuer: "my-issuer",
+						DNSNames: []string{
+							"custom-domain.my-company.io",
+						},
+						IPAddresses: []string{
+							"10.1.1.2",
+						},
+					},
+				},
+			},
+		},
+	}
+
+	assert.Equal(t, []CertManager{
+		{
+			Issuer:          "my-issuer",
+			DNSNames:        []string{"default-domain.my-company.io", "custom-domain.my-company.io"},
+			IPAddresses:     []string{"10.1.1.1", "10.1.1.2"},
+			DNSNamesDefault: false,
+		},
+	}, instance.CertManagerRequests())
+
+}

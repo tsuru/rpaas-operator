@@ -26,6 +26,7 @@ func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
 		if found {
 			r.DNSNames = append(r.DNSNames, req.DNSNames...)
 			r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
+			uniqueCerts[req.Issuer] = r
 			continue
 		}
 
