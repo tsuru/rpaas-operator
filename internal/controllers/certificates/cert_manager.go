@@ -6,7 +6,6 @@ package certificates
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"reflect"
 	"strings"
@@ -145,17 +144,6 @@ func getCertificates(ctx context.Context, c client.Client, i *v1alpha1.RpaasInst
 }
 
 func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference, req v1alpha1.CertManager) (*cmv1.Certificate, error) {
-	dnsNames := req.DNSNames
-	if len(dnsNames) == 0 && req.DNSNamesDefault {
-		if instance.Spec.DNS == nil || instance.Spec.DNS.Zone == "" {
-			return nil, errors.New("DNS zone not provided")
-		}
-
-		dnsNames = []string{
-			fmt.Sprintf("%s.%s", instance.Name, instance.Spec.DNS.Zone),
-		}
-	}
-
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
@@ -174,7 +162,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		},
 		Spec: cmv1.CertificateSpec{
 			IssuerRef:   *issuer,
-			DNSNames:    dnsNames,
+			DNSNames:    req.DNSNames,
 			IPAddresses: req.IPAddresses,
 			SecretName:  fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
 		},

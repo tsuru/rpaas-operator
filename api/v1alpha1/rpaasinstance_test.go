@@ -68,16 +68,23 @@ func TestCertManagerRequests(t *testing.T) {
 					IPAddresses: []string{
 						"10.1.1.1",
 					},
+					DNSNamesDefault: true,
 				},
 				CertManagerRequests: []CertManager{
 					{
-						Issuer: "my-issuer",
-						DNSNames: []string{
-							"custom-domain.my-company.io",
-						},
-						IPAddresses: []string{
-							"10.1.1.2",
-						},
+						Issuer:      "my-issuer",
+						DNSNames:    []string{"custom-domain.my-company.io"},
+						IPAddresses: []string{"10.1.1.2"},
+					},
+					{
+						Issuer:      "another-issuer",
+						DNSNames:    []string{"www.example.com"},
+						IPAddresses: []string{"169.254.254.101"},
+					},
+					{
+						Issuer:      "another-issuer",
+						DNSNames:    []string{"web.example.com"},
+						IPAddresses: []string{"169.254.254.102"},
 					},
 				},
 			},
@@ -86,10 +93,15 @@ func TestCertManagerRequests(t *testing.T) {
 
 	assert.Equal(t, []CertManager{
 		{
+			Issuer:      "another-issuer",
+			DNSNames:    []string{"www.example.com", "web.example.com"},
+			IPAddresses: []string{"169.254.254.101", "169.254.254.102"},
+		},
+		{
 			Issuer:          "my-issuer",
 			DNSNames:        []string{"default-domain.my-company.io", "custom-domain.my-company.io"},
 			IPAddresses:     []string{"10.1.1.1", "10.1.1.2"},
-			DNSNamesDefault: false,
+			DNSNamesDefault: true,
 		},
 	}, instance.CertManagerRequests())
 

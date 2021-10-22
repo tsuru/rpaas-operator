@@ -4,7 +4,10 @@
 
 package v1alpha1
 
-import "sort"
+import (
+	"fmt"
+	"sort"
+)
 
 const (
 	teamOwnerLabel   = "rpaas.extensions.tsuru.io/team-owner"
@@ -16,28 +19,42 @@ func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
 		return
 	}
 
-	uniqueCerts := make(map[string]CertManager)
+	uniqueCerts := make(map[string]*CertManager)
 	if req := i.Spec.DynamicCertificates.CertManager; req != nil {
-		uniqueCerts[req.Issuer] = *req
+		r := req.DeepCopy()
+		r.DNSNames = r.dnsNames(i)
+		uniqueCerts[r.Issuer] = r
 	}
 
 	for _, req := range i.Spec.DynamicCertificates.CertManagerRequests {
 		r, found := uniqueCerts[req.Issuer]
-		if found {
-			r.DNSNames = append(r.DNSNames, req.DNSNames...)
-			r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
-			uniqueCerts[req.Issuer] = r
+		if !found {
+			uniqueCerts[req.Issuer] = req.DeepCopy()
 			continue
 		}
 
-		uniqueCerts[req.Issuer] = req
+		r.DNSNames = append(r.DNSNames, req.dnsNames(i)...)
+		r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
 	}
 
 	for _, v := range uniqueCerts {
-		reqs = append(reqs, v)
+		reqs = append(reqs, *v)
 	}
 
 	sort.Slice(reqs, func(i, j int) bool { return reqs[i].Issuer < reqs[j].Issuer })
+
+	return
+}
+
+func (c *CertManager) dnsNames(i *RpaasInstance) (names []string) {
+	if c == nil {
+		return
+	}
+
+	names = append(names, c.DNSNames...)
+	if c.DNSNamesDefault && i.Spec.DNS != nil && i.Spec.DNS.Zone != "" {
+		names = append(names, fmt.Sprintf("%s.%s", i.Name, i.Spec.DNS.Zone))
+	}
 
 	return
 }
