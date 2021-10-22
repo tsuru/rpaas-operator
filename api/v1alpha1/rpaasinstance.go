@@ -4,6 +4,8 @@
 
 package v1alpha1
 
+import "sort"
+
 const (
 	teamOwnerLabel   = "rpaas.extensions.tsuru.io/team-owner"
 	clusterNameLabel = "rpaas.extensions.tsuru.io/cluster-name"
@@ -14,11 +16,27 @@ func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
 		return
 	}
 
+	uniqueCerts := make(map[string]CertManager)
 	if req := i.Spec.DynamicCertificates.CertManager; req != nil {
-		reqs = append(reqs, *req)
+		uniqueCerts[req.Issuer] = *req
 	}
 
-	reqs = append(reqs, i.Spec.DynamicCertificates.CertManagerRequests...)
+	for _, req := range i.Spec.DynamicCertificates.CertManagerRequests {
+		r, found := uniqueCerts[req.Issuer]
+		if found {
+			r.DNSNames = append(r.DNSNames, req.DNSNames...)
+			r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
+			continue
+		}
+
+		uniqueCerts[req.Issuer] = req
+	}
+
+	for _, v := range uniqueCerts {
+		reqs = append(reqs, v)
+	}
+
+	sort.Slice(reqs, func(i, j int) bool { return reqs[i].Issuer < reqs[j].Issuer })
 
 	return
 }
