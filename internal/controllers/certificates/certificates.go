@@ -136,8 +136,8 @@ func DeleteCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 		instance.Spec.TLS = append(instance.Spec.TLS[:index], instance.Spec.TLS[index+1:]...) // removes the i-th element
 	}
 
-	delete(instance.Spec.PodTemplate.Annotations, fmt.Sprintf("rpaas.extensions.tsuru.io/%s-certificate-sha256", certificateName))
-	delete(instance.Spec.PodTemplate.Annotations, fmt.Sprintf("rpaas.extensions.tsuru.io/%s-key-sha256", certificateName))
+	delete(instance.Spec.PodTemplate.Annotations, certificateHashAnnotationKey(certificateName))
+	delete(instance.Spec.PodTemplate.Annotations, keyHashAnnotationKey(certificateName))
 
 	if err = c.Update(ctx, instance); err != nil {
 		return err
@@ -169,8 +169,8 @@ func updateInstanceWithCertificateInfos(ctx context.Context, c client.Client, i 
 
 	certName := s.Labels[CertificateNameLabel]
 
-	i.Spec.PodTemplate.Annotations[fmt.Sprintf("rpaas.extensions.tsuru.io/%s-certificate-sha256", certName)] = util.SHA256(s.Data[corev1.TLSCertKey])
-	i.Spec.PodTemplate.Annotations[fmt.Sprintf("rpaas.extensions.tsuru.io/%s-key-sha256", certName)] = util.SHA256(s.Data[corev1.TLSPrivateKeyKey])
+	i.Spec.PodTemplate.Annotations[certificateHashAnnotationKey(certName)] = util.SHA256(s.Data[corev1.TLSCertKey])
+	i.Spec.PodTemplate.Annotations[keyHashAnnotationKey(certName)] = util.SHA256(s.Data[corev1.TLSPrivateKeyKey])
 
 	if reflect.DeepEqual(i.Spec.PodTemplate.Annotations, original.Spec.PodTemplate.Annotations) && reflect.DeepEqual(i.Spec.TLS, original.Spec.TLS) {
 		return nil
@@ -255,4 +255,32 @@ func extractDNSNames(rawCert []byte) ([]string, error) {
 	leaf := certs[0]
 
 	return leaf.DNSNames, nil
+}
+
+func certificateHashAnnotationKey(certName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-certificate-sha256"
+
+	// NOTE: Annotation keys must not be greater than 63 chars.
+	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
+
+	if len(certName) > maxIssuer {
+		certName = certName[:maxIssuer]
+	}
+
+	return fmt.Sprintf(keyFormat, certName)
+}
+
+func keyHashAnnotationKey(certName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-key-sha256"
+
+	// NOTE: Annotation keys must not be greater than 63 chars.
+	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
+
+	if len(certName) > maxIssuer {
+		certName = certName[:maxIssuer]
+	}
+
+	return fmt.Sprintf(keyFormat, certName)
 }
