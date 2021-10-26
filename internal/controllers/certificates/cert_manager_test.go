@@ -452,6 +452,10 @@ func Test_CertManagerCertificateName(t *testing.T) {
 			request:  v1alpha1.CertManager{Issuer: "my-custom-issuer.kind.example.com"},
 			expected: "cert-manager-my-custom-issuer-kind-example-com",
 		},
+		{
+			request:  v1alpha1.CertManager{Issuer: "my-custom.ClusterIssuer.example.com"},
+			expected: "cert-manager-my-custom-clusterissuer-example-com",
+		},
 	}
 
 	for _, tt := range tests {
