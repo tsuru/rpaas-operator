@@ -53,6 +53,7 @@ type RpaasManager struct {
 	FakeAddUpstream              func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 	FakeGetUpstreams             func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
 	FakeDeleteUpstream           func(instanceName string, upstream v1alpha1.AllowedUpstream) error
+	FakeGetCertManagerRequests   func(instanceName string) ([]clientTypes.CertManager, error)
 	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
 	FakeDeleteCertManagerRequest func(instanceName, issuer string) error
 }
@@ -301,6 +302,13 @@ func (m *RpaasManager) DeleteUpstream(ctx context.Context, instance string, upst
 		return m.FakeDeleteUpstream(instance, upstream)
 	}
 	return nil
+}
+
+func (m *RpaasManager) GetCertManagerRequests(ctx context.Context, instance string) ([]clientTypes.CertManager, error) {
+	if m.FakeGetCertManagerRequests != nil {
+		return m.FakeGetCertManagerRequests(instance)
+	}
+	return nil, nil
 }
 
 func (m *RpaasManager) UpdateCertManagerRequest(ctx context.Context, instance string, in clientTypes.CertManager) error {

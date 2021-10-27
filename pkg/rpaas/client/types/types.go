@@ -135,7 +135,7 @@ type AllowedUpstream struct {
 }
 
 type CertManager struct {
-	Issuer      string   `json:"issuer,omitempty"`
+	Issuer      string   `json:"issuer"`
 	DNSNames    []string `json:"dnsNames,omitempty"`
 	IPAddresses []string `json:"ipAddresses,omitempty"`
 }

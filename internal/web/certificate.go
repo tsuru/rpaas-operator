@@ -99,6 +99,26 @@ func getCertificates(c echo.Context) error {
 	return c.JSON(http.StatusOK, certList)
 }
 
+func listCertManagerRequests(c echo.Context) error {
+	ctx := c.Request().Context()
+
+	manager, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+
+	requests, err := manager.GetCertManagerRequests(ctx, c.Param("instance"))
+	if err != nil {
+		return err
+	}
+
+	if requests == nil {
+		requests = make([]types.CertManager, 0)
+	}
+
+	return c.JSON(http.StatusOK, requests)
+}
+
 func updateCertManagerRequest(c echo.Context) error {
 	ctx := c.Request().Context()
 

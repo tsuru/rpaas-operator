@@ -239,6 +239,7 @@ type RpaasManager interface {
 	GetUpstreams(ctx context.Context, name string) ([]v1alpha1.AllowedUpstream, error)
 	DeleteUpstream(ctx context.Context, instance string, upstream v1alpha1.AllowedUpstream) error
 
+	GetCertManagerRequests(ctx context.Context, instanceName string) ([]clientTypes.CertManager, error)
 	UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error
 	DeleteCertManagerRequest(ctx context.Context, instanceName, issuer string) error
 }

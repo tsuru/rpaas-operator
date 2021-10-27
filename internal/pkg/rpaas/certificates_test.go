@@ -22,6 +22,97 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func Test_k8sRpaasManager_GetCertManagerRequests(t *testing.T) {
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-1",
+				Namespace: "rpaasv2",
+			},
+		},
+
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-2",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				DynamicCertificates: &v1alpha1.DynamicCertificates{
+					CertManager: &v1alpha1.CertManager{
+						Issuer:      "my-issuer",
+						DNSNames:    []string{"*.my-instance-2.test"},
+						IPAddresses: []string{"169.196.254.100"},
+					},
+					CertManagerRequests: []v1alpha1.CertManager{
+						{
+							Issuer:   "custom-issuer.example.com",
+							DNSNames: []string{"*.my-instance-2.example.com"},
+						},
+						{
+							Issuer:   "lets-encrypt",
+							DNSNames: []string{"www.my-instance-2.example.com", "web.my-instance-2.example.com"},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		instance      string
+		expected      []clientTypes.CertManager
+		expectedError string
+	}{
+		"instance does not exist": {
+			instance:      "not-found",
+			expectedError: "rpaas instance \"not-found\" not found",
+		},
+
+		"empty cert manager requests": {
+			instance: "my-instance-1",
+		},
+
+		"several cert manager requests": {
+			instance: "my-instance-2",
+			expected: []clientTypes.CertManager{
+				{
+					Issuer:   "custom-issuer.example.com",
+					DNSNames: []string{"*.my-instance-2.example.com"},
+				},
+				{
+					Issuer:   "lets-encrypt",
+					DNSNames: []string{"www.my-instance-2.example.com", "web.my-instance-2.example.com"},
+				},
+				{
+					Issuer:      "my-issuer",
+					DNSNames:    []string{"*.my-instance-2.test"},
+					IPAddresses: []string{"169.196.254.100"},
+				},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := fake.NewClientBuilder().
+				WithScheme(rpaasruntime.NewScheme()).
+				WithRuntimeObjects(resources...).
+				Build()
+
+			manager := &k8sRpaasManager{cli: client}
+
+			requests, err := manager.GetCertManagerRequests(context.TODO(), tt.instance)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, requests)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 	resources := []runtime.Object{
 		&v1alpha1.RpaasInstance{

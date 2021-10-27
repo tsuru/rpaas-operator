@@ -324,6 +324,59 @@ func Test_GetCertificates(t *testing.T) {
 	}
 }
 
+func Test_GetCertManagerRequests(t *testing.T) {
+	tests := map[string]struct {
+		manager      rpaas.RpaasManager
+		expectedCode int
+		expectedBody string
+	}{
+		"instance with two requests": {
+			manager: &fake.RpaasManager{
+				FakeGetCertManagerRequests: func(instanceName string) ([]clientTypes.CertManager, error) {
+					assert.Equal(t, "my-instance", instanceName)
+					return []clientTypes.CertManager{
+						{
+							Issuer:      "my-issuer",
+							DNSNames:    []string{"www.my-instance.example.com", "my-instance.example.com"},
+							IPAddresses: []string{"169.196.254.100"},
+						},
+						{
+							Issuer:   "lets-encrypt",
+							DNSNames: []string{"*.example.com"},
+						},
+					}, nil
+				},
+			},
+			expectedCode: http.StatusOK,
+			expectedBody: `[{"issuer":"my-issuer","dnsNames":["www.my-instance.example.com","my-instance.example.com"],"ipAddresses":["169.196.254.100"]},{"issuer":"lets-encrypt","dnsNames":["*.example.com"]}]`,
+		},
+
+		"when some error is returned": {
+			manager: &fake.RpaasManager{
+				FakeGetCertManagerRequests: func(instanceName string) ([]clientTypes.CertManager, error) {
+					return nil, &rpaas.ValidationError{Msg: "some error"}
+				},
+			},
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `{"Msg":"some error"}`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/my-instance/cert-manager", srv.URL)
+			request, err := http.NewRequest(http.MethodGet, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+		})
+	}
+}
+
 func Test_UpdateCertManagerRequest(t *testing.T) {
 	tests := map[string]struct {
 		manager      rpaas.RpaasManager

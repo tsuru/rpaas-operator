@@ -19,6 +19,24 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 )
 
+func (m *k8sRpaasManager) GetCertManagerRequests(ctx context.Context, instanceName string) ([]clientTypes.CertManager, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var requests []clientTypes.CertManager
+	for _, r := range instance.CertManagerRequests() {
+		requests = append(requests, clientTypes.CertManager{
+			Issuer:      r.Issuer,
+			DNSNames:    r.DNSNames,
+			IPAddresses: r.IPAddresses,
+		})
+	}
+
+	return requests, nil
+}
+
 func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error {
 	if !config.Get().EnableCertManager {
 		return &ConflictError{Msg: "Cert Manager integration not enabled"}
