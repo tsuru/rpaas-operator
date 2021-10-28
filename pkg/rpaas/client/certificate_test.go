@@ -170,7 +170,7 @@ func TestClientThroughTsuru_DeleteCertificate(t *testing.T) {
 	}
 }
 
-func TestClientThroughTsuru_DeleteUpdateCertManager(t *testing.T) {
+func TestClientThroughTsuru_UpdateCertManager(t *testing.T) {
 	tests := map[string]struct {
 		args          UpdateCertManagerArgs
 		expectedError string
@@ -248,7 +248,7 @@ func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
 		"when removing a Cert Manager request with no issuer provided": {
 			instance: "my-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager?"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
 				assert.Equal(t, "DELETE", r.Method)
 				w.WriteHeader(http.StatusOK)
 			},
@@ -258,7 +258,7 @@ func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
 			instance: "my-instance",
 			issuer:   "lets-encrypt",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager?issuer=lets-encrypt"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager&issuer=lets-encrypt"), r.URL.RequestURI())
 				assert.Equal(t, "DELETE", r.Method)
 				w.WriteHeader(http.StatusOK)
 			},

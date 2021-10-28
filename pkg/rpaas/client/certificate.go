@@ -172,7 +172,7 @@ func (c *client) DeleteCertManager(ctx context.Context, instance, issuer string)
 		data.Set("issuer", issuer)
 	}
 
-	req, err := c.newRequest("DELETE", fmt.Sprintf("/resources/%s/cert-manager?%s", instance, data.Encode()), nil, instance)
+	req, err := c.newRequestWithQueryString("DELETE", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, instance, data)
 	if err != nil {
 		return err
 	}

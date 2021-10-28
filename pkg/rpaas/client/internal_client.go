@@ -14,6 +14,7 @@ import (
 	"io/ioutil"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"time"
 
@@ -188,7 +189,11 @@ func (c *client) SetService(service string) (Client, error) {
 }
 
 func (c *client) newRequest(method, pathName string, body io.Reader, instance string) (*http.Request, error) {
-	url := c.formatURL(pathName, instance)
+	return c.newRequestWithQueryString(method, pathName, body, instance, nil)
+}
+
+func (c *client) newRequestWithQueryString(method, pathName string, body io.Reader, instance string, qs url.Values) (*http.Request, error) {
+	url := c.formatURLWithQueryString(pathName, instance, qs)
 	request, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
@@ -223,6 +228,24 @@ func (c *client) formatURL(pathName, instance string) string {
 	}
 
 	return fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s", c.tsuruTarget, c.tsuruService, instance, pathName)
+}
+
+func (c *client) formatURLWithQueryString(pathName, instance string, qs url.Values) string {
+	qsData := qs.Encode()
+
+	if !c.throughTsuru {
+		if qsData != "" {
+			qsData = "?" + qsData
+		}
+
+		return fmt.Sprintf("%s%s%s", c.rpaasAddress, pathName, qsData)
+	}
+
+	if qsData != "" {
+		qsData = "&" + qsData
+	}
+
+	return fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s%s", c.tsuruTarget, c.tsuruService, instance, pathName, qsData)
 }
 
 func unmarshalBody(resp *http.Response, dst interface{}) error {
