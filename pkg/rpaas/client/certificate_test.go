@@ -170,6 +170,70 @@ func TestClientThroughTsuru_DeleteCertificate(t *testing.T) {
 	}
 }
 
+func TestClientThroughTsuru_ListCertManagerRequests(t *testing.T) {
+	tests := map[string]struct {
+		instance      string
+		expectedError string
+		expected      []types.CertManager
+		handler       http.HandlerFunc
+	}{
+		"when instance is empty": {
+			expectedError: "rpaasv2: instance cannot be empty",
+		},
+
+		"when server returns several requests": {
+			instance: "my-instance",
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+
+				fmt.Fprintf(w, `[{"issuer": "my-issuer", "dnsNames": ["www.example.com", "web.example.com"], "ipAddresses": ["169.196.254.100"]}, {"issuer": "my-issuer-1", "dnsNames": ["*.test"]}]`)
+			}),
+			expected: []types.CertManager{
+				{
+					Issuer:      "my-issuer",
+					DNSNames:    []string{"www.example.com", "web.example.com"},
+					IPAddresses: []string{"169.196.254.100"},
+				},
+				{
+					Issuer:   "my-issuer-1",
+					DNSNames: []string{"*.test"},
+				},
+			},
+		},
+
+		"when server returns an error": {
+			instance: "my-instance",
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+
+				w.WriteHeader(http.StatusInternalServerError)
+				fmt.Fprintf(w, `{"Msg": "some error"}`)
+			}),
+			expectedError: `rpaasv2: unexpected status code: 500 Internal Server Error, detail: {"Msg": "some error"}`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+
+			cmRequests, err := client.ListCertManagerRequests(context.TODO(), tt.instance)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			assert.EqualError(t, err, tt.expectedError)
+			assert.Equal(t, cmRequests, tt.expected)
+		})
+	}
+}
+
 func TestClientThroughTsuru_UpdateCertManager(t *testing.T) {
 	tests := map[string]struct {
 		args          UpdateCertManagerArgs

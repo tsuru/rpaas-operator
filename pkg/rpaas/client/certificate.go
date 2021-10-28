@@ -14,6 +14,8 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func (args UpdateCertificateArgs) Validate() error {
@@ -123,6 +125,35 @@ func (c *client) DeleteCertificate(ctx context.Context, args DeleteCertificateAr
 	}
 
 	return nil
+}
+
+func (c *client) ListCertManagerRequests(ctx context.Context, instance string) ([]types.CertManager, error) {
+	if instance == "" {
+		return nil, ErrMissingInstance
+	}
+
+	req, err := c.newRequest("GET", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, instance)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return nil, newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	var cmRequests []types.CertManager
+	err = json.NewDecoder(response.Body).Decode(&cmRequests)
+	if err != nil {
+		return nil, err
+	}
+
+	return cmRequests, nil
 }
 
 func (args *UpdateCertManagerArgs) Validate() error {
