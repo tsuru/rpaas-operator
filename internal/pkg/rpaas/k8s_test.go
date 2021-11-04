@@ -3959,6 +3959,74 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_Scale(t *testing.T) {
+	scheme := runtime.NewScheme()
+	corev1.AddToScheme(scheme)
+	v1alpha1.SchemeBuilder.AddToScheme(scheme)
+	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
+
+	instance1 := newEmptyRpaasInstance()
+	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+		MaxReplicas:                    3,
+		MinReplicas:                    pointerToInt32(1),
+		TargetCPUUtilizationPercentage: pointerToInt32(70),
+	}
+
+	instance2 := newEmptyRpaasInstance()
+	instance2.Name = "another-instance"
+	instance2.Spec.Autoscale = nil
+
+	resources := []runtime.Object{instance1, instance2}
+
+	testCases := []struct {
+		instance  string
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			instance: "my-invalid-instance",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, NotFoundError{
+					Msg: `instance not found`,
+				}, err)
+			},
+		},
+		{
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, "cannot scale manual with autoscaler configured, please update autoscale settings", err.Error())
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
+
+				assert.NotNil(t, instance.Spec.Autoscale)
+			},
+		},
+		{
+			instance: "another-instance",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
+
+				assert.Equal(t, int32(30), *instance.Spec.Replicas)
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		t.Run(tt.instance, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
+			err := manager.Scale(context.Background(), tt.instance, 30)
+			tt.assertion(t, err, manager)
+		})
+	}
+
+}
+
 func Test_k8sRpaasManager_DeleteAutoscale(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)

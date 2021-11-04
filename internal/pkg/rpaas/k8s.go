@@ -511,6 +511,11 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 	if err != nil {
 		return err
 	}
+
+	if instance.Spec.Autoscale != nil {
+		return ValidationError{Msg: "cannot scale manual with autoscaler configured, please update autoscale settings"}
+	}
+
 	originalInstance := instance.DeepCopy()
 	if replicas < 0 {
 		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
