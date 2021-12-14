@@ -37,6 +37,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
+	controllerUtil "github.com/tsuru/rpaas-operator/internal/controllers/util"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 )
@@ -1322,7 +1323,7 @@ func renderCustomValues(instance *v1alpha1.RpaasInstance) error {
 		return err
 	}
 
-	return nil
+	return controllerUtil.RenderCustomValues(instance)
 }
 
 func renderServiceCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
