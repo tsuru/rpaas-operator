@@ -28,7 +28,49 @@ func RenderCustomValues(instance *v1alpha1.RpaasInstance) error {
 		return nil
 	}
 
+	if err := renderServiceCustomAnnotations(instance); err != nil {
+		return err
+	}
+
+	if err := renderIngressCustomAnnotations(instance); err != nil {
+		return err
+	}
+
 	return renderAffinityCustomValues(instance)
+}
+
+func renderServiceCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
+	if instance.Spec.Service == nil {
+		return nil
+	}
+
+	for k, v := range instance.Spec.Service.Annotations {
+		renderedValue, err := renderTemplate(instance, v)
+		if err != nil {
+			return err
+		}
+
+		instance.Spec.Service.Annotations[k] = renderedValue
+	}
+
+	return nil
+}
+
+func renderIngressCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
+	if instance.Spec.Ingress == nil {
+		return nil
+	}
+
+	for k, v := range instance.Spec.Ingress.Annotations {
+		renderedValue, err := renderTemplate(instance, v)
+		if err != nil {
+			return err
+		}
+
+		instance.Spec.Ingress.Annotations[k] = renderedValue
+	}
+
+	return nil
 }
 
 func renderAffinityCustomValues(instance *v1alpha1.RpaasInstance) error {

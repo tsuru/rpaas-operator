@@ -24,6 +24,68 @@ func TestRenderCustomValues(t *testing.T) {
 	}{
 		"when instance is nil": {},
 
+		"with custom service annotations": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"key1": `{{ printf "%s-1234" .Name }}`,
+							"key2": `{{ .Namespace }}/{{ .Name }}`,
+						},
+					},
+				},
+			},
+			expected: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Service: &nginxv1alpha1.NginxService{
+						Annotations: map[string]string{
+							"key1": "my-instance-1234",
+							"key2": "rpaasv2/my-instance",
+						},
+					},
+				},
+			},
+		},
+
+		"with custom ingress annotations": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Ingress: &nginxv1alpha1.NginxIngress{
+						Annotations: map[string]string{
+							"key1": `{{ printf "%s-1234" .Name }}`,
+							"key2": `{{ .Namespace }}/{{ .Name }}`,
+						},
+					},
+				},
+			},
+			expected: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Ingress: &nginxv1alpha1.NginxIngress{
+						Annotations: map[string]string{
+							"key1": "my-instance-1234",
+							"key2": "rpaasv2/my-instance",
+						},
+					},
+				},
+			},
+		},
+
 		"with custom required pod affinity": {
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{

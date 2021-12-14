@@ -5,7 +5,6 @@
 package controllers
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -16,7 +15,6 @@ import (
 	"sort"
 	"strconv"
 	"strings"
-	"text/template"
 
 	"github.com/imdario/mergo"
 	"github.com/sirupsen/logrus"
@@ -190,7 +188,7 @@ func (r *RpaasInstanceReconciler) mergeWithFlavors(ctx context.Context, instance
 		return nil, err
 	}
 
-	if err = renderCustomValues(mergedInstance); err != nil {
+	if err = controllerUtil.RenderCustomValues(mergedInstance); err != nil {
 		return nil, err
 	}
 
@@ -1312,70 +1310,6 @@ func shouldDeleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.
 
 	listSize := len(configList.Items)
 	return listSize > limit
-}
-
-func renderCustomValues(instance *v1alpha1.RpaasInstance) error {
-	if err := renderServiceCustomAnnotations(instance); err != nil {
-		return err
-	}
-
-	if err := renderIngressCustomAnnotations(instance); err != nil {
-		return err
-	}
-
-	return controllerUtil.RenderCustomValues(instance)
-}
-
-func renderServiceCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
-	if instance == nil {
-		return nil
-	}
-
-	if instance.Spec.Service == nil {
-		return nil
-	}
-
-	for k, v := range instance.Spec.Service.Annotations {
-		tmpl, err := template.New("rpaasv2.service.annotations").Parse(v)
-		if err != nil {
-			return err
-		}
-
-		var buffer bytes.Buffer
-		if err = tmpl.Execute(&buffer, instance); err != nil {
-			return err
-		}
-
-		instance.Spec.Service.Annotations[k] = buffer.String()
-	}
-
-	return nil
-}
-
-func renderIngressCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
-	if instance == nil {
-		return nil
-	}
-
-	if instance.Spec.Ingress == nil {
-		return nil
-	}
-
-	for k, v := range instance.Spec.Ingress.Annotations {
-		tmpl, err := template.New("rpaasv2.ingress.annotations").Parse(v)
-		if err != nil {
-			return err
-		}
-
-		var buffer bytes.Buffer
-		if err = tmpl.Execute(&buffer, instance); err != nil {
-			return err
-		}
-
-		instance.Spec.Ingress.Annotations[k] = buffer.String()
-	}
-
-	return nil
 }
 
 func mergeInstance(base v1alpha1.RpaasInstanceSpec, override v1alpha1.RpaasInstanceSpec) (merged v1alpha1.RpaasInstanceSpec, err error) {
