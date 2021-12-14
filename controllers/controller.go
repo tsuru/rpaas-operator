@@ -25,6 +25,7 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -350,7 +351,7 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 		return r.Client.Delete(ctx, &cj)
 	}
 
-	if reflect.DeepEqual(newCronJob.Spec, cj.Spec) {
+	if equality.Semantic.DeepDerivative(newCronJob.Spec, cj.Spec) {
 		return nil
 	}
 
@@ -718,7 +719,7 @@ func (r *RpaasInstanceReconciler) reconcileCacheSnapshotCronJob(ctx context.Cont
 	}
 
 	newestCronJob.ObjectMeta.ResourceVersion = foundCronJob.ObjectMeta.ResourceVersion
-	if !reflect.DeepEqual(foundCronJob.Spec, newestCronJob.Spec) {
+	if !equality.Semantic.DeepDerivative(foundCronJob.Spec, newestCronJob.Spec) {
 		return r.Client.Update(ctx, newestCronJob)
 	}
 
