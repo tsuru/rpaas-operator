@@ -15,12 +15,16 @@ import (
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
@@ -927,6 +931,338 @@ func Test_reconcileHPA(t *testing.T) {
 			}
 
 			tt.assertion(t, err, hpa)
+		})
+	}
+}
+
+func Test_reconcilePDB(t *testing.T) {
+	resources := []runtime.Object{
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "another-instance",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
+				Replicas:                  func(n int32) *int32 { return &n }(1),
+			},
+		},
+
+		&policyv1beta1.PodDisruptionBudget{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "policy/v1beta1",
+				Kind:       "PodDisruptionBudget",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "another-instance",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/instance-name": "another-instance",
+					"rpaas.extensions.tsuru.io/plan-name":     "",
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion:         "extensions.tsuru.io/v1alpha1",
+						Kind:               "RpaasInstance",
+						Name:               "another-instance",
+						Controller:         func(b bool) *bool { return &b }(true),
+						BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+					},
+				},
+			},
+			Spec: policyv1beta1.PodDisruptionBudgetSpec{
+				MinAvailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromInt(9)),
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "another-instance"},
+				},
+			},
+		},
+	}
+
+	tests := map[string]struct {
+		instance *v1alpha1.RpaasInstance
+		nginx    *nginxv1alpha1.Nginx
+		assert   func(t *testing.T, c client.Client)
+	}{
+		"creating PDB, instance with 10 replicas": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
+					Replicas:                  func(n int32) *int32 { return &n }(10),
+				},
+			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Status: nginxv1alpha1.NginxStatus{
+					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
+				},
+			},
+			assert: func(t *testing.T, c client.Client) {
+				var pdb policyv1beta1.PodDisruptionBudget
+				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
+				require.NoError(t, err)
+				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "policy/v1beta1",
+						Kind:       "PodDisruptionBudget",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/plan-name":     "",
+						},
+						ResourceVersion: "1",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "extensions.tsuru.io/v1alpha1",
+								Kind:               "RpaasInstance",
+								Name:               "my-instance",
+								Controller:         func(b bool) *bool { return &b }(true),
+								BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+							},
+						},
+					},
+					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+						MinAvailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromInt(9)),
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
+						},
+					},
+				}, pdb)
+			},
+		},
+
+		"creating PDB, instance with autoscale configured (min replicas == max replicas)": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
+					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+						MaxReplicas: int32(100),
+					},
+				},
+			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Status: nginxv1alpha1.NginxStatus{
+					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
+				},
+			},
+			assert: func(t *testing.T, c client.Client) {
+				var pdb policyv1beta1.PodDisruptionBudget
+				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
+				require.NoError(t, err)
+				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "policy/v1beta1",
+						Kind:       "PodDisruptionBudget",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/plan-name":     "",
+						},
+						ResourceVersion: "1",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "extensions.tsuru.io/v1alpha1",
+								Kind:               "RpaasInstance",
+								Name:               "my-instance",
+								Controller:         func(b bool) *bool { return &b }(true),
+								BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+							},
+						},
+					},
+					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+						MinAvailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromInt(99)),
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
+						},
+					},
+				}, pdb)
+			},
+		},
+
+		"creating PDB, instance with autoscale configured (min replicas < max replicas)": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
+					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+						MaxReplicas: int32(100),
+						MinReplicas: func(n int32) *int32 { return &n }(int32(50)),
+					},
+				},
+			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Status: nginxv1alpha1.NginxStatus{
+					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
+				},
+			},
+			assert: func(t *testing.T, c client.Client) {
+				var pdb policyv1beta1.PodDisruptionBudget
+				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
+				require.NoError(t, err)
+				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "policy/v1beta1",
+						Kind:       "PodDisruptionBudget",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/plan-name":     "",
+						},
+						ResourceVersion: "1",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "extensions.tsuru.io/v1alpha1",
+								Kind:               "RpaasInstance",
+								Name:               "my-instance",
+								Controller:         func(b bool) *bool { return &b }(true),
+								BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+							},
+						},
+					},
+					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+						MinAvailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromInt(50)),
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
+						},
+					},
+				}, pdb)
+			},
+		},
+
+		"updating PDB min available": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "another-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
+					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+						MaxReplicas: int32(100),
+						MinReplicas: func(n int32) *int32 { return &n }(int32(50)),
+					},
+				},
+			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "another-instance",
+					Namespace: "rpaasv2",
+				},
+				Status: nginxv1alpha1.NginxStatus{
+					PodSelector: "nginx.tsuru.io/resource-name=another-instance",
+				},
+			},
+			assert: func(t *testing.T, c client.Client) {
+				var pdb policyv1beta1.PodDisruptionBudget
+				err := c.Get(context.TODO(), client.ObjectKey{Name: "another-instance", Namespace: "rpaasv2"}, &pdb)
+				require.NoError(t, err)
+				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "policy/v1beta1",
+						Kind:       "PodDisruptionBudget",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "another-instance",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/instance-name": "another-instance",
+							"rpaas.extensions.tsuru.io/plan-name":     "",
+						},
+						ResourceVersion: "1000",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "extensions.tsuru.io/v1alpha1",
+								Kind:               "RpaasInstance",
+								Name:               "another-instance",
+								Controller:         func(b bool) *bool { return &b }(true),
+								BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+							},
+						},
+					},
+					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+						MinAvailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromInt(50)),
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "another-instance"},
+						},
+					},
+				}, pdb)
+			},
+		},
+
+		"removing PDB": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "another-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: func(n int32) *int32 { return &n }(10),
+					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+						MaxReplicas: int32(100),
+						MinReplicas: func(n int32) *int32 { return &n }(int32(50)),
+					},
+				},
+			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "another-instance",
+					Namespace: "rpaasv2",
+				},
+				Status: nginxv1alpha1.NginxStatus{
+					PodSelector: "nginx.tsuru.io/resource-name=another-instance",
+				},
+			},
+			assert: func(t *testing.T, c client.Client) {
+				var pdb policyv1beta1.PodDisruptionBudget
+				err := c.Get(context.TODO(), client.ObjectKey{Name: "another-instance", Namespace: "rpaasv2"}, &pdb)
+				require.Error(t, err)
+				assert.True(t, k8serrors.IsNotFound(err))
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			require.NotNil(t, tt.assert)
+
+			r := newRpaasInstanceReconciler(resources...)
+			err := r.reconcilePDB(context.TODO(), tt.instance, tt.nginx)
+			require.NoError(t, err)
+			tt.assert(t, r.Client)
 		})
 	}
 }

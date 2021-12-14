@@ -223,6 +223,14 @@ spec:
                           type: object
                         type: array
                     type: object
+                  enablePodDisruptionBudget:
+                    description: "EnablePodDisruptionBudget defines whether a PodDisruptionBudget
+                      should be attached to Nginx or not. Defaults to disabled. \n
+                      If enabled, PDB's min available is calculated as: - rpaasinstance.spec.autoscale.minReplicas
+                      (if set and less than maxReplicas); - rpaasinstance.spec.autoscale.maxReplicas
+                      - 1 (if set); - rpaasinstance.spec.replicas - 1 (if set); -
+                      zero, otherwise."
+                    type: boolean
                   extraFiles:
                     description: ExtraFiles points to a ConfigMap where the files
                       are stored.

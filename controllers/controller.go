@@ -25,13 +25,17 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
+	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/labels"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -616,6 +620,81 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	}
 
 	return nil
+}
+
+func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+	pdb, err := newPDB(instance, nginx)
+	if err != nil {
+		return err
+	}
+
+	var existingPDB policyv1beta1.PodDisruptionBudget
+	err = r.Get(ctx, client.ObjectKey{Name: pdb.Name, Namespace: pdb.Namespace}, &existingPDB)
+	if err == nil && (instance.Spec.EnablePodDisruptionBudget == nil || !*instance.Spec.EnablePodDisruptionBudget) {
+		return r.Delete(ctx, &existingPDB)
+	}
+
+	if k8serrors.IsNotFound(err) {
+		return r.Create(ctx, pdb)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if equality.Semantic.DeepDerivative(existingPDB.Spec, pdb.Spec) {
+		return nil
+	}
+
+	pdb.ResourceVersion = existingPDB.ResourceVersion
+	return r.Update(ctx, pdb)
+}
+
+func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*policyv1beta1.PodDisruptionBudget, error) {
+	set, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
+	if err != nil {
+		return nil, err
+	}
+
+	var minAvailable intstr.IntOrString
+	if replicas := instance.Spec.Replicas; replicas != nil {
+		// NOTE: reducing by one to allow operational tasks as draining nodes in the cluster.
+		minAvailable = intstr.FromInt(int(*replicas) - 1)
+	}
+
+	if autoscale := instance.Spec.Autoscale; autoscale != nil {
+		// NOTE: reducing by one to allow operational tasks as draining nodes in the cluster.
+		minAvailable = intstr.FromInt(int(autoscale.MaxReplicas) - 1)
+
+		if min := instance.Spec.Autoscale.MinReplicas; min != nil && *min < autoscale.MaxReplicas {
+			minAvailable = intstr.FromInt(int(*min))
+		}
+	}
+
+	return &policyv1beta1.PodDisruptionBudget{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "policy/v1beta1",
+			Kind:       "PodDisruptionBudget",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance.Name,
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.GroupVersion.Group,
+					Version: v1alpha1.GroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Labels: labelsForRpaasInstance(instance),
+		},
+		Spec: policyv1beta1.PodDisruptionBudgetSpec{
+			MinAvailable: &minAvailable,
+			Selector: &metav1.LabelSelector{
+				MatchLabels: map[string]string(set),
+			},
+		},
+	}, nil
 }
 
 func (r *RpaasInstanceReconciler) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) error {

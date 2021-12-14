@@ -115,6 +115,18 @@ type RpaasInstanceSpec struct {
 	// an Ingress.
 	// +optional
 	Ingress *nginxv1alpha1.NginxIngress `json:"ingress,omitempty"`
+
+	// EnablePodDisruptionBudget defines whether a PodDisruptionBudget should be attached
+	// to Nginx or not. Defaults to disabled.
+	//
+	// If enabled, PDB's min available is calculated as:
+	// - rpaasinstance.spec.autoscale.minReplicas (if set and less than maxReplicas);
+	// - rpaasinstance.spec.autoscale.maxReplicas - 1 (if set);
+	// - rpaasinstance.spec.replicas - 1 (if set);
+	// - zero, otherwise.
+	//
+	// +optional
+	EnablePodDisruptionBudget *bool `json:"enablePodDisruptionBudget,omitempty"`
 }
 
 type DynamicCertificates struct {

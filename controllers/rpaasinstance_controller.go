@@ -44,6 +44,7 @@ type RpaasInstanceReconciler struct {
 // +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;update;delete
 
 // +kubebuilder:rbac:groups=cert-manager.io,resources=certificates,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=cert-manager.io,resources=clusterissuers;issuers,verbs=get;list;watch
@@ -170,6 +171,10 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if err = r.reconcileHPA(ctx, instanceMergedWithFlavors); err != nil {
+		return ctrl.Result{}, err
+	}
+
+	if err = r.reconcilePDB(ctx, instanceMergedWithFlavors, nginx); err != nil {
 		return ctrl.Result{}, err
 	}
 
