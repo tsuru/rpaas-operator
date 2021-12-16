@@ -81,12 +81,7 @@ func getConfigList(instanceName, namespaceName string) (*corev1.ConfigMapList, e
 }
 
 func portForward(ctx context.Context, ns, name, port string, fn func(localPort int)) error {
-	cmd := exec.CommandContext(ctx, "kubectl", []string{
-		"port-forward",
-		"--namespace", ns,
-		name, fmt.Sprintf(":%s", port),
-		"--address", "127.0.0.1",
-	}...)
+	cmd := exec.CommandContext(ctx, "kubectl", []string{"port-forward", "--namespace", ns, name, fmt.Sprintf(":%s", port), "--address", "127.0.0.1"}...)
 
 	stderr, err := cmd.StderrPipe()
 	if err != nil {

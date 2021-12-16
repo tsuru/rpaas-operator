@@ -33,7 +33,7 @@ require (
 	github.com/spf13/viper v1.8.1
 	github.com/stern/stern v1.20.1
 	github.com/stretchr/testify v1.7.0
-	github.com/tsuru/nginx-operator v0.8.0
+	github.com/tsuru/nginx-operator v0.8.2
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	github.com/urfave/cli/v2 v2.1.1
