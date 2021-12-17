@@ -531,6 +531,20 @@ func getRpaasInstance(name, namespace string) (*v1alpha1.RpaasInstance, error) {
 func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int, expectedCerts *int) (*nginxv1alpha1.Nginx, error) {
 	nginx := &nginxv1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
 	timeout := time.After(120 * time.Second)
+
+	var count int
+
+	decr := func() {
+		if count == 0 {
+			return
+		}
+		count--
+	}
+
+	incr := func() {
+		count++
+	}
+
 	var err error
 	for {
 		select {
@@ -541,34 +555,43 @@ func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int, expec
 
 		err = get(nginx, name, namespace)
 		if err != nil {
+			decr()
 			continue
 		}
 
 		for _, ds := range nginx.Status.Deployments {
 			_, err = kubectl("rollout", "status", "-n", namespace, "deploy", ds.Name, "--timeout=5s", "--watch")
 			if err != nil {
+				decr()
 				continue
 			}
 		}
 
 		if nginx.Status.PodSelector == "" {
+			decr()
 			continue
 		}
 
 		_, err = kubectlWithRetry("wait", "--for=condition=Ready", "-l", nginx.Status.PodSelector, "pod", "--timeout", "5s", "-n", namespace)
 		if err != nil {
+			decr()
 			continue
 		}
 
 		if expectedCerts != nil && len(nginx.Spec.TLS) != *expectedCerts {
+			decr()
 			continue
 		}
 
 		if int(nginx.Status.CurrentReplicas) == expectedPods && len(nginx.Status.Services) == expectedSvcs {
-			return nginx, nil
+			incr()
 		}
 
 		if int(nginx.Status.CurrentReplicas) == 0 {
+			incr()
+		}
+
+		if count == 25 {
 			return nginx, nil
 		}
 	}
