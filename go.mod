@@ -42,6 +42,7 @@ require (
 	golang.org/x/term v0.0.0-20210503060354-a79de5458b56
 	k8s.io/api v0.22.0
 	k8s.io/apimachinery v0.22.0
+	k8s.io/cli-runtime v0.22.0
 	k8s.io/client-go v0.22.0
 	k8s.io/kubectl v0.21.0
 	k8s.io/metrics v0.21.0
