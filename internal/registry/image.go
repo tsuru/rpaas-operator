@@ -5,163 +5,93 @@
 package registry
 
 import (
-	"crypto/tls"
-	"encoding/json"
+	"context"
 	"fmt"
-	"net/http"
 	"strings"
 	"sync"
-	"time"
 
-	"github.com/heroku/docker-registry-client/registry"
-	"github.com/sirupsen/logrus"
+	"github.com/google/go-containerregistry/pkg/authn"
+	"github.com/google/go-containerregistry/pkg/name"
+	"github.com/google/go-containerregistry/pkg/v1/google"
+	"github.com/google/go-containerregistry/pkg/v1/remote"
 )
 
 const modulesLabel = "io.tsuru.nginx-modules"
 
+var keychain = authn.NewMultiKeychain(
+	authn.DefaultKeychain,
+	google.Keychain,
+	// maybe in the future, add more plugins here...
+)
+
 type ImageMetadata interface {
-	Modules(image string) ([]string, error)
+	Modules(ctx context.Context, image string) ([]string, error)
 }
 
 type imageMetadataRetriever struct {
-	mu            sync.Mutex
-	labelsCache   map[string]map[string]string
-	registryCache map[string]*registry.Registry
-	insecure      bool
+	mu          sync.Mutex
+	labelsCache map[string]map[string]string
 }
 
 func NewImageMetadata() *imageMetadataRetriever {
 	return &imageMetadataRetriever{
-		labelsCache:   map[string]map[string]string{},
-		registryCache: map[string]*registry.Registry{},
+		labelsCache: map[string]map[string]string{},
 	}
 }
 
-func (r *imageMetadataRetriever) Modules(image string) ([]string, error) {
-	labels, err := r.cachedLabels(image)
+func (r *imageMetadataRetriever) Modules(ctx context.Context, image string) ([]string, error) {
+	labels, err := r.cachedLabels(ctx, image)
 	if err != nil {
 		return nil, err
 	}
-	if labels == nil {
-		return nil, nil
-	}
-	rawModules := labels[modulesLabel]
-	if rawModules == "" {
-		return nil, nil
-	}
+
 	return strings.Split(labels[modulesLabel], ","), nil
 }
 
-func (r *imageMetadataRetriever) cachedLabels(image string) (map[string]string, error) {
+func (r *imageMetadataRetriever) cachedLabels(ctx context.Context, image string) (map[string]string, error) {
 	r.mu.Lock()
 	defer r.mu.Unlock()
 
-	if _, ok := r.labelsCache[image]; ok {
-		return r.labelsCache[image], nil
+	if cachedLabels, ok := r.labelsCache[image]; ok {
+		return cachedLabels, nil
 	}
 
-	parts := parseImage(image)
-	labels, err := r.imageLabels(parts)
+	ref, err := name.ParseReference(image)
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse the image reference %q: %w", image, err)
+	}
+
+	labels, err := r.imageLabels(ctx, ref)
 	if err != nil {
 		return nil, err
 	}
-	if !parts.isLatest() {
+
+	if !isLatest(ref.Identifier()) {
 		r.labelsCache[image] = labels
 	}
 
 	return labels, nil
 }
 
-func (r *imageMetadataRetriever) imageLabels(image dockerImage) (map[string]string, error) {
-	type historyEntry struct {
-		Config struct {
-			Labels map[string]string
-		}
+func (r *imageMetadataRetriever) imageLabels(ctx context.Context, ref name.Reference) (map[string]string, error) {
+	desc, err := remote.Get(ref, remote.WithContext(ctx), remote.WithAuthFromKeychain(keychain))
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch manifest of %q from container registry: %w", ref, err)
 	}
 
-	hub := r.registry(image.registry)
-	manifest, err := hub.Manifest(image.image, image.tag)
+	img, err := desc.Image()
+	if err != nil {
+		return nil, fmt.Errorf("failed to fetch config from manifest: %w", err)
+	}
+
+	cfg, err := img.ConfigFile()
 	if err != nil {
 		return nil, err
 	}
-	if len(manifest.History) == 0 {
-		logrus.Errorf("No history found for image %s, caching empty labels", image)
-		return nil, nil
-	}
-	data := manifest.History[0].V1Compatibility
-	var entry historyEntry
-	err = json.Unmarshal([]byte(data), &entry)
-	if err != nil {
-		logrus.Errorf("Unable to parse image labels for %s, caching empty labels", image)
-		return nil, nil
-	}
-	return entry.Config.Labels, nil
+
+	return cfg.Config.Labels, nil
 }
 
-func (r *imageMetadataRetriever) registry(registryHost string) *registry.Registry {
-	if reg := r.registryCache[registryHost]; reg != nil {
-		return reg
-	}
-	url := "https://" + registryHost
-	transport := http.DefaultTransport
-	if r.insecure {
-		newTransport := http.DefaultTransport.(*http.Transport).Clone()
-		newTransport.TLSClientConfig = &tls.Config{
-			InsecureSkipVerify: true,
-		}
-		transport = newTransport
-	}
-	reg := &registry.Registry{
-		URL: url,
-		Client: &http.Client{
-			Transport: registry.WrapTransport(transport, url, "", ""),
-			Timeout:   30 * time.Second,
-		},
-		Logf: registry.Quiet,
-	}
-	r.registryCache[registryHost] = reg
-	return reg
-}
-
-type dockerImage struct {
-	registry string
-	image    string
-	tag      string
-}
-
-func (i dockerImage) isLatest() bool {
-	return i.tag == "latest" || i.tag == "edge"
-}
-
-func (i dockerImage) String() string {
-	return fmt.Sprintf("%s/%s:%s", i.registry, i.image, i.tag)
-}
-
-func parseImage(imageName string) dockerImage {
-	img := dockerImage{
-		registry: "registry-1.docker.io",
-		tag:      "latest",
-	}
-
-	parts := strings.SplitN(imageName, "/", 3)
-	switch len(parts) {
-	case 1:
-		img.image = imageName
-	case 2:
-		if strings.ContainsAny(parts[0], ":.") || parts[0] == "localhost" {
-			img.registry = parts[0]
-			img.image = parts[1]
-			break
-		}
-		img.image = imageName
-	case 3:
-		img.registry = parts[0]
-		img.image = strings.Join(parts[1:], "/")
-	}
-	parts = strings.SplitN(img.image, ":", 2)
-	if len(parts) >= 2 {
-		img.image = parts[0]
-		img.tag = parts[1]
-	}
-	return img
+func isLatest(tag string) bool {
+	return tag == "latest" || tag == "edge"
 }

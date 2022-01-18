@@ -2654,7 +2654,7 @@ func Test_mergeServiceWithDNS(t *testing.T) {
 
 type fakeImageMetadata struct{}
 
-func (i *fakeImageMetadata) Modules(img string) ([]string, error) {
+func (i *fakeImageMetadata) Modules(ctx context.Context, img string) ([]string, error) {
 	return []string{"mod1"}, nil
 }
 

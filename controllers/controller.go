@@ -917,7 +917,7 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
-	modules, err := r.ImageMetadata.Modules(plan.Spec.Image)
+	modules, err := r.ImageMetadata.Modules(ctx, plan.Spec.Image)
 	if err != nil {
 		return "", err
 	}
