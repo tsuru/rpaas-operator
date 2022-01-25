@@ -630,16 +630,20 @@ func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1
 
 	var existingPDB policyv1beta1.PodDisruptionBudget
 	err = r.Get(ctx, client.ObjectKey{Name: pdb.Name, Namespace: pdb.Namespace}, &existingPDB)
-	if err == nil && (instance.Spec.EnablePodDisruptionBudget == nil || !*instance.Spec.EnablePodDisruptionBudget) {
-		return r.Delete(ctx, &existingPDB)
-	}
-
-	if k8serrors.IsNotFound(err) {
-		return r.Create(ctx, pdb)
-	}
-
 	if err != nil {
-		return err
+		if !k8serrors.IsNotFound(err) {
+			return err
+		}
+
+		if instance.Spec.EnablePodDisruptionBudget != nil && *instance.Spec.EnablePodDisruptionBudget {
+			return r.Create(ctx, pdb)
+		}
+
+		return nil
+	}
+
+	if instance.Spec.EnablePodDisruptionBudget == nil || (instance.Spec.EnablePodDisruptionBudget != nil && !*instance.Spec.EnablePodDisruptionBudget) {
+		return r.Delete(ctx, &existingPDB)
 	}
 
 	if equality.Semantic.DeepDerivative(existingPDB.Spec, pdb.Spec) {
