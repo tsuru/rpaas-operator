@@ -85,7 +85,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if instance.Spec.PlanTemplate != nil {
-		plan.Spec, err = mergePlans(plan.Spec, *instance.Spec.PlanTemplate)
+		plan.Spec, err = mergePlans(*instance.Spec.PlanTemplate, plan.Spec)
 		if err != nil {
 			return reconcile.Result{}, err
 		}
