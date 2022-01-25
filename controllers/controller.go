@@ -671,6 +671,10 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 		}
 	}
 
+	if minAvailable.IntValue() < 0 {
+		minAvailable = intstr.FromInt(0)
+	}
+
 	return &policyv1beta1.PodDisruptionBudget{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "policy/v1beta1",
