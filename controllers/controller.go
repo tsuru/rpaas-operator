@@ -30,6 +30,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
+	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
@@ -1429,7 +1430,9 @@ func genericMerge(dst interface{}, overrides ...interface{}) error {
 type rpaasMergoTransformers struct{}
 
 func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, reflect.Value) error {
-	if reflect.TypeOf(v1alpha1.Bool(true)) == t {
+
+	switch t {
+	case reflect.TypeOf(v1alpha1.Bool(true)):
 		return func(dst, src reflect.Value) error {
 			if src.IsNil() {
 				return nil
@@ -1446,9 +1449,8 @@ func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, 
 			dst.Set(src)
 			return nil
 		}
-	}
 
-	if reflect.TypeOf(corev1.ResourceList{}) == t {
+	case reflect.TypeOf(corev1.ResourceList{}):
 		return func(dst, src reflect.Value) error {
 			iter := src.MapRange()
 			for iter.Next() {
@@ -1459,6 +1461,7 @@ func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, 
 				if dstValue.IsZero() {
 					continue
 				}
+
 				if reflect.DeepEqual(srcValue, dstValue) {
 					continue
 				}
@@ -1467,9 +1470,28 @@ func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, 
 			}
 			return nil
 		}
-	}
-	return nil
 
+	case reflect.TypeOf(resource.Quantity{}):
+		return func(dst, src reflect.Value) error {
+			if src.IsZero() {
+				return nil
+			}
+
+			if reflect.DeepEqual(src, dst) {
+				return nil
+			}
+
+			if !dst.CanSet() {
+				return fmt.Errorf("cannot set value to destination")
+			}
+
+			dst.Set(src)
+
+			return nil
+		}
+	}
+
+	return nil
 }
 
 func portBelongsTo(port extensionsv1alpha1.AllocatedPort, instance *extensionsv1alpha1.RpaasInstance) bool {

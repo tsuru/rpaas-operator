@@ -142,6 +142,36 @@ func Test_mergePlans(t *testing.T) {
 				},
 			},
 		},
+		{
+			base: v1alpha1.RpaasPlanSpec{
+				Config: v1alpha1.NginxConfig{
+					CacheEnabled:     v1alpha1.Bool(true),
+					CachePath:        "/var/cache/nginx/rpaas",
+					CacheSize:        func(r resource.Quantity) *resource.Quantity { return &r }(resource.MustParse("8Gi")),
+					CacheZoneSize:    func(r resource.Quantity) *resource.Quantity { return &r }(resource.MustParse("100Mi")),
+					CacheInactive:    "12h",
+					CacheLoaderFiles: 100,
+				},
+			},
+			override: v1alpha1.RpaasPlanSpec{
+				Config: v1alpha1.NginxConfig{
+					CacheSize:        func(r resource.Quantity) *resource.Quantity { return &r }(resource.MustParse("14Gi")),
+					CacheZoneSize:    func(r resource.Quantity) *resource.Quantity { return &r }(resource.MustParse("500Mi")),
+					CacheInactive:    "7d",
+					CacheLoaderFiles: 100000,
+				},
+			},
+			expected: v1alpha1.RpaasPlanSpec{
+				Config: v1alpha1.NginxConfig{
+					CacheEnabled:     v1alpha1.Bool(true),
+					CachePath:        "/var/cache/nginx/rpaas",
+					CacheSize:        func(r resource.Quantity) *resource.Quantity { return &r }(resource.MustParse("14Gi")),
+					CacheZoneSize:    func(r resource.Quantity) *resource.Quantity { return &r }(resource.MustParse("500Mi")),
+					CacheInactive:    "7d",
+					CacheLoaderFiles: 100000,
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
