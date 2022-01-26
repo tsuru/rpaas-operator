@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"reflect"
 	"sort"
+	"strconv"
 
 	"github.com/go-logr/logr"
 	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
@@ -58,7 +59,7 @@ type RpaasInstanceReconciler struct {
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances/status,verbs=get;update;patch
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	_ = r.Log.WithValues("rpaasinstance", req.NamespacedName)
+	l := r.Log.WithValues("rpaasinstance", req.NamespacedName)
 
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
 	if k8serrors.IsNotFound(err) {
@@ -68,6 +69,13 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	if s, ok := instance.Annotations[skipReconcileLabel]; ok {
+		if skipped, _ := strconv.ParseBool(s); skipped {
+			l.Info(fmt.Sprintf("Skipping reconciliation as %s=true annotation was found in the resource", skipReconcileLabel))
+			return reconcile.Result{Requeue: true}, nil
+		}
 	}
 
 	planName := types.NamespacedName{
