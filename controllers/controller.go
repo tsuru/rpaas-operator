@@ -11,6 +11,7 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
+	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -665,22 +666,20 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 
 	var minAvailable intstr.IntOrString
 	if replicas := instance.Spec.Replicas; replicas != nil {
-		// NOTE: reducing by one to allow operational tasks as draining nodes in the cluster.
-		minAvailable = intstr.FromInt(int(*replicas) - 1)
+		minAvailable = intstr.FromInt(int(*replicas))
 	}
 
 	if autoscale := instance.Spec.Autoscale; autoscale != nil {
-		// NOTE: reducing by one to allow operational tasks as draining nodes in the cluster.
-		minAvailable = intstr.FromInt(int(autoscale.MaxReplicas) - 1)
+		minAvailable = intstr.FromInt(int(autoscale.MaxReplicas))
 
 		if min := instance.Spec.Autoscale.MinReplicas; min != nil && *min < autoscale.MaxReplicas {
 			minAvailable = intstr.FromInt(int(*min))
 		}
 	}
 
-	if minAvailable.IntValue() < 0 {
-		minAvailable = intstr.FromInt(0)
-	}
+	// NOTE: taking 90% of the real min available to support operational tasks
+	// in the cluster, e.g scaling up/down nodes from Cluster Autoscaler.
+	minAvailable = intstr.FromInt(int(math.Floor(float64(minAvailable.IntValue()) * 0.9)))
 
 	return &policyv1beta1.PodDisruptionBudget{
 		TypeMeta: metav1.TypeMeta{

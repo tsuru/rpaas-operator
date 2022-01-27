@@ -120,10 +120,12 @@ type RpaasInstanceSpec struct {
 	// to Nginx or not. Defaults to disabled.
 	//
 	// If enabled, PDB's min available is calculated as:
-	// - rpaasinstance.spec.autoscale.minReplicas (if set and less than maxReplicas);
-	// - rpaasinstance.spec.autoscale.maxReplicas - 1 (if set);
-	// - rpaasinstance.spec.replicas - 1 (if set);
-	// - zero, otherwise.
+	//  minAvailable = floor(N * 90%), where
+	//  N:
+	//   - rpaasinstance.spec.autoscale.minReplicas (if set and less than maxReplicas);
+	//   - rpaasinstance.spec.autoscale.maxReplicas (if set);
+	//   - rpaasinstance.spec.replicas (if set);
+	//   - zero, otherwise.
 	//
 	// +optional
 	EnablePodDisruptionBudget *bool `json:"enablePodDisruptionBudget,omitempty"`
