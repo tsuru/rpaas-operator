@@ -327,6 +327,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 			},
 		},
 		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+			Toleration: []corev1.Toleration{{
+				Key:      "mango-toleration",
+				Operator: corev1.TolerationOpExists,
+			}},
 			Annotations: map[string]string{
 				"mango-pod-annotation": "mango",
 			},
@@ -574,6 +578,10 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						},
 					},
 					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Toleration: []corev1.Toleration{{
+							Key:      "mango-toleration",
+							Operator: corev1.TolerationOpExists,
+						}},
 						Annotations: map[string]string{
 							"default-pod-annotation":  "default",
 							"flavored-pod-annotation": "v1",

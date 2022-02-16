@@ -7,7 +7,6 @@ require (
 	github.com/Masterminds/sprig/v3 v3.1.0
 	github.com/ajg/form v1.5.1
 	github.com/davecgh/go-spew v1.1.1
-	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7
 	github.com/evanphx/json-patch/v5 v5.1.0
 	github.com/fatih/color v1.13.0
 	github.com/fsnotify/fsnotify v1.5.1
@@ -17,7 +16,6 @@ require (
 	github.com/google/gops v0.3.12
 	github.com/gorilla/websocket v1.4.2
 	github.com/hashicorp/go-multierror v1.1.0
-	github.com/heroku/docker-registry-client v0.0.0-20190909225348-afc9e1acc3d5
 	github.com/huandu/xstrings v1.3.2 // indirect
 	github.com/imdario/mergo v0.3.12
 	github.com/jetstack/cert-manager v1.4.0
@@ -33,7 +31,7 @@ require (
 	github.com/spf13/viper v1.10.0
 	github.com/stern/stern v1.20.1
 	github.com/stretchr/testify v1.7.0
-	github.com/tsuru/nginx-operator v0.9.0
+	github.com/tsuru/nginx-operator v0.9.1
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/uber/jaeger-lib v2.4.0+incompatible // indirect
 	github.com/urfave/cli/v2 v2.1.1
