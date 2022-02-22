@@ -106,21 +106,19 @@ func TestRemoveAccessControlList(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     string
-		args         string
+		body         string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
 	}{
 		{
-			name:         "remove upstream",
-			instance:     "valid",
-			args:         "host=host1&port=8888",
+			name:         "remove upstream (www.example.com:443)",
+			instance:     "my-instance",
+			body:         `{"host": "www.example.com", "port": 443}`,
 			expectedCode: http.StatusNoContent,
-			expectedBody: "",
 			manager: &fake.RpaasManager{
 				FakeDeleteUpstream: func(instanceName string, upstream v1alpha1.AllowedUpstream) error {
-					expectedUpstream := v1alpha1.AllowedUpstream{Host: "host1", Port: 8888}
-					assert.Equal(t, expectedUpstream, upstream)
+					assert.Equal(t, v1alpha1.AllowedUpstream{Host: "www.example.com", Port: 443}, upstream)
 					return nil
 				},
 			},
@@ -131,14 +129,9 @@ func TestRemoveAccessControlList(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-
-			path := fmt.Sprintf("%s/resources/%s/acl", srv.URL, tt.instance)
-			if tt.args != "" {
-				path = fmt.Sprintf("%s?%s", path, tt.args)
-			}
-			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			request, err := http.NewRequest(http.MethodDelete, fmt.Sprintf("%s/resources/%s/acl", srv.URL, tt.instance), strings.NewReader(tt.body))
 			assert.NoError(t, err)
-
+			request.Header.Set("Content-Type", "application/json")
 			rsp, err := srv.Client().Do(request)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)

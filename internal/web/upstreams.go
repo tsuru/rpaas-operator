@@ -6,7 +6,6 @@ package web
 
 import (
 	"net/http"
-	"strconv"
 
 	"github.com/labstack/echo/v4"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -54,14 +53,9 @@ func deleteUpstream(c echo.Context) error {
 		return err
 	}
 
-	port, err := strconv.Atoi(c.QueryParam("port"))
-	if err != nil {
+	var upstream v1alpha1.AllowedUpstream
+	if err = c.Bind(&upstream); err != nil {
 		return err
-	}
-
-	upstream := v1alpha1.AllowedUpstream{
-		Host: c.QueryParam("host"),
-		Port: port,
 	}
 
 	if err := manager.DeleteUpstream(ctx, c.Param("instance"), upstream); err != nil {
