@@ -2873,6 +2873,16 @@ func Test_convertPathToConfigMapKey(t *testing.T) {
 
 func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 	resources := []runtime.Object{
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: getServiceName(),
+			},
+		},
+		&corev1.Namespace{
+			ObjectMeta: metav1.ObjectMeta{
+				Name: "my-rpaasv2",
+			},
+		},
 		&v1alpha1.RpaasPlan{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "plan1",

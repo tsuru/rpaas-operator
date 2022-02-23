@@ -1205,6 +1205,16 @@ func (m *k8sRpaasManager) getPlan(ctx context.Context, name string) (*v1alpha1.R
 	return &plan, nil
 }
 
+func (m *k8sRpaasManager) getNamespace(ctx context.Context) (*corev1.Namespace, error) {
+	ns := &corev1.Namespace{}
+	err := m.cli.Get(ctx, types.NamespacedName{Name: getServiceName()}, ns)
+	if err != nil {
+		return nil, err
+	}
+
+	return ns, nil
+}
+
 func (m *k8sRpaasManager) getDefaultPlan(ctx context.Context) (*v1alpha1.RpaasPlan, error) {
 	plans, err := m.GetPlans(ctx)
 	if err != nil {
@@ -1295,6 +1305,10 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 
 	if args.Team == "" {
 		return ValidationError{Msg: "team name is required"}
+	}
+
+	if _, err := m.getNamespace(ctx); err != nil && k8sErrors.IsNotFound(err) {
+		return ValidationError{Msg: fmt.Sprintf("service %q is not enabled", getServiceName())}
 	}
 
 	if _, err := m.getPlan(ctx, args.Plan); err != nil && IsNotFoundError(err) {
