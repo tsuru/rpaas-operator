@@ -69,6 +69,12 @@ const (
 
 var _ RpaasManager = &k8sRpaasManager{}
 
+var podAllowedReasonsToFail = map[string]bool{
+	"shutdown":     true,
+	"evicted":      true,
+	"nodeaffinity": true,
+}
+
 type k8sRpaasManager struct {
 	cli          client.Client
 	cacheManager CacheManager
@@ -2034,6 +2040,9 @@ func (m *k8sRpaasManager) getPodStatuses(ctx context.Context, nginx *nginxv1alph
 
 	var podStatuses []clientTypes.Pod
 	for _, pod := range pods {
+		if podIsAllowedToFail(pod) {
+			continue
+		}
 		ps, err := m.newPodStatus(ctx, &pod)
 		if err != nil {
 			return nil, err
@@ -2342,4 +2351,9 @@ func hasIntersection(a []string, b []string) bool {
 	}
 
 	return false
+}
+
+func podIsAllowedToFail(pod corev1.Pod) bool {
+	reason := strings.ToLower(pod.Status.Reason)
+	return pod.Status.Phase == corev1.PodFailed && podAllowedReasonsToFail[reason]
 }
