@@ -4405,7 +4405,43 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			},
 		},
 	}
-
+	pod3 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "instance4-6f86f957b7-klmno",
+			Namespace: instance4.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance4",
+			},
+			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
+			UID:               types.UID("pod3-123"),
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{
+					Name: "nginx",
+					Ports: []corev1.ContainerPort{
+						{
+							Name:     "http",
+							HostPort: int32(30000),
+						},
+						{
+							Name:     "https",
+							HostPort: int32(30001),
+						},
+						{
+							Name:     "nginx-metrics",
+							HostPort: int32(30002),
+						},
+					},
+				},
+			},
+		},
+		Status: corev1.PodStatus{
+			Phase:  corev1.PodFailed,
+			Reason: "shutdown",
+		},
+	}
 	event1 := &corev1.Event{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      pod2.Name + ".1",
@@ -4506,7 +4542,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 		instance1, instance2, instance3, instance4,
 		nginx3, nginx4,
 		service3, service4,
-		pod1, pod2,
+		pod1, pod2, pod3,
 		pod2Metrics,
 		event1, event2, event3, event4, event5,
 		s1, s2,
