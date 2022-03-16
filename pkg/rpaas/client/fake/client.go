@@ -35,6 +35,7 @@ type FakeClient struct {
 	FakeSetService              func(service string) error
 	FakeListCertManagerRequests func(instance string) ([]types.CertManager, error)
 	FakeUpdateCertManager       func(args client.UpdateCertManagerArgs) error
+	FakeValidate                func(ctx context.Context, args client.PortForwardArgs) ([]types.Pod, error)
 	FakeDeleteCertManager       func(instance, issuer string) error
 	FakeLog                     func(args client.LogArgs) error
 }
@@ -159,6 +160,12 @@ func (f *FakeClient) UpdateRoute(ctx context.Context, args client.UpdateRouteArg
 	}
 
 	return nil
+}
+func (f *FakeClient) Validate(ctx context.Context, args client.PortForwardArgs) ([]types.Pod, error) {
+	if f.FakeValidate != nil {
+		return f.FakeValidate(ctx, args)
+	}
+	return nil, nil
 }
 
 func (f *FakeClient) Exec(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error) {

@@ -56,6 +56,11 @@ type ListRoutesArgs struct {
 	Instance string
 }
 
+type PortForwardArgs struct {
+	Pod     string
+	Address string
+	Port    []string
+}
 type UpdateRouteArgs struct {
 	Instance    string
 	Path        string
@@ -126,6 +131,7 @@ type Client interface {
 	ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.Block, error)
 	DeleteRoute(ctx context.Context, args DeleteRouteArgs) error
 	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, error)
+	Validate(ctx context.Context, args PortForwardArgs) ([]types.Pod, error)
 	UpdateRoute(ctx context.Context, args UpdateRouteArgs) error
 	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, error)
 	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error

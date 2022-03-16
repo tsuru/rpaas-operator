@@ -170,6 +170,10 @@ type client struct {
 
 var _ Client = &client{}
 
+func (c *client) Validate(context.Context, PortForwardArgs) ([]types.Pod, error) {
+	return nil, fmt.Errorf("not implemented yet")
+}
+
 func (c *client) GetPlans(ctx context.Context, instance string) ([]types.Plan, error) {
 	return nil, fmt.Errorf("not implemented yet")
 }

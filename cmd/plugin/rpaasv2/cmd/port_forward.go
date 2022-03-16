@@ -10,6 +10,7 @@ import (
 	"strconv"
 	"strings"
 
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -18,6 +19,7 @@ import (
 	restclient "k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 	"k8s.io/kubectl/pkg/util"
 )
 
@@ -35,11 +37,7 @@ type PortForwardOptions struct {
 }
 
 func NewCmdPortForward() *cli.Command {
-	var streams genericclioptions.IOStreams
-	opts := &PortForwardOptions{PortForwarder: &defaultPortForwarder{
-		IOStreams: streams},
-	}
-	cmd := &cli.Command{
+	return &cli.Command{
 		Name:      "port-forward",
 		Usage:     "",
 		ArgsUsage: "[-p POD] [LOCAL_PORT:]REMOTE_PORT [...[LOCAL_PORT_N:]REMOTE_PORT_N]",
@@ -56,14 +54,18 @@ func NewCmdPortForward() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:    "address",
-				Aliases: []string{"localhost"},
+				Aliases: []string{"127.0.0.1"},
 				Usage:   "Addresses to listen on (comma separated). Only accepts IP addresses or localhost as a value. When localhost is supplied, rpaas-operator will try to bind on both 127.0.0.1 and ::1 and will fail if neither of these addresses are available to bind.",
 			},
+			// &cli.StringFlag{
+			// 	Name:    "port",
+			// 	Aliases: []string{"port"},
+			// 	Usage:   "especify a port",
+			// },
 		},
 		Before: setupClient,
-		Action: opts.runPortForward,
+		Action: runPortForward,
 	}
-	return cmd
 }
 
 type portForwarder interface {
@@ -119,9 +121,99 @@ func convertPodNamedPortToNumber(ports []string, pod corev1.Pod) ([]string, erro
 
 	return converted, nil
 }
+func (o *PortForwardOptions) Complete(f cmdutil.Factory, cmd *cli.Command, args rpaasclient.PortForwardArgs) error {
+	var err error
+	o.PodName = args.Pod
+	if len(o.PodName) == 0 && len(args.Pod) == 0 {
+		println("POD is required for port-forward")
+		return err
+	}
+	o.Ports = args.Port
 
-func (o PortForwardOptions) runPortForward(c *cli.Context) error {
-	pod, err := o.PodClient.Pods("").Get(context.TODO(), o.PodName, metav1.GetOptions{})
+	// o.Namespace, _, err = f.ToRawKubeConfigLoader().Namespace()
+	// if err != nil {
+	// 	return err
+	// }
+
+	o.Address = append(o.Address, args.Address)
+
+	//builder := f.NewBuilder().WithScheme(scheme.Scheme, scheme.Scheme.//PreferredVersionAllGroups()...).ContinueOnError()
+
+	//resourceName := o.PodName
+	//builder.ResourceNames("pod", resourceName)
+
+	// obj, err := builder.Do().Object()
+	// if err != nil {
+	// 	return err
+	//}
+
+	//forwablePod, err := polymorphichelpers.AttachablePodForObjectFn(f, obj, 0)
+
+	//o.PodName = forwablePod.Name
+
+	clientset, err := f.KubernetesClientSet()
+	if err != nil {
+		return err
+	}
+	o.PodClient = clientset.CoreV1()
+
+	o.Config, err = f.ToRESTConfig()
+	if err != nil {
+		return err
+	}
+	o.RESTClient, err = f.RESTClient()
+	if err != nil {
+		return err
+	}
+
+	o.StopChannel = make(chan struct{}, 1)
+	o.ReadyChannel = make(chan struct{})
+	return nil
+}
+
+func (o PortForwardOptions) Validate() error {
+	if len(o.PodName) == 0 {
+		return fmt.Errorf("pod name must be specified")
+	}
+
+	if len(o.Ports) < 1 {
+		return fmt.Errorf("at least 1 PORT is required for port-forward")
+	}
+
+	if o.PortForwarder == nil || o.PodClient == nil || o.RESTClient == nil || o.Config == nil {
+		return fmt.Errorf("client, client config, restClient, and portforwarder must be provided")
+	}
+	return nil
+}
+
+func runPortForward(c *cli.Context) error {
+	var streams genericclioptions.IOStreams
+	var cmd *cli.Command
+	var f cmdutil.Factory
+	opts := &PortForwardOptions{PortForwarder: &defaultPortForwarder{
+		IOStreams: streams},
+	}
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	println(client)
+
+	args := rpaasclient.PortForwardArgs{
+		Pod:     c.String("pod"),
+		Address: c.String("Address"),
+		Port:    c.StringSlice("8888"),
+	}
+
+	opts.Complete(f, cmd, args)
+	opts.portForwa()
+
+	return nil
+}
+
+func (o PortForwardOptions) portForwa() error {
+	pod, err := o.PodClient.Pods("test").Get(context.TODO(), o.PodName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
