@@ -18,8 +18,6 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
-	"k8s.io/kubectl/pkg/polymorphichelpers"
-	"k8s.io/kubectl/pkg/scheme"
 )
 
 type PortForwardOptions struct {
@@ -98,19 +96,19 @@ func (o *PortForwardOptions) Complete(f cmdutil.Factory, cmd *cli.Command, args 
 
 	o.Address = append(o.Address, args.Address)
 
-	builder := f.NewBuilder().WithScheme(scheme.Scheme, scheme.Scheme.PreferredVersionAllGroups()...).ContinueOnError()
+	//builder := f.NewBuilder().WithScheme(scheme.Scheme, scheme.Scheme.PreferredVersionAllGroups()...).ContinueOnError()
 
-	resourceName := o.PodName
-	builder.ResourceNames("pod", resourceName)
+	// resourceName := o.PodName
+	// builder.ResourceNames("pod", resourceName)
 
-	obj, err := builder.Do().Object()
-	if err != nil {
-		return err
-	}
+	//obj, err := builder.Do().Object()
+	//if err != nil {
+	//	return err
+	//}
 
-	forwablePod, err := polymorphichelpers.AttachablePodForObjectFn(f, obj, 0)
+	//forwablePod, err := polymorphichelpers.AttachablePodForObjectFn(f, obj, 0)
 
-	o.PodName = forwablePod.Name
+	//o.PodName = forwablePod.Name
 
 	clientset, err := f.KubernetesClientSet()
 	if err != nil {
@@ -174,7 +172,7 @@ func runPortForward(c *cli.Context) error {
 }
 
 func (o PortForwardOptions) portForwa() error {
-	pod, err := o.PodClient.Pods("").Get(context.TODO(), o.PodName, metav1.GetOptions{})
+	pod, err := o.PodClient.Pods("test").Get(context.TODO(), o.PodName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}

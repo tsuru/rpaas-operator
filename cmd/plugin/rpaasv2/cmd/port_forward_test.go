@@ -136,14 +136,12 @@ func TestPortForward(t *testing.T) {
 
 func execPod() *corev1.Pod {
 	return &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{Name: "my-pod", ResourceVersion: "10"},
+		ObjectMeta: metav1.ObjectMeta{ResourceVersion: "1"},
 		Spec: corev1.PodSpec{
 			RestartPolicy: corev1.RestartPolicyAlways,
 			DNSPolicy:     corev1.DNSClusterFirst,
 			Containers: []corev1.Container{
-				{
-					Name: "bar",
-				},
+				{},
 			},
 		},
 		Status: corev1.PodStatus{
