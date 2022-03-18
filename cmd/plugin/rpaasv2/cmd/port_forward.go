@@ -7,8 +7,6 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"strconv"
-	"strings"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
@@ -20,7 +18,8 @@ import (
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
 	cmdutil "k8s.io/kubectl/pkg/cmd/util"
-	"k8s.io/kubectl/pkg/util"
+	"k8s.io/kubectl/pkg/polymorphichelpers"
+	"k8s.io/kubectl/pkg/scheme"
 )
 
 type PortForwardOptions struct {
@@ -40,7 +39,7 @@ func NewCmdPortForward() *cli.Command {
 	return &cli.Command{
 		Name:      "port-forward",
 		Usage:     "",
-		ArgsUsage: "[-p POD] [LOCAL_PORT:]REMOTE_PORT [...[LOCAL_PORT_N:]REMOTE_PORT_N]",
+		ArgsUsage: "[-s SERVICE][-p POD] [LOCALHOST] [-l LOCAL_PORT:]REMOTE_PORT",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -54,14 +53,14 @@ func NewCmdPortForward() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:    "address",
-				Aliases: []string{"127.0.0.1"},
+				Aliases: []string{"localhost"},
 				Usage:   "Addresses to listen on (comma separated). Only accepts IP addresses or localhost as a value. When localhost is supplied, rpaas-operator will try to bind on both 127.0.0.1 and ::1 and will fail if neither of these addresses are available to bind.",
 			},
-			// &cli.StringFlag{
-			// 	Name:    "port",
-			// 	Aliases: []string{"port"},
-			// 	Usage:   "especify a port",
-			// },
+			&cli.StringFlag{
+				Name:    "local_port",
+				Aliases: []string{"l"},
+				Usage:   "local port",
+			},
 		},
 		Before: setupClient,
 		Action: runPortForward,
@@ -87,40 +86,7 @@ func (f *defaultPortForwarder) ForwardPorts(method string, url *url.URL, opts Po
 	}
 	return fw.ForwardPorts()
 }
-func splitPort(port string) (local, remote string) {
-	parts := strings.Split(port, ":")
-	if len(parts) == 2 {
-		return parts[0], parts[1]
-	}
 
-	return parts[0], parts[0]
-}
-
-func convertPodNamedPortToNumber(ports []string, pod corev1.Pod) ([]string, error) {
-	var converted []string
-	for _, port := range ports {
-		localPort, remotePort := splitPort(port)
-
-		containerPortStr := remotePort
-		_, err := strconv.Atoi(remotePort)
-		if err != nil {
-			containerPort, err := util.LookupContainerPortNumberByName(pod, remotePort)
-			if err != nil {
-				return nil, err
-			}
-
-			containerPortStr = strconv.Itoa(int(containerPort))
-		}
-
-		if localPort != remotePort {
-			converted = append(converted, fmt.Sprintf("%s:%s", localPort, containerPortStr))
-		} else {
-			converted = append(converted, containerPortStr)
-		}
-	}
-
-	return converted, nil
-}
 func (o *PortForwardOptions) Complete(f cmdutil.Factory, cmd *cli.Command, args rpaasclient.PortForwardArgs) error {
 	var err error
 	o.PodName = args.Pod
@@ -130,26 +96,21 @@ func (o *PortForwardOptions) Complete(f cmdutil.Factory, cmd *cli.Command, args 
 	}
 	o.Ports = args.Port
 
-	// o.Namespace, _, err = f.ToRawKubeConfigLoader().Namespace()
-	// if err != nil {
-	// 	return err
-	// }
-
 	o.Address = append(o.Address, args.Address)
 
-	//builder := f.NewBuilder().WithScheme(scheme.Scheme, scheme.Scheme.//PreferredVersionAllGroups()...).ContinueOnError()
+	builder := f.NewBuilder().WithScheme(scheme.Scheme, scheme.Scheme.PreferredVersionAllGroups()...).ContinueOnError()
 
-	//resourceName := o.PodName
-	//builder.ResourceNames("pod", resourceName)
+	resourceName := o.PodName
+	builder.ResourceNames("pod", resourceName)
 
-	// obj, err := builder.Do().Object()
-	// if err != nil {
-	// 	return err
-	//}
+	obj, err := builder.Do().Object()
+	if err != nil {
+		return err
+	}
 
-	//forwablePod, err := polymorphichelpers.AttachablePodForObjectFn(f, obj, 0)
+	forwablePod, err := polymorphichelpers.AttachablePodForObjectFn(f, obj, 0)
 
-	//o.PodName = forwablePod.Name
+	o.PodName = forwablePod.Name
 
 	clientset, err := f.KubernetesClientSet()
 	if err != nil {
@@ -213,7 +174,7 @@ func runPortForward(c *cli.Context) error {
 }
 
 func (o PortForwardOptions) portForwa() error {
-	pod, err := o.PodClient.Pods("test").Get(context.TODO(), o.PodName, metav1.GetOptions{})
+	pod, err := o.PodClient.Pods("").Get(context.TODO(), o.PodName, metav1.GetOptions{})
 	if err != nil {
 		return err
 	}
