@@ -59,7 +59,7 @@ func NewCmdPortForward() *cli.Command {
 			&cli.StringFlag{
 				Name:    "local_port",
 				Aliases: []string{"l"},
-				Usage:   "local port",
+				Usage:   "specify a local port",
 			},
 		},
 		Before: setupClient,
