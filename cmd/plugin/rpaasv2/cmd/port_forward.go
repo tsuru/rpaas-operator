@@ -3,34 +3,36 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
+	"log"
+	"net"
 	"net/http"
-	"net/url"
-	"os"
-	"os/signal"
 
+	"github.com/pkg/errors"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
-	corev1 "k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/cli-runtime/pkg/genericclioptions"
-	corev1client "k8s.io/client-go/kubernetes/typed/core/v1"
-	restclient "k8s.io/client-go/rest"
+	"k8s.io/apimachinery/pkg/fields"
+	"k8s.io/apimachinery/pkg/util/httpstream"
+	"k8s.io/client-go/kubernetes"
+	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
-	cmdutil "k8s.io/kubectl/pkg/cmd/util"
 )
 
-type PortForwardOptions struct {
-	Namespace     string
-	PodName       string
-	RESTClient    *restclient.RESTClient
-	Config        *restclient.Config
-	PodClient     corev1client.PodsGetter
-	Address       []string
-	Ports         []string
-	PortForwarder portForwarder
-	StopChannel   chan struct{}
-	ReadyChannel  chan struct{}
+type PortForward struct {
+	Config          *rest.Config
+	Clientset       kubernetes.Interface
+	Name            string
+	Labels          metav1.LabelSelector
+	DestinationPort int
+	ListenPort      int
+	Namespace       string
+	Ports           []string
+	StopChan        chan struct{}
+	ReadyChan       chan struct{}
 }
 
 func NewCmdPortForward() *cli.Command {
@@ -64,137 +66,189 @@ func NewCmdPortForward() *cli.Command {
 		Action: runPortForward,
 	}
 }
-
-type portForwarder interface {
-	ForwardPorts(method string, url *url.URL, opts PortForwardOptions) error
-}
-type defaultPortForwarder struct {
-	genericclioptions.IOStreams
-}
-
-func (f *defaultPortForwarder) ForwardPorts(method string, url *url.URL, opts PortForwardOptions) error {
-	transport, upgrader, err := spdy.RoundTripperFor(opts.Config)
-	if err != nil {
-		return err
+func NewPortForwarder(namespace string, labels metav1.LabelSelector, port int) (*PortForward, error) {
+	pf := &PortForward{
+		Namespace:       namespace,
+		Labels:          labels,
+		DestinationPort: port,
 	}
-	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, method, url)
-	fw, err := portforward.NewOnAddresses(dialer, opts.Address, opts.Ports, opts.StopChannel, opts.ReadyChannel, f.Out, f.ErrOut)
-	if err != nil {
-		return err
-	}
-	return fw.ForwardPorts()
-}
 
-func (o *PortForwardOptions) Complete(f cmdutil.Factory, cmd *cli.Command, args rpaasclient.PortForwardArgs) error {
 	var err error
-	o.PodName = args.Pod
-	if len(o.PodName) == 0 && len(args.Pod) == 0 {
-		println("POD is required for port-forward")
-		return err
-	}
-	o.Ports = args.Port
-
-	o.Address = append(o.Address, args.Address)
-
-	//builder := f.NewBuilder().WithScheme(scheme.Scheme, scheme.Scheme.PreferredVersionAllGroups()...).ContinueOnError()
-
-	// resourceName := o.PodName
-	// builder.ResourceNames("pod", resourceName)
-
-	//obj, err := builder.Do().Object()
-	//if err != nil {
-	//	return err
-	//}
-
-	//forwablePod, err := polymorphichelpers.AttachablePodForObjectFn(f, obj, 0)
-
-	//o.PodName = forwablePod.Name
-
-	clientset, err := f.KubernetesClientSet()
+	pf.Config, err = clientcmd.NewNonInteractiveDeferredLoadingClientConfig(
+		clientcmd.NewDefaultClientConfigLoadingRules(),
+		&clientcmd.ConfigOverrides{},
+	).ClientConfig()
 	if err != nil {
-		return err
-	}
-	o.PodClient = clientset.CoreV1()
-
-	o.Config, err = f.ToRESTConfig()
-	if err != nil {
-		return err
-	}
-	o.RESTClient, err = f.RESTClient()
-	if err != nil {
-		return err
+		return pf, errors.Wrap(err, "Could not load kubernetes configuration file")
 	}
 
-	o.StopChannel = make(chan struct{}, 1)
-	o.ReadyChannel = make(chan struct{})
+	pf.Clientset, err = kubernetes.NewForConfig(pf.Config)
+	if err != nil {
+		return pf, errors.Wrap(err, "Could not create kubernetes client")
+	}
+
+	return pf, nil
+}
+
+// Start a port forward to a pod - blocks until the tunnel is ready for use.
+func (p *PortForward) Start(ctx context.Context) error {
+	p.StopChan = make(chan struct{}, 1)
+	readyChan := make(chan struct{}, 1)
+	errChan := make(chan error, 1)
+
+	listenPort, err := p.getListenPort()
+	if err != nil {
+		return errors.Wrap(err, "Could not find a port to bind to")
+	}
+
+	dialer, err := p.dialer(ctx)
+	if err != nil {
+		return errors.Wrap(err, "Could not create a dialer")
+	}
+
+	ports := []string{
+		fmt.Sprintf("%d:%d", listenPort, 8888),
+	}
+
+	discard := ioutil.Discard
+	pf, err := portforward.New(dialer, ports, p.StopChan, readyChan, discard, discard)
+	if err != nil {
+		return errors.Wrap(err, "Could not port forward into pod")
+	}
+
+	go func() {
+		errChan <- pf.ForwardPorts()
+	}()
+
+	select {
+	case err = <-errChan:
+		return errors.Wrap(err, "Could not create port forward")
+	case <-readyChan:
+		return nil
+	}
+
 	return nil
 }
 
-func (o PortForwardOptions) Validate() error {
-	if len(o.PodName) == 0 {
-		return fmt.Errorf("pod name must be specified")
+// Stop a port forward.
+func (p *PortForward) Stop() {
+	p.StopChan <- struct{}{}
+}
+
+// Returns the port that the port forward should listen on.
+// If ListenPort is set, then it returns ListenPort.
+// Otherwise, it will call getFreePort() to find an open port.
+func (p *PortForward) getListenPort() (int, error) {
+	var err error
+
+	if p.ListenPort == 0 {
+		p.ListenPort, err = p.getFreePort()
 	}
 
-	if len(o.Ports) < 1 {
-		return fmt.Errorf("at least 1 PORT is required for port-forward")
+	return p.ListenPort, err
+}
+
+// Get a free port on the system by binding to port 0, checking
+// the bound port number, and then closing the socket.
+func (p *PortForward) getFreePort() (int, error) {
+	listener, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return 0, err
 	}
 
-	if o.PortForwarder == nil || o.PodClient == nil || o.RESTClient == nil || o.Config == nil {
-		return fmt.Errorf("client, client config, restClient, and portforwarder must be provided")
+	port := listener.Addr().(*net.TCPAddr).Port
+	err = listener.Close()
+	if err != nil {
+		return 0, err
 	}
-	return nil
+
+	return port, nil
+}
+
+// Create an httpstream.Dialer for use with portforward.New
+func (p *PortForward) dialer(ctx context.Context) (httpstream.Dialer, error) {
+	pod, err := p.getPodName(ctx)
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not get pod name")
+	}
+
+	url := p.Clientset.CoreV1().RESTClient().Post().
+		Resource("pods").
+		Name(pod).
+		SubResource("portforward").URL()
+
+	transport, upgrader, err := spdy.RoundTripperFor(p.Config)
+	if err != nil {
+		return nil, errors.Wrap(err, "Could not create round tripper")
+	}
+
+	dialer := spdy.NewDialer(upgrader, &http.Client{Transport: transport}, "POST", url)
+	return dialer, nil
+}
+
+// Gets the pod name to port forward to, if Name is set, Name is returned. Otherwise,
+// it will call findPodByLabels().
+func (p *PortForward) getPodName(ctx context.Context) (string, error) {
+	var err error
+	if p.Name == "" {
+		p.Name, err = p.findPodByLabels(ctx)
+	}
+	return p.Name, err
+}
+
+// Find the name of a pod by label, returns an error if the label returns
+// more or less than one pod.
+// It searches for the labels specified by labels.
+func (p *PortForward) findPodByLabels(ctx context.Context) (string, error) {
+	if len(p.Labels.MatchLabels) == 0 && len(p.Labels.MatchExpressions) == 0 {
+		return "", errors.New("No pod labels specified")
+	}
+
+	pods, err := p.Clientset.CoreV1().Pods("").List(ctx, metav1.ListOptions{
+		LabelSelector: metav1.FormatLabelSelector(&p.Labels),
+		FieldSelector: fields.OneTermEqualSelector("status.phase", string(v1.PodRunning)).String(),
+	})
+
+	if err != nil {
+		return "", errors.Wrap(err, "Listing pods in kubernetes")
+	}
+
+	formatted := metav1.FormatLabelSelector(&p.Labels)
+
+	if len(pods.Items) == 0 {
+		return "", errors.New(fmt.Sprintf("Could not find running pod for selector: labels \"%s\"", formatted))
+	}
+
+	if len(pods.Items) != 1 {
+		return "", errors.New(fmt.Sprintf("Ambiguous pod: found more than one pod for selector: labels \"%s\"", formatted))
+	}
+
+	return pods.Items[0].ObjectMeta.Name, nil
 }
 
 func runPortForward(c *cli.Context) error {
-	var streams genericclioptions.IOStreams
-	var cmd *cli.Command
-	var f cmdutil.Factory
-	opts := &PortForwardOptions{PortForwarder: &defaultPortForwarder{
-		IOStreams: streams},
-	}
-	client, err := getClient(c)
-	if err != nil {
-		return err
-	}
-
-	println(client)
+	var ctx context.Context
 
 	args := rpaasclient.PortForwardArgs{
 		Pod:     c.String("pod"),
 		Address: c.String("Address"),
-		Port:    c.StringSlice("8888"),
+		Port:    c.Int("8888"),
 	}
 
-	opts.Complete(f, cmd, args)
-	opts.portForwa()
+	pf, err := NewPortForwarder("test", metav1.LabelSelector{
+		MatchLabels: map[string]string{},
+	}, args.Port)
+
+	if err != nil {
+		log.Fatal("error setting up port forwarder: ", err)
+	}
+
+	pf.Name = args.Pod
+
+	err = pf.Start(ctx)
+	if err != nil {
+		log.Fatal("Error starting port forward:", err)
+	}
 
 	return nil
-}
-
-func (o PortForwardOptions) portForwa() error {
-	pod, err := o.PodClient.Pods("test").Get(context.TODO(), o.PodName, metav1.GetOptions{})
-	if err != nil {
-		return err
-	}
-	if pod.Status.Phase != corev1.PodRunning {
-		return fmt.Errorf("unable to forward port because pod is not running. Current status=%v", pod.Status.Phase)
-	}
-
-	signals := make(chan os.Signal, 1)
-	signal.Notify(signals, os.Interrupt)
-	defer signal.Stop(signals)
-
-	go func() {
-		<-signals
-		if o.StopChannel != nil {
-			close(o.StopChannel)
-		}
-	}()
-
-	req := o.RESTClient.Post().
-		Resource("pods").
-		Name(pod.Name).
-		SubResource("portforward")
-
-	return o.PortForwarder.ForwardPorts("POST", req.URL(), o)
 }

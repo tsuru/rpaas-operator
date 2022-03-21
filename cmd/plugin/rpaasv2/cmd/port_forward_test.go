@@ -5,21 +5,17 @@
 package cmd
 
 import (
-	"fmt"
-	"net/http"
+	"bytes"
 	"net/url"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
-	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
-	kfake "k8s.io/client-go/rest/fake"
-	cmdtesting "k8s.io/kubectl/pkg/cmd/testing"
-	"k8s.io/kubectl/pkg/scheme"
 )
 
 type fakePortForwarder struct {
@@ -32,12 +28,6 @@ type PortForwardArgs struct {
 	Pod     string
 	Address string
 	Port    string
-}
-
-func (f *fakePortForwarder) ForwardPorts(method string, url *url.URL, opts PortForwardOptions) error {
-	f.method = method
-	f.url = url
-	return f.pfErr
 }
 
 func TestPortForward(t *testing.T) {
@@ -65,71 +55,15 @@ func TestPortForward(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			var err error
-			tf := cmdtesting.NewTestFactory()
-			defer tf.Cleanup()
-			codec := scheme.Codecs.LegacyCodec(scheme.Scheme.PrioritizedVersionsAllGroups()...)
-			ns := scheme.Codecs.WithoutConversion()
-			tf.Client = &kfake.RESTClient{
-				VersionedAPIPath:     "/api/v1",
-				GroupVersion:         schema.GroupVersion{Group: "", Version: "v1"},
-				NegotiatedSerializer: ns,
-				Client: kfake.CreateHTTPClient(func(req *http.Request) (*http.Response, error) {
-					switch p, m := req.URL.Path, req.Method; {
-					case p == tt.podPath && m == "GET":
-						body := cmdtesting.ObjBody(codec, tt.pod)
-						return &http.Response{StatusCode: http.StatusOK, Header: cmdtesting.DefaultHeader(), Body: body}, nil
-					default:
-						t.Errorf("%s: unexpected request: %#v\n%#v", tt.name, req.URL, req)
-						return nil, nil
-					}
-				}),
-			}
-			tf.ClientConfigVal = cmdtesting.DefaultClientConfig()
-			ff := &fakePortForwarder{}
-			if tt.pfErr {
-				ff.pfErr = fmt.Errorf("pf error")
-			}
-			var port = []string{"8888"}
-
-			tst := rpaasclient.PortForwardArgs{
-				Pod:     "my-pod",
-				Address: "127.0.0.1",
-				Port:    port,
-			}
-			opts := &PortForwardOptions{}
-
-			cmd := NewCmdPortForward()
-
-			if err = opts.Complete(tf, cmd, tst); err != nil {
+			stdout := &bytes.Buffer{}
+			stderr := &bytes.Buffer{}
+			app := NewApp(stdout, stderr, tt.client)
+			err := app.Run(tt.args)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
 				return
 			}
-
-			opts.PortForwarder = ff
-
-			if err = opts.Validate(); err != nil {
-				return
-			}
-
-			err = opts.portForwa()
-
-			if tt.pfErr && err != ff.pfErr {
-				t.Errorf("%s: Unexpected port-forward error: %v", tt.name, err)
-			}
-			if !tt.pfErr && err != nil {
-				t.Errorf("%s: Unexpected error: %v", tt.name, err)
-			}
-			if tt.pfErr {
-				return
-			}
-
-			if ff.url == nil || ff.url.Path != tt.pfPath {
-				t.Errorf("%s: Did not get expected path for portforward request", tt.name)
-			}
-			if ff.method != "POST" {
-				t.Errorf("%s: Did not get method for attach request: %s", tt.name, ff.method)
-			}
-
+			require.NoError(t, err)
 		})
 	}
 }

@@ -59,7 +59,7 @@ type ListRoutesArgs struct {
 type PortForwardArgs struct {
 	Pod     string
 	Address string
-	Port    []string
+	Port    int
 }
 type UpdateRouteArgs struct {
 	Instance    string
