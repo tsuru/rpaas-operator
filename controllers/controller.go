@@ -628,6 +628,9 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 }
 
 func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+	if nginx.Status.PodSelector == "" {
+		return nil
+	}
 	pdb, err := newPDB(instance, nginx)
 	if err != nil {
 		return err

@@ -1447,6 +1447,31 @@ func Test_reconcilePDB(t *testing.T) {
 				assert.True(t, k8serrors.IsNotFound(err))
 			},
 		},
+
+		"skip PDB creation when nginx status is empty": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
+					Replicas:                  func(n int32) *int32 { return &n }(10),
+				},
+			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+			},
+			assert: func(t *testing.T, c client.Client) {
+				var pdb policyv1beta1.PodDisruptionBudget
+				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
+				require.Error(t, err)
+				assert.True(t, k8serrors.IsNotFound(err))
+			},
+		},
 	}
 
 	for name, tt := range tests {
