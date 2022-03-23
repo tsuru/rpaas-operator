@@ -22,6 +22,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	"github.com/willf/bitset"
+	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
@@ -567,7 +568,7 @@ func newSessionTicketData(old, new map[string][]byte) map[string][]byte {
 	return newest
 }
 
-func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
 	logger := r.Log.WithName("reconcileHPA").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
@@ -584,7 +585,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 
 		logger.V(4).Info("Creating HorizontalPodAutoscaler resource")
 
-		hpa = newHPA(instance)
+		hpa = newHPA(instance, nginx)
 		if err = r.Client.Create(ctx, &hpa); err != nil {
 			logger.Error(err, "Unable to create the HorizontalPodAutoscaler resource")
 			return err
@@ -610,7 +611,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 		return nil
 	}
 
-	newerHPA := newHPA(instance)
+	newerHPA := newHPA(instance, nginx)
 	if !reflect.DeepEqual(hpa.Spec, newerHPA.Spec) {
 		logger.V(4).Info("Updating the HorizontalPodAustocaler spec")
 
@@ -1103,6 +1104,12 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 
 	instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(instanceMergedWithFlavors)
 
+	replicas := instanceMergedWithFlavors.Spec.Replicas
+	if instanceMergedWithFlavors.Spec.Autoscale != nil {
+		// NOTE: we should avoid changing the number of replicas as it's managed by HPA.
+		replicas = nil
+	}
+
 	n := &nginxv1alpha1.Nginx{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instanceMergedWithFlavors.Name,
@@ -1122,7 +1129,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		},
 		Spec: nginxv1alpha1.NginxSpec{
 			Image:    plan.Spec.Image,
-			Replicas: instanceMergedWithFlavors.Spec.Replicas,
+			Replicas: replicas,
 			Config: &nginxv1alpha1.ConfigRef{
 				Name: configMap.Name,
 				Kind: nginxv1alpha1.ConfigKindConfigMap,
@@ -1222,7 +1229,7 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
 }
 
-func newHPA(instance *v1alpha1.RpaasInstance) autoscalingv2beta2.HorizontalPodAutoscaler {
+func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
 	var metrics []autoscalingv2beta2.MetricSpec
 
 	if instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
@@ -1256,6 +1263,13 @@ func newHPA(instance *v1alpha1.RpaasInstance) autoscalingv2beta2.HorizontalPodAu
 		minReplicas = instance.Spec.Replicas
 	}
 
+	targetResourceName := nginx.Name
+	if len(nginx.Status.Deployments) > 0 {
+		if n := nginx.Status.Deployments[0].Name; n != "" {
+			targetResourceName = n
+		}
+	}
+
 	return autoscalingv2beta2.HorizontalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HorizontalPodAutoscaler",
@@ -1275,9 +1289,9 @@ func newHPA(instance *v1alpha1.RpaasInstance) autoscalingv2beta2.HorizontalPodAu
 		},
 		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
-				APIVersion: v1alpha1.GroupVersion.String(),
-				Kind:       "RpaasInstance",
-				Name:       instance.Name,
+				APIVersion: appsv1.SchemeGroupVersion.String(),
+				Kind:       "Deployment",
+				Name:       targetResourceName,
 			},
 			MinReplicas: minReplicas,
 			MaxReplicas: instance.Spec.Autoscale.MaxReplicas,

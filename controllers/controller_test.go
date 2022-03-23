@@ -847,62 +847,72 @@ func Test_reconcileHPA(t *testing.T) {
 
 	resources := []runtime.Object{instance1, instance2, hpa2}
 
-	tests := []struct {
+	tests := map[string]struct {
 		name      string
 		instance  *v1alpha1.RpaasInstance
+		nginx     *nginxv1alpha1.Nginx
 		assertion func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler)
 	}{
-		{
-			name:     "when there is HPA resource but autoscale spec is nil",
+		"when there is HPA resource but autoscale spec is nil": {
 			instance: instance2,
+			nginx:    &nginxv1alpha1.Nginx{},
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.Error(t, err)
 				assert.True(t, k8sErrors.IsNotFound(err))
 			},
 		},
-		{
-			name:     "when there is no HPA resource but autoscale spec is provided",
+
+		"when there is no HPA resource but autoscale spec is provided": {
 			instance: instance1,
+			nginx: &nginxv1alpha1.Nginx{
+				Status: nginxv1alpha1.NginxStatus{
+					Deployments: []nginxv1alpha1.DeploymentStatus{{Name: "some-deployment"}},
+				},
+			},
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
-				assert.Equal(t, int32(25), got.Spec.MaxReplicas)
-				assert.Equal(t, int32Ptr(4), got.Spec.MinReplicas)
-				assert.Equal(t, autoscalingv2beta2.CrossVersionObjectReference{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-					Name:       "instance-1",
-				}, got.Spec.ScaleTargetRef)
-				require.Len(t, got.Spec.Metrics, 2)
-				assert.Equal(t, autoscalingv2beta2.MetricSpec{
-					Type: autoscalingv2beta2.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta2.ResourceMetricSource{
-						Name: corev1.ResourceCPU,
-						Target: autoscalingv2beta2.MetricTarget{
-							Type:               autoscalingv2beta2.UtilizationMetricType,
-							AverageUtilization: int32Ptr(75),
-						},
-					},
-				}, got.Spec.Metrics[0])
-				assert.Equal(t, autoscalingv2beta2.MetricSpec{
-					Type: autoscalingv2beta2.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta2.ResourceMetricSource{
-						Name: corev1.ResourceMemory,
-						Target: autoscalingv2beta2.MetricTarget{
-							Type:               autoscalingv2beta2.UtilizationMetricType,
-							AverageUtilization: int32Ptr(90),
-						},
-					},
-				}, got.Spec.Metrics[1])
 
 				assert.Equal(t, map[string]string{
 					"rpaas.extensions.tsuru.io/instance-name": "instance-1",
 					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
 				}, got.ObjectMeta.Labels)
+
+				assert.Equal(t, autoscalingv2beta2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "some-deployment",
+					},
+					MinReplicas: int32Ptr(4),
+					MaxReplicas: int32(25),
+					Metrics: []autoscalingv2beta2.MetricSpec{
+						{
+							Type: autoscalingv2beta2.ResourceMetricSourceType,
+							Resource: &autoscalingv2beta2.ResourceMetricSource{
+								Name: corev1.ResourceCPU,
+								Target: autoscalingv2beta2.MetricTarget{
+									Type:               autoscalingv2beta2.UtilizationMetricType,
+									AverageUtilization: int32Ptr(75),
+								},
+							},
+						},
+						{
+							Type: autoscalingv2beta2.ResourceMetricSourceType,
+							Resource: &autoscalingv2beta2.ResourceMetricSource{
+								Name: corev1.ResourceMemory,
+								Target: autoscalingv2beta2.MetricTarget{
+									Type:               autoscalingv2beta2.UtilizationMetricType,
+									AverageUtilization: int32Ptr(90),
+								},
+							},
+						},
+					},
+				}, got.Spec)
 			},
 		},
-		{
-			name: "when there is HPA resource but differs from autoscale spec",
+
+		"when there is HPA resource but differs from autoscale spec": {
 			instance: &v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
 					APIVersion: "extensions.tsuru.io/v1alpha1",
@@ -921,14 +931,19 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				},
 			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "instance-2",
+				},
+			},
 			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
 				assert.Equal(t, int32(200), got.Spec.MaxReplicas)
 				assert.Equal(t, int32Ptr(2), got.Spec.MinReplicas)
 				assert.Equal(t, autoscalingv2beta2.CrossVersionObjectReference{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
+					APIVersion: "apps/v1",
+					Kind:       "Deployment",
 					Name:       "instance-2",
 				}, got.Spec.ScaleTargetRef)
 				require.Len(t, got.Spec.Metrics, 2)
@@ -956,16 +971,15 @@ func Test_reconcileHPA(t *testing.T) {
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			reconciler := newRpaasInstanceReconciler(resources...)
-
-			err := reconciler.reconcileHPA(context.TODO(), tt.instance)
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			r := newRpaasInstanceReconciler(resources...)
+			err := r.reconcileHPA(context.TODO(), tt.instance, tt.nginx)
 			require.NoError(t, err)
 
 			hpa := new(autoscalingv2beta2.HorizontalPodAutoscaler)
 			if err == nil {
-				err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: tt.instance.Name, Namespace: tt.instance.Namespace}, hpa)
+				err = r.Client.Get(context.TODO(), types.NamespacedName{Name: tt.instance.Name, Namespace: tt.instance.Namespace}, hpa)
 			}
 
 			tt.assertion(t, err, hpa)

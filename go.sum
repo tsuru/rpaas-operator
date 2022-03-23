@@ -1209,8 +1209,8 @@ github.com/timakin/bodyclose v0.0.0-20190930140734-f7f2e9bca95e/go.mod h1:Qimiff
 github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tommy-muehle/go-mnd v1.3.1-0.20200224220436-e6f9a994e8fa/go.mod h1:dSUh0FtTP8VhvkL1S+gUR1OKd9ZnSaozuI6r3m6wOig=
-github.com/tsuru/nginx-operator v0.9.1 h1:Vln3DTe+smV/qUVwDePQ1fTYE758nnZv4lzv+nQ/8OI=
-github.com/tsuru/nginx-operator v0.9.1/go.mod h1:0nwFM/IZA55wz4/DxpgbjUROnYTEEG225V+6rZsZU5Q=
+github.com/tsuru/nginx-operator v0.10.0 h1:Apdrj6kTvkBVn2p4pHSnngo5knqm6TfFwBzYDTo1QJk=
+github.com/tsuru/nginx-operator v0.10.0/go.mod h1:0nwFM/IZA55wz4/DxpgbjUROnYTEEG225V+6rZsZU5Q=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f h1:9dTZI6bQUVkKAsCnqaDl4V7fKAc5ErVpmX+bzevz3Cg=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f/go.mod h1:SUQKJ3CLsVARBwkz5z9IIL8Pj008JNj4U8eF50kkm2c=
 github.com/tv42/httpunix v0.0.0-20150427012821-b75d8614f926/go.mod h1:9ESjWnEqriFuLhtthL60Sar/7RFoluCcXsuvEwTV5KM=

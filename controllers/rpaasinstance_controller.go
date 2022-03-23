@@ -178,7 +178,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcileHPA(ctx, instanceMergedWithFlavors); err != nil {
+	if err = r.reconcileHPA(ctx, instanceMergedWithFlavors, nginx); err != nil {
 		return ctrl.Result{}, err
 	}
 
