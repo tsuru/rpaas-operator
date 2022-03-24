@@ -3,7 +3,7 @@ kind: RpaasPlan
 metadata:
   name: basic
 spec:
-  image: tsuru/nginx-tsuru:1.16.1
+  image: tsuru/nginx-tsuru:stable-master
   config: {}
   resources:
     requests:

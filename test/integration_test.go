@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
-	"strconv"
 	"testing"
 	"time"
 
@@ -50,7 +49,7 @@ func assertInstanceContains(t *testing.T, localPort int, expectedStatus int, bod
 
 func Test_RpaasOperator(t *testing.T) {
 	t.Run("apply manifests at rpaas-full.yaml", func(t *testing.T) {
-		namespaceName := "rpaasoperator-full" + strconv.Itoa(rand.Int())
+		namespaceName := generateRandomName("rpaasoperator-full")
 
 		cleanNsFunc, err := createNamespace(namespaceName)
 		require.NoError(t, err)
@@ -59,10 +58,15 @@ func Test_RpaasOperator(t *testing.T) {
 		err = apply("./testdata/rpaas-full.yaml", namespaceName)
 		assert.NoError(t, err)
 
-		nginx, err := getReadyNginx("my-instance", namespaceName, 2, 1, intPtr(2))
+		nginx, err := getReadyNginx("my-instance", namespaceName, composeNginxPredicates(
+			ensureNginxPods(2),
+			ensureNginxServices(1),
+			ensureNginxCertificates(2),
+		))
 		require.NoError(t, err)
+
 		assert.Equal(t, int32(2), *nginx.Spec.Replicas)
-		assert.Equal(t, "tsuru/nginx-tsuru:1.16.1", nginx.Spec.Image)
+		assert.Equal(t, "tsuru/nginx-tsuru:stable-master", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 		assert.Equal(t, "label-value", nginx.Spec.PodTemplate.Labels["pod-custom-label"])
 
@@ -103,7 +107,7 @@ func Test_RpaasOperator(t *testing.T) {
 	})
 
 	t.Run("use plan to set resource limits on nginx container", func(t *testing.T) {
-		namespaceName := "rpaasoperator-full" + strconv.Itoa(rand.Int())
+		namespaceName := generateRandomName("rpaasoperator-full")
 
 		cleanNsFunc, err := createNamespace(namespaceName)
 		require.NoError(t, err)
@@ -112,7 +116,7 @@ func Test_RpaasOperator(t *testing.T) {
 		err = apply("./testdata/rpaas-full.yaml", namespaceName)
 		assert.NoError(t, err)
 
-		nginx, err := getReadyNginx("my-instance", namespaceName, 2, 1, nil)
+		nginx, err := getReadyNginx("my-instance", namespaceName, ensureNginxPodsAndServices(2, 1))
 		require.NoError(t, err)
 
 		expectedLimits := corev1.ResourceRequirements{
@@ -178,7 +182,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanFunc()
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		execArgs := []string{"--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "/bin/sh", "-c", "echo \"--WORKING--\" > /proc/1/fd/1;"}
@@ -204,11 +208,11 @@ func Test_RpaasApi(t *testing.T) {
 			assert.NoError(t, err)
 		}()
 
-		nginx, err := getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		nginx, err := getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 		require.NotNil(t, nginx)
 		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
-		assert.Equal(t, "tsuru/nginx-tsuru:1.16.1", nginx.Spec.Image)
+		assert.Equal(t, "tsuru/nginx-tsuru:stable-master", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 
 		nginxService := &corev1.Service{
@@ -232,7 +236,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanFunc()
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		_, err = kubectlWithRetry("wait", "--for=condition=Ready", "-l", "app=hello", "pod", "--timeout", "5m", "-n", namespaceName)
@@ -254,7 +258,7 @@ func Test_RpaasApi(t *testing.T) {
 
 		time.Sleep(10 * time.Second)
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
@@ -269,7 +273,7 @@ func Test_RpaasApi(t *testing.T) {
 
 		time.Sleep(10 * time.Second)
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
@@ -289,7 +293,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanFunc()
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		podLabels := []string{"app=hello", "app=echo-server"}
@@ -321,7 +325,7 @@ func Test_RpaasApi(t *testing.T) {
 
 		time.Sleep(10 * time.Second)
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
@@ -336,7 +340,7 @@ func Test_RpaasApi(t *testing.T) {
 
 		time.Sleep(10 * time.Second)
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
@@ -351,7 +355,7 @@ func Test_RpaasApi(t *testing.T) {
 
 		time.Sleep(10 * time.Second)
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
@@ -372,7 +376,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanFunc()
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		err = api.updateRoute(instanceName, rpaas.Route{
@@ -396,7 +400,7 @@ func Test_RpaasApi(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		rpaasInstance, err := getRpaasInstance(instanceName, namespaceName)
@@ -429,7 +433,7 @@ func Test_RpaasApi(t *testing.T) {
 		})
 		require.NoError(t, err)
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		rpaasInstance, err = getRpaasInstance(instanceName, namespaceName)
@@ -508,7 +512,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		defer cleanFunc()
 
-		_, err = getReadyNginx(instanceName, namespaceName, 1, 1, nil)
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
 		cmd := exec.CommandContext(context.Background(), rpaasv2Bin, "--rpaas-url", apiAddress, "exec", "-i", instanceName, "--", "echo", "WORKING")
@@ -528,80 +532,87 @@ func getRpaasInstance(name, namespace string) (*v1alpha1.RpaasInstance, error) {
 	return instance, err
 }
 
-func getReadyNginx(name, namespace string, expectedPods, expectedSvcs int, expectedCerts *int) (*nginxv1alpha1.Nginx, error) {
-	nginx := &nginxv1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
-	timeout := time.After(120 * time.Second)
-
+func getReadyNginx(name, namespace string, predicate func(n nginxv1alpha1.Nginx) (bool, error)) (nginx *nginxv1alpha1.Nginx, err error) {
+	nginx = &nginxv1alpha1.Nginx{TypeMeta: metav1.TypeMeta{Kind: "Nginx"}}
 	var count int
-
-	decr := func() {
-		if count == 0 {
-			return
-		}
-		count--
-	}
-
-	incr := func() {
-		count++
-	}
-
-	var err error
 	for {
 		select {
-		case <-timeout:
-			return nil, fmt.Errorf("Timeout waiting for nginx status. Last nginx object: %#v. Last error: %v", nginx, err)
+		case <-time.After(120 * time.Second):
+			return nil, fmt.Errorf("Timeout waiting for Nginx status. Last Nginx object: %#v. Last error: %v", nginx, err)
+
 		case <-time.After(time.Millisecond * 100):
 		}
 
 		err = get(nginx, name, namespace)
 		if err != nil {
-			decr()
+			count = 0
 			continue
 		}
 
-		for _, ds := range nginx.Status.Deployments {
-			_, err = kubectl("rollout", "status", "-n", namespace, "deploy", ds.Name, "--timeout=5s", "--watch")
-			if err != nil {
-				decr()
-				continue
-			}
-		}
-
-		if nginx.Status.PodSelector == "" {
-			decr()
+		var result bool
+		result, err = predicate(*nginx)
+		if err != nil || !result {
+			count = 0
 			continue
 		}
 
-		_, err = kubectlWithRetry("wait", "--for=condition=Ready", "-l", nginx.Status.PodSelector, "pod", "--timeout", "5s", "-n", namespace)
-		if err != nil {
-			decr()
-			continue
-		}
-
-		if expectedCerts != nil && len(nginx.Spec.TLS) != *expectedCerts {
-			decr()
-			continue
-		}
-
-		if int(nginx.Status.CurrentReplicas) == expectedPods && len(nginx.Status.Services) == expectedSvcs {
-			incr()
-		}
-
-		if int(nginx.Status.CurrentReplicas) == 0 {
-			incr()
-		}
-
-		if count == 25 {
+		if count++; count == 5 {
 			return nginx, nil
 		}
 	}
 }
 
-func generateRandomName(prefix string) string {
-	n := rand.Int() / 100000
-	return fmt.Sprintf("%s-%d", prefix, n)
+func composeNginxPredicates(fns ...func(nginxv1alpha1.Nginx) (bool, error)) func(nginxv1alpha1.Nginx) (bool, error) {
+	return func(n nginxv1alpha1.Nginx) (bool, error) {
+		for _, fn := range fns {
+			result, err := fn(n)
+			if err != nil || !result {
+				return result, err
+			}
+		}
+		return true, nil
+	}
 }
 
-func intPtr(n int) *int {
-	return &n
+func ensureNginxPodsAndServices(pods, services int) func(nginxv1alpha1.Nginx) (bool, error) {
+	return composeNginxPredicates(ensureNginxPods(pods), ensureNginxServices(services))
+}
+
+func ensureNginxPods(expected int) func(nginxv1alpha1.Nginx) (bool, error) {
+	return func(n nginxv1alpha1.Nginx) (bool, error) {
+		for _, ds := range n.Status.Deployments {
+			_, err := kubectl("rollout", "status", "-n", n.Namespace, "deploy", ds.Name, "--timeout=5s", "--watch")
+			if err != nil {
+				return false, err
+			}
+		}
+
+		if n.Status.PodSelector == "" {
+			return false, fmt.Errorf("no pod selector found in Nginx")
+		}
+
+		_, err := kubectlWithRetry("wait", "--for=condition=Ready", "-l", n.Status.PodSelector, "pod", "--timeout", "5s", "-n", n.Namespace)
+		if err != nil {
+			return false, err
+		}
+
+		return n.Status.CurrentReplicas == int32(expected), nil
+	}
+}
+
+func ensureNginxServices(expected int) func(nginxv1alpha1.Nginx) (bool, error) {
+	return func(n nginxv1alpha1.Nginx) (bool, error) {
+		return len(n.Status.Services) == expected, nil
+	}
+}
+
+func ensureNginxCertificates(expected int) func(nginxv1alpha1.Nginx) (bool, error) {
+	return func(n nginxv1alpha1.Nginx) (bool, error) {
+		return len(n.Spec.TLS) == expected, nil
+	}
+}
+
+func generateRandomName(prefix string) string {
+	n := rand.Int() / 1000
+	return fmt.Sprintf("%s-%d", prefix, n)
 }
