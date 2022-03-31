@@ -37,6 +37,9 @@ func (w *Watcher) ListPods(instance string) ([]rpaas.PodStatus, int32, error) {
 
 	port := util.PortByName(list.Items[0].Spec.Containers[0].Ports, nginx.PortNameManagement)
 	for _, p := range list.Items {
+		if p.Status.PodIP == "" {
+			continue
+		}
 		ps, err := w.podStatus(&p)
 		if err != nil {
 			continue
