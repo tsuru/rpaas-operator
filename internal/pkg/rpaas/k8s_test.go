@@ -80,14 +80,14 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 )
 
 type fakeCacheManager struct {
-	purgeCacheFunc func(host, path string, port int32, preservePath bool) error
+	purgeCacheFunc func(host, path string, port int32, preservePath bool) (bool, error)
 }
 
-func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool) error {
+func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool) (bool, error) {
 	if f.purgeCacheFunc != nil {
 		return f.purgeCacheFunc(host, path, port, preservePath)
 	}
-	return nil
+	return false, nil
 }
 
 func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
@@ -1765,13 +1765,13 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 			},
 		},
 		{
-			name:         "return the number of nginx instances where cache was purged",
+			name:         "return the number of unsuccessfully purged instances",
 			instance:     "my-instance",
 			args:         PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{},
 			assertion: func(t *testing.T, count int, err error) {
 				assert.NoError(t, err)
-				assert.Equal(t, 2, count)
+				assert.Equal(t, 0, count)
 			},
 		},
 		{
@@ -1779,11 +1779,11 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 			instance: "my-instance",
 			args:     PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{
-				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) (bool, error) {
 					if host == "10.0.0.9" {
-						return nginxManager.NginxError{Msg: "some nginx error"}
+						return false, nginxManager.NginxError{Msg: "some nginx error"}
 					}
-					return nil
+					return true, nil
 				},
 			},
 			assertion: func(t *testing.T, count int, err error) {
