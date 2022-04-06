@@ -24,14 +24,14 @@ func bodyContent(rsp *httptest.ResponseRecorder) string {
 }
 
 type fakeCacheManager struct {
-	purgeCacheFunc func(host, path string, port int32, preservePath bool) error
+	purgeCacheFunc func(host, path string, port int32, preservePath bool) (bool, error)
 }
 
-func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool) error {
+func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool) (bool, error) {
 	if f.purgeCacheFunc != nil {
 		return f.purgeCacheFunc(host, path, port, preservePath)
 	}
-	return nil
+	return false, nil
 }
 
 func TestCachePurge(t *testing.T) {
@@ -49,6 +49,18 @@ func TestCachePurge(t *testing.T) {
 			requestBody:    `{"path":"/index.html","preserve_path":true}`,
 			expectedStatus: http.StatusOK,
 			expectedBody:   `{"path":"/index.html","instances_purged":2}`,
+			cacheManager: fakeCacheManager{
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) (bool, error) {
+					return true, nil
+				},
+			},
+		},
+		{
+			name:           "no cache key found",
+			instance:       "sample-rpaasv2",
+			requestBody:    `{"path":"/index.html","preserve_path":true}`,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"path":"/index.html"}`,
 			cacheManager:   fakeCacheManager{},
 		},
 		{
@@ -58,11 +70,11 @@ func TestCachePurge(t *testing.T) {
 			expectedStatus: http.StatusOK,
 			expectedBody:   `{"path":"/index.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2:8889 failed: some nginx error\n\n"}`,
 			cacheManager: fakeCacheManager{
-				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) (bool, error) {
 					if host == "172.0.2.2" {
-						return nginxManager.NginxError{Msg: "some nginx error"}
+						return false, nginxManager.NginxError{Msg: "some nginx error"}
 					}
-					return nil
+					return true, nil
 				},
 			},
 		},
@@ -121,7 +133,11 @@ func TestCachePurgeBulk(t *testing.T) {
 			requestBody:    `[{"path":"/index.html","preserve_path":true}]`,
 			expectedStatus: http.StatusOK,
 			expectedBody:   `[{"path":"/index.html","instances_purged":2}]`,
-			cacheManager:   fakeCacheManager{},
+			cacheManager: fakeCacheManager{
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) (bool, error) {
+					return true, nil
+				},
+			},
 		},
 		{
 			name:           "fails on some servers",
@@ -130,11 +146,11 @@ func TestCachePurgeBulk(t *testing.T) {
 			expectedStatus: http.StatusInternalServerError,
 			expectedBody:   `[{"path":"/index.html","instances_purged":2},{"path":"/other.html","instances_purged":1,"error":"1 error occurred:\n\t* pod 172.0.2.2:8889 failed: some nginx error\n\n"}]`,
 			cacheManager: fakeCacheManager{
-				purgeCacheFunc: func(host, path string, port int32, preservePath bool) error {
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool) (bool, error) {
 					if host == "172.0.2.2" && path == "/other.html" {
-						return nginxManager.NginxError{Msg: "some nginx error"}
+						return false, nginxManager.NginxError{Msg: "some nginx error"}
 					}
-					return nil
+					return true, nil
 				},
 			},
 		},

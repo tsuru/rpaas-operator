@@ -990,15 +990,19 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 	port := util.PortByName(nginx.Spec.PodTemplate.Ports, nginxManager.PortNameManagement)
 	var purgeErrors error
 	purgeCount := 0
+	status := false
 	for _, podStatus := range podMap {
 		if !podStatus.Running {
 			continue
 		}
-		if err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, port, args.PreservePath); err != nil {
+		status, err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, port, args.PreservePath)
+		if err != nil {
 			purgeErrors = multierror.Append(purgeErrors, errors.Wrapf(err, "pod %s failed", podStatus.Address))
 			continue
 		}
-		purgeCount++
+		if status {
+			purgeCount++
+		}
 	}
 	return purgeCount, purgeErrors
 }

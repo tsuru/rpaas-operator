@@ -84,15 +84,18 @@ func (p *PurgeAPI) PurgeCache(ctx context.Context, name string, args rpaas.Purge
 
 	var purgeErrors error
 	purgeCount := 0
+	status := false
 	for _, pod := range pods {
 		if !pod.Running {
 			continue
 		}
-		if err = p.cacheManager.PurgeCache(pod.Address, args.Path, port, args.PreservePath); err != nil {
+		if status, err = p.cacheManager.PurgeCache(pod.Address, args.Path, port, args.PreservePath); err != nil {
 			purgeErrors = multierror.Append(purgeErrors, errors.Wrapf(err, "pod %s:%d failed", pod.Address, port))
 			continue
 		}
-		purgeCount++
+		if status {
+			purgeCount++
+		}
 	}
 	return purgeCount, purgeErrors
 }

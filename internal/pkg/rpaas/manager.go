@@ -151,7 +151,7 @@ type BindAppArgs struct {
 }
 
 type CacheManager interface {
-	PurgeCache(host, path string, port int32, preservePath bool) error
+	PurgeCache(host, path string, port int32, preservePath bool) (bool, error)
 }
 
 type PurgeCacheArgs struct {

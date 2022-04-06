@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"testing"
 
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -21,6 +22,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 		preservePath  bool
 		assertion     func(*testing.T, error)
 		nginxResponse http.HandlerFunc
+		status        bool
 	}{
 		{
 			description:  "returns not found error when nginx returns 404 and preservePath is false",
@@ -32,6 +34,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
+			status: false,
 		},
 		{
 			description:  "returns not found error when nginx returns 404 and preservePath is true",
@@ -43,6 +46,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
 			},
+			status: false,
 		},
 		{
 			description:  "returns not found error when nginx returns 500",
@@ -54,6 +58,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusInternalServerError)
 			},
+			status: false,
 		},
 		{
 			description:  "makes a request to /purge/<purgePath> when preservePath is true",
@@ -69,6 +74,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 					w.WriteHeader(http.StatusNotFound)
 				}
 			},
+			status: true,
 		},
 		{
 			description:  "makes a request to /purge/<purgePath> when preservePath is true with custom cache key",
@@ -84,6 +90,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 					w.WriteHeader(http.StatusNotFound)
 				}
 			},
+			status: true,
 		},
 		{
 			description:  "makes a request to /purge/<protocol>/<purgePath> when preservePath is false",
@@ -99,6 +106,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 					w.WriteHeader(http.StatusNotFound)
 				}
 			},
+			status: true,
 		},
 		{
 			description:  "requests with gzip and identity values for Accept-Encoding header when preservePath is true",
@@ -108,12 +116,13 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 				require.NoError(t, err)
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity" {
+				if (r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity") && r.RequestURI == "/purge/index.html" {
 					w.WriteHeader(http.StatusOK)
 				} else {
 					w.WriteHeader(http.StatusNotAcceptable)
 				}
 			},
+			status: true,
 		},
 		{
 			description:  "requests with gzip and identity values for Accept-Encoding header when preservePath is false",
@@ -123,12 +132,13 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 				require.NoError(t, err)
 			},
 			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
-				if r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity" {
+				if (r.Header.Get("Accept-Encoding") == "gzip" || r.Header.Get("Accept-Encoding") == "identity") && (r.RequestURI == "/purge/http/index.html" || r.RequestURI == "/purge/https/index.html") {
 					w.WriteHeader(http.StatusOK)
 				} else {
 					w.WriteHeader(http.StatusNotAcceptable)
 				}
 			},
+			status: true,
 		},
 	}
 
@@ -143,8 +153,9 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			port, err := strconv.ParseUint(url.Port(), 10, 16)
 			require.NoError(t, err)
 
-			err = nginx.PurgeCache(url.Hostname(), tt.purgePath, int32(port), tt.preservePath)
+			purgeStatus, err := nginx.PurgeCache(url.Hostname(), tt.purgePath, int32(port), tt.preservePath)
 			tt.assertion(t, err)
+			assert.Equal(t, tt.status, purgeStatus)
 		})
 	}
 }

@@ -54,45 +54,57 @@ func vtsLocationMatch() string {
 	return defaultVTSLocationMatch
 }
 
-func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePath bool) error {
+func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePath bool) (bool, error) {
+	purged := false
 	for _, encoding := range []string{"gzip", "identity"} {
 		headers := map[string]string{"Accept-Encoding": encoding}
-
+		separator := "/"
+		if strings.HasPrefix(purgePath, "/") {
+			separator = ""
+		}
 		if preservePath {
-			separator := "/"
-			if strings.HasPrefix(purgePath, "/") {
-				separator = ""
-			}
 			path := fmt.Sprintf("%s%s%s", defaultPurgeLocation, separator, purgePath)
-			if err := m.purgeRequest(host, path, port, headers); err != nil {
-				return err
+			status, err := m.purgeRequest(host, path, port, headers)
+			if err != nil {
+				return false, err
+			}
+			if status {
+				purged = true
 			}
 		} else {
 			for _, scheme := range []string{"http", "https"} {
-				path := fmt.Sprintf("%s/%s%s", defaultPurgeLocation, scheme, purgePath)
-				if err := m.purgeRequest(host, path, port, headers); err != nil {
-					return err
+				path := fmt.Sprintf("%s/%s%s%s", defaultPurgeLocation, scheme, separator, purgePath)
+				status, err := m.purgeRequest(host, path, port, headers)
+				if err != nil {
+					return false, err
+				}
+				if status {
+					purged = true
 				}
 			}
 		}
+
 	}
-	return nil
+	return purged, nil
 }
 
-func (m NginxManager) purgeRequest(host, path string, port int32, headers map[string]string) error {
+func (m NginxManager) purgeRequest(host, path string, port int32, headers map[string]string) (bool, error) {
 	resp, err := m.requestNginx(host, path, port, headers)
 	if err != nil {
 		errorMessage := fmt.Sprintf("cannot purge nginx cache - error requesting nginx server: %v", err)
 		logrus.Error(errorMessage)
-		return NginxError{Msg: errorMessage}
+		return false, NginxError{Msg: errorMessage}
 	}
-	// StatusNotFound is a valid response when nginx does not have the path on its cache.
-	if resp.StatusCode == http.StatusOK || resp.StatusCode == http.StatusNotFound {
-		return nil
+	switch resp.StatusCode {
+	case http.StatusOK:
+		return true, nil
+	case http.StatusNotFound:
+		return false, nil
+	default:
+		errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %d", resp.StatusCode)
+		logrus.Error(errorMessage)
+		return false, NginxError{Msg: errorMessage}
 	}
-	errorMessage := fmt.Sprintf("cannot purge nginx cache - unexpected response from nginx server: %d", resp.StatusCode)
-	logrus.Error(errorMessage)
-	return NginxError{Msg: errorMessage}
 }
 
 func (m NginxManager) requestNginx(host, path string, port int32, headers map[string]string) (*http.Response, error) {
