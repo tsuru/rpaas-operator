@@ -7,6 +7,7 @@ package rpaas
 import (
 	"context"
 	"crypto/tls"
+	"net/http"
 	"regexp"
 	"testing"
 	"time"
@@ -80,12 +81,12 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 )
 
 type fakeCacheManager struct {
-	purgeCacheFunc func(host, path string, port int32, preservePath bool) (bool, error)
+	purgeCacheFunc func(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error)
 }
 
-func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool) (bool, error) {
+func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error) {
 	if f.purgeCacheFunc != nil {
-		return f.purgeCacheFunc(host, path, port, preservePath)
+		return f.purgeCacheFunc(host, path, port, preservePath, extraHeaders)
 	}
 	return false, nil
 }
@@ -1779,7 +1780,7 @@ func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 			instance: "my-instance",
 			args:     PurgeCacheArgs{Path: "/index.html"},
 			cacheManager: fakeCacheManager{
-				purgeCacheFunc: func(host, path string, port int32, preservePath bool) (bool, error) {
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error) {
 					if host == "10.0.0.9" {
 						return false, nginxManager.NginxError{Msg: "some nginx error"}
 					}

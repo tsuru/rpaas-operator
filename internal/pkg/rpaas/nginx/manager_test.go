@@ -23,6 +23,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 		assertion     func(*testing.T, error)
 		nginxResponse http.HandlerFunc
 		status        bool
+		extraHeaders  http.Header
 	}{
 		{
 			description:  "returns not found error when nginx returns 404 and preservePath is false",
@@ -140,6 +141,23 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			},
 			status: true,
 		},
+		{
+			description:  "requests with extra headers when preservePath is false",
+			purgePath:    "/index.html",
+			preservePath: false,
+			assertion: func(t *testing.T, err error) {
+				require.NoError(t, err)
+			},
+			nginxResponse: func(w http.ResponseWriter, r *http.Request) {
+				if (r.Header.Get("Accept-Encoding") == "gzip") && (r.Header.Get("X-Custom-Header") == "custom-value") && (r.RequestURI == "/purge/http/index.html") {
+					w.WriteHeader(http.StatusOK)
+				} else {
+					w.WriteHeader(http.StatusNotFound)
+				}
+			},
+			status:       true,
+			extraHeaders: http.Header{"X-Custom-Header": {"custom-value"}},
+		},
 	}
 
 	for _, tt := range testCases {
@@ -153,7 +171,7 @@ func TestNginxManager_PurgeCache(t *testing.T) {
 			port, err := strconv.ParseUint(url.Port(), 10, 16)
 			require.NoError(t, err)
 
-			purgeStatus, err := nginx.PurgeCache(url.Hostname(), tt.purgePath, int32(port), tt.preservePath)
+			purgeStatus, err := nginx.PurgeCache(url.Hostname(), tt.purgePath, int32(port), tt.preservePath, tt.extraHeaders)
 			tt.assertion(t, err)
 			assert.Equal(t, tt.status, purgeStatus)
 		})

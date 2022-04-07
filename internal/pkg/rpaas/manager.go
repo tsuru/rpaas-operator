@@ -11,6 +11,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/http"
 	"sort"
 	"strings"
 	"text/template"
@@ -151,12 +152,13 @@ type BindAppArgs struct {
 }
 
 type CacheManager interface {
-	PurgeCache(host, path string, port int32, preservePath bool) (bool, error)
+	PurgeCache(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error)
 }
 
 type PurgeCacheArgs struct {
-	Path         string `json:"path" form:"path"`
-	PreservePath bool   `json:"preserve_path" form:"preserve_path"`
+	Path         string      `json:"path" form:"path"`
+	PreservePath bool        `json:"preserve_path" form:"preserve_path"`
+	ExtraHeaders http.Header `json:"extra_headers" form:"extra_headers"`
 }
 
 type PurgeCacheBulkResult struct {

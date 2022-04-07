@@ -54,38 +54,59 @@ func vtsLocationMatch() string {
 	return defaultVTSLocationMatch
 }
 
-func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePath bool) (bool, error) {
+func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePath bool, extraHeaders http.Header) (bool, error) {
 	purged := false
 	for _, encoding := range []string{"gzip", "identity"} {
+		var err error
+		status := false
 		headers := map[string]string{"Accept-Encoding": encoding}
-		separator := "/"
-		if strings.HasPrefix(purgePath, "/") {
-			separator = ""
-		}
-		if preservePath {
-			path := fmt.Sprintf("%s%s%s", defaultPurgeLocation, separator, purgePath)
-			status, err := m.purgeRequest(host, path, port, headers)
+		if len(extraHeaders) > 0 {
+			for header, _ := range extraHeaders {
+				headers[header] = extraHeaders.Get(header)
+				status, err = m.purge(host, purgePath, port, preservePath, headers)
+				if err != nil {
+					return false, err
+				}
+			}
+		} else {
+			status, err = m.purge(host, purgePath, port, preservePath, headers)
 			if err != nil {
 				return false, err
+			}
+		}
+		if status {
+			purged = true
+		}
+	}
+	return purged, nil
+}
+
+func (m NginxManager) purge(host, purgePath string, port int32, preservePath bool, headers map[string]string) (bool, error) {
+	separator := "/"
+	if strings.HasPrefix(purgePath, "/") {
+		separator = ""
+	}
+	if preservePath {
+		path := fmt.Sprintf("%s%s%s", defaultPurgeLocation, separator, purgePath)
+		status, err := m.purgeRequest(host, path, port, headers)
+		if err != nil {
+			return status, err
+		}
+		return status, nil
+	} else {
+		purged := false
+		for _, scheme := range []string{"http", "https"} {
+			path := fmt.Sprintf("%s/%s%s%s", defaultPurgeLocation, scheme, separator, purgePath)
+			status, err := m.purgeRequest(host, path, port, headers)
+			if err != nil {
+				return status, err
 			}
 			if status {
 				purged = true
 			}
-		} else {
-			for _, scheme := range []string{"http", "https"} {
-				path := fmt.Sprintf("%s/%s%s%s", defaultPurgeLocation, scheme, separator, purgePath)
-				status, err := m.purgeRequest(host, path, port, headers)
-				if err != nil {
-					return false, err
-				}
-				if status {
-					purged = true
-				}
-			}
 		}
-
+		return purged, nil
 	}
-	return purged, nil
 }
 
 func (m NginxManager) purgeRequest(host, path string, port int32, headers map[string]string) (bool, error) {
