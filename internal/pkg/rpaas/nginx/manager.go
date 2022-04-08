@@ -61,7 +61,7 @@ func (m NginxManager) PurgeCache(host, purgePath string, port int32, preservePat
 		status := false
 		headers := map[string]string{"Accept-Encoding": encoding}
 		if len(extraHeaders) > 0 {
-			for header, _ := range extraHeaders {
+			for header := range extraHeaders {
 				headers[header] = extraHeaders.Get(header)
 				status, err = m.purge(host, purgePath, port, preservePath, headers)
 				if err != nil {

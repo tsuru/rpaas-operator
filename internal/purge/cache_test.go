@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"net/http"
 	"net/http/httptest"
+	"reflect"
 	"strings"
 	"testing"
 
@@ -52,6 +53,21 @@ func TestCachePurge(t *testing.T) {
 			cacheManager: fakeCacheManager{
 				purgeCacheFunc: func(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error) {
 					return true, nil
+				},
+			},
+		},
+		{
+			name:           "success with extra headers",
+			instance:       "sample-rpaasv2",
+			requestBody:    `{"path":"/index.html","preserve_path":false,"extra_headers":{"X-Header":["value"]}}`,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `{"path":"/index.html","instances_purged":2}`,
+			cacheManager: fakeCacheManager{
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error) {
+					if path == "/index.html" && reflect.DeepEqual(extraHeaders["X-Header"], []string{"value"}) {
+						return true, nil
+					}
+					return false, nginxManager.NginxError{Msg: "some nginx error"}
 				},
 			},
 		},
@@ -151,6 +167,21 @@ func TestCachePurgeBulk(t *testing.T) {
 						return false, nginxManager.NginxError{Msg: "some nginx error"}
 					}
 					return true, nil
+				},
+			},
+		},
+		{
+			name:           "success with extra headers",
+			instance:       "sample-rpaasv2",
+			requestBody:    `[{"path":"/index.html","preserve_path":false,"extra_headers":{"X-Header":["value"]}}]`,
+			expectedStatus: http.StatusOK,
+			expectedBody:   `[{"path":"/index.html","instances_purged":2}]`,
+			cacheManager: fakeCacheManager{
+				purgeCacheFunc: func(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error) {
+					if path == "/index.html" && reflect.DeepEqual(extraHeaders["X-Header"], []string{"value"}) {
+						return true, nil
+					}
+					return false, nginxManager.NginxError{Msg: "some nginx error"}
 				},
 			},
 		},
