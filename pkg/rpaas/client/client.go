@@ -18,6 +18,11 @@ type ScaleArgs struct {
 	Replicas int32
 }
 
+type ExtraFilesArgs struct {
+	Instance string
+	Files    map[string][]byte
+}
+
 type UpdateCertificateArgs struct {
 	Instance    string
 	Name        string
@@ -132,6 +137,7 @@ type Client interface {
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
 	Log(ctx context.Context, args LogArgs) error
+	ExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)
