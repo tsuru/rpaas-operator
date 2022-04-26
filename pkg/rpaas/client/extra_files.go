@@ -10,10 +10,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
 	"strings"
+
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func (args ExtraFilesArgs) Validate() error {
@@ -23,6 +26,17 @@ func (args ExtraFilesArgs) Validate() error {
 
 	if args.Files == nil {
 		return fmt.Errorf("rpaasv2: file list cannot be empty")
+	}
+
+	return nil
+}
+
+func (args DeleteExtraFilesArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+	if len(args.Files) == 0 {
+		return errors.New("rpaasv2: file list must not be empty")
 	}
 
 	return nil
@@ -56,7 +70,7 @@ func (c *client) AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error {
 
 	body := strings.NewReader(buffer.String())
 	pathName := fmt.Sprintf("/resources/%s/files", args.Instance)
-	req, err := c.newRequest("POST", pathName, body, args.Instance)
+	req, err := c.newRequest(http.MethodPost, pathName, body, args.Instance)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
 	if err != nil {
 		return err
@@ -70,6 +84,12 @@ func (c *client) AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error {
 	if response.StatusCode != http.StatusCreated {
 		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
+
+	respString, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+	fmt.Printf("%s\n", respString)
 
 	return nil
 }
@@ -86,7 +106,7 @@ func (c *client) UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) erro
 
 	body := strings.NewReader(buffer.String())
 	pathName := fmt.Sprintf("/resources/%s/files", args.Instance)
-	req, err := c.newRequest("PUT", pathName, body, args.Instance)
+	req, err := c.newRequest(http.MethodPut, pathName, body, args.Instance)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
 	if err != nil {
 		return err
@@ -101,12 +121,18 @@ func (c *client) UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) erro
 		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
+	respString, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%s\n", respString)
 	return nil
 }
 
 func (c *client) DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs) error {
-	if len(args.Files) == 0 {
-		return errors.New("rpaasv2: file list must not be empty")
+	if err := args.Validate(); err != nil {
+		return err
 	}
 
 	b, err := json.Marshal(args.Files)
@@ -116,7 +142,7 @@ func (c *client) DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs
 	body := bytes.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/files", args.Instance)
-	req, err := c.newRequest("DELETE", pathName, body, args.Instance)
+	req, err := c.newRequest(http.MethodDelete, pathName, body, args.Instance)
 	if err != nil {
 		return err
 	}
@@ -131,5 +157,63 @@ func (c *client) DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs
 		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
+	respString, err := io.ReadAll(response.Body)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("%s\n", respString)
 	return nil
+}
+
+func (c *client) ListExtraFiles(ctx context.Context, instance string) ([]string, error) {
+	if instance == "" {
+		return nil, ErrMissingInstance
+	}
+
+	pathName := fmt.Sprintf("/resources/%s/files", instance)
+	req, err := c.newRequest(http.MethodGet, pathName, nil, instance)
+	if err != nil {
+		return nil, err
+	}
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return nil, newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	var fileList []string
+	err = json.NewDecoder(response.Body).Decode(&fileList)
+	if err != nil {
+		return nil, err
+	}
+	return fileList, nil
+}
+
+func (c *client) GetExtraFile(ctx context.Context, instance, fileName string) (types.RpaasFile, error) {
+	pathName := fmt.Sprintf("/resources/%s/files", instance)
+	req, err := c.newRequest(http.MethodGet, pathName, nil, instance)
+	if err != nil {
+		return types.RpaasFile{}, err
+	}
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return types.RpaasFile{}, err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return types.RpaasFile{}, newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	var file types.RpaasFile
+	err = json.NewDecoder(response.Body).Decode(&file)
+	if err != nil {
+		return types.RpaasFile{}, err
+	}
+	return file, nil
 }

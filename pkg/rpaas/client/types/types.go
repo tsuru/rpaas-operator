@@ -13,6 +13,11 @@ import (
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
+type RpaasFile struct {
+	Name    string `json:"name"`
+	Content []byte `json:"content"`
+}
+
 type Block struct {
 	Name    string `json:"block_name" form:"block_name"`
 	Content string `json:"content" form:"content"`

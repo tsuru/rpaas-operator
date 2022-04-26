@@ -5,6 +5,7 @@
 package cmd
 
 import (
+	"fmt"
 	"io/ioutil"
 	"path/filepath"
 
@@ -21,6 +22,8 @@ func NewCmdExtraFiles() *cli.Command {
 			NewCmdAddExtraFiles(),
 			NewCmdUpdateExtraFiles(),
 			NewCmdDeleteExtraFiles(),
+			NewCmdListExtraFiles(),
+			NewCmdGetExtraFile(),
 		},
 	}
 }
@@ -110,6 +113,61 @@ func NewCmdDeleteExtraFiles() *cli.Command {
 	}
 }
 
+func NewCmdListExtraFiles() *cli.Command {
+	return &cli.Command{
+		Name:  "list",
+		Usage: "Shows all extra-files inside the instance and it's contents",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.BoolFlag{
+				Name:     "show-content",
+				Usage:    "shows the content of each file on plain text format",
+				Required: false,
+			},
+		},
+		Before: setupClient,
+		Action: runListExtraFiles,
+	}
+}
+
+func NewCmdGetExtraFile() *cli.Command {
+	return &cli.Command{
+		Name:    "get",
+		Aliases: []string{"show"},
+		Usage:   "Displays the content of the specified file in plain text",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.StringFlag{
+				Name:     "file",
+				Usage:    "the name of the file",
+				Required: true,
+			},
+		},
+		Before: setupClient,
+		Action: runGetExtraFile,
+	}
+}
+
 func prepareFiles(filePathList []string) (map[string][]byte, error) {
 	files := map[string][]byte{}
 	var err error
@@ -190,6 +248,53 @@ func runDeleteExtraFiles(c *cli.Context) error {
 	if err != nil {
 		return err
 	}
+
+	return nil
+}
+
+func runListExtraFiles(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	instance := c.String("instance")
+
+	files, err := client.ListExtraFiles(c.Context, instance)
+	if err != nil {
+		return err
+	}
+	switch c.Bool("show-content") {
+	default:
+		for _, file := range files {
+			fmt.Println(file)
+		}
+		return nil
+	case true:
+		for _, name := range files {
+			f, err := client.GetExtraFile(c.Context, instance, name)
+			if err != nil {
+				fmt.Printf("%s:\t%s\n", f.Name, err.Error())
+			} else {
+				fmt.Printf("%s:\t%s\n", f.Name, f.Content)
+			}
+		}
+		return nil
+	}
+}
+
+func runGetExtraFile(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	file, err := client.GetExtraFile(c.Context, c.String("instance"), c.String("file"))
+	if err != nil {
+		return err
+	}
+
+	fmt.Println(file.Content)
 
 	return nil
 }

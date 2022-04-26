@@ -28,6 +28,11 @@ type DeleteExtraFilesArgs struct {
 	Files    []string
 }
 
+type GetExtraFileArgs struct {
+	Instance string
+	FileName string
+}
+
 type UpdateCertificateArgs struct {
 	Instance    string
 	Name        string
@@ -145,6 +150,8 @@ type Client interface {
 	AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs) error
+	ListExtraFiles(ctx context.Context, instance string) ([]string, error)
+	GetExtraFile(ctx context.Context, instance, filename string) (types.RpaasFile, error)
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)
