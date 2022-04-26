@@ -16,18 +16,19 @@ func NewCmdExtraFiles() *cli.Command {
 	return &cli.Command{
 		Name:    "extra-files",
 		Aliases: []string{"files"},
-		Usage:   "Extra files add into nginx filesystem",
+		Usage:   "Add extra files to the RpaaS filesystem, they will be mounted on: etc/ngnix/extra-files",
 		Subcommands: []*cli.Command{
-			NewCmdAddExtraFile(),
+			NewCmdAddExtraFiles(),
+			NewCmdUpdateExtraFiles(),
+			NewCmdDeleteExtraFiles(),
 		},
 	}
 }
 
-func NewCmdAddExtraFile() *cli.Command {
+func NewCmdAddExtraFiles() *cli.Command {
 	return &cli.Command{
-		Name:    "add",
-		Aliases: []string{"update"},
-		Usage:   "Uploads a new file to the instance",
+		Name:  "add",
+		Usage: "Uploads new files",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -43,7 +44,7 @@ func NewCmdAddExtraFile() *cli.Command {
 			&cli.StringSliceFlag{
 				Name:     "files",
 				Aliases:  []string{"filepaths", "paths", "names"},
-				Usage:    "file path of the file",
+				Usage:    "file path of each file",
 				Required: true,
 			},
 		},
@@ -52,29 +53,137 @@ func NewCmdAddExtraFile() *cli.Command {
 	}
 }
 
+func NewCmdUpdateExtraFiles() *cli.Command {
+	return &cli.Command{
+		Name:  "update",
+		Usage: "Uploads existing files",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.StringSliceFlag{
+				Name:     "files",
+				Aliases:  []string{"filepaths", "paths", "names"},
+				Usage:    "file path of each file",
+				Required: true,
+			},
+		},
+		Before: setupClient,
+		Action: runUpdateExtraFiles,
+	}
+}
+
+func NewCmdDeleteExtraFiles() *cli.Command {
+	return &cli.Command{
+		Name:    "delete",
+		Aliases: []string{"remove"},
+		Usage:   "Deletes files",
+		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "service",
+				Aliases: []string{"tsuru-service", "s"},
+				Usage:   "the Tsuru service name",
+			},
+			&cli.StringFlag{
+				Name:     "instance",
+				Aliases:  []string{"tsuru-service-instance", "i"},
+				Usage:    "the reverse proxy instance name",
+				Required: true,
+			},
+			&cli.StringSliceFlag{
+				Name:     "files",
+				Aliases:  []string{"filepaths", "paths", "names"},
+				Usage:    "file path of each file",
+				Required: true,
+			},
+		},
+		Before: setupClient,
+		Action: runDeleteExtraFiles,
+	}
+}
+
+func prepareFiles(filePathList []string) (map[string][]byte, error) {
+	files := map[string][]byte{}
+	var err error
+	for _, fp := range filePathList {
+		path := fp
+		if !filepath.IsAbs(fp) {
+			path, err = filepath.Abs(fp)
+			if err != nil {
+				return nil, err
+			}
+		}
+		fileContent, err := ioutil.ReadFile(path)
+		if err != nil {
+			return nil, err
+		}
+		files[fp] = fileContent
+	}
+
+	return files, nil
+}
+
 func runAddExtraFiles(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
 		return err
 	}
 
-	files := map[string][]byte{}
-	for _, fp := range c.StringSlice("files") {
-		path := fp
-		if !filepath.IsAbs(fp) {
-			path, err = filepath.Abs(fp)
-			if err != nil {
-				return err
-			}
-		}
-		fileContent, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		files[fp] = fileContent
+	files, err := prepareFiles(c.StringSlice("files"))
+	if err != nil {
+		return err
 	}
 
-	err = client.ExtraFiles(c.Context, rpaasclient.ExtraFilesArgs{
+	err = client.AddExtraFiles(c.Context, rpaasclient.ExtraFilesArgs{
+		Instance: c.String("instance"),
+		Files:    files,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runUpdateExtraFiles(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	files, err := prepareFiles(c.StringSlice("files"))
+	if err != nil {
+		return err
+	}
+
+	err = client.UpdateExtraFiles(c.Context, rpaasclient.ExtraFilesArgs{
+		Instance: c.String("instance"),
+		Files:    files,
+	})
+	if err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func runDeleteExtraFiles(c *cli.Context) error {
+	client, err := getClient(c)
+	if err != nil {
+		return err
+	}
+
+	files := c.StringSlice("files")
+
+	err = client.DeleteExtraFiles(c.Context, rpaasclient.DeleteExtraFilesArgs{
 		Instance: c.String("instance"),
 		Files:    files,
 	})

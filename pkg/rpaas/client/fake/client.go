@@ -37,7 +37,9 @@ type FakeClient struct {
 	FakeUpdateCertManager       func(args client.UpdateCertManagerArgs) error
 	FakeDeleteCertManager       func(instance, issuer string) error
 	FakeLog                     func(args client.LogArgs) error
-	FakeExtraFiles              func(ctx context.Context, args client.ExtraFilesArgs) error
+	FakeAddExtraFiles           func(ctx context.Context, args client.ExtraFilesArgs) error
+	FakeUpdateExtraFiles        func(ctx context.Context, args client.ExtraFilesArgs) error
+	FakeDeleteExtraFiles        func(ctx context.Context, args client.DeleteExtraFilesArgs) error
 }
 
 var _ client.Client = &FakeClient{}
@@ -229,9 +231,25 @@ func (f *FakeClient) Log(ctx context.Context, args client.LogArgs) error {
 	return nil
 }
 
-func (f *FakeClient) ExtraFiles(ctx context.Context, args client.ExtraFilesArgs) error {
-	if f.FakeExtraFiles != nil {
-		return f.ExtraFiles(ctx, args)
+func (f *FakeClient) AddExtraFiles(ctx context.Context, args client.ExtraFilesArgs) error {
+	if f.FakeAddExtraFiles != nil {
+		return f.AddExtraFiles(ctx, args)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) UpdateExtraFiles(ctx context.Context, args client.ExtraFilesArgs) error {
+	if f.FakeUpdateExtraFiles != nil {
+		return f.UpdateExtraFiles(ctx, args)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) DeleteExtraFiles(ctx context.Context, args client.DeleteExtraFilesArgs) error {
+	if f.FakeDeleteExtraFiles != nil {
+		return f.DeleteExtraFiles(ctx, args)
 	}
 
 	return nil

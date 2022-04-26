@@ -5,6 +5,7 @@
 package web
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -265,23 +266,23 @@ func Test_updateExtraFiles(t *testing.T) {
 func Test_deleteExtraFiles(t *testing.T) {
 	testCases := []struct {
 		instance     string
-		filename     string
+		files        []string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
 	}{
 		{
 			instance:     "my-instance",
-			filename:     "waf%2Fsqli-rules.cnf",
+			files:        []string{"waf%2Fsqli-rules.cnf"},
 			expectedCode: http.StatusOK,
-			expectedBody: `file "waf/sqli-rules.cnf" was successfully removed`,
+			expectedBody: `file(s) waf/sqli-rules.cnf removed`,
 			manager:      &fake.RpaasManager{},
 		},
 		{
 			instance:     "my-instance",
-			filename:     "not-found.cnf",
+			files:        []string{"not-found.cnf"},
 			expectedCode: http.StatusNotFound,
-			expectedBody: "not found",
+			expectedBody: "{\"Msg\":\"not found\"}",
 			manager: &fake.RpaasManager{
 				FakeDeleteExtraFiles: func(string, ...string) error {
 					return &rpaas.NotFoundError{
@@ -296,13 +297,17 @@ func Test_deleteExtraFiles(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/files/%s", srv.URL, tt.instance, tt.filename)
-			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			b, err := json.Marshal(tt.files)
+			assert.NoError(t, err)
+			body := bytes.NewReader(b)
+			path := fmt.Sprintf("%s/resources/%s/files", srv.URL, tt.instance)
+			request, err := http.NewRequest(http.MethodDelete, path, body)
+			request.Header.Add("Content-Type", "application/json")
 			require.NoError(t, err)
 			rsp, err := srv.Client().Do(request)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			assert.Regexp(t, tt.expectedBody, bodyContent(rsp))
+			assert.EqualValues(t, tt.expectedBody, bodyContent(rsp))
 		})
 	}
 }

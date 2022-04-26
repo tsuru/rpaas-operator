@@ -23,6 +23,11 @@ type ExtraFilesArgs struct {
 	Files    map[string][]byte
 }
 
+type DeleteExtraFilesArgs struct {
+	Instance string
+	Files    []string
+}
+
 type UpdateCertificateArgs struct {
 	Instance    string
 	Name        string
@@ -137,7 +142,9 @@ type Client interface {
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
 	Log(ctx context.Context, args LogArgs) error
-	ExtraFiles(ctx context.Context, args ExtraFilesArgs) error
+	AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error
+	UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) error
+	DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs) error
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)
