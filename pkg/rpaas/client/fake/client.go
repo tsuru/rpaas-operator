@@ -37,11 +37,11 @@ type FakeClient struct {
 	FakeUpdateCertManager       func(args client.UpdateCertManagerArgs) error
 	FakeDeleteCertManager       func(instance, issuer string) error
 	FakeLog                     func(args client.LogArgs) error
-	FakeAddExtraFiles           func(ctx context.Context, args client.ExtraFilesArgs) error
-	FakeUpdateExtraFiles        func(ctx context.Context, args client.ExtraFilesArgs) error
-	FakeDeleteExtraFiles        func(ctx context.Context, args client.DeleteExtraFilesArgs) error
-	FakeListExtraFiles          func(ctx context.Context, instance string) ([]string, error)
-	FakeGetExtraFile            func(ctx context.Context, instance, fileName string) ([]string, error)
+	FakeAddExtraFiles           func(args client.ExtraFilesArgs) error
+	FakeUpdateExtraFiles        func(args client.ExtraFilesArgs) error
+	FakeDeleteExtraFiles        func(args client.DeleteExtraFilesArgs) error
+	FakeListExtraFiles          func(instance string) ([]string, error)
+	FakeGetExtraFile            func(instance, fileName string) (types.RpaasFile, error)
 }
 
 var _ client.Client = &FakeClient{}
@@ -235,7 +235,7 @@ func (f *FakeClient) Log(ctx context.Context, args client.LogArgs) error {
 
 func (f *FakeClient) AddExtraFiles(ctx context.Context, args client.ExtraFilesArgs) error {
 	if f.FakeAddExtraFiles != nil {
-		return f.AddExtraFiles(ctx, args)
+		return f.FakeAddExtraFiles(args)
 	}
 
 	return nil
@@ -243,7 +243,7 @@ func (f *FakeClient) AddExtraFiles(ctx context.Context, args client.ExtraFilesAr
 
 func (f *FakeClient) UpdateExtraFiles(ctx context.Context, args client.ExtraFilesArgs) error {
 	if f.FakeUpdateExtraFiles != nil {
-		return f.UpdateExtraFiles(ctx, args)
+		return f.FakeUpdateExtraFiles(args)
 	}
 
 	return nil
@@ -251,7 +251,7 @@ func (f *FakeClient) UpdateExtraFiles(ctx context.Context, args client.ExtraFile
 
 func (f *FakeClient) DeleteExtraFiles(ctx context.Context, args client.DeleteExtraFilesArgs) error {
 	if f.FakeDeleteExtraFiles != nil {
-		return f.DeleteExtraFiles(ctx, args)
+		return f.FakeDeleteExtraFiles(args)
 	}
 
 	return nil
@@ -259,7 +259,7 @@ func (f *FakeClient) DeleteExtraFiles(ctx context.Context, args client.DeleteExt
 
 func (f *FakeClient) ListExtraFiles(ctx context.Context, instance string) ([]string, error) {
 	if f.FakeListExtraFiles != nil {
-		return f.ListExtraFiles(ctx, instance)
+		return f.FakeListExtraFiles(instance)
 	}
 
 	return nil, nil
@@ -267,7 +267,7 @@ func (f *FakeClient) ListExtraFiles(ctx context.Context, instance string) ([]str
 
 func (f *FakeClient) GetExtraFile(ctx context.Context, instance, fileName string) (types.RpaasFile, error) {
 	if f.FakeGetExtraFile != nil {
-		return f.GetExtraFile(ctx, instance, fileName)
+		return f.FakeGetExtraFile(instance, fileName)
 	}
 
 	return types.RpaasFile{}, nil

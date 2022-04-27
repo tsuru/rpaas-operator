@@ -8,7 +8,6 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"os"
 	"path/filepath"
 	"strings"
 
@@ -193,10 +192,10 @@ func prepareFiles(filePathList []string) (map[string][]byte, error) {
 	return files, nil
 }
 
-func extraFilesSuccessMessage(prefix, suffix, instance string, files []string) {
-	fmt.Printf("%s ", prefix)
-	fmt.Printf("[%v]", strings.Join(files, ", "))
-	fmt.Printf(" %s %s\n", suffix, instance)
+func extraFilesSuccessMessage(c *cli.Context, prefix, suffix, instance string, files []string) {
+	fmt.Fprintf(c.App.Writer, "%s ", prefix)
+	fmt.Fprintf(c.App.Writer, "[%s]", strings.Join(files, ", "))
+	fmt.Fprintf(c.App.Writer, " %s %s\n", suffix, instance)
 }
 
 func runAddExtraFiles(c *cli.Context) error {
@@ -223,7 +222,7 @@ func runAddExtraFiles(c *cli.Context) error {
 	for name := range files {
 		fNames = append(fNames, name)
 	}
-	extraFilesSuccessMessage("Added", "to", instance, fNames)
+	extraFilesSuccessMessage(c, "Added", "to", instance, fNames)
 	return nil
 }
 
@@ -251,7 +250,7 @@ func runUpdateExtraFiles(c *cli.Context) error {
 	for name := range files {
 		fNames = append(fNames, name)
 	}
-	extraFilesSuccessMessage("Updated", "on", instance, fNames)
+	extraFilesSuccessMessage(c, "Updated", "on", instance, fNames)
 	return nil
 }
 
@@ -271,7 +270,7 @@ func runDeleteExtraFiles(c *cli.Context) error {
 		return err
 	}
 
-	extraFilesSuccessMessage("Removed", "from", instance, files)
+	extraFilesSuccessMessage(c, "Removed", "from", instance, files)
 	return nil
 }
 
@@ -306,7 +305,7 @@ func runListExtraFiles(c *cli.Context) error {
 	switch c.Bool("show-content") {
 	default:
 		for _, file := range files {
-			fmt.Println(file)
+			fmt.Fprintln(c.App.Writer, file)
 		}
 	case true:
 		fileMap := map[string]string{}
@@ -318,7 +317,7 @@ func runListExtraFiles(c *cli.Context) error {
 				fileMap[name] = strings.TrimSuffix(string(f.Content), "\n")
 			}
 		}
-		writeExtraFilesOnTableFormat(os.Stdout, fileMap)
+		writeExtraFilesOnTableFormat(c.App.Writer, fileMap)
 	}
 	return nil
 }
@@ -334,6 +333,6 @@ func runGetExtraFile(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Println(strings.TrimSuffix(string(file.Content), "\n"))
+	fmt.Fprintln(c.App.Writer, strings.TrimSuffix(string(file.Content), "\n"))
 	return nil
 }
