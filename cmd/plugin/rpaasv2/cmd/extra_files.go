@@ -193,6 +193,12 @@ func prepareFiles(filePathList []string) (map[string][]byte, error) {
 	return files, nil
 }
 
+func extraFilesSuccessMessage(prefix, suffix, instance string, files []string) {
+	fmt.Printf("%s ", prefix)
+	fmt.Printf("[%v]", strings.Join(files, ", "))
+	fmt.Printf(" %s %s\n", suffix, instance)
+}
+
 func runAddExtraFiles(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
@@ -204,14 +210,20 @@ func runAddExtraFiles(c *cli.Context) error {
 		return err
 	}
 
+	instance := c.String("instance")
 	err = client.AddExtraFiles(c.Context, rpaasclient.ExtraFilesArgs{
-		Instance: c.String("instance"),
+		Instance: instance,
 		Files:    files,
 	})
 	if err != nil {
 		return err
 	}
 
+	fNames := []string{}
+	for name := range files {
+		fNames = append(fNames, name)
+	}
+	extraFilesSuccessMessage("Added", "to", instance, fNames)
 	return nil
 }
 
@@ -226,6 +238,7 @@ func runUpdateExtraFiles(c *cli.Context) error {
 		return err
 	}
 
+	instance := c.String("instance")
 	err = client.UpdateExtraFiles(c.Context, rpaasclient.ExtraFilesArgs{
 		Instance: c.String("instance"),
 		Files:    files,
@@ -234,6 +247,11 @@ func runUpdateExtraFiles(c *cli.Context) error {
 		return err
 	}
 
+	fNames := []string{}
+	for name := range files {
+		fNames = append(fNames, name)
+	}
+	extraFilesSuccessMessage("Updated", "on", instance, fNames)
 	return nil
 }
 
@@ -244,15 +262,16 @@ func runDeleteExtraFiles(c *cli.Context) error {
 	}
 
 	files := c.StringSlice("files")
-
+	instance := c.String("instance")
 	err = client.DeleteExtraFiles(c.Context, rpaasclient.DeleteExtraFilesArgs{
-		Instance: c.String("instance"),
+		Instance: instance,
 		Files:    files,
 	})
 	if err != nil {
 		return err
 	}
 
+	extraFilesSuccessMessage("Removed", "from", instance, files)
 	return nil
 }
 

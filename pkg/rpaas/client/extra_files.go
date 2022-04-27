@@ -10,7 +10,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
@@ -85,12 +84,6 @@ func (c *client) AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error {
 		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	respString, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s\n", respString)
-
 	return nil
 }
 
@@ -121,12 +114,6 @@ func (c *client) UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) erro
 		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	respString, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("%s\n", respString)
 	return nil
 }
 
@@ -157,12 +144,6 @@ func (c *client) DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs
 		return newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	respString, err := io.ReadAll(response.Body)
-	if err != nil {
-		return err
-	}
-
-	fmt.Printf("%s\n", respString)
 	return nil
 }
 
