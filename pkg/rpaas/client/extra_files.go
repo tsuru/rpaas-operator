@@ -195,7 +195,7 @@ func (c *client) ListExtraFiles(ctx context.Context, instance string) ([]string,
 }
 
 func (c *client) GetExtraFile(ctx context.Context, instance, fileName string) (types.RpaasFile, error) {
-	pathName := fmt.Sprintf("/resources/%s/files", instance)
+	pathName := fmt.Sprintf("/resources/%s/files/%s", instance, fileName)
 	req, err := c.newRequest(http.MethodGet, pathName, nil, instance)
 	if err != nil {
 		return types.RpaasFile{}, err

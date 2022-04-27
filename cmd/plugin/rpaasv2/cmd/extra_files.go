@@ -6,9 +6,13 @@ package cmd
 
 import (
 	"fmt"
+	"io"
 	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
 )
@@ -252,6 +256,22 @@ func runDeleteExtraFiles(c *cli.Context) error {
 	return nil
 }
 
+func writeExtraFilesOnTableFormat(writer io.Writer, files map[string]string) {
+	data := [][]string{}
+	for name, content := range files {
+		data = append(data, []string{name, content})
+	}
+
+	table := tablewriter.NewWriter(writer)
+	table.SetHeader([]string{"Name", "Content"})
+	table.SetAutoWrapText(false)
+	table.SetRowLine(true)
+	table.SetAutoFormatHeaders(false)
+	table.SetAlignment(tablewriter.ALIGN_LEFT)
+	table.AppendBulk(data)
+	table.Render()
+}
+
 func runListExtraFiles(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
@@ -269,18 +289,19 @@ func runListExtraFiles(c *cli.Context) error {
 		for _, file := range files {
 			fmt.Println(file)
 		}
-		return nil
 	case true:
+		fileMap := map[string]string{}
 		for _, name := range files {
 			f, err := client.GetExtraFile(c.Context, instance, name)
 			if err != nil {
-				fmt.Printf("%s:\t%s\n", f.Name, err.Error())
+				fileMap[name] = err.Error()
 			} else {
-				fmt.Printf("%s:\t%s\n", f.Name, f.Content)
+				fileMap[name] = strings.TrimSuffix(string(f.Content), "\n")
 			}
 		}
-		return nil
+		writeExtraFilesOnTableFormat(os.Stdout, fileMap)
 	}
+	return nil
 }
 
 func runGetExtraFile(c *cli.Context) error {
@@ -294,7 +315,6 @@ func runGetExtraFile(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Println(file.Content)
-
+	fmt.Println(strings.TrimSuffix(string(file.Content), "\n"))
 	return nil
 }
