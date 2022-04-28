@@ -151,7 +151,7 @@ type Client interface {
 	UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs) error
 	ListExtraFiles(ctx context.Context, instance string) ([]string, error)
-	GetExtraFile(ctx context.Context, instance, filename string) (types.RpaasFile, error)
+	GetExtraFile(ctx context.Context, args GetExtraFileArgs) (types.RpaasFile, error)
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)

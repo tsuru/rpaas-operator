@@ -310,7 +310,10 @@ func runListExtraFiles(c *cli.Context) error {
 	case true:
 		fileMap := map[string]string{}
 		for _, name := range files {
-			f, err := client.GetExtraFile(c.Context, instance, name)
+			f, err := client.GetExtraFile(c.Context, rpaasclient.GetExtraFileArgs{
+				Instance: instance,
+				FileName: name,
+			})
 			if err != nil {
 				fileMap[name] = err.Error()
 			} else {
@@ -328,7 +331,10 @@ func runGetExtraFile(c *cli.Context) error {
 		return err
 	}
 
-	file, err := client.GetExtraFile(c.Context, c.String("instance"), c.String("file"))
+	file, err := client.GetExtraFile(c.Context, rpaasclient.GetExtraFileArgs{
+		Instance: c.String("instance"),
+		FileName: c.String("file"),
+	})
 	if err != nil {
 		return err
 	}

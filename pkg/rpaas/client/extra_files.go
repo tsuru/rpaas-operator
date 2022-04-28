@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -24,7 +23,7 @@ func (args ExtraFilesArgs) Validate() error {
 	}
 
 	if args.Files == nil {
-		return fmt.Errorf("rpaasv2: file list cannot be empty")
+		return ErrMissingFiles
 	}
 
 	return nil
@@ -35,7 +34,7 @@ func (args DeleteExtraFilesArgs) Validate() error {
 		return ErrMissingInstance
 	}
 	if len(args.Files) == 0 {
-		return errors.New("rpaasv2: file list must not be empty")
+		return ErrMissingFiles
 	}
 
 	return nil
@@ -175,9 +174,17 @@ func (c *client) ListExtraFiles(ctx context.Context, instance string) ([]string,
 	return fileList, nil
 }
 
-func (c *client) GetExtraFile(ctx context.Context, instance, fileName string) (types.RpaasFile, error) {
-	pathName := fmt.Sprintf("/resources/%s/files/%s", instance, fileName)
-	req, err := c.newRequest(http.MethodGet, pathName, nil, instance)
+func (c *client) GetExtraFile(ctx context.Context, args GetExtraFileArgs) (types.RpaasFile, error) {
+	if args.Instance == "" {
+		return types.RpaasFile{}, ErrMissingInstance
+	}
+
+	if args.FileName == "" {
+		return types.RpaasFile{}, ErrMissingFile
+	}
+
+	pathName := fmt.Sprintf("/resources/%s/files/%s", args.Instance, args.FileName)
+	req, err := c.newRequest(http.MethodGet, pathName, nil, args.Instance)
 	if err != nil {
 		return types.RpaasFile{}, err
 	}

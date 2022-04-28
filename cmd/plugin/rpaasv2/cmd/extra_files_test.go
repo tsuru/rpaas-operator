@@ -330,7 +330,7 @@ func TestListExtraFiles(t *testing.T) {
 					assert.Equal(t, expectedInstance, instance)
 					return []string{"f1", "f2"}, nil
 				},
-				FakeGetExtraFile: func(instance, fileName string) (types.RpaasFile, error) {
+				FakeGetExtraFile: func(args rpaasclient.GetExtraFileArgs) (types.RpaasFile, error) {
 					counter++
 					switch counter {
 					case 1:
@@ -374,11 +374,11 @@ func TestGetExtraFile(t *testing.T) {
 			args:          []string{"./rpaasv2", "extra-files", "get", "-i", "my-instance", "--file", "f1"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
-				FakeGetExtraFile: func(instance, fileName string) (types.RpaasFile, error) {
+				FakeGetExtraFile: func(args rpaasclient.GetExtraFileArgs) (types.RpaasFile, error) {
 					expectedFileName := "f1"
 					expectedInstance := "my-instance"
-					assert.Equal(t, expectedFileName, fileName)
-					assert.Equal(t, expectedInstance, instance)
+					assert.Equal(t, expectedFileName, args.FileName)
+					assert.Equal(t, expectedInstance, args.Instance)
 					return types.RpaasFile{}, fmt.Errorf("some error")
 				},
 			},
@@ -388,13 +388,13 @@ func TestGetExtraFile(t *testing.T) {
 			args:     []string{"./rpaasv2", "extra-files", "get", "-i", "my-instance", "--file", "f1"},
 			expected: "some content\n",
 			client: &fake.FakeClient{
-				FakeGetExtraFile: func(instance, fileName string) (types.RpaasFile, error) {
+				FakeGetExtraFile: func(args rpaasclient.GetExtraFileArgs) (types.RpaasFile, error) {
 					expectedFileName := "f1"
 					expectedInstance := "my-instance"
-					assert.Equal(t, expectedFileName, fileName)
-					assert.Equal(t, expectedInstance, instance)
+					assert.Equal(t, expectedFileName, args.FileName)
+					assert.Equal(t, expectedInstance, args.Instance)
 					return types.RpaasFile{
-						Name:    fileName,
+						Name:    args.FileName,
 						Content: []byte("some content"),
 					}, nil
 				},

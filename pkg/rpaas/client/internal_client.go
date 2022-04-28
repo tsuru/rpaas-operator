@@ -27,6 +27,8 @@ var (
 	ErrMissingTsuruToken        = fmt.Errorf("rpaasv2: tsuru token cannot be empty")
 	ErrMissingTsuruService      = fmt.Errorf("rpaasv2: tsuru service cannot be empty")
 	ErrMissingInstance          = fmt.Errorf("rpaasv2: instance cannot be empty")
+	ErrMissingFile              = fmt.Errorf("rpaasv2: file must have a name")
+	ErrMissingFiles             = fmt.Errorf("rpaasv2: file list must not be empty")
 	ErrMissingBlockName         = fmt.Errorf("rpaasv2: block name cannot be empty")
 	ErrMissingPath              = fmt.Errorf("rpaasv2: path cannot be empty")
 	ErrInvalidMaxReplicasNumber = fmt.Errorf("rpaasv2: max replicas can't be lower than 1")
