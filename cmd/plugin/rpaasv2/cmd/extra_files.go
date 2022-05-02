@@ -49,7 +49,6 @@ func NewCmdAddExtraFiles() *cli.Command {
 			},
 			&cli.StringSliceFlag{
 				Name:     "files",
-				Aliases:  []string{"filepaths", "paths", "names"},
 				Usage:    "file path of each file",
 				Required: true,
 			},
