@@ -20,6 +20,7 @@ import (
 	"github.com/spf13/pflag"
 	"github.com/spf13/viper"
 	corev1 "k8s.io/api/core/v1"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 )
 
 const (
@@ -59,6 +60,9 @@ type ClusterConfig struct {
 	Address   string `json:"address"`
 	Token     string `json:"token"`
 	TokenFile string `json:"tokenFile"`
+	CA        string `json:"ca"`
+
+	AuthProvider *clientcmdapi.AuthProviderConfig `json:"authProvider"`
 }
 
 var rpaasConfig struct {

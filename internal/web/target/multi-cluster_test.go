@@ -14,21 +14,6 @@ import (
 
 var ctx = context.Background()
 
-func TestMultiClusterToken(t *testing.T) {
-	target := NewMultiClustersFactory([]config.ClusterConfig{
-		{
-			Name:  "my-cluster",
-			Token: "my-token",
-		},
-	})
-
-	multiClusterTarget := target.(*multiClusterFactory)
-	token, err := multiClusterTarget.getToken("my-cluster")
-
-	assert.NoError(t, err)
-	assert.Equal(t, token, "my-token")
-}
-
 func TestMultiClusterTokenFile(t *testing.T) {
 	tmpfile, err := ioutil.TempFile("", "example")
 	require.NoError(t, err)
@@ -45,16 +30,16 @@ func TestMultiClusterTokenFile(t *testing.T) {
 	defer os.Remove(tmpfile.Name())
 
 	multiClusterTarget := target.(*multiClusterFactory)
-	token, err := multiClusterTarget.getToken("my-cluster")
+	restConfig, err := multiClusterTarget.getKubeConfig("my-cluster", "")
 
 	assert.NoError(t, err)
-	assert.Equal(t, token, "token-from-file")
+	assert.Equal(t, "token-from-file", restConfig.BearerToken)
 
 	os.Remove(tmpfile.Name())
-	token, err = multiClusterTarget.getToken("my-cluster")
+	restConfig, err = multiClusterTarget.getKubeConfig("my-cluster", "")
 
 	assert.NoError(t, err)
-	assert.Equal(t, token, "token-from-file")
+	assert.Equal(t, "token-from-file", restConfig.BearerToken)
 }
 
 func TestMultiClusterNoToken(t *testing.T) {
@@ -73,10 +58,10 @@ func TestMultiClusterNoToken(t *testing.T) {
 	defer os.Remove(tmpfile.Name())
 
 	multiClusterTarget := target.(*multiClusterFactory)
-	token, err := multiClusterTarget.getToken("my-wrong-cluster")
+	_, err = multiClusterTarget.getKubeConfig("my-wrong-cluster", "")
 
-	assert.NoError(t, err)
-	assert.Equal(t, token, "")
+	require.Error(t, err)
+	assert.Equal(t, "cluster not found", err.Error())
 }
 
 func TestMultiClusterDefaultToken(t *testing.T) {
@@ -90,10 +75,10 @@ func TestMultiClusterDefaultToken(t *testing.T) {
 	})
 
 	multiClusterTarget := target.(*multiClusterFactory)
-	token, err := multiClusterTarget.getToken("my-other-cluster")
+	restConfig, err := multiClusterTarget.getKubeConfig("my-other-cluster", "")
 
 	assert.NoError(t, err)
-	assert.Equal(t, token, "my-token")
+	assert.Equal(t, "my-token", restConfig.BearerToken)
 }
 
 func TestMultiClusterNoHeaders(t *testing.T) {
@@ -108,5 +93,5 @@ func TestMultiClusterNoHeaders(t *testing.T) {
 	rpaasManager, err := target.Manager(ctx, http.Header{})
 
 	assert.Nil(t, rpaasManager)
-	assert.Equal(t, err, ErrNoClusterProvided)
+	assert.Equal(t, ErrNoClusterProvided, err)
 }
