@@ -20,7 +20,7 @@ func NewCmdExtraFiles() *cli.Command {
 	return &cli.Command{
 		Name:    "extra-files",
 		Aliases: []string{"files"},
-		Usage:   "Add extra files to the RpaaS filesystem, they will be mounted on: etc/ngnix/extra-files",
+		Usage:   "Manages persistent files in the instance filesystem",
 		Subcommands: []*cli.Command{
 			NewCmdAddExtraFiles(),
 			NewCmdUpdateExtraFiles(),
