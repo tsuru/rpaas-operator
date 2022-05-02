@@ -52,15 +52,15 @@ func (args GetExtraFileArgs) Validate() error {
 	return nil
 }
 
-func prepareBodyRequest(files map[string][]byte) (*bytes.Buffer, *multipart.Writer, error) {
+func prepareBodyRequest(files []types.RpaasFile) (*bytes.Buffer, *multipart.Writer, error) {
 	buffer := &bytes.Buffer{}
 	writer := multipart.NewWriter(buffer)
-	for filePath, content := range files {
-		partWriter, err := writer.CreateFormFile("files", filepath.Base(filePath))
+	for _, file := range files {
+		partWriter, err := writer.CreateFormFile("files", filepath.Base(file.Name))
 		if err != nil {
 			return nil, nil, err
 		}
-		partWriter.Write(content)
+		partWriter.Write(file.Content)
 	}
 	if err := writer.Close(); err != nil {
 		return nil, nil, err

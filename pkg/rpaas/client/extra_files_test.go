@@ -100,7 +100,16 @@ func TestClientThroughTsuru_AddExtraFiles(t *testing.T) {
 			name: "when the server returns an error",
 			args: ExtraFilesArgs{
 				Instance: "my-instance",
-				Files:    map[string][]byte{"f1": []byte("content 1"), "f2": []byte("content 2")},
+				Files: []types.RpaasFile{
+					{
+						Name:    "f1",
+						Content: []byte("content 1"),
+					},
+					{
+						Name:    "f2",
+						Content: []byte("content 2"),
+					},
+				},
 			},
 			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
@@ -112,7 +121,16 @@ func TestClientThroughTsuru_AddExtraFiles(t *testing.T) {
 			name: "when the server returns the expected response",
 			args: ExtraFilesArgs{
 				Instance: "my-instance",
-				Files:    map[string][]byte{"f1": []byte("content 1"), "f2": []byte("content 2")},
+				Files: []types.RpaasFile{
+					{
+						Name:    "f1",
+						Content: []byte("content 1"),
+					},
+					{
+						Name:    "f2",
+						Content: []byte("content 2"),
+					},
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
@@ -167,7 +185,16 @@ func TestClientThroughTsuru_UpdateExtraFiles(t *testing.T) {
 			name: "when the server returns an error",
 			args: ExtraFilesArgs{
 				Instance: "my-instance",
-				Files:    map[string][]byte{"f1": []byte("content 1"), "f2": []byte("content 2")},
+				Files: []types.RpaasFile{
+					{
+						Name:    "f1",
+						Content: []byte("content 1"),
+					},
+					{
+						Name:    "f2",
+						Content: []byte("content 2"),
+					},
+				},
 			},
 			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
@@ -179,7 +206,16 @@ func TestClientThroughTsuru_UpdateExtraFiles(t *testing.T) {
 			name: "when the server returns the expected response",
 			args: ExtraFilesArgs{
 				Instance: "my-instance",
-				Files:    map[string][]byte{"f1": []byte("content 1"), "f2": []byte("content 2")},
+				Files: []types.RpaasFile{
+					{
+						Name:    "f1",
+						Content: []byte("content 1"),
+					},
+					{
+						Name:    "f2",
+						Content: []byte("content 2"),
+					},
+				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "PUT")

@@ -51,14 +51,7 @@ func TestDeleteExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error) {
 				require.NoError(t, err)
 				s1 := "Removed [f1, f2] from my-instance\n"
-				s2 := "Removed [f2, f1] from my-instance\n"
-				stdoutString := stdout.String()
-				if s1 != stdoutString {
-					assert.Equal(t, s2, stdoutString)
-				} else {
-					// this is just to force the assertion of both strings instead of just one
-					assert.Equal(t, s1, stdoutString)
-				}
+				assert.Equal(t, s1, stdout.String())
 				assert.Empty(t, stderr.String())
 			},
 			client: &fake.FakeClient{
@@ -119,7 +112,12 @@ func TestAddExtraFiles(t *testing.T) {
 				FakeAddExtraFiles: func(args rpaasclient.ExtraFilesArgs) error {
 					expected := rpaasclient.ExtraFilesArgs{
 						Instance: "my-instance",
-						Files:    map[string][]byte{f1.Name(): []byte(c1)},
+						Files: []types.RpaasFile{
+							{
+								Name:    f1.Name(),
+								Content: []byte(c1),
+							},
+						},
 					}
 					assert.Equal(t, expected, args)
 					return fmt.Errorf("some error")
@@ -132,21 +130,23 @@ func TestAddExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error, f1Name, f2Name string) {
 				require.NoError(t, err)
 				s1 := fmt.Sprintf("Added [%s, %s] to my-instance\n", f1Name, f2Name)
-				s2 := fmt.Sprintf("Added [%s, %s] to my-instance\n", f2Name, f1Name)
-				stdoutString := stdout.String()
-				if s1 != stdoutString {
-					assert.Equal(t, s2, stdoutString)
-				} else {
-					// this is just to force the assertion of both strings instead of just one assertion + if condition
-					assert.Equal(t, s1, stdoutString)
-				}
+				assert.Equal(t, s1, stdout.String())
 				assert.Empty(t, stderr.String())
 			},
 			client: &fake.FakeClient{
 				FakeAddExtraFiles: func(args rpaasclient.ExtraFilesArgs) error {
 					expected := rpaasclient.ExtraFilesArgs{
 						Instance: "my-instance",
-						Files:    map[string][]byte{f1.Name(): []byte(c1), f2.Name(): []byte(c2)},
+						Files: []types.RpaasFile{
+							{
+								Name:    f1.Name(),
+								Content: []byte(c1),
+							},
+							{
+								Name:    f2.Name(),
+								Content: []byte(c2),
+							},
+						},
 					}
 					assert.Equal(t, expected, args)
 					return nil
@@ -200,7 +200,12 @@ func TestUpdateExtraFiles(t *testing.T) {
 				FakeUpdateExtraFiles: func(args rpaasclient.ExtraFilesArgs) error {
 					expected := rpaasclient.ExtraFilesArgs{
 						Instance: "my-instance",
-						Files:    map[string][]byte{f1.Name(): []byte(c1)},
+						Files: []types.RpaasFile{
+							{
+								Name:    f1.Name(),
+								Content: []byte(c1),
+							},
+						},
 					}
 					assert.Equal(t, expected, args)
 					return fmt.Errorf("some error")
@@ -213,21 +218,23 @@ func TestUpdateExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error, f1Name, f2Name string) {
 				require.NoError(t, err)
 				s1 := fmt.Sprintf("Updated [%s, %s] on my-instance\n", f1Name, f2Name)
-				s2 := fmt.Sprintf("Updated [%s, %s] on my-instance\n", f2Name, f1Name)
-				stdoutString := stdout.String()
-				if s1 != stdoutString {
-					assert.Equal(t, s2, stdoutString)
-				} else {
-					// this is just to force the assertion of both strings instead of just one assertion + if condition
-					assert.Equal(t, s1, stdoutString)
-				}
+				assert.Equal(t, s1, stdout.String())
 				assert.Empty(t, stderr.String())
 			},
 			client: &fake.FakeClient{
 				FakeUpdateExtraFiles: func(args rpaasclient.ExtraFilesArgs) error {
 					expected := rpaasclient.ExtraFilesArgs{
 						Instance: "my-instance",
-						Files:    map[string][]byte{f1.Name(): []byte(c1), f2.Name(): []byte(c2)},
+						Files: []types.RpaasFile{
+							{
+								Name:    f1.Name(),
+								Content: []byte(c1),
+							},
+							{
+								Name:    f2.Name(),
+								Content: []byte(c2),
+							},
+						},
 					}
 					assert.Equal(t, expected, args)
 					return nil
@@ -276,15 +283,7 @@ func TestListExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error) {
 				require.NoError(t, err)
 				s1 := "f1\nf2\n"
-				s2 := "f2\nf1\n"
-				stdoutString := stdout.String()
-				if s1 != stdoutString {
-					assert.Equal(t, s2, stdoutString)
-				} else {
-					// this is just to force the assertion of both strings instead of just one assertion + if condition
-					assert.Equal(t, s1, stdoutString)
-				}
-				assert.Empty(t, stderr.String())
+				assert.Equal(t, s1, stdout.String())
 			},
 			client: &fake.FakeClient{
 				FakeListExtraFiles: func(instance string) ([]string, error) {
@@ -307,21 +306,7 @@ func TestListExtraFiles(t *testing.T) {
 | f2   | some content 2 |
 +------+----------------+
 `
-				s2 := `+------+----------------+
-| Name |    Content     |
-+------+----------------+
-| f2   | some content 2 |
-+------+----------------+
-| f1   | some content 1 |
-+------+----------------+
-`
-				stdoutString := stdout.String()
-				if s1 != stdoutString {
-					assert.Equal(t, s2, stdoutString)
-				} else {
-					// this is just to force the assertion of both strings instead of just one assertion + if condition
-					assert.Equal(t, s1, stdoutString)
-				}
+				assert.Equal(t, s1, stdout.String())
 				assert.Empty(t, stderr.String())
 			},
 			client: &fake.FakeClient{

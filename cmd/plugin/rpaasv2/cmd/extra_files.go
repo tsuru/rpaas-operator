@@ -12,6 +12,7 @@ import (
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
 )
 
@@ -168,14 +169,17 @@ func NewCmdGetExtraFile() *cli.Command {
 	}
 }
 
-func prepareFiles(filePathList []string) (map[string][]byte, error) {
-	files := map[string][]byte{}
+func prepareFiles(filePathList []string) ([]types.RpaasFile, error) {
+	files := []types.RpaasFile{}
 	for _, fp := range filePathList {
 		fileContent, err := os.ReadFile(fp)
 		if err != nil {
 			return nil, err
 		}
-		files[fp] = fileContent
+		files = append(files, types.RpaasFile{
+			Name:    fp,
+			Content: fileContent,
+		})
 	}
 
 	return files, nil
@@ -208,8 +212,8 @@ func runAddExtraFiles(c *cli.Context) error {
 	}
 
 	fNames := []string{}
-	for name := range files {
-		fNames = append(fNames, name)
+	for _, file := range files {
+		fNames = append(fNames, file.Name)
 	}
 	extraFilesSuccessMessage(c, "Added", "to", instance, fNames)
 	return nil
@@ -236,8 +240,8 @@ func runUpdateExtraFiles(c *cli.Context) error {
 	}
 
 	fNames := []string{}
-	for name := range files {
-		fNames = append(fNames, name)
+	for _, file := range files {
+		fNames = append(fNames, file.Name)
 	}
 	extraFilesSuccessMessage(c, "Updated", "on", instance, fNames)
 	return nil

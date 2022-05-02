@@ -20,7 +20,7 @@ type ScaleArgs struct {
 
 type ExtraFilesArgs struct {
 	Instance string
-	Files    map[string][]byte
+	Files    []types.RpaasFile
 }
 
 type DeleteExtraFilesArgs struct {
