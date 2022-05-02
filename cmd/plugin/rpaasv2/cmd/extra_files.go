@@ -7,8 +7,7 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
-	"path/filepath"
+	"os"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -171,16 +170,8 @@ func NewCmdGetExtraFile() *cli.Command {
 
 func prepareFiles(filePathList []string) (map[string][]byte, error) {
 	files := map[string][]byte{}
-	var err error
 	for _, fp := range filePathList {
-		path := fp
-		if !filepath.IsAbs(fp) {
-			path, err = filepath.Abs(fp)
-			if err != nil {
-				return nil, err
-			}
-		}
-		fileContent, err := ioutil.ReadFile(path)
+		fileContent, err := os.ReadFile(fp)
 		if err != nil {
 			return nil, err
 		}
