@@ -28,7 +28,7 @@ func TestDeleteExtraFiles(t *testing.T) {
 	}{
 		{
 			name:          "when DeleteExtraFiles returns an error",
-			args:          []string{"./rpaasv2", "extra-files", "delete", "-i", "my-instance", "--files", "f1"},
+			args:          []string{"./rpaasv2", "extra-files", "delete", "-i", "my-instance", "--file", "f1"},
 			expectedError: "some error",
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error) {
 				assert.Error(t, err)
@@ -47,7 +47,7 @@ func TestDeleteExtraFiles(t *testing.T) {
 		},
 		{
 			name: "when DeleteExtraFiles returns no error",
-			args: []string{"./rpaasv2", "extra-files", "delete", "-i", "my-instance", "--files", "f1", "--files", "f2"},
+			args: []string{"./rpaasv2", "extra-files", "delete", "-i", "my-instance", "--file", "f1", "--file", "f2"},
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error) {
 				require.NoError(t, err)
 				s1 := "Removed [f1, f2] from my-instance\n"
@@ -110,7 +110,7 @@ func TestAddExtraFiles(t *testing.T) {
 	}{
 		{
 			name: "when AddExtraFiles returns an error",
-			args: []string{"./rpaasv2", "extra-files", "add", "-i", "my-instance", "--files", f1.Name()},
+			args: []string{"./rpaasv2", "extra-files", "add", "-i", "my-instance", "--file", f1.Name()},
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error, f1Name, f2Name string) {
 				assert.Error(t, err)
 				assert.EqualError(t, err, "some error")
@@ -128,7 +128,7 @@ func TestAddExtraFiles(t *testing.T) {
 		},
 		{
 			name: "when AddExtraFiles returns no error",
-			args: []string{"./rpaasv2", "extra-files", "add", "-i", "my-instance", "--files", f1.Name(), "--files", f2.Name()},
+			args: []string{"./rpaasv2", "extra-files", "add", "-i", "my-instance", "--file", f1.Name(), "--file", f2.Name()},
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error, f1Name, f2Name string) {
 				require.NoError(t, err)
 				s1 := fmt.Sprintf("Added [%s, %s] to my-instance\n", f1Name, f2Name)
@@ -191,7 +191,7 @@ func TestUpdateExtraFiles(t *testing.T) {
 	}{
 		{
 			name: "when UpdateExtraFiles returns an error",
-			args: []string{"./rpaasv2", "extra-files", "update", "-i", "my-instance", "--files", f1.Name()},
+			args: []string{"./rpaasv2", "extra-files", "update", "-i", "my-instance", "--file", f1.Name()},
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error, f1Name, f2Name string) {
 				assert.Error(t, err)
 				assert.EqualError(t, err, "some error")
@@ -209,7 +209,7 @@ func TestUpdateExtraFiles(t *testing.T) {
 		},
 		{
 			name: "when Update returns no error",
-			args: []string{"./rpaasv2", "extra-files", "update", "-i", "my-instance", "--files", f1.Name(), "--files", f2.Name()},
+			args: []string{"./rpaasv2", "extra-files", "update", "-i", "my-instance", "--file", f1.Name(), "--file", f2.Name()},
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error, f1Name, f2Name string) {
 				require.NoError(t, err)
 				s1 := fmt.Sprintf("Updated [%s, %s] on my-instance\n", f1Name, f2Name)

@@ -48,7 +48,7 @@ func NewCmdAddExtraFiles() *cli.Command {
 				Required: true,
 			},
 			&cli.StringSliceFlag{
-				Name:     "files",
+				Name:     "file",
 				Usage:    "file path of each file",
 				Required: true,
 			},
@@ -75,7 +75,7 @@ func NewCmdUpdateExtraFiles() *cli.Command {
 				Required: true,
 			},
 			&cli.StringSliceFlag{
-				Name:     "files",
+				Name:     "file",
 				Usage:    "file path of each file",
 				Required: true,
 			},
@@ -103,7 +103,7 @@ func NewCmdDeleteExtraFiles() *cli.Command {
 				Required: true,
 			},
 			&cli.StringSliceFlag{
-				Name:     "files",
+				Name:     "file",
 				Aliases:  []string{"filepaths", "paths", "names"},
 				Usage:    "file path of each file",
 				Required: true,
@@ -202,7 +202,7 @@ func runAddExtraFiles(c *cli.Context) error {
 		return err
 	}
 
-	files, err := prepareFiles(c.StringSlice("files"))
+	files, err := prepareFiles(c.StringSlice("file"))
 	if err != nil {
 		return err
 	}
@@ -230,7 +230,7 @@ func runUpdateExtraFiles(c *cli.Context) error {
 		return err
 	}
 
-	files, err := prepareFiles(c.StringSlice("files"))
+	files, err := prepareFiles(c.StringSlice("file"))
 	if err != nil {
 		return err
 	}
@@ -258,7 +258,7 @@ func runDeleteExtraFiles(c *cli.Context) error {
 		return err
 	}
 
-	files := c.StringSlice("files")
+	files := c.StringSlice("file")
 	instance := c.String("instance")
 	err = client.DeleteExtraFiles(c.Context, rpaasclient.DeleteExtraFilesArgs{
 		Instance: instance,
