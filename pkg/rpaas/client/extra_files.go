@@ -22,7 +22,7 @@ func (args ExtraFilesArgs) Validate() error {
 		return ErrMissingInstance
 	}
 
-	if args.Files == nil {
+	if len(args.Files) == 0 {
 		return ErrMissingFiles
 	}
 
