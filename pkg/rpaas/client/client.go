@@ -33,6 +33,10 @@ type GetExtraFileArgs struct {
 	FileName string
 }
 
+type ListExtraFilesArgs struct {
+	Instance    string
+	ShowContent bool
+}
 type UpdateCertificateArgs struct {
 	Instance    string
 	Name        string
@@ -150,7 +154,7 @@ type Client interface {
 	AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs) error
-	ListExtraFiles(ctx context.Context, instance string) ([]string, error)
+	ListExtraFiles(ctx context.Context, args ListExtraFilesArgs) ([]types.RpaasFile, error)
 	GetExtraFile(ctx context.Context, args GetExtraFileArgs) (types.RpaasFile, error)
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error

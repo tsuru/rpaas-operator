@@ -267,10 +267,10 @@ func runDeleteExtraFiles(c *cli.Context) error {
 	return nil
 }
 
-func writeExtraFilesOnTableFormat(writer io.Writer, files map[string]string) {
+func writeExtraFilesOnTableFormat(writer io.Writer, files []types.RpaasFile) {
 	data := [][]string{}
-	for name, content := range files {
-		data = append(data, []string{name, content})
+	for _, file := range files {
+		data = append(data, []string{file.Name, string(file.Content)})
 	}
 
 	table := tablewriter.NewWriter(writer)
@@ -289,31 +289,22 @@ func runListExtraFiles(c *cli.Context) error {
 		return err
 	}
 
-	instance := c.String("instance")
-
-	files, err := client.ListExtraFiles(c.Context, instance)
+	showContent := c.Bool("show-content")
+	args := rpaasclient.ListExtraFilesArgs{
+		Instance:    c.String("instance"),
+		ShowContent: showContent,
+	}
+	files, err := client.ListExtraFiles(c.Context, args)
 	if err != nil {
 		return err
 	}
-	switch c.Bool("show-content") {
+	switch showContent {
 	default:
 		for _, file := range files {
-			fmt.Fprintln(c.App.Writer, file)
+			fmt.Fprintln(c.App.Writer, file.Name)
 		}
 	case true:
-		fileMap := map[string]string{}
-		for _, name := range files {
-			f, err := client.GetExtraFile(c.Context, rpaasclient.GetExtraFileArgs{
-				Instance: instance,
-				FileName: name,
-			})
-			if err != nil {
-				fileMap[name] = err.Error()
-			} else {
-				fileMap[name] = strings.TrimSuffix(string(f.Content), "\n")
-			}
-		}
-		writeExtraFilesOnTableFormat(c.App.Writer, fileMap)
+		writeExtraFilesOnTableFormat(c.App.Writer, files)
 	}
 	return nil
 }

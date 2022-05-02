@@ -40,7 +40,7 @@ type FakeClient struct {
 	FakeAddExtraFiles           func(args client.ExtraFilesArgs) error
 	FakeUpdateExtraFiles        func(args client.ExtraFilesArgs) error
 	FakeDeleteExtraFiles        func(args client.DeleteExtraFilesArgs) error
-	FakeListExtraFiles          func(instance string) ([]string, error)
+	FakeListExtraFiles          func(args client.ListExtraFilesArgs) ([]types.RpaasFile, error)
 	FakeGetExtraFile            func(args client.GetExtraFileArgs) (types.RpaasFile, error)
 }
 
@@ -257,9 +257,9 @@ func (f *FakeClient) DeleteExtraFiles(ctx context.Context, args client.DeleteExt
 	return nil
 }
 
-func (f *FakeClient) ListExtraFiles(ctx context.Context, instance string) ([]string, error) {
+func (f *FakeClient) ListExtraFiles(ctx context.Context, args client.ListExtraFilesArgs) ([]types.RpaasFile, error) {
 	if f.FakeListExtraFiles != nil {
-		return f.FakeListExtraFiles(instance)
+		return f.FakeListExtraFiles(args)
 	}
 
 	return nil, nil

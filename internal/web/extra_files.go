@@ -10,6 +10,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
 	"strings"
 
 	"github.com/labstack/echo/v4"
@@ -27,11 +28,14 @@ func listExtraFiles(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	names := make([]string, len(files))
-	for i, file := range files {
-		names[i] = file.Name
+
+	showContent, _ := strconv.ParseBool(c.QueryParam("show-content"))
+	if !showContent {
+		for i := range files {
+			files[i].Content = nil
+		}
 	}
-	return c.JSON(http.StatusOK, names)
+	return c.JSON(http.StatusOK, files)
 }
 
 func getExtraFile(c echo.Context) error {

@@ -326,9 +326,9 @@ func TestClientThroughTsuru_GetExtraFiles(t *testing.T) {
 func TestClientThroughTsuru_ListExtraFiles(t *testing.T) {
 	tests := []struct {
 		name          string
-		instance      string
+		args          ListExtraFilesArgs
 		expectedError string
-		expectedFiles []string
+		expectedFiles []types.RpaasFile
 		handler       http.HandlerFunc
 	}{
 		{
@@ -336,8 +336,10 @@ func TestClientThroughTsuru_ListExtraFiles(t *testing.T) {
 			expectedError: "rpaasv2: instance cannot be empty",
 		},
 		{
-			name:          "when the server returns an error",
-			instance:      "my-instance",
+			name: "when the server returns an error",
+			args: ListExtraFilesArgs{
+				Instance: "my-instance",
+			},
 			expectedError: "rpaasv2: unexpected status code: 404 Not Found, detail: instance not found",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				w.WriteHeader(http.StatusNotFound)
@@ -345,15 +347,61 @@ func TestClientThroughTsuru_ListExtraFiles(t *testing.T) {
 			},
 		},
 		{
-			name:          "when the server returns the expected response",
-			instance:      "my-instance",
-			expectedFiles: []string{"f1", "f2"},
+			name: "when the server returns the expected response",
+			args: ListExtraFilesArgs{
+				Instance: "my-instance",
+			},
+			expectedFiles: []types.RpaasFile{{Name: "f1"}, {Name: "f2"}},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/files"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/files?show-content=false"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.Header().Set("Content-type", "application/json")
-				files := []string{"f1", "f2"}
+				files := []types.RpaasFile{
+					{
+						Name: "f1",
+					},
+					{
+						Name: "f2",
+					},
+				}
+				filesBytes, err := json.Marshal(files)
+				assert.NoError(t, err)
+				fmt.Fprint(w, string(filesBytes))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name: "when the server returns the expected response with show-content query param",
+			args: ListExtraFilesArgs{
+				Instance:    "my-instance",
+				ShowContent: true,
+			},
+			expectedFiles: []types.RpaasFile{
+				{
+					Name:    "f1",
+					Content: []byte("c1"),
+				},
+				{
+					Name:    "f2",
+					Content: []byte("c2"),
+				},
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "GET")
+				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/files?show-content=true"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				w.Header().Set("Content-type", "application/json")
+				files := []types.RpaasFile{
+					{
+						Name:    "f1",
+						Content: []byte("c1"),
+					},
+					{
+						Name:    "f2",
+						Content: []byte("c2"),
+					},
+				}
 				filesBytes, err := json.Marshal(files)
 				assert.NoError(t, err)
 				fmt.Fprint(w, string(filesBytes))
@@ -366,13 +414,13 @@ func TestClientThroughTsuru_ListExtraFiles(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			files, err := client.ListExtraFiles(context.TODO(), tt.instance)
+			files, err := client.ListExtraFiles(context.TODO(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
 			}
 			if tt.expectedFiles != nil {
-				assert.EqualValues(t, files, tt.expectedFiles)
+				assert.EqualValues(t, tt.expectedFiles, files)
 			}
 			assert.NoError(t, err)
 		})

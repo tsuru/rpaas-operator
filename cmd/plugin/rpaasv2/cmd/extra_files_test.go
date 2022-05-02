@@ -255,7 +255,6 @@ func TestUpdateExtraFiles(t *testing.T) {
 }
 
 func TestListExtraFiles(t *testing.T) {
-	counter := 0
 	tests := []struct {
 		name      string
 		args      []string
@@ -270,9 +269,9 @@ func TestListExtraFiles(t *testing.T) {
 				assert.EqualError(t, err, "some error")
 			},
 			client: &fake.FakeClient{
-				FakeListExtraFiles: func(instance string) ([]string, error) {
+				FakeListExtraFiles: func(args rpaasclient.ListExtraFilesArgs) ([]types.RpaasFile, error) {
 					expectedInstance := "my-instance"
-					assert.Equal(t, expectedInstance, instance)
+					assert.Equal(t, expectedInstance, args.Instance)
 					return nil, fmt.Errorf("some error")
 				},
 			},
@@ -286,10 +285,10 @@ func TestListExtraFiles(t *testing.T) {
 				assert.Equal(t, s1, stdout.String())
 			},
 			client: &fake.FakeClient{
-				FakeListExtraFiles: func(instance string) ([]string, error) {
+				FakeListExtraFiles: func(args rpaasclient.ListExtraFilesArgs) ([]types.RpaasFile, error) {
 					expectedInstance := "my-instance"
-					assert.Equal(t, expectedInstance, instance)
-					return []string{"f1", "f2"}, nil
+					assert.Equal(t, expectedInstance, args.Instance)
+					return []types.RpaasFile{{Name: "f1"}, {Name: "f2"}}, nil
 				},
 			},
 		},
@@ -310,26 +309,19 @@ func TestListExtraFiles(t *testing.T) {
 				assert.Empty(t, stderr.String())
 			},
 			client: &fake.FakeClient{
-				FakeListExtraFiles: func(instance string) ([]string, error) {
+				FakeListExtraFiles: func(args rpaasclient.ListExtraFilesArgs) ([]types.RpaasFile, error) {
 					expectedInstance := "my-instance"
-					assert.Equal(t, expectedInstance, instance)
-					return []string{"f1", "f2"}, nil
-				},
-				FakeGetExtraFile: func(args rpaasclient.GetExtraFileArgs) (types.RpaasFile, error) {
-					counter++
-					switch counter {
-					case 1:
-						return types.RpaasFile{
+					assert.Equal(t, expectedInstance, args.Instance)
+					return []types.RpaasFile{
+						{
 							Name:    "f1",
 							Content: []byte("some content 1"),
-						}, nil
-					case 2:
-						return types.RpaasFile{
+						},
+						{
 							Name:    "f2",
 							Content: []byte("some content 2"),
-						}, nil
-					}
-					return types.RpaasFile{}, nil
+						},
+					}, nil
 				},
 			},
 		},

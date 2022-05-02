@@ -12,6 +12,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -158,13 +159,13 @@ func (c *client) DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs
 	return nil
 }
 
-func (c *client) ListExtraFiles(ctx context.Context, instance string) ([]string, error) {
-	if instance == "" {
+func (c *client) ListExtraFiles(ctx context.Context, args ListExtraFilesArgs) ([]types.RpaasFile, error) {
+	if args.Instance == "" {
 		return nil, ErrMissingInstance
 	}
 
-	pathName := fmt.Sprintf("/resources/%s/files", instance)
-	req, err := c.newRequest(http.MethodGet, pathName, nil, instance)
+	pathName := fmt.Sprintf("/resources/%s/files?show-content=%s", args.Instance, strconv.FormatBool(args.ShowContent))
+	req, err := c.newRequest(http.MethodGet, pathName, nil, args.Instance)
 	if err != nil {
 		return nil, err
 	}
@@ -178,7 +179,7 @@ func (c *client) ListExtraFiles(ctx context.Context, instance string) ([]string,
 		return nil, newErrUnexpectedStatusCodeFromResponse(response)
 	}
 
-	var fileList []string
+	var fileList []types.RpaasFile
 	err = json.NewDecoder(response.Body).Decode(&fileList)
 	if err != nil {
 		return nil, err

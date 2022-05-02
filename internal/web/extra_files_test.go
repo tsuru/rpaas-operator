@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 
@@ -23,28 +24,46 @@ import (
 func Test_listExtraFiles(t *testing.T) {
 	testCases := []struct {
 		instance     string
+		showContent  bool
 		expectedCode int
-		expected     []string
+		expected     []rpaas.File
 		manager      rpaas.RpaasManager
 	}{
 		{
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expected:     []string{},
+			expected:     nil,
 			manager:      &fake.RpaasManager{},
 		},
 		{
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expected: []string{
-				"www/index.html",
-				"waf/ddos-rules.cnf",
+			expected: []rpaas.File{
+				{Name: "www/index.html"},
+				{Name: "waf/ddos-rules.cnf"},
 			},
 			manager: &fake.RpaasManager{
 				FakeGetExtraFiles: func(string) ([]rpaas.File, error) {
 					return []rpaas.File{
-						{Name: "www/index.html"},
-						{Name: "waf/ddos-rules.cnf"},
+						{Name: "www/index.html", Content: []byte("c1")},
+						{Name: "waf/ddos-rules.cnf", Content: []byte("c1")},
+					}, nil
+				},
+			},
+		},
+		{
+			instance:     "my-instance",
+			showContent:  true,
+			expectedCode: http.StatusOK,
+			expected: []rpaas.File{
+				{Name: "www/index.html", Content: []byte("c1")},
+				{Name: "waf/ddos-rules.cnf", Content: []byte("c2")},
+			},
+			manager: &fake.RpaasManager{
+				FakeGetExtraFiles: func(string) ([]rpaas.File, error) {
+					return []rpaas.File{
+						{Name: "www/index.html", Content: []byte("c1")},
+						{Name: "waf/ddos-rules.cnf", Content: []byte("c2")},
 					}, nil
 				},
 			},
@@ -52,7 +71,7 @@ func Test_listExtraFiles(t *testing.T) {
 		{
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expected:     []string{},
+			expected:     []rpaas.File{},
 			manager: &fake.RpaasManager{
 				FakeGetExtraFiles: func(string) ([]rpaas.File, error) {
 					return []rpaas.File{}, nil
@@ -65,13 +84,13 @@ func Test_listExtraFiles(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/files", srv.URL, tt.instance)
+			path := fmt.Sprintf("%s/resources/%s/files?show-content=%s", srv.URL, tt.instance, strconv.FormatBool(tt.showContent))
 			request, err := http.NewRequest(http.MethodGet, path, nil)
 			require.NoError(t, err)
 			rsp, err := srv.Client().Do(request)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			var gotFiles []string
+			var gotFiles []rpaas.File
 			err = json.Unmarshal([]byte(bodyContent(rsp)), &gotFiles)
 			assert.NoError(t, err)
 			assert.Equal(t, tt.expected, gotFiles)
