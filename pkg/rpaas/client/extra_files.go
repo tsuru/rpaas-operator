@@ -40,6 +40,18 @@ func (args DeleteExtraFilesArgs) Validate() error {
 	return nil
 }
 
+func (args GetExtraFileArgs) Validate() error {
+	if args.Instance == "" {
+		return ErrMissingInstance
+	}
+
+	if args.FileName == "" {
+		return ErrMissingFile
+	}
+
+	return nil
+}
+
 func prepareBodyRequest(files map[string][]byte) (*bytes.Buffer, *multipart.Writer, error) {
 	buffer := &bytes.Buffer{}
 	writer := multipart.NewWriter(buffer)
@@ -175,12 +187,8 @@ func (c *client) ListExtraFiles(ctx context.Context, instance string) ([]string,
 }
 
 func (c *client) GetExtraFile(ctx context.Context, args GetExtraFileArgs) (types.RpaasFile, error) {
-	if args.Instance == "" {
-		return types.RpaasFile{}, ErrMissingInstance
-	}
-
-	if args.FileName == "" {
-		return types.RpaasFile{}, ErrMissingFile
+	if err := args.Validate(); err != nil {
+		return types.RpaasFile{}, err
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/files/%s", args.Instance, args.FileName)
