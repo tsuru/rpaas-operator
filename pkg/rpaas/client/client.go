@@ -43,6 +43,12 @@ type DeleteBlockArgs struct {
 	Name     string
 }
 
+type PortForwardArgs struct {
+	Address string
+	Port    int
+	Pod     string
+}
+
 type ListBlocksArgs struct {
 	Instance string
 }

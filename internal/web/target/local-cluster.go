@@ -1,9 +1,6 @@
 package target
 
 import (
-	"context"
-	"net/http"
-
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
@@ -12,14 +9,6 @@ import (
 )
 
 var _ Factory = &localClusterFactory{}
-
-type localClusterFactory struct {
-	manager rpaas.RpaasManager
-}
-
-func (l *localClusterFactory) Manager(ctx context.Context, header http.Header) (rpaas.RpaasManager, error) {
-	return l.manager, nil
-}
 
 func NewKubeConfigFactory() (Factory, error) {
 	restConfig, err := sigsk8sconfig.GetConfig()
