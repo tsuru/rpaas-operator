@@ -76,7 +76,7 @@ func NewCmdUpdateExtraFiles() *cli.Command {
 			},
 			&cli.StringSliceFlag{
 				Name:     "file",
-				Usage:    "file path of each file",
+				Usage:    "path in the local filesystem to the file",
 				Required: true,
 			},
 		},
