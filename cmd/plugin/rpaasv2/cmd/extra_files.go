@@ -104,7 +104,7 @@ func NewCmdDeleteExtraFiles() *cli.Command {
 			},
 			&cli.StringSliceFlag{
 				Name:     "file",
-				Usage:    "filename of each file",
+				Usage:    "the name of the file",
 				Required: true,
 			},
 		},
