@@ -37,6 +37,11 @@ type FakeClient struct {
 	FakeUpdateCertManager       func(args client.UpdateCertManagerArgs) error
 	FakeDeleteCertManager       func(instance, issuer string) error
 	FakeLog                     func(args client.LogArgs) error
+	FakeAddExtraFiles           func(args client.ExtraFilesArgs) error
+	FakeUpdateExtraFiles        func(args client.ExtraFilesArgs) error
+	FakeDeleteExtraFiles        func(args client.DeleteExtraFilesArgs) error
+	FakeListExtraFiles          func(args client.ListExtraFilesArgs) ([]types.RpaasFile, error)
+	FakeGetExtraFile            func(args client.GetExtraFileArgs) (types.RpaasFile, error)
 }
 
 var _ client.Client = &FakeClient{}
@@ -226,4 +231,44 @@ func (f *FakeClient) Log(ctx context.Context, args client.LogArgs) error {
 	}
 
 	return nil
+}
+
+func (f *FakeClient) AddExtraFiles(ctx context.Context, args client.ExtraFilesArgs) error {
+	if f.FakeAddExtraFiles != nil {
+		return f.FakeAddExtraFiles(args)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) UpdateExtraFiles(ctx context.Context, args client.ExtraFilesArgs) error {
+	if f.FakeUpdateExtraFiles != nil {
+		return f.FakeUpdateExtraFiles(args)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) DeleteExtraFiles(ctx context.Context, args client.DeleteExtraFilesArgs) error {
+	if f.FakeDeleteExtraFiles != nil {
+		return f.FakeDeleteExtraFiles(args)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) ListExtraFiles(ctx context.Context, args client.ListExtraFilesArgs) ([]types.RpaasFile, error) {
+	if f.FakeListExtraFiles != nil {
+		return f.FakeListExtraFiles(args)
+	}
+
+	return nil, nil
+}
+
+func (f *FakeClient) GetExtraFile(ctx context.Context, args client.GetExtraFileArgs) (types.RpaasFile, error) {
+	if f.FakeGetExtraFile != nil {
+		return f.FakeGetExtraFile(args)
+	}
+
+	return types.RpaasFile{}, nil
 }

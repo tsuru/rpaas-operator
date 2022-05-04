@@ -201,7 +201,7 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 	group.GET("/:instance/files/:name", getExtraFile)
 	group.POST("/:instance/files", addExtraFiles)
 	group.PUT("/:instance/files", updateExtraFiles)
-	group.DELETE("/:instance/files/:name", deleteExtraFile)
+	group.DELETE("/:instance/files", deleteExtraFiles)
 	group.DELETE("/:instance/route", deleteRoute)
 	group.GET("/:instance/route", getRoutes)
 	group.POST("/:instance/route", updateRoute)

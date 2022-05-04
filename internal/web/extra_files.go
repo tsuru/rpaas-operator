@@ -10,6 +10,8 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/labstack/echo/v4"
 
@@ -26,11 +28,14 @@ func listExtraFiles(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	names := make([]string, len(files))
-	for i, file := range files {
-		names[i] = file.Name
+
+	showContent, _ := strconv.ParseBool(c.QueryParam("show-content"))
+	if !showContent {
+		for i := range files {
+			files[i].Content = nil
+		}
 	}
-	return c.JSON(http.StatusOK, names)
+	return c.JSON(http.StatusOK, files)
 }
 
 func getExtraFile(c echo.Context) error {
@@ -113,13 +118,17 @@ func updateExtraFiles(c echo.Context) error {
 	return c.String(http.StatusOK, fmt.Sprintf("%d files were successfully updated\n", len(files)))
 }
 
-func deleteExtraFile(c echo.Context) error {
+func deleteExtraFiles(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	filename, err := url.PathUnescape(c.Param("name"))
+	var files []string
+	err = c.Bind(&files)
+	if err != nil {
+		return err
+	}
 	if err != nil {
 		return &echo.HTTPError{
 			Code:     http.StatusBadRequest,
@@ -127,11 +136,17 @@ func deleteExtraFile(c echo.Context) error {
 			Internal: err,
 		}
 	}
-	err = manager.DeleteExtraFiles(ctx, c.Param("instance"), filename)
+	err = manager.DeleteExtraFiles(ctx, c.Param("instance"), files...)
 	if err != nil {
 		return err
 	}
-	return c.String(http.StatusOK, fmt.Sprintf("file %q was successfully removed\n", filename))
+
+	filesStrings, err := url.PathUnescape(strings.Join(files, ","))
+	if err != nil {
+		return err
+	}
+
+	return c.String(http.StatusOK, fmt.Sprintf("file(s) %s removed\n", filesStrings))
 }
 
 // getFiles retrieves all multipart files with form name "files" and translate
