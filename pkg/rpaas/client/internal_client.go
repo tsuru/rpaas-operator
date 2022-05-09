@@ -62,7 +62,7 @@ func newErrUnexpectedStatusCodeFromResponse(r *http.Response) error {
 	return &ErrUnexpectedStatusCode{Status: r.StatusCode, Body: string(body)}
 }
 
-func isNotFoundError(err error) bool {
+func IsNotFoundError(err error) bool {
 	if httpErr, ok := err.(*ErrUnexpectedStatusCode); ok {
 		if httpErr.Status == http.StatusNotFound {
 			return true

@@ -68,7 +68,7 @@ func (args UpdateAutoscaleArgs) Validate() error {
 func (c *client) shouldCreate(ctx context.Context, instance string) (bool, error) {
 	_, err := c.GetAutoscale(ctx, GetAutoscaleArgs{Instance: instance})
 	if err != nil {
-		if isNotFoundError(err) {
+		if IsNotFoundError(err) {
 			return true, nil
 		}
 		return false, err
