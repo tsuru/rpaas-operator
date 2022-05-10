@@ -215,7 +215,6 @@ func memoryValue(q string) string {
 	qt, err := resource.ParseQuantity(q)
 	if err == nil {
 		memory = fmt.Sprintf("%vMi", qt.Value()/(1024*1024))
-
 	}
 	return memory
 }

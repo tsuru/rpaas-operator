@@ -27,6 +27,8 @@ var (
 	ErrMissingTsuruToken        = fmt.Errorf("rpaasv2: tsuru token cannot be empty")
 	ErrMissingTsuruService      = fmt.Errorf("rpaasv2: tsuru service cannot be empty")
 	ErrMissingInstance          = fmt.Errorf("rpaasv2: instance cannot be empty")
+	ErrMissingFile              = fmt.Errorf("rpaasv2: file must have a name")
+	ErrMissingFiles             = fmt.Errorf("rpaasv2: file list must not be empty")
 	ErrMissingBlockName         = fmt.Errorf("rpaasv2: block name cannot be empty")
 	ErrMissingPath              = fmt.Errorf("rpaasv2: path cannot be empty")
 	ErrInvalidMaxReplicasNumber = fmt.Errorf("rpaasv2: max replicas can't be lower than 1")
@@ -60,7 +62,7 @@ func newErrUnexpectedStatusCodeFromResponse(r *http.Response) error {
 	return &ErrUnexpectedStatusCode{Status: r.StatusCode, Body: string(body)}
 }
 
-func isNotFoundError(err error) bool {
+func IsNotFoundError(err error) bool {
 	if httpErr, ok := err.(*ErrUnexpectedStatusCode); ok {
 		if httpErr.Status == http.StatusNotFound {
 			return true

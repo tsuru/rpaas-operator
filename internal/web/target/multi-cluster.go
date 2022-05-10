@@ -2,6 +2,8 @@ package target
 
 import (
 	"context"
+	"encoding/base64"
+	"errors"
 	"io/ioutil"
 	"net/http"
 	"sync"
@@ -11,6 +13,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
+	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -83,14 +86,9 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 		span.SetTag("pool.name", poolName)
 	}
 
-	bearerToken, err := m.getToken(clusterName)
+	kubernetesRestConfig, err := m.getKubeConfig(clusterName, address)
 	if err != nil {
 		return nil, err
-	}
-	kubernetesRestConfig := &rest.Config{
-		Host:          address,
-		BearerToken:   bearerToken,
-		WrapTransport: observability.OpentracingTransport,
 	}
 	k8sClient, err := sigsk8sclient.New(kubernetesRestConfig, sigsk8sclient.Options{Scheme: extensionsruntime.NewScheme()})
 	if err != nil {
@@ -109,28 +107,55 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 	return manager, nil
 }
 
-func (m *multiClusterFactory) getToken(clusterName string) (string, error) {
-	var defaultCluster *config.ClusterConfig = nil
+func (m *multiClusterFactory) getKubeConfig(name, address string) (*rest.Config, error) {
+	selectedCluster := config.ClusterConfig{}
+
 	for _, cluster := range m.clusters {
-		if cluster.Default || cluster.Name == clusterName {
-			defaultCluster = &cluster
+		if cluster.Default {
+			selectedCluster = cluster
+		}
+		if cluster.Name == name {
+			selectedCluster = cluster
 			break
 		}
 	}
 
-	if defaultCluster == nil {
-		return "", nil
+	if selectedCluster.Name == "" {
+		return nil, errors.New("cluster not found")
 	}
 
-	if defaultCluster.Token != "" {
-		return defaultCluster.Token, nil
+	if selectedCluster.Address != "" {
+		address = selectedCluster.Address
 	}
 
-	if defaultCluster.TokenFile != "" {
-		return m.readTokenFile(defaultCluster.TokenFile)
+	restConfig := &rest.Config{
+		Host:          address,
+		BearerToken:   selectedCluster.Token,
+		WrapTransport: observability.OpentracingTransport,
 	}
 
-	return "", nil
+	if selectedCluster.AuthProvider != nil {
+		restConfig.AuthProvider = selectedCluster.AuthProvider
+	}
+
+	if selectedCluster.CA != "" {
+		caData, err := base64.StdEncoding.DecodeString(selectedCluster.CA)
+		if err != nil {
+			return nil, err
+		}
+		restConfig.TLSClientConfig.CAData = caData
+	}
+
+	if selectedCluster.TokenFile != "" {
+		var err error
+		restConfig.BearerToken, err = m.readTokenFile(selectedCluster.TokenFile)
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	return restConfig, nil
+
 }
 
 func (m *multiClusterFactory) readTokenFile(tokenFile string) (string, error) {

@@ -18,6 +18,25 @@ type ScaleArgs struct {
 	Replicas int32
 }
 
+type ExtraFilesArgs struct {
+	Instance string
+	Files    []types.RpaasFile
+}
+
+type DeleteExtraFilesArgs struct {
+	Instance string
+	Files    []string
+}
+
+type GetExtraFileArgs struct {
+	Instance string
+	FileName string
+}
+
+type ListExtraFilesArgs struct {
+	Instance    string
+	ShowContent bool
+}
 type UpdateCertificateArgs struct {
 	Instance    string
 	Name        string
@@ -139,6 +158,11 @@ type Client interface {
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
 	Log(ctx context.Context, args LogArgs) error
+	AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error
+	UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) error
+	DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs) error
+	ListExtraFiles(ctx context.Context, args ListExtraFilesArgs) ([]types.RpaasFile, error)
+	GetExtraFile(ctx context.Context, args GetExtraFileArgs) (types.RpaasFile, error)
 
 	AddAccessControlList(ctx context.Context, instance, host string, port int) error
 	ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error)
