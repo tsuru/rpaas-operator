@@ -28,10 +28,9 @@ type PortForward struct {
 	Clientset       kubernetes.Interface
 	Name            string
 	Labels          metav1.LabelSelector
-	DestinationPort string
+	DestinationPort int
 	ListenPort      int
 	Namespace       string
-	Ports           []string
 	StopChan        chan struct{}
 	ReadyChan       chan struct{}
 }
@@ -43,10 +42,11 @@ type localClusterFactory struct {
 func (l *localClusterFactory) Manager(ctx context.Context, header http.Header) (rpaas.RpaasManager, error) {
 	return l.manager, nil
 }
-func NewPortForwarder(name string, port []string) (*PortForward, error) {
+func NewPortForwarder(name string, labels metav1.LabelSelector, port int, namespace string) (*PortForward, error) {
 	pf := &PortForward{
-		Name:  name,
-		Ports: port,
+		Name:            name,
+		DestinationPort: port,
+		Namespace:       namespace,
 	}
 
 	var err error
@@ -81,7 +81,7 @@ func (p *PortForward) Start(ctx context.Context) error {
 	}
 
 	ports := []string{
-		fmt.Sprintf("%d:%d", listenPort, 8888),
+		fmt.Sprintf("%d:%d", listenPort, 80),
 	}
 	discard := ioutil.Discard
 	pf, err := portforward.New(dialer, ports, p.StopChan, readyChan, discard, discard)

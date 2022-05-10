@@ -1,8 +1,12 @@
 package cmd
 
 import (
+	"errors"
+	"flag"
 	"fmt"
 	"log"
+	"strings"
+	"time"
 
 	"github.com/tsuru/rpaas-operator/internal/web/target"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -25,11 +29,24 @@ type PortForward struct {
 	ReadyChan       chan struct{}
 }
 
+type labelsFlags map[string]string
+
+func (l *labelsFlags) String() string {
+	return fmt.Sprintf("%v", *l)
+}
+func (l *labelsFlags) Set(value string) error {
+	label := strings.SplitN(value, "=", 2)
+	if len(label) != 2 {
+		return errors.New("labels must include equal sign")
+	}
+	(*l)[label[0]] = label[1]
+	return nil
+}
 func NewCmdPortForward() *cli.Command {
 	return &cli.Command{
 		Name:      "port-forward",
 		Usage:     "",
-		ArgsUsage: "[-s SERVICE][-p POD] [LOCALHOST] [-l LOCAL_PORT:]REMOTE_PORT",
+		ArgsUsage: "[-s SERVICE][-p POD] [-l LOCALHOST] [-dp LOCAL_PORT:][-rl REMOTE_PORT]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -43,13 +60,18 @@ func NewCmdPortForward() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:    "address",
-				Aliases: []string{"localhost"},
+				Aliases: []string{"localhost", "l"},
 				Usage:   "Addresses to listen on (comma separated). Only accepts IP addresses or localhost as a value. When localhost is supplied, rpaas-operator will try to bind on both 127.0.0.1 and ::1 and will fail if neither of these addresses are available to bind.",
 			},
 			&cli.StringFlag{
-				Name:    "local_port",
-				Aliases: []string{"l"},
-				Usage:   "specify a local port",
+				Name:    "destination-port",
+				Aliases: []string{"dp"},
+				Usage:   "specify a destined port",
+			},
+			&cli.StringFlag{
+				Name:    "remote_port",
+				Aliases: []string{"rp"},
+				Usage:   "specify a remote port",
 			},
 		},
 		Before: setupClient,
@@ -61,24 +83,35 @@ func NewCmdPortForward() *cli.Command {
 // }
 
 func runPortForward(c *cli.Context) error {
-	ctx := c.Context
 	var err error
+	var Namespace, Pod string
+	var ListenPort, Port int
 
+	labels := labelsFlags{}
 	args := rpaasclient.PortForwardArgs{
-		Pod:     c.String("pod"),
-		Address: c.String("localhost"),
-		Port:    c.Int("8888"),
+		Pod:             c.String("pod"),
+		Address:         c.String("localhost"),
+		DestinationPort: c.Int("lp"),
+		ListenPort:      c.Int("rp"),
 	}
-	Ports := []string{
-		fmt.Sprintf("%d:%d", args.Port, 8888),
-	}
-	pf, err := target.NewPortForwarder("my-pod", Ports)
+
+	flag.Var(&labels, "label", "")
+	flag.IntVar(&ListenPort, "listen", ListenPort, "port to bind")
+	flag.IntVar(&Port, "Port", args.DestinationPort, "port to forward")
+	flag.StringVar(&Pod, "pod", args.Pod, "pod name")
+	flag.StringVar(&Namespace, "namespace", "default", "namespacepod look for")
+	flag.Parse()
+
+	pf, err := target.NewPortForwarder(Pod, metav1.LabelSelector{MatchLabels: labels}, Port, Namespace)
 	if err != nil {
 		return err
 	}
-	err = pf.Start(ctx)
+	pf.ListenPort = ListenPort
+	err = pf.Start(c.Context)
 	if err != nil {
 		log.Fatal("Error starting port forward:", err)
 	}
+	log.Printf("Started tunnel on %d\n", pf.ListenPort)
+	time.Sleep(60 * time.Second)
 	return nil
 }
