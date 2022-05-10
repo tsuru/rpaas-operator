@@ -38,6 +38,7 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 		NewCmdShell(),
 		NewCmdLogs(),
 		NewCmdExtraFiles(),
+		NewCmdPortForward(),
 	}
 	app.Flags = []cli.Flag{
 		&cli.StringFlag{

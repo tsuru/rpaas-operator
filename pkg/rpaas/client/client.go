@@ -23,6 +23,13 @@ type ExtraFilesArgs struct {
 	Files    []types.RpaasFile
 }
 
+type PortForwardArgs struct {
+	Address         string
+	DestinationPort int
+	Pod             string
+	ListenPort      int
+}
+
 type DeleteExtraFilesArgs struct {
 	Instance string
 	Files    []string
