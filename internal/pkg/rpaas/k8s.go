@@ -73,6 +73,7 @@ var podAllowedReasonsToFail = map[string]bool{
 	"shutdown":     true,
 	"evicted":      true,
 	"nodeaffinity": true,
+	"terminated":   true,
 }
 
 type k8sRpaasManager struct {
