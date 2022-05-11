@@ -32,7 +32,7 @@ func TestPortForwardNotFoundPodLabel(t *testing.T) {
 				"name": "my-pod",
 			}),
 		),
-		Labels: metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{metav1.LabelSelectorRequirement{
+		Labels: metav1.LabelSelector{MatchExpressions: []metav1.LabelSelectorRequirement{{
 			Key:      "name",
 			Operator: metav1.LabelSelectorOpIn,
 			Values:   []string{"flux", "flou"},
