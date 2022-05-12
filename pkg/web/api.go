@@ -22,9 +22,8 @@ import (
 
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	"github.com/tsuru/rpaas-operator/internal/web/target"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
-	"github.com/tsuru/rpaas-operator/pkg/web"
+	"github.com/tsuru/rpaas-operator/pkg/web/target"
 )
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
@@ -123,7 +122,7 @@ func getManager(ctx context.Context) (rpaas.RpaasManager, error) {
 func newEcho(targetFactory target.Factory) *echo.Echo {
 	e := echo.New()
 	e.HideBanner = true
-	e.HTTPErrorHandler = web.HTTPErrorHandler
+	e.HTTPErrorHandler = HTTPErrorHandler
 
 	observability.Initialize()
 
@@ -145,7 +144,7 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 		},
 		Realm: "Restricted",
 	}))
-	e.Use(web.ErrorMiddleware)
+	e.Use(ErrorMiddleware)
 
 	e.GET("/metrics", echo.WrapHandler(promhttp.Handler()))
 	e.GET("/healthcheck", healthcheck)

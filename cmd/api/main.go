@@ -10,8 +10,8 @@ import (
 	"github.com/google/gops/agent"
 
 	"github.com/tsuru/rpaas-operator/internal/config"
-	"github.com/tsuru/rpaas-operator/internal/web"
-	"github.com/tsuru/rpaas-operator/internal/web/target"
+	"github.com/tsuru/rpaas-operator/pkg/web"
+	"github.com/tsuru/rpaas-operator/pkg/web/target"
 )
 
 func main() {

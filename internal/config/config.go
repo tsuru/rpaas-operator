@@ -85,6 +85,7 @@ func Set(conf RpaasConfig) {
 func Init() error {
 	flagset := pflag.NewFlagSet(os.Args[0], pflag.ExitOnError)
 	flagset.String("config", "", "RPaaS Config file")
+	flagset.Bool("fake-api", false, "Run a fake API server, without K8s")
 	pflag.CommandLine.AddFlagSet(flagset)
 	pflag.CommandLine.AddGoFlagSet(flag.CommandLine)
 	pflag.Parse()

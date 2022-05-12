@@ -10,7 +10,6 @@ import (
 	"syscall"
 	"time"
 
-	echoPrometheus "github.com/globocom/echo-prometheus"
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
@@ -20,8 +19,6 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 	"github.com/tsuru/rpaas-operator/pkg/web"
 )
-
-var metricsMiddleware = echoPrometheus.MetricsMiddleware()
 
 type PurgeAPI struct {
 	sync.Mutex
@@ -106,7 +103,6 @@ func (p *PurgeAPI) setupEcho() {
 
 	p.e.Use(middleware.Recover())
 	p.e.Use(middleware.Logger())
-	p.e.Use(metricsMiddleware)
 	p.e.Use(observability.OpenTracingMiddleware)
 	p.e.Use(web.ErrorMiddleware)
 
