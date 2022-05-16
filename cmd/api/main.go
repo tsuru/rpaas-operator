@@ -8,6 +8,7 @@ import (
 	"log"
 
 	"github.com/google/gops/agent"
+	"github.com/spf13/viper"
 
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/pkg/web"
@@ -25,11 +26,18 @@ func main() {
 	defer agent.Close()
 
 	cfg := config.Get()
+	isFakeServerAPI := viper.GetBool("fake-api")
 
 	var targetFactory target.Factory
 	var err error
 	if cfg.MultiCluster {
 		targetFactory = target.NewMultiClustersFactory(cfg.Clusters)
+	} else if isFakeServerAPI {
+		log.Println("Starting a Fake API Server (without K8s)...")
+		targetFactory, err = target.NewFakeServerFactory()
+		if err != nil {
+			log.Fatalf("could not initialize fake cluster target: %v", err)
+		}
 	} else {
 		targetFactory, err = target.NewKubeConfigFactory()
 		if err != nil {
