@@ -7,6 +7,7 @@ package web
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"os/signal"
@@ -45,19 +46,27 @@ type api struct {
 	shutdown chan struct{}
 }
 
+type APIServerStartOptions struct {
+	DiscardLogging bool
+}
+
 // New creates an api instance.
 func NewWithManager(manager rpaas.RpaasManager) (*api, error) {
 	localTargetFatory := target.NewLocalFactory(manager)
-	return NewWithTargetFactory(localTargetFatory)
+	return NewWithTargetFactoryWithDefaults(localTargetFatory)
 }
 
-func NewWithTargetFactory(targetFactory target.Factory) (*api, error) {
+func NewWithTargetFactoryWithDefaults(targetFactory target.Factory) (*api, error) {
+	return NewWithTargetFactory(targetFactory, `:9999`, `9993`, 30*time.Second, make(chan struct{}))
+}
+
+func NewWithTargetFactory(targetFactory target.Factory, address, addressTLS string, shutdownTimeout time.Duration, shutdownChan chan struct{}) (*api, error) {
 	return &api{
-		Address:         `:9999`,
-		TLSAddress:      `:9993`,
-		ShutdownTimeout: 30 * time.Second,
+		Address:         address,
+		TLSAddress:      addressTLS,
+		ShutdownTimeout: shutdownTimeout,
 		e:               newEcho(targetFactory),
-		shutdown:        make(chan struct{}),
+		shutdown:        shutdownChan,
 	}, nil
 }
 
@@ -82,6 +91,33 @@ func (a *api) Start() error {
 	}
 	fmt.Println("Shutting down the webserver...")
 	return nil
+}
+
+func (a *api) StartWithOptions(options APIServerStartOptions) error {
+	a.Lock()
+	a.started = true
+	a.Unlock()
+	go a.handleSignals()
+	if err := a.startServerWithOptions(options); err != http.ErrServerClosed {
+		fmt.Printf("problem to start the webserver: %+v", err)
+		return err
+	}
+	fmt.Println("Shutting down the webserver...")
+	return nil
+}
+
+func (a *api) startServerWithOptions(options APIServerStartOptions) error {
+	conf := config.Get()
+
+	if options.DiscardLogging {
+		a.e.Logger.SetOutput(io.Discard)
+	}
+
+	if conf.TLSCertificate != "" && conf.TLSKey != "" {
+		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
+	}
+
+	return a.e.StartH2CServer(a.Address, &http2.Server{})
 }
 
 // Stop shut down the web server.
