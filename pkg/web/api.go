@@ -29,7 +29,7 @@ import (
 
 var metricsMiddleware = echoPrometheus.MetricsMiddleware()
 
-type api struct {
+type Api struct {
 	sync.Mutex
 
 	// Address is the network address where the web server will listen on.
@@ -51,17 +51,17 @@ type APIServerStartOptions struct {
 }
 
 // New creates an api instance.
-func NewWithManager(manager rpaas.RpaasManager) (*api, error) {
+func NewWithManager(manager rpaas.RpaasManager) (*Api, error) {
 	localTargetFatory := target.NewLocalFactory(manager)
 	return NewWithTargetFactoryWithDefaults(localTargetFatory)
 }
 
-func NewWithTargetFactoryWithDefaults(targetFactory target.Factory) (*api, error) {
+func NewWithTargetFactoryWithDefaults(targetFactory target.Factory) (*Api, error) {
 	return NewWithTargetFactory(targetFactory, `:9999`, `9993`, 30*time.Second, make(chan struct{}))
 }
 
-func NewWithTargetFactory(targetFactory target.Factory, address, addressTLS string, shutdownTimeout time.Duration, shutdownChan chan struct{}) (*api, error) {
-	return &api{
+func NewWithTargetFactory(targetFactory target.Factory, address, addressTLS string, shutdownTimeout time.Duration, shutdownChan chan struct{}) (*Api, error) {
+	return &Api{
 		Address:         address,
 		TLSAddress:      addressTLS,
 		ShutdownTimeout: shutdownTimeout,
@@ -70,7 +70,7 @@ func NewWithTargetFactory(targetFactory target.Factory, address, addressTLS stri
 	}, nil
 }
 
-func (a *api) startServer() error {
+func (a *Api) startServer() error {
 	conf := config.Get()
 	if conf.TLSCertificate != "" && conf.TLSKey != "" {
 		return a.e.StartTLS(a.TLSAddress, conf.TLSCertificate, conf.TLSKey)
@@ -80,7 +80,7 @@ func (a *api) startServer() error {
 }
 
 // Start runs the web server.
-func (a *api) Start() error {
+func (a *Api) Start() error {
 	a.Lock()
 	a.started = true
 	a.Unlock()
@@ -93,7 +93,7 @@ func (a *api) Start() error {
 	return nil
 }
 
-func (a *api) StartWithOptions(options APIServerStartOptions) error {
+func (a *Api) StartWithOptions(options APIServerStartOptions) error {
 	a.Lock()
 	a.started = true
 	a.Unlock()
@@ -106,7 +106,7 @@ func (a *api) StartWithOptions(options APIServerStartOptions) error {
 	return nil
 }
 
-func (a *api) startServerWithOptions(options APIServerStartOptions) error {
+func (a *Api) startServerWithOptions(options APIServerStartOptions) error {
 	conf := config.Get()
 
 	if options.DiscardLogging {
@@ -121,7 +121,7 @@ func (a *api) startServerWithOptions(options APIServerStartOptions) error {
 }
 
 // Stop shut down the web server.
-func (a *api) Stop() error {
+func (a *Api) Stop() error {
 	a.Lock()
 	defer a.Unlock()
 	if !a.started {
@@ -136,7 +136,7 @@ func (a *api) Stop() error {
 	return a.e.Shutdown(ctx)
 }
 
-func (a *api) handleSignals() {
+func (a *Api) handleSignals() {
 	quit := make(chan os.Signal, 2)
 	signal.Notify(quit, os.Interrupt, syscall.SIGTERM)
 	select {
