@@ -37,7 +37,7 @@ func main() {
 		}
 	}
 
-	a, err := web.NewWithTargetFactory(targetFactory)
+	a, err := web.NewWithTargetFactoryWithDefaults(targetFactory)
 	if err != nil {
 		log.Fatalf("could not create RPaaS API: %v", err)
 	}
