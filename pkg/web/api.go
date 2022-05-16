@@ -86,10 +86,10 @@ func (a *Api) Start() error {
 	a.Unlock()
 	go a.handleSignals()
 	if err := a.startServer(); err != http.ErrServerClosed {
-		fmt.Printf("problem to start the webserver: %+v", err)
+		a.e.Logger.Errorf("problem to start the webserver: %+v", err)
 		return err
 	}
-	fmt.Println("Shutting down the webserver...")
+	a.e.Logger.Info("Shutting down the webserver...")
 	return nil
 }
 
@@ -99,10 +99,10 @@ func (a *Api) StartWithOptions(options APIServerStartOptions) error {
 	a.Unlock()
 	go a.handleSignals()
 	if err := a.startServerWithOptions(options); err != http.ErrServerClosed {
-		fmt.Printf("problem to start the webserver: %+v", err)
+		a.e.Logger.Errorf("problem to start the webserver: %+v", err)
 		return err
 	}
-	fmt.Println("Shutting down the webserver...")
+	a.e.Logger.Info("Shutting down the webserver...")
 	return nil
 }
 

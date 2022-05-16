@@ -63,10 +63,10 @@ func (p *PurgeAPI) Start() error {
 	p.Unlock()
 	go p.handleSignals()
 	if err := p.startServer(); err != http.ErrServerClosed {
-		fmt.Printf("problem to start the webserver: %+v", err)
+		p.e.Logger.Errorf("problem to start the webserver: %+v", err)
 		return err
 	}
-	fmt.Println("Shutting down the webserver...")
+	p.e.Logger.Info("Shutting down the webserver...")
 	return nil
 }
 
