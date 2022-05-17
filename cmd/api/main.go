@@ -9,7 +9,10 @@ import (
 
 	"github.com/google/gops/agent"
 	"github.com/spf13/viper"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/pkg/web"
 	"github.com/tsuru/rpaas-operator/pkg/web/target"
@@ -34,7 +37,7 @@ func main() {
 		targetFactory = target.NewMultiClustersFactory(cfg.Clusters)
 	} else if isFakeServerAPI {
 		log.Println("Starting a Fake API Server (without K8s)...")
-		targetFactory, err = target.NewFakeServerFactory()
+		targetFactory, err = target.NewFakeServerFactory(fakeRuntimeObjects())
 		if err != nil {
 			log.Fatalf("could not initialize fake cluster target: %v", err)
 		}
@@ -52,5 +55,22 @@ func main() {
 
 	if err := a.Start(); err != nil {
 		log.Fatalf("could not start the RPaaS API server: %v", err)
+	}
+}
+
+func fakeRuntimeObjects() []runtime.Object {
+	return []runtime.Object{
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-plan",
+				Namespace: "rpaasv2",
+			},
+		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-rpaas",
+				Namespace: "rpaasv2",
+			},
+		},
 	}
 }
