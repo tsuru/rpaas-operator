@@ -161,7 +161,11 @@ func (m *k8sRpaasManager) getCustomIssuerMetadata(ctx context.Context, namespace
 
 	name, kind, group := parts[0], parts[1], parts[2]
 
-	mapping, err := m.cli.RESTMapper().RESTMapping(schema.GroupKind{Group: group, Kind: kind})
+	restMapper := m.cli.RESTMapper()
+	if restMapper == nil {
+		return map[string]string{}, nil
+	}
+	mapping, err := restMapper.RESTMapping(schema.GroupKind{Group: group, Kind: kind})
 	if err != nil {
 		return nil, err
 	}
