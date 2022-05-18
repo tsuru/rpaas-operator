@@ -106,6 +106,7 @@ func Init() error {
 	viper.SetDefault("websocket-ping-interval", 2*time.Second)
 	viper.SetDefault("websocket-max-idle-time", 60*time.Second)
 	viper.SetDefault("websocket-write-wait", time.Second)
+	viper.SetDefault("enable-cert-manager", false)
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {
