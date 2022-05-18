@@ -47,7 +47,8 @@ type Api struct {
 }
 
 type APIServerStartOptions struct {
-	DiscardLogging bool
+	DiscardLogging          bool
+	ConfigEnableCertManager bool
 }
 
 // New creates an api instance.
@@ -111,6 +112,10 @@ func (a *Api) startServerWithOptions(options APIServerStartOptions) error {
 
 	if options.DiscardLogging {
 		a.e.Logger.SetOutput(io.Discard)
+	}
+	if options.ConfigEnableCertManager {
+		conf.EnableCertManager = options.ConfigEnableCertManager
+		config.Set(conf)
 	}
 
 	if conf.TLSCertificate != "" && conf.TLSKey != "" {
