@@ -20,8 +20,6 @@ import (
 	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
-var _ Factory = &localClusterFactory{}
-
 type PortForward struct {
 	Config          *rest.Config
 	Clientset       kubernetes.Interface
