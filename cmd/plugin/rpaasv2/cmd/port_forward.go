@@ -46,8 +46,13 @@ func NewCmdPortForward() *cli.Command {
 	return &cli.Command{
 		Name:      "port-forward",
 		Usage:     "",
-		ArgsUsage: "[-s SERVICE][-p POD] [-l LOCALHOST] [-dp LOCAL_PORT:][-rl REMOTE_PORT]",
+		ArgsUsage: "[-p POD] [-l LOCALHOST] [-dp LOCAL_PORT:][-rl REMOTE_PORT]",
 		Flags: []cli.Flag{
+			&cli.StringFlag{
+				Name:    "instance",
+				Aliases: []string{"tsuru-instance", "i"},
+				Usage:   "the Tsuru instance name",
+			},
 			&cli.StringFlag{
 				Name:    "service",
 				Aliases: []string{"tsuru-service", "s"},
@@ -91,6 +96,7 @@ func runPortForward(c *cli.Context) error {
 	args := rpaasclient.PortForwardArgs{
 		Pod:             c.String("pod"),
 		Address:         c.String("localhost"),
+		Instance:        c.String("instance"),
 		DestinationPort: c.Int("lp"),
 		ListenPort:      c.Int("rp"),
 	}
@@ -99,7 +105,7 @@ func runPortForward(c *cli.Context) error {
 	flag.IntVar(&ListenPort, "listen", ListenPort, "port to bind")
 	flag.IntVar(&Port, "Port", args.DestinationPort, "port to forward")
 	flag.StringVar(&Pod, "pod", args.Pod, "pod name")
-	flag.StringVar(&Namespace, "namespace", "default", "namespacepod look for")
+	flag.StringVar(&Namespace, "namespace", args.Instance, "namespacepod look for")
 	flag.Parse()
 
 	pf, err := target.NewPortForwarder(Pod, metav1.LabelSelector{MatchLabels: labels}, Port, Namespace)

@@ -26,6 +26,7 @@ type ExtraFilesArgs struct {
 type PortForwardArgs struct {
 	Address         string
 	DestinationPort int
+	Instance        string
 	Pod             string
 	ListenPort      int
 }

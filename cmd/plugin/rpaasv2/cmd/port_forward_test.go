@@ -30,7 +30,7 @@ func TestPortForward(t *testing.T) {
 	}{
 		{
 			name:     "when port forward is successful",
-			args:     []string{"./rpaasv2", "port-forward", "-s", "some-service", "-p", "my-pod", "-l", "127.0.0.1", "-dp", "8080", "-rp", "80"},
+			args:     []string{"./rpaasv2", "port-forward", "-s", "rpaasv2", "-i", "default", "-p", "my-pod", "-l", "127.0.0.1", "-dp", "8080", "-rp", "80"},
 			expected: "sucessul",
 			client:   &fake.FakeClient{},
 		},
