@@ -8,7 +8,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/tsuru/rpaas-operator/internal/web/target"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -108,7 +107,7 @@ func runPortForward(c *cli.Context) error {
 	flag.StringVar(&Namespace, "namespace", args.Instance, "namespacepod look for")
 	flag.Parse()
 
-	pf, err := target.NewPortForwarder(Pod, metav1.LabelSelector{MatchLabels: labels}, Port, Namespace)
+	pf, err := rpaasclient.NewPortForwarder(Pod, metav1.LabelSelector{MatchLabels: labels}, Port, Namespace)
 	if err != nil {
 		return err
 	}
