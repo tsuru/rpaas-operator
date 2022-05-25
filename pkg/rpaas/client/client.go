@@ -24,11 +24,16 @@ type ExtraFilesArgs struct {
 }
 
 type PortForwardArgs struct {
+	In              io.Reader
 	Address         string
 	DestinationPort int
 	Instance        string
 	Pod             string
 	ListenPort      int
+	TerminalWidth   uint16
+	TerminalHeight  uint16
+	Interactive     bool
+	TTY             bool
 }
 
 type DeleteExtraFilesArgs struct {
@@ -159,7 +164,7 @@ type Client interface {
 	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
 	Log(ctx context.Context, args LogArgs) error
-	StartPortForward(ctx context.Context, args PortForwardArgs) error
+	StartPortForward(ctx context.Context, args PortForwardArgs) (*PortForward, error)
 	AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs) error

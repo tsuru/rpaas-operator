@@ -29,7 +29,7 @@ type FakeClient struct {
 	FakeUpdateAutoscale         func(args client.UpdateAutoscaleArgs) error
 	FakeRemoveAutoscale         func(args client.RemoveAutoscaleArgs) error
 	FakeExec                    func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error)
-	FakeStartPortForward        func(ctx context.Context, args client.PortForwardArgs) error
+	FakeStartPortForward        func(ctx context.Context, args client.PortForwardArgs) (*client.PortForward, error)
 	FakeAddAccessControlList    func(instance, host string, port int) error
 	FakeListAccessControlList   func(instance string) ([]types.AllowedUpstream, error)
 	FakeRemoveAccessControlList func(instance, host string, port int) error
@@ -71,11 +71,11 @@ func (f *FakeClient) GetAutoscale(ctx context.Context, args client.GetAutoscaleA
 	return nil, nil
 }
 
-func (f *FakeClient) StartPortForward(ctx context.Context, args client.PortForwardArgs) error {
+func (f *FakeClient) StartPortForward(ctx context.Context, args client.PortForwardArgs) (*client.PortForward, error) {
 	if f.FakeStartPortForward != nil {
 		return f.FakeStartPortForward(ctx, args)
 	}
-	return nil
+	return nil, nil
 }
 
 func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*types.InstanceInfo, error) {

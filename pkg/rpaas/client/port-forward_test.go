@@ -74,7 +74,8 @@ func TestSometest(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
-			err := client.StartPortForward(context.TODO(), tt.args)
+			pf, err := client.StartPortForward(context.TODO(), tt.args)
+			println(pf)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

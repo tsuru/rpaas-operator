@@ -1,8 +1,13 @@
 package cmd
 
 import (
+	"log"
+	"os"
+	"time"
+
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
+	"k8s.io/kubectl/pkg/util/term"
 )
 
 func NewCmdPortForward() *cli.Command {
@@ -41,25 +46,63 @@ func NewCmdPortForward() *cli.Command {
 				Aliases: []string{"rp"},
 				Usage:   "specify a remote port",
 			},
+			&cli.BoolFlag{
+				Name:    "interactive",
+				Aliases: []string{"I", "stdin"},
+				Usage:   "pass STDIN to container",
+			},
+			&cli.BoolFlag{
+				Name:    "tty",
+				Aliases: []string{"t"},
+				Usage:   "allocate a pseudo-TTY",
+			},
 		},
 		Before: setupClient,
 		Action: runPortForward,
 	}
 }
 
-// func NewPortForwarder(namespace string, labels metav1.LabelSelector, port int) (*PortForward, error) {
-// }
-
 func runPortForward(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
 		return err
 	}
-	return client.StartPortForward(c.Context, rpaasclient.PortForwardArgs{
+	var width, height uint16
+	if ts := term.GetSize(os.Stdin.Fd()); ts != nil {
+		width, height = ts.Width, ts.Height
+	}
+	args := rpaasclient.PortForwardArgs{
 		Pod:             c.String("pod"),
-		DestinationPort: c.Int("dp"),
-		ListenPort:      c.Int("lp"),
+		DestinationPort: 8080,
+		ListenPort:      80,
 		Instance:        c.String("instance"),
 		Address:         c.String("localhost"),
+		Interactive:     c.Bool("interactive"),
+		TTY:             c.Bool("TTY"),
+		TerminalWidth:   width,
+		TerminalHeight:  height,
+	}
+	if args.Interactive {
+		args.In = os.Stdin
+	}
+
+	tty := &term.TTY{
+		In:  args.In,
+		Out: c.App.Writer,
+		Raw: args.TTY,
+	}
+	return tty.Safe(func() error {
+		pf, err := client.StartPortForward(c.Context, args)
+
+		if err != nil {
+			return err
+		}
+		err = pf.Start(c.Context)
+		if err != nil {
+			log.Fatal("Error starting port forward:", err)
+		}
+		log.Printf("Started tunnel on %d\n", pf.ListenPort)
+		time.Sleep(60 * time.Second)
+		return nil
 	})
 }

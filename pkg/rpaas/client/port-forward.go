@@ -21,6 +21,7 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/portforward"
 	"k8s.io/client-go/transport/spdy"
+	"k8s.io/kubectl/pkg/scheme"
 	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
@@ -151,12 +152,17 @@ func (p *PortForward) dialer(ctx context.Context) (httpstream.Dialer, error) {
 	if err != nil {
 		return nil, errors.Wrap(err, "Could not get pod name")
 	}
-
 	url := p.Clientset.CoreV1().RESTClient().Post().
 		Resource("pods").
 		Namespace(p.Namespace).
 		Name(pod).
-		SubResource("portforward").URL()
+		SubResource("portforward").VersionedParams(&v1.PodExecOptions{
+		Container: "nginx",
+		Stdin:     true,
+		Stdout:    true,
+		Stderr:    true,
+		TTY:       true,
+	}, scheme.ParameterCodec).URL()
 
 	transport, upgrader, err := spdy.RoundTripperFor(p.Config)
 	if err != nil {
@@ -204,7 +210,7 @@ func (p *PortForward) findPodByLabels(ctx context.Context) (string, error) {
 	return pods.Items[0].ObjectMeta.Name, nil
 }
 
-func (c *client) StartPortForward(ctx context.Context, args PortForwardArgs) error {
+func (c *client) StartPortForward(ctx context.Context, args PortForwardArgs) (*PortForward, error) {
 	var err error
 	var Namespace, Pod string
 
@@ -221,14 +227,16 @@ func (c *client) StartPortForward(ctx context.Context, args PortForwardArgs) err
 
 	pf, err := NewPortForwarder(args.Pod, metav1.LabelSelector{MatchLabels: labels}, args.DestinationPort, args.Instance)
 	if err != nil {
-		return err
+		return pf, err
 	}
+
 	pf.ListenPort = args.ListenPort
-	err = pf.Start(ctx)
+	err = pf.Start(context.TODO())
 	if err != nil {
 		log.Fatal("Error starting port forward:", err)
 	}
 	log.Printf("Started tunnel on %d\n", pf.ListenPort)
 	time.Sleep(60 * time.Second)
-	return nil
+
+	return pf, err
 }
