@@ -11,7 +11,6 @@ import (
 	"encoding/base32"
 	"encoding/json"
 	"fmt"
-	"math"
 	"reflect"
 	"sort"
 	"strconv"
@@ -668,22 +667,9 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 		return nil, err
 	}
 
-	var minAvailable intstr.IntOrString
-	if replicas := instance.Spec.Replicas; replicas != nil {
-		minAvailable = intstr.FromInt(int(*replicas))
-	}
-
-	if autoscale := instance.Spec.Autoscale; autoscale != nil {
-		minAvailable = intstr.FromInt(int(autoscale.MaxReplicas))
-
-		if min := instance.Spec.Autoscale.MinReplicas; min != nil && *min < autoscale.MaxReplicas {
-			minAvailable = intstr.FromInt(int(*min))
-		}
-	}
-
-	// NOTE: taking 90% of the real min available to support operational tasks
+	// NOTE: taking 10% of the real min unavailable to support operational tasks
 	// in the cluster, e.g scaling up/down nodes from Cluster Autoscaler.
-	minAvailable = intstr.FromInt(int(math.Floor(float64(minAvailable.IntValue()) * 0.9)))
+	maxUnavailable := intstr.FromString("10%")
 
 	return &policyv1beta1.PodDisruptionBudget{
 		TypeMeta: metav1.TypeMeta{
@@ -703,7 +689,7 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 			Labels: labelsForRpaasInstance(instance),
 		},
 		Spec: policyv1beta1.PodDisruptionBudgetSpec{
-			MinAvailable: &minAvailable,
+			MaxUnavailable: &maxUnavailable,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string(set),
 			},
