@@ -60,7 +60,7 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	}
 	c.baseAuthHeader(req.Header)
 
-	// temporarily increase TTL to 5 minutes giving more leeway to the end user
+	// temporarily increase TTL to 5 minutes giving more leeway for the end user to check the logs
 	oldTTL := httpClient.Timeout
 	defer func() {
 		httpClient.Timeout = oldTTL

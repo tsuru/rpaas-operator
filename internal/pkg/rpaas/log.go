@@ -69,6 +69,12 @@ func (m *k8sRpaasManager) Log(ctx context.Context, instanceName string, args Log
 	}
 
 	if args.Follow {
+		// temporarily increase TTL to 5 minutes giving more leeway for the end user to check the logs
+		oldTTL := m.restConfig.Timeout
+		m.restConfig.Timeout = 5 * time.Minute
+		defer func() {
+			m.restConfig.Timeout = oldTTL
+		}()
 		return m.watchLogs(ctx, nginx, args)
 	}
 
