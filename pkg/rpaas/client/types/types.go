@@ -114,6 +114,15 @@ type CertificateInfo struct {
 	PublicKeyBitSize   int
 }
 
+type Event struct {
+	First   time.Time `json:"first"`
+	Last    time.Time `json:"last"`
+	Type    string    `json:"type"`
+	Reason  string    `json:"reason"`
+	Message string    `json:"message"`
+	Count   int32     `json:"count"`
+}
+
 type InstanceInfo struct {
 	Dashboard    string            `json:"dashboard,omitempty"`
 	Addresses    []InstanceAddress `json:"addresses,omitempty"`
@@ -132,6 +141,7 @@ type InstanceInfo struct {
 	Pods         []Pod             `json:"pods,omitempty"`
 	Flavors      []string          `json:"flavors,omitempty"`
 	Certificates []CertificateInfo `json:"certificates,omitempty"`
+	Events       []Event           `json:"events,omitempty"`
 }
 
 type AllowedUpstream struct {

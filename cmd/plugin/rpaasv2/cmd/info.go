@@ -64,6 +64,7 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 		"formatPods":         writePodsOnTableFormat,
 		"formatPodErrors":    writePodErrorsOnTableFormat,
 		"formatCertificates": writeCertificatesOnTableFormat,
+		"formatEvents":       writeEventsOnTableFormat,
 	}).
 	Parse(`
 {{- $instance := . -}}
@@ -114,6 +115,11 @@ Blocks:
 {{- with .Routes }}
 Routes:
 {{ formatRoutes . }}
+{{- end }}
+
+{{- with .Events }}
+Events:
+{{ formatEvents . }}
 {{- end }}
 {{- /* end template */ -}}
 `))
@@ -394,6 +400,31 @@ func writeCertificatesOnTableFormat(c []clientTypes.CertificateInfo) string {
 	var b bytes.Buffer
 	writeCertificatesInfoOnTableFormat(&b, c)
 	return b.String()
+}
+
+func writeEventsOnTableFormat(events []clientTypes.Event) string {
+	data := [][]string{}
+	for _, event := range events {
+		age := translateTimestampSince(event.Last)
+		if event.Count > int32(1) {
+			age = fmt.Sprintf("%s (x%d over %s)", age, event.Count, translateTimestampSince(event.First))
+		}
+
+		data = append(data, []string{event.Type, event.Reason, age, event.Message})
+	}
+
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
+	table.SetHeader([]string{"Type", "Reason", "Age", "Message"})
+	table.SetRowLine(true)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetAutoWrapText(true)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT})
+	table.AppendBulk(data)
+	table.Render()
+
+	return buffer.String()
 }
 
 func formatTime(t time.Time) string {

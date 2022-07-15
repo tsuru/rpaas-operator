@@ -29,6 +29,7 @@ import (
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
+	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
@@ -1730,6 +1731,11 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
+	info.Events, err = m.getEvents(ctx, nginx)
+	if err != nil {
+		return nil, err
+	}
+
 	return info, nil
 }
 
@@ -1752,11 +1758,12 @@ func (m *k8sRpaasManager) getPods(ctx context.Context, nginx *nginxv1alpha1.Ngin
 		return nil, fmt.Errorf("nginx resource cannot be nil")
 	}
 
-	if nginx.Status.PodSelector == "" {
-		return nil, fmt.Errorf("pod selector on nginx status cannot be empty")
+	ps := nginx.Status.PodSelector
+	if ps == "" {
+		ps = labels.Set(nginxk8s.LabelsForNginx(nginx.Name)).String()
 	}
 
-	labelSet, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
+	labelSet, err := labels.ConvertSelectorToLabelsMap(ps)
 	if err != nil {
 		return nil, err
 	}
@@ -1775,11 +1782,12 @@ func (m *k8sRpaasManager) getPodMetrics(ctx context.Context, nginx *nginxv1alpha
 		return nil, fmt.Errorf("nginx resource cannot be nil")
 	}
 
-	if nginx.Status.PodSelector == "" {
-		return nil, fmt.Errorf("pod selector on nginx status cannot be empty")
+	ps := nginx.Status.PodSelector
+	if ps == "" {
+		ps = labels.Set(nginxk8s.LabelsForNginx(nginx.Name)).String()
 	}
 
-	labelSet, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
+	labelSet, err := labels.ConvertSelectorToLabelsMap(ps)
 	if err != nil {
 		return nil, err
 	}
@@ -1796,19 +1804,17 @@ func (m *k8sRpaasManager) getPodMetrics(ctx context.Context, nginx *nginxv1alpha
 		totalMemoryUsage := resource.NewQuantity(0, resource.BinarySI)
 
 		for _, container := range podMetric.Containers {
-			cpuUsage, ok := container.Usage["cpu"]
-			if !ok {
+			if container.Name != nginxContainerName {
 				continue
 			}
-			totalCPUUsage.Add(cpuUsage)
-		}
 
-		for _, container := range podMetric.Containers {
-			memoryUsage, ok := container.Usage["memory"]
-			if !ok {
-				continue
+			if cpuUsage, ok := container.Usage["cpu"]; ok {
+				totalCPUUsage.Add(cpuUsage)
 			}
-			totalMemoryUsage.Add(memoryUsage)
+
+			if memoryUsage, ok := container.Usage["memory"]; ok {
+				totalMemoryUsage.Add(memoryUsage)
+			}
 		}
 
 		result[podMetric.ObjectMeta.Name] = &clientTypes.PodMetrics{
@@ -2180,11 +2186,39 @@ func (m *k8sRpaasManager) getErrorsForPod(ctx context.Context, pod *corev1.Pod) 
 	}
 
 	sort.SliceStable(errors, func(i, j int) bool {
-		// NOTE: descending order by date.
-		return errors[i].Last.After(errors[j].Last)
+		return errors[i].Last.Before(errors[j].Last) // ascending order by last event occurrence
 	})
 
 	return errors, nil
+}
+
+func (m *k8sRpaasManager) getEvents(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]clientTypes.Event, error) {
+	events, err := m.eventsForObject(ctx, nginx.Namespace, "Nginx", nginx.UID)
+	if err != nil {
+		return nil, err
+	}
+
+	if len(events) == 0 {
+		return nil, nil
+	}
+
+	e := make([]clientTypes.Event, 0, len(events))
+	for _, evt := range events {
+		e = append(e, clientTypes.Event{
+			First:   evt.FirstTimestamp.Time.In(time.UTC),
+			Last:    evt.LastTimestamp.Time.In(time.UTC),
+			Count:   evt.Count,
+			Type:    evt.Type,
+			Reason:  evt.Reason,
+			Message: evt.Message,
+		})
+	}
+
+	sort.SliceStable(e, func(i, j int) bool {
+		return e[i].Last.Before(e[j].Last) // ascending order by last event occurrence
+	})
+
+	return e, nil
 }
 
 func (m *k8sRpaasManager) patchInstance(ctx context.Context, originalInstance *v1alpha1.RpaasInstance, updatedInstance *v1alpha1.RpaasInstance) error {

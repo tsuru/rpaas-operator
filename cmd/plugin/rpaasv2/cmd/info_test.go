@@ -285,6 +285,23 @@ func TestInfo(t *testing.T) {
 								PublicKeyBitSize:   384,
 							},
 						},
+						Events: []clientTypes.Event{
+							{
+								First:   time.Now().Add(-1 * time.Hour).UTC(),
+								Last:    time.Now().Add(-1 * time.Hour).UTC(),
+								Count:   1,
+								Type:    "Normal",
+								Reason:  "DeploymentUpdated",
+								Message: "deployment updated successfully",
+							},
+							{
+								First:   time.Now().Add(-24 * time.Hour).UTC(),
+								Last:    time.Now().Add(-5 * time.Minute).UTC(),
+								Count:   777,
+								Type:    "Warning",
+								Reason:  "ServiceQuotaExceeded",
+								Message: "failed to create Service: services \"my-instance-service\" is forbidden: exceeded quota: custom-resource-quota, requested: services.loadbalancers=1, used: services.loadbalancers=1, limited: services.loadbalancers=1"},
+						},
 					}, nil
 				},
 			},
@@ -415,6 +432,25 @@ Routes:
 | /login/provider1 | app2.tsuru.example.com |      ✓       |                         |
 | /app3/           |                        |              | # some raw nginx config |
 +------------------+------------------------+--------------+-------------------------+
+
+Events:
++---------+----------------------+--------------------+--------------------------------+
+| Type    | Reason               | Age                | Message                        |
++---------+----------------------+--------------------+--------------------------------+
+| Normal  | DeploymentUpdated    | 60m                | deployment updated             |
+|         |                      |                    | successfully                   |
++---------+----------------------+--------------------+--------------------------------+
+| Warning | ServiceQuotaExceeded | 5m (x777 over 24h) | failed to create Service:      |
+|         |                      |                    | services "my-instance-service" |
+|         |                      |                    | is forbidden: exceeded         |
+|         |                      |                    | quota: custom-resource-quota,  |
+|         |                      |                    | requested:                     |
+|         |                      |                    | services.loadbalancers=1,      |
+|         |                      |                    | used:                          |
+|         |                      |                    | services.loadbalancers=1,      |
+|         |                      |                    | limited:                       |
+|         |                      |                    | services.loadbalancers=1       |
++---------+----------------------+--------------------+--------------------------------+
 `,
 		},
 

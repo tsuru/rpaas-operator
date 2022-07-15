@@ -4085,563 +4085,120 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 	config.Set(config.RpaasConfig{
 		DashboardTemplate: "http://grafana.example/?instance_name={{ .Name }}&service={{ .Service }}",
 	})
+
 	t0 := time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC)
 
-	instance1 := newEmptyRpaasInstance()
-	instance1.Name = "instance1"
-	instance1.Labels = map[string]string{
-		"rpaas.extensions.tsuru.io/service-name": "rpaasv2-devel",
-	}
-	instance1.Annotations = map[string]string{
-		"rpaas.extensions.tsuru.io/description": "Some description about this instance",
-		"rpaas.extensions.tsuru.io/tags":        "tag1,tag2,tag3",
-		"rpaas.extensions.tsuru.io/team-owner":  "tsuru",
-	}
-	instance1.Spec.PlanName = "huge"
-	instance1.Spec.Flavors = []string{"mango", "milk"}
-
-	instance2 := instance1.DeepCopy()
-	instance2.Name = "instance2"
-	instance2.Spec.Replicas = pointerToInt32(3)
-	instance2.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-		MaxReplicas:                    100,
-		MinReplicas:                    pointerToInt32(1),
-		TargetCPUUtilizationPercentage: pointerToInt32(90),
-	}
-
-	instance3 := instance1.DeepCopy()
-	instance3.Name = "instance3"
-	instance3.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
-		v1alpha1.BlockTypeHTTP: {
-			Value: "# some nginx config at http context",
-		},
-		v1alpha1.BlockTypeServer: {
-			Value: "# some nginx config at server context",
-		},
-	}
-	instance3.Spec.Locations = []v1alpha1.Location{
-		{
-			Path:        "/custom/path/1",
-			Destination: "app1.tsuru.example.com",
-		},
-		{
-			Path: "/custom/path/2",
-			Content: &v1alpha1.Value{
-				Value: "# some nginx configuration",
-			},
-		},
-		{
-			Path:        "/custom/path/3",
-			Destination: "app3.tsuru.example.com",
-			ForceHTTPS:  true,
-		},
-	}
-
-	instance3.Spec.TLS = []nginxv1alpha1.NginxTLS{
-		{SecretName: "instance3-certs-01"},
-		{SecretName: "instance3-certs-02"},
-	}
-
-	s1 := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance3-certs-01",
-			Namespace: instance3.Namespace,
-			Labels: map[string]string{
-				"rpaas.extensions.tsuru.io/certificate-name": "default",
-				"rpaas.extensions.tsuru.io/instance-name":    "instance3",
-			},
-		},
-		Data: map[string][]byte{
-			"tls.crt": []byte(rsaCertificateInPEM),
-			"tls.key": []byte(rsaPrivateKeyInPEM),
-		},
-	}
-
-	s2 := &corev1.Secret{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance3-certs-02",
-			Namespace: instance3.Namespace,
-			Labels: map[string]string{
-				"rpaas.extensions.tsuru.io/certificate-name": "instance3.example.com",
-				"rpaas.extensions.tsuru.io/instance-name":    "instance3",
-			},
-		},
-		Data: map[string][]byte{
-			"tls.crt": []byte(ecdsaCertificateInPEM),
-			"tls.key": []byte(ecdsaPrivateKeyInPEM),
-		},
-	}
-
-	instance4 := instance1.DeepCopy()
-	instance4.Name = "instance4"
-	instance4.Spec.DNS = &v1alpha1.DNSConfig{
-		Zone: "zone1",
-	}
-	instance4.Spec.Service = &nginxv1alpha1.NginxService{
-		Annotations: map[string]string{externalDNSHostnameLabel: instance4.Name + "." + instance4.Spec.DNS.Zone},
-	}
-
-	service3 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance3.Name + "-service",
-			Namespace: instance3.Namespace,
-			UID:       types.UID("service-3-ui3"),
-		},
-		Spec: corev1.ServiceSpec{
-			Type:      corev1.ServiceTypeLoadBalancer,
-			ClusterIP: "10.10.10.100",
-		},
-		Status: corev1.ServiceStatus{
-			LoadBalancer: corev1.LoadBalancerStatus{
-				Ingress: []corev1.LoadBalancerIngress{},
-			},
-		},
-	}
-
-	service4 := &corev1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:        instance4.Name + "-service",
-			Namespace:   instance4.Namespace,
-			Annotations: map[string]string{externalDNSHostnameLabel: instance4.Name + ".zone1"},
-		},
-		Spec: corev1.ServiceSpec{
-			Type: corev1.ServiceTypeLoadBalancer,
-		},
-		Status: corev1.ServiceStatus{
-			LoadBalancer: corev1.LoadBalancerStatus{
-				Ingress: []corev1.LoadBalancerIngress{
-					{
-						IP: "192.168.10.10",
-					},
-				},
-			},
-		},
-	}
-
-	ingress3 := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance3.Name,
-			Namespace: instance3.Namespace,
-			Annotations: map[string]string{
-				"external-dns.alpha.kubernetes.io/hostname": "example.com,www.example.com",
-			},
-		},
-	}
-
-	nginx3 := &nginxv1alpha1.Nginx{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance3.Name,
-			Namespace: instance3.Namespace,
-		},
-		Status: nginxv1alpha1.NginxStatus{
-			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance3",
-			Services: []nginxv1alpha1.ServiceStatus{
-				{Name: service3.Name},
-			},
-			Ingresses: []nginxv1alpha1.IngressStatus{
-				{Name: ingress3.Name},
-			},
-		},
-	}
-
-	ingress4 := &networkingv1.Ingress{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance4.Name,
-			Namespace: instance4.Namespace,
-			Annotations: map[string]string{
-				"external-dns.alpha.kubernetes.io/hostname": "example.com,www.example.com",
-			},
-		},
-		Spec: networkingv1.IngressSpec{},
-		Status: networkingv1.IngressStatus{
-			LoadBalancer: corev1.LoadBalancerStatus{
-				Ingress: []corev1.LoadBalancerIngress{
-					{IP: "192.168.200.200"},
-					{Hostname: "abc.lb.example.com"},
-				},
-			},
-		},
-	}
-
-	nginx4 := &nginxv1alpha1.Nginx{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance4.Name,
-			Namespace: instance4.Namespace,
-		},
-		Status: nginxv1alpha1.NginxStatus{
-			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance4",
-			Services: []nginxv1alpha1.ServiceStatus{
-				{Name: service4.Name},
-			},
-			Ingresses: []nginxv1alpha1.IngressStatus{
-				{Name: ingress4.Name},
-			},
-		},
-	}
-
-	pod1 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance4-6f86f957b7-abcde",
-			Namespace: instance4.Namespace,
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":           "nginx",
-				"nginx.tsuru.io/resource-name": "instance4",
-			},
-			CreationTimestamp: metav1.NewTime(t0),
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name: "nginx",
-					Ports: []corev1.ContainerPort{
-						{
-							Name:     "http",
-							HostPort: int32(30000),
-						},
-						{
-							Name:     "https",
-							HostPort: int32(30001),
-						},
-						{
-							Name:     "nginx-metrics",
-							HostPort: int32(30002),
-						},
-					},
-				},
-			},
-		},
-		Status: corev1.PodStatus{
-			Phase:  corev1.PodRunning,
-			PodIP:  "172.16.100.21",
-			HostIP: "10.10.10.11",
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name:         "nginx",
-					Ready:        true,
-					RestartCount: int32(10),
-				},
-			},
-		},
-	}
-
-	pod2 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance4-6f86f957b7-fghij",
-			Namespace: instance4.Namespace,
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":           "nginx",
-				"nginx.tsuru.io/resource-name": "instance4",
-			},
-			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
-			UID:               types.UID("pod2-123"),
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name: "nginx",
-					Ports: []corev1.ContainerPort{
-						{
-							Name:     "http",
-							HostPort: int32(30000),
-						},
-						{
-							Name:     "https",
-							HostPort: int32(30001),
-						},
-						{
-							Name:     "nginx-metrics",
-							HostPort: int32(30002),
-						},
-					},
-				},
-			},
-		},
-		Status: corev1.PodStatus{
-			Phase: corev1.PodRunning,
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name: "nginx",
-					State: corev1.ContainerState{
-						Waiting: &corev1.ContainerStateWaiting{
-							Reason:  "CrashLoopBackOff",
-							Message: "Back-off 5m0s restarting failed container=nginx pod=instance4-6f86f957b7-fghij_default(pod uuid)",
-						},
-					},
-					LastTerminationState: corev1.ContainerState{
-						Terminated: &corev1.ContainerStateTerminated{
-							ExitCode: int32(137),
-							Reason:   "Error",
-						},
-					},
-				},
-			},
-		},
-	}
-
-	pod2Metrics := &metricsv1beta1.PodMetrics{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance4-6f86f957b7-fghij",
-			Namespace: instance4.Namespace,
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":           "nginx",
-				"nginx.tsuru.io/resource-name": "instance4",
-			},
-			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
-			UID:               types.UID("pod2-123"),
-		},
-		Containers: []metricsv1beta1.ContainerMetrics{
-			{
-				Name: "nginx",
-				Usage: corev1.ResourceList{
-					"cpu":    resource.MustParse("100m"),
-					"memory": resource.MustParse("100Mi"),
-				},
-			},
-			{
-				Name: "my-sidecar",
-				Usage: corev1.ResourceList{
-					"cpu":    resource.MustParse("10m"),
-					"memory": resource.MustParse("10Mi"),
-				},
-			},
-		},
-	}
-	pod3 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "instance4-6f86f957b7-klmno",
-			Namespace: instance4.Namespace,
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":           "nginx",
-				"nginx.tsuru.io/resource-name": "instance4",
-			},
-			CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
-			UID:               types.UID("pod3-123"),
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{
-					Name: "nginx",
-					Ports: []corev1.ContainerPort{
-						{
-							Name:     "http",
-							HostPort: int32(30000),
-						},
-						{
-							Name:     "https",
-							HostPort: int32(30001),
-						},
-						{
-							Name:     "nginx-metrics",
-							HostPort: int32(30002),
-						},
-					},
-				},
-			},
-		},
-		Status: corev1.PodStatus{
-			Phase:  corev1.PodFailed,
-			Reason: "shutdown",
-		},
-	}
-	event1 := &corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pod2.Name + ".1",
-			Namespace: pod2.Namespace,
-		},
-		InvolvedObject: corev1.ObjectReference{
-			Kind:      "Pod",
-			Name:      pod2.Name,
-			Namespace: pod2.Namespace,
-			UID:       pod2.UID,
-		},
-		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
-		LastTimestamp:  metav1.NewTime(t0.Add(-time.Hour)),
-		Type:           corev1.EventTypeNormal,
-		Reason:         "Pulled",
-		Message:        "Container image \"nginx:1.16.1\" already present on machine",
-	}
-
-	event2 := &corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pod2.Name + ".2",
-			Namespace: pod2.Namespace,
-		},
-		InvolvedObject: corev1.ObjectReference{
-			Kind:      "Pod",
-			Name:      pod2.Name,
-			Namespace: pod2.Namespace,
-			UID:       pod2.UID,
-		},
-		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
-		LastTimestamp:  metav1.NewTime(t0.Add(-time.Minute)),
-		Count:          15,
-		Type:           corev1.EventTypeWarning,
-		Reason:         "FailedPostStartHook",
-		Message:        "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"instance4-6f86f957b7-fghij_rpaasv2-be-rjdev(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
-	}
-
-	event3 := &corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pod2.Name + ".3",
-			Namespace: pod2.Namespace,
-		},
-		InvolvedObject: corev1.ObjectReference{
-			Kind:      "Pod",
-			Name:      pod2.Name,
-			Namespace: pod2.Namespace,
-			UID:       pod2.UID,
-		},
-		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
-		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
-		Count:          16,
-		Type:           corev1.EventTypeWarning,
-		Reason:         "BackOff",
-		Message:        "Back-off restarting failed container",
-	}
-
-	event4 := &corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              service3.Name + ".313",
-			Namespace:         service3.Namespace,
-			CreationTimestamp: metav1.NewTime(t0),
-		},
-		InvolvedObject: corev1.ObjectReference{
-			Kind:      "Service",
-			Name:      service3.Name,
-			Namespace: service3.Namespace,
-			UID:       service3.UID,
-		},
-		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
-		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
-		Count:          16,
-		Type:           corev1.EventTypeWarning,
-		Reason:         "EnsuringLoadBalancer",
-		Message:        "Some error to set up loadbalancer",
-	}
-
-	event5 := &corev1.Event{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:              ingress3.Name + ".123",
-			Namespace:         ingress3.Namespace,
-			CreationTimestamp: metav1.NewTime(t0),
-		},
-		InvolvedObject: corev1.ObjectReference{
-			Kind:      "Ingress",
-			Name:      ingress3.Name,
-			Namespace: ingress3.Namespace,
-			UID:       ingress3.UID,
-		},
-		FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
-		LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
-		Count:          42,
-		Type:           corev1.EventTypeWarning,
-		Reason:         "InvalidIngressRule",
-		Message:        "Failed to valid some rule in the Ingress",
-	}
-
-	resources := []runtime.Object{
-		instance1, instance2, instance3, instance4,
-		nginx3, nginx4,
-		service3, service4,
-		pod1, pod2, pod3,
-		pod2Metrics,
-		event1, event2, event3, event4, event5,
-		s1, s2,
-		ingress3, ingress4,
-	}
-
-	tests := []struct {
-		instance string
-		expected clientTypes.InstanceInfo
+	tests := map[string]struct {
+		resources []runtime.Object
+		instance  func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance
+		expected  func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo
 	}{
-		{
-			instance: "instance1",
-			expected: clientTypes.InstanceInfo{
-				Name:        "instance1",
-				Service:     "rpaasv2-devel",
-				Dashboard:   "http://grafana.example/?instance_name=instance1&service=rpaasv2-devel",
-				Description: "Some description about this instance",
-				Team:        "tsuru",
-				Tags:        []string{"tag1", "tag2", "tag3"},
-				Plan:        "huge",
-				Flavors:     []string{"mango", "milk"},
+		"base instance info": {
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				return info
 			},
 		},
-		{
-			instance: "instance2",
-			expected: clientTypes.InstanceInfo{
-				Name:        "instance2",
-				Service:     "rpaasv2-devel",
-				Dashboard:   "http://grafana.example/?instance_name=instance2&service=rpaasv2-devel",
-				Description: "Some description about this instance",
-				Team:        "tsuru",
-				Tags:        []string{"tag1", "tag2", "tag3"},
-				Plan:        "huge",
-				Flavors:     []string{"mango", "milk"},
-				Replicas:    pointerToInt32(3),
-				Autoscale: &clientTypes.Autoscale{
+
+		"w/ replicas set": {
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				i.Spec.Replicas = pointerToInt32(7)
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Replicas = pointerToInt32(7)
+				return info
+			},
+		},
+
+		"w/ autoscale config": {
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				i.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas:                    100,
+					MinReplicas:                    pointerToInt32(1),
+					TargetCPUUtilizationPercentage: pointerToInt32(90),
+				}
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Autoscale = &clientTypes.Autoscale{
 					MaxReplicas: pointerToInt32(100),
 					MinReplicas: pointerToInt32(1),
 					CPU:         pointerToInt32(90),
-				},
+				}
+				return info
 			},
 		},
-		{
-			instance: "instance3",
-			expected: clientTypes.InstanceInfo{
-				Name:        "instance3",
-				Service:     "rpaasv2-devel",
-				Dashboard:   "http://grafana.example/?instance_name=instance3&service=rpaasv2-devel",
-				Description: "Some description about this instance",
-				Team:        "tsuru",
-				Tags:        []string{"tag1", "tag2", "tag3"},
-				Plan:        "huge",
-				Flavors:     []string{"mango", "milk"},
-				Blocks: []clientTypes.Block{
-					{
-						Name:    "http",
-						Content: "# some nginx config at http context",
+
+		"w/ blocks and routes": {
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				i.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP:   {Value: "# some nginx config at http context"},
+					v1alpha1.BlockTypeServer: {Value: "# some nginx config at server context"},
+				}
+				i.Spec.Locations = []v1alpha1.Location{
+					{Path: "/custom/path/1", Destination: "app1.tsuru.example.com"},
+					{Path: "/custom/path/2", Content: &v1alpha1.Value{Value: "# some nginx configuration"}},
+					{Path: "/custom/path/3", Destination: "app3.tsuru.example.com", ForceHTTPS: true},
+				}
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Blocks = []clientTypes.Block{
+					{Name: "http", Content: "# some nginx config at http context"},
+					{Name: "server", Content: "# some nginx config at server context"},
+				}
+				info.Routes = []clientTypes.Route{
+					{Path: "/custom/path/1", Destination: "app1.tsuru.example.com"},
+					{Path: "/custom/path/2", Content: "# some nginx configuration"},
+					{Path: "/custom/path/3", Destination: "app3.tsuru.example.com", HTTPSOnly: true},
+				}
+				return info
+			},
+		},
+
+		"w/ TLS certs": {
+			resources: []runtime.Object{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-certs-01",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "default",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
 					},
-					{
-						Name:    "server",
-						Content: "# some nginx config at server context",
-					},
-				},
-				Routes: []clientTypes.Route{
-					{
-						Path:        "/custom/path/1",
-						Destination: "app1.tsuru.example.com",
-					},
-					{
-						Path:    "/custom/path/2",
-						Content: "# some nginx configuration",
-					},
-					{
-						Path:        "/custom/path/3",
-						Destination: "app3.tsuru.example.com",
-						HTTPSOnly:   true,
-					},
-				},
-				Addresses: []clientTypes.InstanceAddress{
-					{
-						Type:        clientTypes.InstanceAddressTypeClusterExternal,
-						ServiceName: "instance3-service",
-						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Some error to set up loadbalancer\n",
-					},
-					{
-						Type:        clientTypes.InstanceAddressTypeClusterExternal,
-						IngressName: "instance3",
-						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Failed to valid some rule in the Ingress\n",
-					},
-					{
-						Type:        clientTypes.InstanceAddressTypeClusterInternal,
-						ServiceName: "instance3-service",
-						Hostname:    "instance3-service.rpaasv2.svc.cluster.local",
-						IP:          "10.10.10.100",
-						Status:      "ready",
+					Data: map[string][]byte{
+						"tls.crt": []byte(rsaCertificateInPEM),
+						"tls.key": []byte(rsaPrivateKeyInPEM),
 					},
 				},
-				Certificates: []clientTypes.CertificateInfo{
+				&corev1.Secret{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-certs-02",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "my-instance.example.com",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
+					Data: map[string][]byte{
+						"tls.crt": []byte(ecdsaCertificateInPEM),
+						"tls.key": []byte(ecdsaPrivateKeyInPEM),
+					},
+				},
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				i.Spec.TLS = []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-instance-certs-01"},
+					{SecretName: "my-instance-certs-02"},
+				}
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Certificates = []clientTypes.CertificateInfo{
 					{
 						Name:               "default",
 						ValidFrom:          time.Date(2020, time.August, 12, 20, 27, 46, 0, time.UTC),
@@ -4651,52 +4208,379 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						PublicKeyBitSize:   512,
 					},
 					{
-						Name:               "instance3.example.com",
+						Name:               "my-instance.example.com",
 						ValidFrom:          time.Date(2017, time.October, 20, 19, 43, 6, 0, time.UTC),
 						ValidUntil:         time.Date(2018, time.October, 20, 19, 43, 6, 0, time.UTC),
 						DNSNames:           []string{"localhost:5453", "127.0.0.1:5453"},
 						PublicKeyAlgorithm: "ECDSA",
 						PublicKeyBitSize:   256,
 					},
-				},
+				}
+				return info
 			},
 		},
-		{
-			instance: "instance4",
-			expected: clientTypes.InstanceInfo{
-				Name:        "instance4",
-				Service:     "rpaasv2-devel",
-				Dashboard:   "http://grafana.example/?instance_name=instance4&service=rpaasv2-devel",
-				Description: "Some description about this instance",
-				Team:        "tsuru",
-				Tags:        []string{"tag1", "tag2", "tag3"},
-				Plan:        "huge",
-				Flavors:     []string{"mango", "milk"},
-				Addresses: []clientTypes.InstanceAddress{
+
+		"w/ service load balancer failed": {
+			resources: []runtime.Object{
+				&nginxv1alpha1.Nginx{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+					},
+					Status: nginxv1alpha1.NginxStatus{
+						Services: []nginxv1alpha1.ServiceStatus{{Name: "my-instance-service"}},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-service",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance-service-uid"),
+					},
+					Spec: corev1.ServiceSpec{
+						Type:      corev1.ServiceTypeLoadBalancer,
+						ClusterIP: "10.10.10.100",
+					},
+				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "my-instance-service.313",
+						Namespace:         "rpaasv2",
+						CreationTimestamp: metav1.NewTime(t0),
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "Service",
+						Name:      "my-instance-service",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance-service-uid"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
+					Count:          16,
+					Type:           corev1.EventTypeWarning,
+					Reason:         "EnsuringLoadBalancer",
+					Message:        "Some error to set up loadbalancer",
+				},
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Addresses = []clientTypes.InstanceAddress{
 					{
 						Type:        clientTypes.InstanceAddressTypeClusterExternal,
-						IngressName: "instance4",
+						ServiceName: "my-instance-service",
+						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Some error to set up loadbalancer\n",
+					},
+					{
+						Type:        clientTypes.InstanceAddressTypeClusterInternal,
+						ServiceName: "my-instance-service",
+						Hostname:    "my-instance-service.rpaasv2.svc.cluster.local",
+						IP:          "10.10.10.100",
+						Status:      "ready",
+					},
+				}
+				return info
+			},
+		},
+
+		"w/ ingress failed": {
+			resources: []runtime.Object{
+				&nginxv1alpha1.Nginx{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+					},
+					Status: nginxv1alpha1.NginxStatus{
+						Ingresses: []nginxv1alpha1.IngressStatus{{Name: "my-instance"}},
+					},
+				},
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance-uid"),
+					},
+				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "my-instance.123",
+						Namespace:         "rpaasv2",
+						CreationTimestamp: metav1.NewTime(t0),
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "Ingress",
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance-uid"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
+					Count:          42,
+					Type:           corev1.EventTypeWarning,
+					Reason:         "InvalidIngressRule",
+					Message:        "Failed to valid some rule in the Ingress",
+				},
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Addresses = []clientTypes.InstanceAddress{
+					{
+						Type:        clientTypes.InstanceAddressTypeClusterExternal,
+						IngressName: "my-instance",
+						Status:      "pending: 2020-04-02T16:09:59Z - Warning - Failed to valid some rule in the Ingress\n",
+					},
+				}
+				return info
+			},
+		},
+
+		"w/ load balancer from Service and Ingress + DNS names": {
+			resources: []runtime.Object{
+				&nginxv1alpha1.Nginx{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+					},
+					Status: nginxv1alpha1.NginxStatus{
+						Services:  []nginxv1alpha1.ServiceStatus{{Name: "my-instance-service"}},
+						Ingresses: []nginxv1alpha1.IngressStatus{{Name: "my-instance"}},
+					},
+				},
+				&corev1.Service{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-service",
+						Namespace: "rpaasv2",
+						Annotations: map[string]string{
+							"external-dns.alpha.kubernetes.io/hostname": "my-instance.zone1.tld"},
+					},
+					Spec: corev1.ServiceSpec{
+						Type: corev1.ServiceTypeLoadBalancer,
+					},
+					Status: corev1.ServiceStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{{IP: "192.168.10.10"}},
+						},
+					},
+				},
+				&networkingv1.Ingress{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						Annotations: map[string]string{
+							"external-dns.alpha.kubernetes.io/hostname": "example.com,www.example.com",
+						},
+					},
+					Status: networkingv1.IngressStatus{
+						LoadBalancer: corev1.LoadBalancerStatus{
+							Ingress: []corev1.LoadBalancerIngress{
+								{IP: "192.168.200.200"},
+								{Hostname: "abc.lb.example.com"},
+							},
+						},
+					},
+				},
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Addresses = []clientTypes.InstanceAddress{
+					{
+						Type:        clientTypes.InstanceAddressTypeClusterExternal,
+						IngressName: "my-instance",
 						Hostname:    "abc.lb.example.com,example.com,www.example.com",
 						Status:      "ready",
 					},
 					{
 						Type:        clientTypes.InstanceAddressTypeClusterExternal,
-						ServiceName: "instance4-service",
+						ServiceName: "my-instance-service",
 						IP:          "192.168.10.10",
-						Hostname:    "instance4.zone1",
+						Hostname:    "my-instance.zone1.tld",
 						Status:      "ready",
 					},
 					{
 						Type:        clientTypes.InstanceAddressTypeClusterExternal,
-						IngressName: "instance4",
+						IngressName: "my-instance",
 						Hostname:    "example.com,www.example.com",
 						IP:          "192.168.200.200",
 						Status:      "ready",
 					},
+				}
+				return info
+			},
+		},
+
+		"w/ pod status and pod errors": {
+			resources: []runtime.Object{
+				&nginxv1alpha1.Nginx{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+					},
+					Status: nginxv1alpha1.NginxStatus{
+						PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance",
+					},
 				},
-				Pods: []clientTypes.Pod{
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-abcde",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"nginx.tsuru.io/app":           "nginx",
+							"nginx.tsuru.io/resource-name": "my-instance",
+						},
+						CreationTimestamp: metav1.NewTime(t0),
+						UID:               types.UID("my-instance-6f86f957b7-abcde"),
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "nginx",
+								Ports: []corev1.ContainerPort{
+									{Name: "http", HostPort: int32(30000)},
+									{Name: "https", HostPort: int32(30001)},
+									{Name: "nginx-metrics", HostPort: int32(30002)},
+								},
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase:  corev1.PodRunning,
+						PodIP:  "172.16.100.21",
+						HostIP: "10.10.10.11",
+						ContainerStatuses: []corev1.ContainerStatus{
+							{Name: "nginx", Ready: true, RestartCount: int32(10)},
+						},
+					},
+				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-fghij",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"nginx.tsuru.io/app":           "nginx",
+							"nginx.tsuru.io/resource-name": "my-instance",
+						},
+						CreationTimestamp: metav1.NewTime(t0.Add(time.Hour)),
+						UID:               types.UID("my-instance-6f86f957b7-fghij"),
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "nginx",
+								Ports: []corev1.ContainerPort{
+									{Name: "http", HostPort: int32(30000)},
+									{Name: "https", HostPort: int32(30001)},
+									{Name: "nginx-metrics", HostPort: int32(30002)},
+								},
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase: corev1.PodRunning,
+						ContainerStatuses: []corev1.ContainerStatus{
+							{
+								Name: "nginx",
+								State: corev1.ContainerState{
+									Waiting: &corev1.ContainerStateWaiting{
+										Reason:  "CrashLoopBackOff",
+										Message: "Back-off 5m0s restarting failed container=nginx pod=my-instance-6f86f957b7-fghij_default(pod uuid)",
+									},
+								},
+								LastTerminationState: corev1.ContainerState{
+									Terminated: &corev1.ContainerStateTerminated{
+										ExitCode: int32(137),
+										Reason:   "Error",
+									},
+								},
+							},
+						},
+					},
+				},
+				&metricsv1beta1.PodMetrics{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-abcde",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"nginx.tsuru.io/app":           "nginx",
+							"nginx.tsuru.io/resource-name": "my-instance",
+						},
+						UID: types.UID("my-instance-6f86f957b7-abcde"),
+					},
+					Containers: []metricsv1beta1.ContainerMetrics{
+						{
+							Name: "nginx",
+							Usage: corev1.ResourceList{
+								"cpu":    resource.MustParse("100m"),
+								"memory": resource.MustParse("100Mi"),
+							},
+						},
+					},
+				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-fghij.1",
+						Namespace: "rpaasv2",
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "Pod",
+						Name:      "my-instance-6f86f957b7-fghij",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance-6f86f957b7-fghij"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-time.Hour)),
+					Type:           corev1.EventTypeNormal,
+					Reason:         "Pulled",
+					Message:        `Container image "nginx:1.16.1" already present on machine`,
+				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-fghij.2",
+						Namespace: "rpaasv2",
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "Pod",
+						Name:      "my-instance-6f86f957b7-fghij",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance-6f86f957b7-fghij"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-time.Minute)),
+					Count:          15,
+					Type:           corev1.EventTypeWarning,
+					Reason:         "FailedPostStartHook",
+					Message:        "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"my-instance-6f86f957b7-fghij_rpaasv2(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
+				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-fghij.3",
+						Namespace: "rpaasv2",
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "Pod",
+						Name:      "my-instance-6f86f957b7-fghij",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance-6f86f957b7-fghij"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-time.Second)),
+					Count:          16,
+					Type:           corev1.EventTypeWarning,
+					Reason:         "BackOff",
+					Message:        "Back-off restarting failed container",
+				},
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Pods = []clientTypes.Pod{
 					{
-						Name:      "instance4-6f86f957b7-abcde",
+						Name:      "my-instance-6f86f957b7-abcde",
 						IP:        "172.16.100.21",
 						HostIP:    "10.10.10.11",
 						Status:    "Running",
@@ -4704,73 +4588,166 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Restarts:  int32(10),
 						Ready:     true,
 						Ports: []clientTypes.PodPort{
-							{
-								Name:     "http",
-								HostPort: int32(30000),
-							},
-							{
-								Name:     "https",
-								HostPort: int32(30001),
-							},
-							{
-								Name:     "nginx-metrics",
-								HostPort: int32(30002),
-							},
+							{Name: "http", HostPort: int32(30000)},
+							{Name: "https", HostPort: int32(30001)},
+							{Name: "nginx-metrics", HostPort: int32(30002)},
+						},
+						Metrics: &clientTypes.PodMetrics{
+							CPU:    "100m",
+							Memory: "100Mi",
 						},
 					},
 					{
-						Name:      "instance4-6f86f957b7-fghij",
+						Name:      "my-instance-6f86f957b7-fghij",
 						Status:    "Errored",
 						CreatedAt: time.Date(2020, 4, 2, 17, 10, 0, 0, time.UTC),
 						Ports: []clientTypes.PodPort{
-							{
-								Name:     "http",
-								HostPort: int32(30000),
-							},
-							{
-								Name:     "https",
-								HostPort: int32(30001),
-							},
-							{
-								Name:     "nginx-metrics",
-								HostPort: int32(30002),
-							},
+							{Name: "http", HostPort: int32(30000)},
+							{Name: "https", HostPort: int32(30001)},
+							{Name: "nginx-metrics", HostPort: int32(30002)},
 						},
 						Ready: false,
 						Errors: []clientTypes.PodError{
+							{
+								First:   t0.Add(-time.Hour).In(time.UTC),
+								Last:    t0.Add(-time.Minute).In(time.UTC),
+								Count:   int32(15),
+								Message: "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"my-instance-6f86f957b7-fghij_rpaasv2(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
+							},
 							{
 								First:   t0.Add(-time.Hour).In(time.UTC),
 								Last:    t0.Add(-time.Second).In(time.UTC),
 								Count:   int32(16),
 								Message: "Back-off restarting failed container",
 							},
-							{
-								First:   t0.Add(-time.Hour).In(time.UTC),
-								Last:    t0.Add(-time.Minute).In(time.UTC),
-								Count:   int32(15),
-								Message: "Exec lifecycle hook ([/bin/sh -c nginx -t && touch /tmp/done]) for Container \"nginx\" in Pod \"instance4-6f86f957b7-fghij_rpaasv2-be-rjdev(pod uuid)\" failed - error: command '/bin/sh -c nginx -t && touch /tmp/done' exited with 1: 2020/04/07 16:54:18 [emerg] 18#18: \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: [emerg] \"location\" directive is not allowed here in /etc/nginx/nginx.conf:118\nnginx: configuration file /etc/nginx/nginx.conf test failed\n, message: \"2020/04/07 16:54:18 [emerg] 18#18: \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: [emerg] \\\"location\\\" directive is not allowed here in /etc/nginx/nginx.conf:118\\nnginx: configuration file /etc/nginx/nginx.conf test failed\\n\"",
-							},
-						},
-						Metrics: &clientTypes.PodMetrics{
-							CPU:    "110m",
-							Memory: "110Mi",
 						},
 					},
+				}
+				return info
+			},
+		},
+
+		"w/ events": {
+			resources: []runtime.Object{
+				&nginxv1alpha1.Nginx{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "my-instance",
+						Namespace:         "rpaasv2",
+						UID:               types.UID("my-instance"),
+						CreationTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					},
 				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance.1",
+						Namespace: "rpaasv2",
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "Nginx",
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-5 * time.Minute)),
+					Count:          777,
+					Type:           corev1.EventTypeWarning,
+					Reason:         "ServiceQuotaExceeded",
+					Message:        `failed to create Service: services "my-instance-service" is forbidden: exceeded quota: my-custom-quota, requested: services.loadbalancers=1, used: services.loadbalancers=1, limited: services.loadbalancers=1`,
+				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "my-instance.2",
+						Namespace:         "rpaasv2",
+						CreationTimestamp: metav1.NewTime(t0.Add(-30 * time.Second)),
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "Nginx",
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-30 * time.Second)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-30 * time.Second)),
+					Count:          1,
+					Type:           corev1.EventTypeNormal,
+					Reason:         "ServiceCreated",
+					Message:        `service created successfully`,
+				},
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Events = []clientTypes.Event{
+					{
+						First:   t0.Add(-time.Hour),
+						Last:    t0.Add(-5 * time.Minute),
+						Count:   777,
+						Type:    "Warning",
+						Reason:  "ServiceQuotaExceeded",
+						Message: `failed to create Service: services "my-instance-service" is forbidden: exceeded quota: my-custom-quota, requested: services.loadbalancers=1, used: services.loadbalancers=1, limited: services.loadbalancers=1`,
+					},
+					{
+						First:   t0.Add(-30 * time.Second),
+						Last:    t0.Add(-30 * time.Second),
+						Count:   1,
+						Type:    corev1.EventTypeNormal,
+						Reason:  "ServiceCreated",
+						Message: `service created successfully`,
+					},
+				}
+				return info
 			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.instance, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			require.NotNil(t, tt.instance)
+			instance := tt.instance(v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description": "Some description about this instance",
+						"rpaas.extensions.tsuru.io/tags":        "tag1,tag2,tag3",
+						"rpaas.extensions.tsuru.io/team-owner":  "tsuru",
+					},
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "rpaasv2-devel",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2-devel",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName: "huge",
+					Flavors:  []string{"mango", "milk"},
+				},
+			})
+
+			resources := append(tt.resources, &instance)
+
 			client := fake.NewClientBuilder().
 				WithScheme(newScheme()).
 				WithRuntimeObjects(resources...).
 				Build()
 
-			got, err := (&k8sRpaasManager{cli: client}).GetInstanceInfo(context.Background(), tt.instance)
+			got, err := (&k8sRpaasManager{cli: client}).GetInstanceInfo(context.Background(), instance.Name)
 			require.NoError(t, err)
-			assert.Equal(t, tt.expected, *got)
+
+			expected := tt.expected(clientTypes.InstanceInfo{
+				Name:        "my-instance",
+				Service:     "rpaasv2-devel",
+				Dashboard:   "http://grafana.example/?instance_name=my-instance&service=rpaasv2-devel",
+				Description: "Some description about this instance",
+				Team:        "tsuru",
+				Tags:        []string{"tag1", "tag2", "tag3"},
+				Plan:        "huge",
+				Flavors:     []string{"mango", "milk"},
+			})
+			assert.Equal(t, expected, *got)
 		})
 	}
 }
