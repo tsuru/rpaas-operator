@@ -1,24 +1,39 @@
 domain: tsuru.io
-layout: go.kubebuilder.io/v2
-plugins:
-  go.sdk.operatorframework.io/v2-alpha: {}
+layout:
+- go.kubebuilder.io/v3
 projectName: rpaas-operator
 repo: github.com/tsuru/rpaas-operator
 resources:
-- group: extensions
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: tsuru.io
+  group: extensions
   kind: RpaasInstance
-  path: k8s.io/api/extensions/v1alpha1
+  path: github.com/tsuru/rpaas-operator/api/v1alpha1
   version: v1alpha1
-- group: extensions
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: tsuru.io
+  group: extensions
   kind: RpaasPlan
-  path: k8s.io/api/extensions/v1alpha1
+  path: github.com/tsuru/rpaas-operator/api/v1alpha1
   version: v1alpha1
-- group: extensions
+- api:
+    crdVersion: v1
+    namespaced: true
+  domain: tsuru.io
+  group: extensions
   kind: RpaasFlavor
-  path: k8s.io/api/extensions/v1alpha1
+  path: github.com/tsuru/rpaas-operator/api/v1alpha1
   version: v1alpha1
-- group: extensions
+- api:
+    crdVersion: v1
+  domain: tsuru.io
+  group: extensions
   kind: RpaasPortAllocation
-  path: k8s.io/api/extensions/v1alpha1
+  path: github.com/tsuru/rpaas-operator/api/v1alpha1
   version: v1alpha1
 version: "3"

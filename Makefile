@@ -1,6 +1,3 @@
-# Image URL to use all building/pushing image targets
-IMG ?= controller:latest
-
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
 GOBIN=$(shell go env GOPATH)/bin
@@ -8,70 +5,97 @@ else
 GOBIN=$(shell go env GOBIN)
 endif
 
-all: manager
+GO_BUILD_DIR ?= ./bin
+
+all: test build
 
 # Run tests
-test: fmt vet
-	go test ./... -coverprofile cover.out
+.PHONY: test
+test: fmt vet lint
+	go test -race -coverprofile cover.out ./...
+
+.PHONY: lint
+lint: golangci-lint
+	$(GOLANGCI_LINT) run ./...
+
+.PHONY: build
+build: build/api build/manager build/plugin/rpaasv2 build/purger
+
+.PHONY: build/api
+build/api: build-dirs
+	go build -o $(GO_BUILD_DIR)/ ./cmd/api
+
+.PHONY: build/manager
+build/manager: manager
+	
+.PHONY: build/plugin/rpaasv2
+build/plugin/rpaasv2: build-dirs
+	go build -o $(GO_BUILD_DIR)/ ./cmd/plugin/rpaasv2
+
+.PHONY: build/purger
+build/purger: build-dirs
+	go build -o $(GO_BUILD_DIR)/ ./cmd/purger
+
+.PHONY: build-dirs
+build-dirs:
+	@mkdir -p $(GO_BUILD_DIR)
 
 # Build manager binary
-manager: generate fmt vet
-	go build -o bin/manager main.go
+.PHONY: manager
+manager: generate fmt vet build-dirs
+	go build -o $(GO_BUILD_DIR)/manager ./main.go
 
 # Run against the configured Kubernetes cluster in ~/.kube/config
+.PHONY: run
 run: generate fmt vet manifests
-	go run ./main.go
+	go run main.go --health-probe-bind-address=0 --metrics-bind-address=0 --leader-elect=false
+
+.PHONY: run/api
+run/api:
+	go run ./cmd/api
 
 # Install CRDs into a cluster
+.PHONY: install
 install: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl apply $(KUBECTL_VALIDATE) -f -
+	$(KUBECTL) apply -k config/crd
 
 # Uninstall CRDs from a cluster
+.PHONY: uninstall
 uninstall: manifests kustomize
-	$(KUSTOMIZE) build config/crd | kubectl delete -f -
+	$(KUBECTL) delete -k config/crd
 
 # Deploy controller in the configured Kubernetes cluster in ~/.kube/config
+.PHONY: deploy
 deploy: manifests kustomize
 	cd config/manager && $(KUSTOMIZE) edit set image controller=${IMG}
-	$(KUSTOMIZE) build config/default | kubectl apply $(KUBECTL_VALIDATE) -f -
+	$(KUBECTL) apply -k config/default
 
 # Generate manifests e.g. CRD, RBAC etc.
+.PHONY: manifests
 manifests: controller-gen
 	$(CONTROLLER_GEN) $(CRD_OPTIONS) crd rbac:roleName=manager-role paths="./..." output:crd:artifacts:config=config/crd/bases
 
 # Run go fmt against code
+.PHONY: fmt
 fmt:
 	go fmt ./...
 
 # Run go vet against code
+.PHONY: vet
 vet:
 	go vet ./...
 
 # Generate code
+.PHONY: generate-cli
 generate-cli: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
+.PHONY: generate
 generate: generate-cli manifests
-
-# Build the docker image
-docker-build-api: test
-	docker build . -t ${IMG} -f Dockerfile.api
-
-# Push the docker image
-docker-push-api:
-	docker push ${IMG}
-
-build-api:
-	CGO_ENABLED=0 go build -o rpaas-api ./cmd/api
-
-build-operator:
-	CGO_ENABLED=0 go build -o rpaas-operator .
-
-build-purger:
-	CGO_ENABLED=0 go build -o rpaas-purger ./cmd/purger
 
 # find or download controller-gen
 # download controller-gen if necessary
+.PHONY: controller-gen
 controller-gen:
 ifeq (, $(shell which controller-gen))
 	@{ \
@@ -83,6 +107,7 @@ else
 CONTROLLER_GEN=$(shell which controller-gen)
 endif
 
+.PHONY: kustomize
 kustomize:
 ifeq (, $(shell which kustomize))
 	@{ \
@@ -98,11 +123,16 @@ else
 KUSTOMIZE=$(shell which kustomize)
 endif
 
-build/plugin/rpaasv2:
-	@mkdir -p build/_output/bin/
-	go build -o build/_output/bin/rpaasv2 ./cmd/plugin/rpaasv2
-
-lint:
-	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $$(go env GOPATH)/bin $(GOLANGCI_LINT_VERSION)
-	go install ./...
-	golangci-lint run --config ./.golangci.yml ./...
+# find or download golangci-lint
+# download golangci-lint if necessary
+.PHONY: golangci-lint
+golangci-lint:
+ifeq (, $(shell which golangci-lint))
+	@{ \
+	set -e ;\
+	curl -sfL https://raw.githubusercontent.com/golangci/golangci-lint/master/install.sh | sh -s -- -b $(GOBIN) ;\
+	}
+GOLANGCI_LINT=$(GOBIN)/golangci-lint
+else
+GOLANGCI_LINT=$(shell which golangci-lint)
+endif
