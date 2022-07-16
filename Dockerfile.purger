@@ -2,10 +2,10 @@ FROM golang:1.16-alpine AS builder
 COPY . /go/src/github.com/tsuru/rpaas-operator
 WORKDIR /go/src/github.com/tsuru/rpaas-operator
 RUN apk add --update gcc git make musl-dev && \
-    make build-purger
+    make build/purger
 
 FROM alpine:3.8
-COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/rpaas-purger /bin/rpaas-purger
+COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/bin/purger /bin/rpaas-purger
 RUN apk update && \
     apk add --no-cache ca-certificates && \
     rm /var/cache/apk/*
