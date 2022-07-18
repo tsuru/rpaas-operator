@@ -37,7 +37,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.NotRegexp(t, `worker_processes(.+);`, result)
 				assert.NotRegexp(t, `worker_connections(.+);`, result)
 				assert.Regexp(t, `include modules/\*\.conf;`, result)
-				assert.Regexp(t, `access_log /dev/stdout combined;`, result)
+				assert.Regexp(t, `access_log /dev/stdout rpaasv2;`, result)
 				assert.Regexp(t, `error_log  /dev/stderr;`, result)
 				assert.Regexp(t, `server {\n\s+listen 8800;\n\s+}\n+`, result)
 				assert.Regexp(t, `server {
@@ -127,7 +127,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `access_log syslog:server=syslog.server.example.com\n\s+combined;`, result)
+				assert.Regexp(t, `access_log syslog:server=syslog.server.example.com\n\s+rpaasv2;`, result)
 				assert.Regexp(t, `error_log syslog:server=syslog.server.example.com;`, result)
 			},
 		},
@@ -143,7 +143,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `access_log syslog:server=syslog.server.example.com,facility=local1,tag=my-tag\n\s+combined;`, result)
+				assert.Regexp(t, `access_log syslog:server=syslog.server.example.com,facility=local1,tag=my-tag\n\s+rpaasv2;`, result)
 				assert.Regexp(t, `error_log syslog:server=syslog.server.example.com,facility=local1,tag=my-tag;`, result)
 			},
 		},
@@ -529,6 +529,38 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.NotRegexp(t, `include modules/\*\.conf;`, result)
 				assert.Regexp(t, `load_module "modules/mod1.so";`, result)
 				assert.Regexp(t, `load_module "modules/mod2.so";`, result)
+			},
+		},
+		{
+			name: "with custom log format",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					LogFormatName:   "custom",
+					LogFormatEscape: "default",
+					LogFormat:       `'status=${status} foo_bar=${http_x_foo_bar}'`,
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `log_format custom escape=default 'status=\$\{status\} foo_bar=\$\{http_x_foo_bar\}';`, result)
+				assert.Regexp(t, `access_log /dev/stdout custom;`, result)
+			},
+		},
+		{
+			name: "with default log format and additional headers",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					LogAdditionalHeaders: []string{"X-Foo-Bar", "X-App-Version", "X-App-Vendor", "X-App-User"},
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `\s+','
+\s+'"header_x_foo_bar":"\$\{http_x_foo_bar\}",'
+\s+'"header_x_app_version":"\$\{http_x_app_version\}",'
+\s+'"header_x_app_vendor":"\$\{http_x_app_vendor\}",'
+\s+'"header_x_app_user":"\$\{http_x_app_user\}"'
+\s+'}';`, result)
 			},
 		},
 	}

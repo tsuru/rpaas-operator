@@ -289,14 +289,37 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
+    {{- $logFormatName := default "rpaasv2" $config.LogFormatName }}
+
+    {{- if $config.LogFormat }}
+    log_format {{ $config.LogFormatName }} {{ with $config.LogFormatEscape}}escape={{ . }}{{ end }} {{ $config.LogFormat }};
+    {{- else }}
+    log_format {{ $logFormatName }} escape=json
+    '{'
+      '"remote_addr":"${remote_addr}",'
+      '"remote_user":"${remote_user}",'
+      '"time_local":"${time_local}",'
+      '"request":"${request}",'
+      '"status":"${status}",'
+      '"body_bytes_sent":"${body_bytes_sent}",'
+      '"referer":"${http_referer}",'
+      '"user_agent":"${http_user_agent}"'
+      {{- range $index, $header := $config.LogAdditionalHeaders }}
+      {{- if not $index }}{{ "\n" }}','{{ end }}
+      {{- $h := lower (replace "-" "_" $header) }}
+      '"header_{{ $h }}":"${http_{{ $h }}}" {{- if lt (add1 $index) (len $config.LogAdditionalHeaders) }},{{ end }}'
+      {{- end }}
+    '}';
+    {{- end }}
+
     {{- if not (boolValue $config.SyslogEnabled) }}
-    access_log /dev/stdout combined;
+    access_log /dev/stdout {{ $logFormatName }};
     error_log  /dev/stderr;
     {{- else }}
     access_log syslog:server={{ $config.SyslogServerAddress }}
         {{- with $config.SyslogFacility }},facility={{ . }}{{ end }}
         {{- with $config.SyslogTag }},tag={{ . }}{{ end}}
-        combined;
+        {{ $logFormatName }};
 
     error_log syslog:server={{ $config.SyslogServerAddress }}
         {{- with $config.SyslogFacility }},facility={{ . }}{{ end }}
