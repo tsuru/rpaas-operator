@@ -70,6 +70,12 @@ type NginxConfig struct {
 	CacheSnapshotStorage CacheSnapshotStorage  `json:"cacheSnapshotStorage,omitempty"`
 	CacheSnapshotSync    CacheSnapshotSyncSpec `json:"cacheSnapshotSync,omitempty"`
 
+	LogFormat            string            `json:"logFormat,omitempty"`
+	LogFormatEscape      string            `json:"logFormatEscape,omitempty"`
+	LogFormatName        string            `json:"logFormatName,omitempty"`
+	LogAdditionalHeaders []string          `json:"logAdditionalHeaders,omitempty"`
+	LogAdditionalFields  map[string]string `json:"logAdditionalFields,omitempty"`
+
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
 

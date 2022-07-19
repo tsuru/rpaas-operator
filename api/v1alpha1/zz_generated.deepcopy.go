@@ -245,6 +245,18 @@ func (in *NginxConfig) DeepCopyInto(out *NginxConfig) {
 	}
 	in.CacheSnapshotStorage.DeepCopyInto(&out.CacheSnapshotStorage)
 	in.CacheSnapshotSync.DeepCopyInto(&out.CacheSnapshotSync)
+	if in.LogAdditionalHeaders != nil {
+		in, out := &in.LogAdditionalHeaders, &out.LogAdditionalHeaders
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
+	if in.LogAdditionalFields != nil {
+		in, out := &in.LogAdditionalFields, &out.LogAdditionalFields
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	if in.VTSEnabled != nil {
 		in, out := &in.VTSEnabled, &out.VTSEnabled
 		*out = new(bool)
