@@ -423,6 +423,10 @@ spec:
                         type: string
                       httpsListenOptions:
                         type: string
+                      logAdditionalFields:
+                        additionalProperties:
+                          type: string
+                        type: object
                       logAdditionalHeaders:
                         items:
                           type: string

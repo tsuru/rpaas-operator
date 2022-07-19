@@ -563,6 +563,26 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+'}';`, result)
 			},
 		},
+		{
+			name: "with log additional fields",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					LogAdditionalFields: map[string]string{
+						"key1":       "Some custom var: ${http_x_foo_bar}",
+						"key2":       "Another custom var: ${host}",
+						"custom_key": "${custom_var}",
+					},
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `\s+'\{'
+\s+'"custom_key":"\$\{custom_var\}",'
+\s+'"key1":"Some custom var: \$\{http_x_foo_bar\}",'
+\s+'"key2":"Another custom var: \$\{host\}",'
+`, result)
+			},
+		},
 	}
 
 	for _, tt := range tests {

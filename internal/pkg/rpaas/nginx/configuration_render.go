@@ -296,6 +296,9 @@ http {
     {{- else }}
     log_format {{ $logFormatName }} escape=json
     '{'
+      {{- range $key, $value := $config.LogAdditionalFields }}
+      '"{{ $key }}":"{{ $value }}",'
+      {{- end }}
       '"remote_addr":"${remote_addr}",'
       '"remote_user":"${remote_user}",'
       '"time_local":"${time_local}",'
@@ -361,7 +364,6 @@ http {
     {{- end }}
 
     {{- range $index, $bind := $instance.Spec.Binds }}
-
       {{- if eq $index 0 }}
         upstream rpaas_default_upstream {
           server {{ $bind.Host }};
