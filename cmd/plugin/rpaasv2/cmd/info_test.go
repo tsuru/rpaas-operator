@@ -112,6 +112,7 @@ func TestInfo(t *testing.T) {
 						},
 						Team:        "some-team",
 						Cluster:     "my-dedicated-cluster",
+						Pool:        "my-pool",
 						Description: "some description",
 						Tags:        []string{"tag1", "tag2", "tag3"},
 						Flavors:     []string{"flavor1", "flavor2", "flavor-N"},
@@ -318,6 +319,7 @@ Team owner: some-team
 Plan: basic
 Flavors: flavor1, flavor2, flavor-N
 Cluster: my-dedicated-cluster
+Pool: my-pool
 
 Pods: 3
 +------------------------------+---------------+---------+----------+-----+

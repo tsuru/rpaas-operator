@@ -138,6 +138,7 @@ type InstanceInfo struct {
 	Service      string            `json:"service,omitempty"`
 	Description  string            `json:"description,omitempty"`
 	Cluster      string            `json:"cluster,omitempty"` // for multi-cluster environments
+	Pool         string            `json:"pool,omitempty"`    // for multi-cluster environments
 	Tags         []string          `json:"tags,omitempty"`
 	Pods         []Pod             `json:"pods,omitempty"`
 	Flavors      []string          `json:"flavors,omitempty"`

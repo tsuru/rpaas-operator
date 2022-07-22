@@ -4090,6 +4090,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 
 	tests := map[string]struct {
 		resources []runtime.Object
+		manager   func(c client.Client) RpaasManager
 		instance  func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance
 		expected  func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo
 	}{
@@ -4098,6 +4099,20 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				return i
 			},
 			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				return info
+			},
+		},
+
+		"base instance info from multi-cluster service": {
+			manager: func(c client.Client) RpaasManager {
+				return &k8sRpaasManager{cli: c, clusterName: "my-cluster", poolName: "my-pool"}
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.Cluster = "my-cluster"
+				info.Pool = "my-pool"
 				return info
 			},
 		},
@@ -4753,7 +4768,12 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				WithRuntimeObjects(resources...).
 				Build()
 
-			got, err := (&k8sRpaasManager{cli: client}).GetInstanceInfo(context.Background(), instance.Name)
+			var manager RpaasManager = &k8sRpaasManager{cli: client}
+			if tt.manager != nil {
+				manager = tt.manager(client)
+			}
+
+			got, err := manager.GetInstanceInfo(context.Background(), instance.Name)
 			require.NoError(t, err)
 
 			expected := tt.expected(clientTypes.InstanceInfo{

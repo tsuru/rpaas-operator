@@ -78,8 +78,11 @@ Tags: {{ joinStrings .Tags ", " }}
 Team owner: {{ .Team }}
 Plan: {{ .Plan }}
 Flavors: {{ joinStrings .Flavors ", " }}
-{{- if .Cluster}}
-Cluster: {{ .Cluster }}
+{{- with .Cluster}}
+Cluster: {{ . }}
+{{- end }}
+{{- with .Pool }}
+Pool: {{ . }}
 {{- end }}
 
 Pods: {{ .Replicas }}
