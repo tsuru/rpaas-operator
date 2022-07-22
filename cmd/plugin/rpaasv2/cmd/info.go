@@ -65,6 +65,7 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 		"formatPodErrors":    writePodErrorsOnTableFormat,
 		"formatCertificates": writeCertificatesOnTableFormat,
 		"formatEvents":       writeEventsOnTableFormat,
+		"formatACLs":         writeAccessControlListOnTableFormat,
 	}).
 	Parse(`
 {{- $instance := . -}}
@@ -90,6 +91,11 @@ Pods: {{ .Replicas }}
 {{- with .Autoscale }}
 Autoscale:
 {{ formatAutoscale . }}
+{{- end }}
+
+{{- with .ACLs }}
+ACLs:
+{{ formatACLs . }}
 {{- end }}
 
 {{- with .Binds }}

@@ -5,8 +5,8 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
@@ -152,7 +152,7 @@ func runListAccessControlList(c *cli.Context) error {
 		return err
 	}
 
-	writeAccessControlList(c.App.Writer, acls)
+	fmt.Fprint(c.App.Writer, writeAccessControlListOnTableFormat(acls))
 	return nil
 }
 
@@ -175,11 +175,13 @@ func runRemoveAccessControlList(c *cli.Context) error {
 	return nil
 }
 
-func writeAccessControlList(w io.Writer, acls []types.AllowedUpstream) {
-	if len(acls) <= 0 {
-		return
+func writeAccessControlListOnTableFormat(acls []types.AllowedUpstream) string {
+	if len(acls) == 0 {
+		return ""
 	}
-	table := tablewriter.NewWriter(w)
+
+	var buffer bytes.Buffer
+	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Host", "Port"})
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
@@ -187,8 +189,15 @@ func writeAccessControlList(w io.Writer, acls []types.AllowedUpstream) {
 	table.SetRowLine(false)
 
 	for _, acl := range acls {
-		table.Append([]string{acl.Host, strconv.Itoa(acl.Port)})
+		var port string
+		if acl.Port > 0 {
+			port = strconv.Itoa(acl.Port)
+		}
+
+		table.Append([]string{acl.Host, port})
 	}
 
 	table.Render()
+
+	return buffer.String()
 }

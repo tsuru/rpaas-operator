@@ -131,6 +131,7 @@ type InstanceInfo struct {
 	Blocks       []Block           `json:"blocks,omitempty"`
 	Routes       []Route           `json:"routes,omitempty"`
 	Autoscale    *Autoscale        `json:"autoscale,omitempty"`
+	ACLs         []AllowedUpstream `json:"acls,omitempty"`
 	Binds        []v1alpha1.Bind   `json:"binds,omitempty"`
 	Team         string            `json:"team,omitempty"`
 	Name         string            `json:"name,omitempty"`

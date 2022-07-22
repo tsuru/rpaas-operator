@@ -69,6 +69,11 @@ func TestInfo(t *testing.T) {
 							},
 						},
 						Plan: "basic",
+						ACLs: []clientTypes.AllowedUpstream{
+							{Host: "169.196.254.254"},
+							{Host: "my-app.apps.tsuru.io", Port: 80},
+							{Host: "my-app.apps.tsuru.io", Port: 443},
+						},
 						Binds: []v1alpha1.Bind{
 							{
 								Name: "some-name",
@@ -376,6 +381,15 @@ Autoscale:
 | Max: 5   | CPU: 55%           |
 | Min: 2   | Memory: 77%        |
 +----------+--------------------+
+
+ACLs:
++----------------------+------+
+| Host                 | Port |
++----------------------+------+
+| 169.196.254.254      |      |
+| my-app.apps.tsuru.io |   80 |
+| my-app.apps.tsuru.io |  443 |
++----------------------+------+
 
 Binds:
 +------------+------------+

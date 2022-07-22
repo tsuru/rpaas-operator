@@ -4700,6 +4700,25 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				return info
 			},
 		},
+
+		"w/ ACLs": {
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				i.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{
+					{Host: "169.196.254.254"},
+					{Host: "my-app.apps.tsuru.io", Port: 80},
+					{Host: "my-app.apps.tsuru.io", Port: 443},
+				}
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.ACLs = []clientTypes.AllowedUpstream{
+					{Host: "169.196.254.254"},
+					{Host: "my-app.apps.tsuru.io", Port: 80},
+					{Host: "my-app.apps.tsuru.io", Port: 443},
+				}
+				return info
+			},
+		},
 	}
 
 	for name, tt := range tests {

@@ -1655,6 +1655,12 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Flavors:     instance.Spec.Flavors,
 	}
 
+	var acls []clientTypes.AllowedUpstream
+	for _, u := range instance.Spec.AllowedUpstreams {
+		acls = append(acls, clientTypes.AllowedUpstream{Host: u.Host, Port: u.Port})
+	}
+	info.ACLs = acls
+
 	autoscale := instance.Spec.Autoscale
 	if autoscale != nil {
 		info.Autoscale = &clientTypes.Autoscale{
