@@ -4883,10 +4883,6 @@ func Test_certificateName(t *testing.T) {
 }
 
 func Test_AddUpstream(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-
 	instance1 := newEmptyRpaasInstance()
 	instance1.ObjectMeta.Name = "instance1"
 	instance1.Spec.AllowedUpstreams = []v1alpha1.AllowedUpstream{{Host: "host-1", Port: 8889}}
@@ -4950,11 +4946,21 @@ func Test_AddUpstream(t *testing.T) {
 				assert.EqualError(t, err, "upstream already present in instance: instance1")
 			},
 		},
+
+		{
+			name:     "upstream without host",
+			instance: "instance1",
+			upstream: v1alpha1.AllowedUpstream{},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.Equal(t, &ValidationError{Msg: "cannot add an upstream with empty host"}, err)
+			},
+		},
 	}
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build()}
 			err := manager.AddUpstream(context.Background(), tt.instance, tt.upstream)
 			tt.assertion(t, err, manager)
 		})

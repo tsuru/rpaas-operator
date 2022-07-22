@@ -2333,16 +2333,16 @@ func (m *k8sRpaasManager) AddUpstream(ctx context.Context, instanceName string, 
 	}
 	originalInstance := instance.DeepCopy()
 
-	upstreams := instance.Spec.AllowedUpstreams
-	if upstreams == nil {
-		upstreams = []v1alpha1.AllowedUpstream{}
+	if upstream.Host == "" {
+		return &ValidationError{Msg: "cannot add an upstream with empty host"}
 	}
-	for _, u := range upstreams {
+
+	for _, u := range instance.Spec.AllowedUpstreams {
 		if u.Host == upstream.Host && u.Port == upstream.Port {
 			return &ConflictError{Msg: fmt.Sprintf("upstream already present in instance: %s", instanceName)}
 		}
 	}
-	instance.Spec.AllowedUpstreams = append(upstreams, upstream)
+	instance.Spec.AllowedUpstreams = append(instance.Spec.AllowedUpstreams, upstream)
 
 	return m.patchInstance(ctx, originalInstance, instance)
 }
