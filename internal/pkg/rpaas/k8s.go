@@ -850,6 +850,7 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 	if err != nil {
 		return nil, err
 	}
+
 	extraFiles, err := m.getExtraFiles(ctx, *instance)
 	if err != nil && IsNotFoundError(err) {
 		return []File{}, nil
@@ -857,6 +858,7 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 	if err != nil {
 		return nil, err
 	}
+
 	files := []File{}
 	for key, path := range instance.Spec.ExtraFiles.Files {
 		files = append(files, File{
@@ -864,6 +866,11 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 			Content: extraFiles.BinaryData[key],
 		})
 	}
+
+	sort.Slice(files, func(i, j int) bool {
+		return files[i].Name < files[j].Name
+	})
+
 	return files, nil
 }
 
@@ -1184,6 +1191,7 @@ func (m *k8sRpaasManager) getExtraFiles(ctx context.Context, instance v1alpha1.R
 	if instance.Spec.ExtraFiles == nil {
 		return nil, &NotFoundError{Msg: "there are no extra files"}
 	}
+
 	configMapName := types.NamespacedName{
 		Name:      instance.Spec.ExtraFiles.Name,
 		Namespace: instance.Namespace,
@@ -1670,6 +1678,18 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 			CPU:         autoscale.TargetCPUUtilizationPercentage,
 			Memory:      autoscale.TargetMemoryUtilizationPercentage,
 		}
+	}
+
+	extraFiles, err := m.GetExtraFiles(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, f := range extraFiles {
+		info.ExtraFiles = append(info.ExtraFiles, clientTypes.RpaasFile{
+			Name:    f.Name,
+			Content: f.Content,
+		})
 	}
 
 	routes, err := m.GetRoutes(ctx, instanceName)

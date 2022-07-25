@@ -4726,6 +4726,38 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				return info
 			},
 		},
+
+		"w/ extra files": {
+			resources: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-extra-files",
+						Namespace: "rpaasv2",
+					},
+					BinaryData: map[string][]byte{
+						"waf.cfg":    []byte("My WAF rules :P"),
+						"binary.exe": {66, 55, 10, 0},
+					},
+				},
+			},
+			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
+				i.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
+					Name: "my-instance-extra-files",
+					Files: map[string]string{
+						"waf.cfg":    "waf.cfg",
+						"binary.exe": "binary.exe",
+					},
+				}
+				return i
+			},
+			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
+				info.ExtraFiles = []clientTypes.RpaasFile{
+					{Name: "binary.exe", Content: []byte{66, 55, 10, 0}},
+					{Name: "waf.cfg", Content: []byte("My WAF rules :P")},
+				}
+				return info
+			},
+		},
 	}
 
 	for name, tt := range tests {
