@@ -316,6 +316,10 @@ func TestInfo(t *testing.T) {
 								WorkerConnections: 4096,
 							},
 						},
+						ExtraFiles: []clientTypes.RpaasFile{
+							{Name: "modsecurity.cfg", Content: []byte("a bunch of WAF configs...")},
+							{Name: "binary.exe", Content: []byte{66, 250, 0, 10}},
+						},
 					}, nil
 				},
 			},
@@ -452,6 +456,16 @@ Certificates:
 |               | Key size (in bits) |      Not after       |                            |
 |               |        384         | 2050-07-31T00:00:00Z |                            |
 +---------------+--------------------+----------------------+----------------------------+
+
+Extra files:
++-----------------+---------------------------------------------------------+
+|      Name       |                         Content                         |
++-----------------+---------------------------------------------------------+
+| modsecurity.cfg | a bunch of WAF configs...                               |
++-----------------+---------------------------------------------------------+
+| binary.exe      | WARNING!                                                |
+|                 | CANNOT SHOW THE FILE CONTENT AS IT'S NOT UTF-8 ENCODED. |
++-----------------+---------------------------------------------------------+
 
 Blocks:
 +---------+---------------------------------------+

@@ -5,10 +5,11 @@
 package cmd
 
 import (
+	"bytes"
 	"fmt"
-	"io"
 	"os"
 	"strings"
+	"unicode/utf8"
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -266,13 +267,20 @@ func runDeleteExtraFiles(c *cli.Context) error {
 	return nil
 }
 
-func writeExtraFilesOnTableFormat(writer io.Writer, files []types.RpaasFile) {
+func writeExtraFilesOnTableFormat(files []types.RpaasFile) string {
+	var buffer bytes.Buffer
+
 	data := [][]string{}
 	for _, file := range files {
-		data = append(data, []string{file.Name, string(file.Content)})
+		content := string(file.Content)
+		if !utf8.Valid(file.Content) {
+			content = "WARNING!\nCANNOT SHOW THE FILE CONTENT AS IT'S NOT UTF-8 ENCODED."
+		}
+
+		data = append(data, []string{file.Name, content})
 	}
 
-	table := tablewriter.NewWriter(writer)
+	table := tablewriter.NewWriter(&buffer)
 	table.SetHeader([]string{"Name", "Content"})
 	table.SetAutoWrapText(false)
 	table.SetRowLine(true)
@@ -280,6 +288,8 @@ func writeExtraFilesOnTableFormat(writer io.Writer, files []types.RpaasFile) {
 	table.SetAlignment(tablewriter.ALIGN_LEFT)
 	table.AppendBulk(data)
 	table.Render()
+
+	return buffer.String()
 }
 
 func runListExtraFiles(c *cli.Context) error {
@@ -303,7 +313,7 @@ func runListExtraFiles(c *cli.Context) error {
 			fmt.Fprintln(c.App.Writer, file.Name)
 		}
 	case true:
-		writeExtraFilesOnTableFormat(c.App.Writer, files)
+		fmt.Fprint(c.App.Writer, writeExtraFilesOnTableFormat(files))
 	}
 	return nil
 }

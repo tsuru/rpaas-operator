@@ -66,6 +66,7 @@ func newFuncMap() template.FuncMap {
 		"formatCertificates": writeCertificatesOnTableFormat,
 		"formatEvents":       writeEventsOnTableFormat,
 		"formatACLs":         writeAccessControlListOnTableFormat,
+		"formatExtraFiles":   writeExtraFilesOnTableFormat,
 	}
 
 	for k, v := range sprig.HtmlFuncMap() {
@@ -129,6 +130,11 @@ Addresses:
 {{- with .Certificates }}
 Certificates:
 {{ formatCertificates . }}
+{{- end }}
+
+{{- with .ExtraFiles }}
+Extra files:
+{{ formatExtraFiles . }}
 {{- end }}
 
 {{- with .Blocks }}

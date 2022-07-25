@@ -145,6 +145,7 @@ type InstanceInfo struct {
 	Certificates []CertificateInfo       `json:"certificates,omitempty"`
 	Events       []Event                 `json:"events,omitempty"`
 	PlanOverride *v1alpha1.RpaasPlanSpec `json:"planOverride,omitempty"`
+	ExtraFiles   []RpaasFile             `json:"extraFiles,omitempty"`
 }
 
 type AllowedUpstream struct {
