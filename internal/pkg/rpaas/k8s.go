@@ -253,7 +253,6 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 			Annotations: instance.Annotations,
 			Labels:      instance.Labels,
 		},
-		RolloutNginxOnce: true,
 	}
 
 	if config.Get().NamespacedInstances {
@@ -2230,18 +2229,17 @@ func (m *k8sRpaasManager) getEvents(ctx context.Context, nginx *nginxv1alpha1.Ng
 }
 
 func (m *k8sRpaasManager) patchInstance(ctx context.Context, originalInstance *v1alpha1.RpaasInstance, updatedInstance *v1alpha1.RpaasInstance) error {
-	updatedInstance.Spec.RolloutNginxOnce = true
-
 	originalData, err := json.Marshal(originalInstance)
 	if err != nil {
 		return err
 	}
+
 	updatedData, err := json.Marshal(updatedInstance)
 	if err != nil {
 		return err
 	}
-	data, err := jsonpatch.CreateMergePatch(originalData, updatedData)
 
+	data, err := jsonpatch.CreateMergePatch(originalData, updatedData)
 	if err != nil {
 		return err
 	}

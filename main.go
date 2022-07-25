@@ -32,7 +32,6 @@ type configOpts struct {
 	syncPeriod                 time.Duration
 	portRangeMin               int
 	portRangeMax               int
-	enableRollout              bool
 }
 
 func (o *configOpts) bindFlags(fs *flag.FlagSet) {
@@ -48,7 +47,6 @@ func (o *configOpts) bindFlags(fs *flag.FlagSet) {
 	fs.DurationVar(&o.syncPeriod, "sync-period", 10*time.Hour, "The resync period for reconciling manager resources.")
 	fs.StringVar(&o.namespace, "namespace", "", "Limit the observed RpaasInstance resources from specific namespace (empty means all namespaces)")
 
-	fs.BoolVar(&o.enableRollout, "enable-rollout", true, "Enable automatic rollout of nginx objects on rpaas-instance change.")
 	fs.IntVar(&o.portRangeMin, "port-range-min", 20000, "Allocated port range start")
 	fs.IntVar(&o.portRangeMax, "port-range-max", 30000, "Allocated port range end")
 }
@@ -92,13 +90,12 @@ func main() {
 	}
 
 	if err = (&controllers.RpaasInstanceReconciler{
-		Client:              mgr.GetClient(),
-		Log:                 ctrl.Log.WithName("controllers").WithName("RpaasInstance"),
-		Scheme:              mgr.GetScheme(),
-		RolloutNginxEnabled: opts.enableRollout,
-		PortRangeMin:        int32(opts.portRangeMin),
-		PortRangeMax:        int32(opts.portRangeMax),
-		ImageMetadata:       registry.NewImageMetadata(),
+		Client:        mgr.GetClient(),
+		Log:           ctrl.Log.WithName("controllers").WithName("RpaasInstance"),
+		Scheme:        mgr.GetScheme(),
+		PortRangeMin:  int32(opts.portRangeMin),
+		PortRangeMax:  int32(opts.portRangeMax),
+		ImageMetadata: registry.NewImageMetadata(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")
 		os.Exit(1)

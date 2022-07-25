@@ -190,10 +190,6 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	if err = r.resetRolloutOnce(ctx, instance); err != nil {
-		return ctrl.Result{}, err
-	}
-
 	return ctrl.Result{}, nil
 }
 
@@ -234,30 +230,6 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *e
 		return fmt.Errorf("failed to update rpaas instance status: %v", err)
 	}
 
-	return nil
-}
-
-func (r *RpaasInstanceReconciler) resetRolloutOnce(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance) error {
-	if !instance.Spec.RolloutNginxOnce {
-		return nil
-	}
-
-	var rawInstance extensionsv1alpha1.RpaasInstance
-	if err := r.Client.Get(ctx, types.NamespacedName{
-		Name:      instance.Name,
-		Namespace: instance.Namespace,
-	}, &rawInstance); err != nil {
-		return err
-	}
-	if !rawInstance.Spec.RolloutNginxOnce {
-		return nil
-	}
-
-	rawInstance.Spec.RolloutNginxOnce = false
-	err := r.Client.Update(ctx, &rawInstance)
-	if err != nil {
-		return fmt.Errorf("failed to update rpaas instance rollout once: %v", err)
-	}
 	return nil
 }
 

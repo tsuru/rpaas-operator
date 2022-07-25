@@ -314,9 +314,6 @@ func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.C
 	}
 
 	if !enabled {
-		if !r.rolloutEnabled(instance) {
-			return nil
-		}
 		return r.Client.Delete(ctx, &secret)
 	}
 
@@ -353,9 +350,6 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 	}
 
 	if !enabled {
-		if !r.rolloutEnabled(instance) {
-			return nil
-		}
 		return r.Client.Delete(ctx, &cj)
 	}
 
@@ -737,6 +731,7 @@ func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *
 			logrus.Errorf("Failed to get nginx CR: %v", err)
 			return err
 		}
+
 		err = r.Client.Create(ctx, nginx)
 		if err != nil {
 			logrus.Errorf("Failed to create nginx CR: %v", err)
@@ -745,23 +740,13 @@ func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *
 		return nil
 	}
 
-	// Update only replicas if rollout is not enabled to ensure HPAs work
-	// correctly.
-	if !r.rolloutEnabled(instance) {
-		nginx = found
-		nginx.Spec.Replicas = instance.Spec.Replicas
-	}
-
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
 	err = r.Client.Update(ctx, nginx)
 	if err != nil {
 		logrus.Errorf("Failed to update nginx CR: %v", err)
 	}
-	return err
-}
 
-func (r *RpaasInstanceReconciler) rolloutEnabled(instance *v1alpha1.RpaasInstance) bool {
-	return r.RolloutNginxEnabled || instance.Spec.RolloutNginx || instance.Spec.RolloutNginxOnce
+	return err
 }
 
 func (r *RpaasInstanceReconciler) reconcileCacheSnapshot(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
@@ -773,14 +758,11 @@ func (r *RpaasInstanceReconciler) reconcileCacheSnapshot(ctx context.Context, in
 		return r.reconcileCacheSnapshotVolume(ctx, instance, plan)
 	}
 
-	if !r.rolloutEnabled(instance) {
-		return nil
-	}
-
 	err := r.destroyCacheSnapshotCronJob(ctx, instance)
 	if err != nil {
 		return err
 	}
+
 	return r.destroyCacheSnapshotVolume(ctx, instance)
 }
 

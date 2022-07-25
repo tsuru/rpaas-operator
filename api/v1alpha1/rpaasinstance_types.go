@@ -92,17 +92,6 @@ type RpaasInstanceSpec struct {
 	// +optional
 	TLSSessionResumption *TLSSessionResumption `json:"tlsSessionResumption,omitempty"`
 
-	// RolloutNginxOnce causes a rollout of the nginx object if changes are
-	// detected only once. After updating the nginx object the controller will
-	// set this value to false.
-	// +optional
-	RolloutNginxOnce bool `json:"rolloutNginxOnce,omitempty"`
-
-	// RolloutNginx causes the controller to always update the nginx object
-	// regardless of the default behavior on the controller.
-	// +optional
-	RolloutNginx bool `json:"rolloutNginx,omitempty"`
-
 	// AllowedUpstreams holds the endpoints to which the RpaasInstance should be able to access
 	// +optional
 	AllowedUpstreams []AllowedUpstream `json:"allowedUpstreams,omitempty"`
