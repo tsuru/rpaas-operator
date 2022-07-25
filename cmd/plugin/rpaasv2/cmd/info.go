@@ -14,6 +14,7 @@ import (
 	"text/template"
 	"time"
 
+	sprig "github.com/Masterminds/sprig/v3"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
 	corev1 "k8s.io/api/core/v1"
@@ -53,9 +54,8 @@ func NewCmdInfo() *cli.Command {
 	}
 }
 
-var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
-	Funcs(template.FuncMap{
-		"joinStrings":        strings.Join,
+func newFuncMap() template.FuncMap {
+	fm := template.FuncMap{
 		"formatBlocks":       writeInfoBlocksOnTableFormat,
 		"formatRoutes":       writeInfoRoutesOnTableFormat,
 		"formatAddresses":    writeAddressesOnTableFormat,
@@ -66,7 +66,17 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 		"formatCertificates": writeCertificatesOnTableFormat,
 		"formatEvents":       writeEventsOnTableFormat,
 		"formatACLs":         writeAccessControlListOnTableFormat,
-	}).
+	}
+
+	for k, v := range sprig.HtmlFuncMap() {
+		fm[k] = v
+	}
+
+	return fm
+}
+
+var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
+	Funcs(newFuncMap()).
 	Parse(`
 {{- $instance := . -}}
 Name: {{ .Name }}
@@ -74,15 +84,20 @@ Name: {{ .Name }}
 Dashboard: {{ .Dashboard }}
 {{- end }}
 Description: {{ .Description }}
-Tags: {{ joinStrings .Tags ", " }}
+Tags: {{ join ", " .Tags }}
 Team owner: {{ .Team }}
 Plan: {{ .Plan }}
-Flavors: {{ joinStrings .Flavors ", " }}
+Flavors: {{ join ", " .Flavors }}
 {{- with .Cluster}}
 Cluster: {{ . }}
 {{- end }}
 {{- with .Pool }}
 Pool: {{ . }}
+{{- end }}
+
+{{- with .PlanOverride }}{{ "\n" }}
+Plan overrides:
+{{ mustToPrettyJson . }}
 {{- end }}
 
 Pods: {{ .Replicas }}

@@ -308,6 +308,14 @@ func TestInfo(t *testing.T) {
 								Reason:  "ServiceQuotaExceeded",
 								Message: "failed to create Service: services \"my-instance-service\" is forbidden: exceeded quota: custom-resource-quota, requested: services.loadbalancers=1, used: services.loadbalancers=1, limited: services.loadbalancers=1"},
 						},
+						PlanOverride: &v1alpha1.RpaasPlanSpec{
+							Image: "registry.example.com/my/repository/nginx:v1",
+							Config: v1alpha1.NginxConfig{
+								CacheEnabled:      func(b bool) *bool { return &b }(false),
+								WorkerProcesses:   4,
+								WorkerConnections: 4096,
+							},
+						},
 					}, nil
 				},
 			},
@@ -320,6 +328,19 @@ Plan: basic
 Flavors: flavor1, flavor2, flavor-N
 Cluster: my-dedicated-cluster
 Pool: my-pool
+
+Plan overrides:
+{
+  "image": "registry.example.com/my/repository/nginx:v1",
+  "config": {
+    "cacheEnabled": false,
+    "cacheSnapshotStorage": {},
+    "cacheSnapshotSync": {},
+    "workerProcesses": 4,
+    "workerConnections": 4096
+  },
+  "resources": {}
+}
 
 Pods: 3
 +------------------------------+---------------+---------+----------+-----+

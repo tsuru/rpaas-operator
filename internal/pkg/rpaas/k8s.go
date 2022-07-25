@@ -1643,17 +1643,18 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 	}
 
 	info := &clientTypes.InstanceInfo{
-		Name:        instance.Name,
-		Service:     instance.Labels[labelKey("service-name")],
-		Cluster:     m.clusterName,
-		Pool:        m.poolName,
-		Description: instance.Annotations[labelKey("description")],
-		Team:        instance.Annotations[labelKey("team-owner")],
-		Tags:        strings.Split(instance.Annotations[labelKey("tags")], ","),
-		Replicas:    instance.Spec.Replicas,
-		Plan:        instance.Spec.PlanName,
-		Binds:       instance.Spec.Binds,
-		Flavors:     instance.Spec.Flavors,
+		Name:         instance.Name,
+		Service:      instance.Labels[labelKey("service-name")],
+		Cluster:      m.clusterName,
+		Pool:         m.poolName,
+		Description:  instance.Annotations[labelKey("description")],
+		Team:         instance.Annotations[labelKey("team-owner")],
+		Tags:         strings.Split(instance.Annotations[labelKey("tags")], ","),
+		Replicas:     instance.Spec.Replicas,
+		Plan:         instance.Spec.PlanName,
+		Binds:        instance.Spec.Binds,
+		Flavors:      instance.Spec.Flavors,
+		PlanOverride: instance.Spec.PlanTemplate,
 	}
 
 	var acls []clientTypes.AllowedUpstream

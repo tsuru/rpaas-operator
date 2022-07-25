@@ -124,26 +124,27 @@ type Event struct {
 }
 
 type InstanceInfo struct {
-	Dashboard    string            `json:"dashboard,omitempty"`
-	Addresses    []InstanceAddress `json:"addresses,omitempty"`
-	Replicas     *int32            `json:"replicas,omitempty"`
-	Plan         string            `json:"plan,omitempty"`
-	Blocks       []Block           `json:"blocks,omitempty"`
-	Routes       []Route           `json:"routes,omitempty"`
-	Autoscale    *Autoscale        `json:"autoscale,omitempty"`
-	ACLs         []AllowedUpstream `json:"acls,omitempty"`
-	Binds        []v1alpha1.Bind   `json:"binds,omitempty"`
-	Team         string            `json:"team,omitempty"`
-	Name         string            `json:"name,omitempty"`
-	Service      string            `json:"service,omitempty"`
-	Description  string            `json:"description,omitempty"`
-	Cluster      string            `json:"cluster,omitempty"` // for multi-cluster environments
-	Pool         string            `json:"pool,omitempty"`    // for multi-cluster environments
-	Tags         []string          `json:"tags,omitempty"`
-	Pods         []Pod             `json:"pods,omitempty"`
-	Flavors      []string          `json:"flavors,omitempty"`
-	Certificates []CertificateInfo `json:"certificates,omitempty"`
-	Events       []Event           `json:"events,omitempty"`
+	Dashboard    string                  `json:"dashboard,omitempty"`
+	Addresses    []InstanceAddress       `json:"addresses,omitempty"`
+	Replicas     *int32                  `json:"replicas,omitempty"`
+	Plan         string                  `json:"plan,omitempty"`
+	Blocks       []Block                 `json:"blocks,omitempty"`
+	Routes       []Route                 `json:"routes,omitempty"`
+	Autoscale    *Autoscale              `json:"autoscale,omitempty"`
+	ACLs         []AllowedUpstream       `json:"acls,omitempty"`
+	Binds        []v1alpha1.Bind         `json:"binds,omitempty"`
+	Team         string                  `json:"team,omitempty"`
+	Name         string                  `json:"name,omitempty"`
+	Service      string                  `json:"service,omitempty"`
+	Description  string                  `json:"description,omitempty"`
+	Cluster      string                  `json:"cluster,omitempty"` // for multi-cluster environments
+	Pool         string                  `json:"pool,omitempty"`    // for multi-cluster environments
+	Tags         []string                `json:"tags,omitempty"`
+	Pods         []Pod                   `json:"pods,omitempty"`
+	Flavors      []string                `json:"flavors,omitempty"`
+	Certificates []CertificateInfo       `json:"certificates,omitempty"`
+	Events       []Event                 `json:"events,omitempty"`
+	PlanOverride *v1alpha1.RpaasPlanSpec `json:"planOverride,omitempty"`
 }
 
 type AllowedUpstream struct {
