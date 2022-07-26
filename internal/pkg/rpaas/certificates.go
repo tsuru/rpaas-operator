@@ -9,7 +9,7 @@ import (
 	"fmt"
 	"strings"
 
-	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/config"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"

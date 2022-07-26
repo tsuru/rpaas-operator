@@ -5,7 +5,7 @@
 package runtime
 
 import (
-	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"

@@ -11,8 +11,8 @@ import (
 	"sort"
 	"strconv"
 
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
-	cmv1 "github.com/jetstack/cert-manager/pkg/apis/certmanager/v1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"

@@ -23,9 +23,9 @@ import (
 	"text/template"
 	"time"
 
+	"github.com/cert-manager/cert-manager/pkg/util/pki"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
-	"github.com/jetstack/cert-manager/pkg/util/pki"
 	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -113,7 +113,7 @@ func keepAliveSpdyExecutor(config *rest.Config, method string, url *url.URL) (re
 	if err != nil {
 		return nil, err
 	}
-	upgradeRoundTripper := spdy.NewRoundTripper(tlsConfig, true, false)
+	upgradeRoundTripper := spdy.NewRoundTripper(tlsConfig)
 	upgradeRoundTripper.Dialer = &net.Dialer{
 		Timeout:   30 * time.Second,
 		KeepAlive: 10 * time.Second,
