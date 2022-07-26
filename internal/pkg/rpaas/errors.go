@@ -5,7 +5,8 @@
 package rpaas
 
 import (
-	"github.com/pkg/errors"
+	"errors"
+
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -14,36 +15,54 @@ var (
 )
 
 type ValidationError struct {
-	Msg string
+	Msg      string `json:"message"`
+	Internal error  `json:"-"`
 }
 
 func (ValidationError) IsValidation() bool {
 	return true
 }
+
 func (e ValidationError) Error() string {
 	return e.Msg
 }
 
+func (e ValidationError) Unwrap() error {
+	return e.Internal
+}
+
 type ConflictError struct {
-	Msg string
+	Msg      string `json:"message"`
+	Internal error  `json:"-"`
 }
 
 func (ConflictError) IsConflict() bool {
 	return true
 }
+
 func (e ConflictError) Error() string {
 	return e.Msg
 }
 
+func (e ConflictError) Unwrap() error {
+	return e.Internal
+}
+
 type NotFoundError struct {
-	Msg string
+	Msg      string `json:"message"`
+	Internal error  `json:"-"`
 }
 
 func (NotFoundError) IsNotFound() bool {
 	return true
 }
+
 func (e NotFoundError) Error() string {
 	return e.Msg
+}
+
+func (e NotFoundError) Unwrap() error {
+	return e.Internal
 }
 
 func IsValidationError(err error) bool {

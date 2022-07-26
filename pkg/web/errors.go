@@ -1,7 +1,7 @@
 package web
 
 import (
-	"fmt"
+	"errors"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -14,48 +14,52 @@ func ErrorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 		if err == nil {
 			return nil
 		}
+
+		internal := errors.Unwrap(err)
+
 		if rpaas.IsValidationError(err) {
-			return &echo.HTTPError{Code: http.StatusBadRequest, Message: err}
+			return &echo.HTTPError{Code: http.StatusBadRequest, Message: err, Internal: internal}
 		}
+
 		if rpaas.IsConflictError(err) {
-			return &echo.HTTPError{Code: http.StatusConflict, Message: err}
+			return &echo.HTTPError{Code: http.StatusConflict, Message: err, Internal: internal}
 		}
+
 		if rpaas.IsNotFoundError(err) {
-			return &echo.HTTPError{Code: http.StatusNotFound, Message: err}
+			return &echo.HTTPError{Code: http.StatusNotFound, Message: err, Internal: internal}
 		}
+
 		return err
 	}
 }
 
 func HTTPErrorHandler(err error, c echo.Context) {
 	var (
-		code = http.StatusInternalServerError
-		msg  interface{}
+		code     int         = http.StatusInternalServerError
+		msg      interface{} = err.Error()
+		internal error       = errors.Unwrap(err)
 	)
 
-	if he, ok := err.(*echo.HTTPError); ok {
-		code = he.Code
-		msg = he.Message
-		if he.Internal != nil {
-			msg = fmt.Sprintf("%v, %v", err, he.Internal)
-		}
-	} else {
-		msg = err.Error()
+	var he *echo.HTTPError
+	if errors.As(err, &he) {
+		code, msg = he.Code, he.Message
 	}
+
 	if _, ok := msg.(string); ok {
 		msg = echo.Map{"message": msg}
 	}
 
-	c.Logger().Error(err)
+	if c.Response().Committed {
+		return
+	}
 
-	if !c.Response().Committed {
-		if c.Request().Method == http.MethodHead {
-			err = c.NoContent(code)
-		} else {
-			err = c.JSON(code, msg)
-		}
-		if err != nil {
-			c.Logger().Error(err)
-		}
+	if c.Request().Method == http.MethodHead {
+		err = c.NoContent(code)
+	} else {
+		err = c.JSON(code, msg)
+	}
+
+	if err != nil {
+		c.Logger().Error("Final error: %s; Wrapped error: %s", err, internal)
 	}
 }

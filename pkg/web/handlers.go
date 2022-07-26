@@ -5,7 +5,6 @@
 package web
 
 import (
-	"io/ioutil"
 	"net/http"
 
 	"github.com/labstack/echo/v4"
@@ -29,23 +28,6 @@ func scale(c echo.Context) error {
 		return err
 	}
 	return c.NoContent(http.StatusOK)
-}
-
-func getFormFileContent(c echo.Context, key string) ([]byte, error) {
-	fileHeader, err := c.FormFile(key)
-	if err != nil {
-		return []byte{}, err
-	}
-	file, err := fileHeader.Open()
-	if err != nil {
-		return []byte{}, err
-	}
-	defer file.Close()
-	rawContent, err := ioutil.ReadAll(file)
-	if err != nil {
-		return []byte{}, err
-	}
-	return rawContent, nil
 }
 
 func serviceNodeStatus(c echo.Context) error {

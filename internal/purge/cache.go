@@ -8,7 +8,6 @@ import (
 
 	"github.com/hashicorp/go-multierror"
 	"github.com/labstack/echo/v4"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
@@ -90,7 +89,7 @@ func (p *PurgeAPI) PurgeCache(ctx context.Context, name string, args rpaas.Purge
 			continue
 		}
 		if status, err = p.cacheManager.PurgeCache(pod.Address, args.Path, port, args.PreservePath, args.ExtraHeaders); err != nil {
-			purgeErrors = multierror.Append(purgeErrors, errors.Wrapf(err, "pod %s:%d failed", pod.Address, port))
+			purgeErrors = multierror.Append(purgeErrors, fmt.Errorf("pod %s:%d failed: %w", pod.Address, port, err))
 			continue
 		}
 		if status {

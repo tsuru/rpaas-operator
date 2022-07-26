@@ -6,7 +6,10 @@ package web
 
 import (
 	"crypto/tls"
+	"errors"
 	"fmt"
+	"io/ioutil"
+	"mime"
 	"net/http"
 	"net/url"
 
@@ -40,25 +43,19 @@ func deleteCertificate(c echo.Context) error {
 func updateCertificate(c echo.Context) error {
 	ctx := c.Request().Context()
 
-	rawCertificate, err := getFormFileContent(c, "cert")
+	rawCertificate, err := getValueFromFormOrMultipart(c.Request(), "cert")
 	if err != nil {
-		if err == http.ErrMissingFile {
-			return c.String(http.StatusBadRequest, "cert file is either not provided or not valid")
-		}
-		return err
+		return &rpaas.ValidationError{Msg: "cannot read the certificate from request", Internal: err}
 	}
 
-	rawKey, err := getFormFileContent(c, "key")
+	rawKey, err := getValueFromFormOrMultipart(c.Request(), "key")
 	if err != nil {
-		if err == http.ErrMissingFile {
-			return c.String(http.StatusBadRequest, "key file is either not provided or not valid")
-		}
-		return err
+		return &rpaas.ValidationError{Msg: "cannot read the key from request", Internal: err}
 	}
 
 	certificate, err := tls.X509KeyPair(rawCertificate, rawKey)
 	if err != nil {
-		return c.String(http.StatusBadRequest, fmt.Sprintf("could not load the given certicate and key: %s", err))
+		return &rpaas.ValidationError{Msg: "could not load the given certificate and key", Internal: err}
 	}
 
 	manager, err := getManager(ctx)
@@ -153,4 +150,31 @@ func deleteCertManagerRequest(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusOK)
+}
+
+func getValueFromFormOrMultipart(r *http.Request, key string) ([]byte, error) {
+	ct, _, err := mime.ParseMediaType(r.Header.Get("Content-Type"))
+	if err != nil {
+		return nil, fmt.Errorf("failed to parse content-type header: %w", err)
+	}
+
+	switch ct {
+	case "application/x-www-form-urlencoded":
+		if value := r.FormValue(key); len(value) > 0 {
+			return []byte(value), nil
+		}
+
+		return nil, errors.New("http: no such field")
+
+	case "multipart/form-data":
+		f, _, err := r.FormFile(key)
+		if err != nil {
+			return nil, err
+		}
+		defer f.Close()
+
+		return ioutil.ReadAll(f)
+	}
+
+	return nil, nil
 }

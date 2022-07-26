@@ -7,6 +7,7 @@ package web
 import (
 	"bytes"
 	"crypto/tls"
+	"errors"
 	"fmt"
 	"mime/multipart"
 	"net/http"
@@ -25,9 +26,6 @@ import (
 )
 
 func Test_updateCertificate(t *testing.T) {
-	instanceName := "my-instance-name"
-	boundary := "XXXXXXXXXXXXXXX"
-
 	certPem := `-----BEGIN CERTIFICATE-----
 MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipn+dNuaTAKBggqhkjOPQQDAjASMRAw
 DgYDVQQKEwdBY21lIENvMB4XDTE3MTAyMDE5NDMwNloXDTE4MTAyMDE5NDMwNlow
@@ -49,102 +47,95 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 	certificate, err := tls.X509KeyPair([]byte(certPem), []byte(keyPem))
 	require.NoError(t, err)
 
-	makeBodyRequest := func(cert, key, name string) string {
-		b := &bytes.Buffer{}
-		w := multipart.NewWriter(b)
-		w.SetBoundary(boundary)
-		if cert != "" {
-			writer, err := w.CreateFormFile("cert", "cert.pem")
-			require.NoError(t, err)
-			writer.Write([]byte(cert))
-		}
-		if key != "" {
-			writer, err := w.CreateFormFile("key", "key.pem")
-			require.NoError(t, err)
-			writer.Write([]byte(key))
-		}
-		if name != "" {
-			err := w.WriteField("name", name)
-			require.NoError(t, err)
-		}
-		w.Close()
-		return b.String()
-	}
-
-	testCases := []struct {
+	testCases := map[string]struct {
 		name         string
-		requestBody  string
+		certificate  string
+		key          string
 		expectedCode int
 		expectedBody string
 		manager      rpaas.RpaasManager
 	}{
-		{
-			name:         "when no private key is sent",
-			requestBody:  makeBodyRequest("some certificate", "", ""),
-			expectedCode: 400,
-			expectedBody: "key file is either not provided or not valid",
-			manager:      &fake.RpaasManager{},
+		"when no private key is sent": {
+			certificate:  "some certificate",
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `{"message":"cannot read the key from request"}`,
 		},
-		{
-			name:         "when no certificate is sent",
-			requestBody:  makeBodyRequest("", "some private key", ""),
-			expectedCode: 400,
-			expectedBody: "cert file is either not provided or not valid",
-			manager:      &fake.RpaasManager{},
+
+		"when no certificate is sent": {
+			key:          "some private key",
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `{"message":"cannot read the certificate from request"}`,
 		},
-		{
-			name:         "when successfully adding a default certificate",
-			requestBody:  makeBodyRequest(certPem, keyPem, ""),
-			expectedCode: 200,
-			expectedBody: "",
+
+		"when successfully adding a default certificate": {
+			certificate:  certPem,
+			key:          keyPem,
+			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
 				FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
 					assert.Equal(t, "", name)
-					assert.Equal(t, instance, instanceName)
+					assert.Equal(t, "my-instance", instance)
 					assert.Equal(t, c, certificate)
 					return nil
 				},
 			},
 		},
-		{
-			name:         "when successfully adding a named certificate",
-			requestBody:  makeBodyRequest(certPem, keyPem, "mycert"),
-			expectedCode: 200,
-			expectedBody: "",
+
+		"when successfully adding a certificate with custom name": {
+			name:         "mycert",
+			certificate:  certPem,
+			key:          keyPem,
+			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
 				FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
 					assert.Equal(t, "mycert", name)
-					assert.Equal(t, instance, instanceName)
+					assert.Equal(t, "my-instance", instance)
 					assert.Equal(t, c, certificate)
 					return nil
 				},
 			},
 		},
-		{
-			name:         "when UpdateCertificate method returns ",
-			requestBody:  makeBodyRequest(certPem, keyPem, ""),
-			expectedCode: 400,
-			expectedBody: "{\"Msg\":\"some error\"}",
+
+		"when cannot update the certificate due to an error": {
+			certificate:  certPem,
+			key:          keyPem,
+			expectedCode: http.StatusInternalServerError,
+			expectedBody: `{"message":"some error"}`,
 			manager: &fake.RpaasManager{
 				FakeUpdateCertificate: func(instance, name string, c tls.Certificate) error {
-					return &rpaas.ValidationError{Msg: "some error"}
+					return errors.New("some error")
 				},
 			},
 		},
 	}
 
-	for _, tt := range testCases {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range testCases {
+		t.Run(name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/certificate", srv.URL, instanceName)
-			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
-			require.NoError(t, err)
-			request.Header.Set(echo.HeaderContentType, fmt.Sprintf(`%s; boundary=%s`, echo.MIMEMultipartForm, boundary))
-			rsp, err := srv.Client().Do(request)
-			require.NoError(t, err)
-			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+			path := fmt.Sprintf("%s/resources/%s/certificate", srv.URL, "my-instance")
+
+			t.Run("Content-Type: multipart/form-data", func(t *testing.T) {
+				body, boundary := makeMultipartFormForCertificate(t, tt.certificate, tt.key, tt.name)
+				r, err := http.NewRequest(http.MethodPost, path, strings.NewReader(body))
+				require.NoError(t, err)
+				r.Header.Set(echo.HeaderContentType, fmt.Sprintf(`%s; boundary=%s`, echo.MIMEMultipartForm, boundary))
+				rsp, err := srv.Client().Do(r)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+				assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+			})
+
+			t.Run("Content-Type: application/x-www-form-urlencoded", func(t *testing.T) {
+				body := makeFormBodyForCertificate(tt.certificate, tt.key, tt.name)
+				r, err := http.NewRequest(http.MethodPost, path, strings.NewReader(body))
+				require.NoError(t, err)
+				r.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
+				rsp, err := srv.Client().Do(r)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+				assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+			})
 		})
 	}
 }
@@ -167,7 +158,7 @@ func Test_deleteCertificate(t *testing.T) {
 			},
 			instance:     "my-instance",
 			expectedCode: http.StatusNotFound,
-			expectedBody: "{\"Msg\":\"\"}",
+			expectedBody: `{"message":""}`,
 		},
 		{
 			name: "when the certificate exists",
@@ -178,7 +169,6 @@ func Test_deleteCertificate(t *testing.T) {
 			},
 			instance:     "real-instance",
 			expectedCode: http.StatusOK,
-			expectedBody: "",
 		},
 		{
 			name:     "when the certificate does not exist",
@@ -189,7 +179,7 @@ func Test_deleteCertificate(t *testing.T) {
 				},
 			},
 			expectedCode: http.StatusNotFound,
-			expectedBody: "{\"Msg\":\"no certificate bound to instance \\\"real-instance\\\"\"}",
+			expectedBody: `{"message":"no certificate bound to instance \"real-instance\""}`,
 		},
 		{
 			name:     "passing a certificate name and asserting it",
@@ -358,7 +348,7 @@ func Test_GetCertManagerRequests(t *testing.T) {
 				},
 			},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"Msg":"some error"}`,
+			expectedBody: `{"message":"some error"}`,
 		},
 	}
 
@@ -407,7 +397,7 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 				},
 			},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"Msg":"some error"}`,
+			expectedBody: `{"message":"some error"}`,
 		},
 	}
 
@@ -467,7 +457,7 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 				},
 			},
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"Msg":"some error"}`,
+			expectedBody: `{"message":"some error"}`,
 		},
 	}
 
@@ -484,4 +474,35 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
 		})
 	}
+}
+
+func makeMultipartFormForCertificate(t *testing.T, cert, key, name string) (string, string) {
+	b := &bytes.Buffer{}
+	w := multipart.NewWriter(b)
+	if cert != "" {
+		writer, err := w.CreateFormFile("cert", "cert.pem")
+		require.NoError(t, err)
+		writer.Write([]byte(cert))
+	}
+
+	if key != "" {
+		writer, err := w.CreateFormFile("key", "key.pem")
+		require.NoError(t, err)
+		writer.Write([]byte(key))
+	}
+
+	if name != "" {
+		err := w.WriteField("name", name)
+		require.NoError(t, err)
+	}
+	w.Close()
+	return b.String(), w.Boundary()
+}
+
+func makeFormBodyForCertificate(cert, key, name string) string {
+	u := make(url.Values)
+	u.Set("cert", cert)
+	u.Set("key", key)
+	u.Set("name", name)
+	return u.Encode()
 }

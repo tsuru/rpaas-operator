@@ -34,7 +34,7 @@ func Test_getAutoscale(t *testing.T) {
 			name:         "when instance does not exists",
 			instance:     "invalid-instance",
 			expectedCode: http.StatusNotFound,
-			expectedBody: `{"Msg":"rpaas instance \\"invalid-instance\\" not found"}`,
+			expectedBody: `{"message":"rpaas instance \\"invalid-instance\\" not found"}`,
 			manager: &fake.RpaasManager{
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "invalid-instance", instance)
@@ -103,7 +103,7 @@ func Test_createAutoscale(t *testing.T) {
 			instance:     "invalid-instance",
 			requestBody:  "max=10",
 			expectedCode: http.StatusNotFound,
-			expectedBody: `{"Msg":"rpaas instance \\"invalid-instance\\" not found"}`,
+			expectedBody: `{"message":"rpaas instance \\"invalid-instance\\" not found"}`,
 			manager: &fake.RpaasManager{
 				FakeCreateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "invalid-instance", instance)
@@ -117,7 +117,7 @@ func Test_createAutoscale(t *testing.T) {
 			instance:     "my-instance",
 			requestBody:  "min=10",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"Msg":"max replicas is required"}`,
+			expectedBody: `{"message":"max replicas is required"}`,
 			manager: &fake.RpaasManager{
 				FakeCreateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
@@ -131,7 +131,6 @@ func Test_createAutoscale(t *testing.T) {
 			instance:     "my-instance",
 			requestBody:  "max=10&min=3&cpu=60&memory=512",
 			expectedCode: http.StatusOK,
-			expectedBody: ``,
 			manager: &fake.RpaasManager{
 				FakeCreateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
 					assert.Equal(t, "my-instance", instance)
@@ -178,7 +177,7 @@ func Test_updateAutoscale(t *testing.T) {
 			instance:     "invalid-instance",
 			requestBody:  "max=10",
 			expectedCode: http.StatusNotFound,
-			expectedBody: `{"Msg":"rpaas instance \\"invalid-instance\\" not found"}`,
+			expectedBody: `{"message":"rpaas instance \\"invalid-instance\\" not found"}`,
 			manager: &fake.RpaasManager{
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "invalid-instance", instance)
@@ -195,7 +194,7 @@ func Test_updateAutoscale(t *testing.T) {
 			instance:     "my-instance",
 			requestBody:  "min=10",
 			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"Msg":"max replicas is required"}`,
+			expectedBody: `{"message":"max replicas is required"}`,
 			manager: &fake.RpaasManager{
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
@@ -213,7 +212,6 @@ func Test_updateAutoscale(t *testing.T) {
 			instance:     "my-instance",
 			requestBody:  "min=5&memory=512",
 			expectedCode: http.StatusCreated,
-			expectedBody: ``,
 			manager: &fake.RpaasManager{
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
@@ -268,7 +266,7 @@ func Test_deleteAutoscale(t *testing.T) {
 			name:         "when instance does not exists",
 			instance:     "invalid-instance",
 			expectedCode: http.StatusNotFound,
-			expectedBody: `{"Msg":"rpaas instance \\"invalid-instance\\" not found"}`,
+			expectedBody: `{"message":"rpaas instance \\"invalid-instance\\" not found"}`,
 			manager: &fake.RpaasManager{
 				FakeDeleteAutoscale: func(instance string) error {
 					assert.Equal(t, "invalid-instance", instance)
@@ -280,7 +278,6 @@ func Test_deleteAutoscale(t *testing.T) {
 			name:         "when successfully getting autoscale settings",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expectedBody: ``,
 			manager: &fake.RpaasManager{
 				FakeDeleteAutoscale: func(instance string) error {
 					assert.Equal(t, "my-instance", instance)

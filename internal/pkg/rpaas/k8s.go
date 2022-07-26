@@ -14,6 +14,7 @@ import (
 	"crypto/x509"
 	"encoding/json"
 	"encoding/pem"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -26,7 +27,6 @@ import (
 	"github.com/cert-manager/cert-manager/pkg/util/pki"
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
@@ -1005,7 +1005,7 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 		}
 		status, err = m.cacheManager.PurgeCache(podStatus.Address, args.Path, port, args.PreservePath, args.ExtraHeaders)
 		if err != nil {
-			purgeErrors = multierror.Append(purgeErrors, errors.Wrapf(err, "pod %s failed", podStatus.Address))
+			purgeErrors = multierror.Append(purgeErrors, fmt.Errorf("pod %s failed: %w", podStatus.Address, err))
 			continue
 		}
 		if status {
@@ -1727,14 +1727,13 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 	if dashboardTemplate != "" {
 		tpl, tplErr := template.New("dashboard").Parse(dashboardTemplate)
 		if tplErr != nil {
-			return nil, errors.Wrap(tplErr, "could not parse dashboard template")
+			return nil, fmt.Errorf("could not parse dashboard template: %w", tplErr)
 		}
 
 		var buf bytes.Buffer
 		tplErr = tpl.Execute(&buf, info)
-
 		if tplErr != nil {
-			return nil, errors.Wrap(tplErr, "could not execute dashboard template")
+			return nil, fmt.Errorf("could not execute dashboard template: %w", tplErr)
 		}
 		info.Dashboard = strings.TrimSpace(buf.String())
 	}

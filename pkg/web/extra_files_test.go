@@ -301,7 +301,7 @@ func Test_deleteExtraFiles(t *testing.T) {
 			instance:     "my-instance",
 			files:        []string{"not-found.cnf"},
 			expectedCode: http.StatusNotFound,
-			expectedBody: "{\"Msg\":\"not found\"}",
+			expectedBody: `{"message":"not found"}`,
 			manager: &fake.RpaasManager{
 				FakeDeleteExtraFiles: func(string, ...string) error {
 					return &rpaas.NotFoundError{
