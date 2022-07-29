@@ -764,47 +764,6 @@ func (m *k8sRpaasManager) selectFlavor(ctx context.Context, flavors []v1alpha1.R
 	return nil
 }
 
-func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-	newData := map[string][]byte{}
-	oldExtraFiles, err := m.getExtraFiles(ctx, *instance)
-	if err != nil && !IsNotFoundError(err) {
-		return err
-	}
-	if oldExtraFiles != nil && oldExtraFiles.BinaryData != nil {
-		newData = oldExtraFiles.BinaryData
-	}
-	for _, file := range files {
-		if !isPathValid(file.Name) {
-			return &ValidationError{Msg: fmt.Sprintf("filename %q is not valid", file.Name)}
-		}
-		key := convertPathToConfigMapKey(file.Name)
-		if _, ok := newData[key]; ok {
-			return &ConflictError{Msg: fmt.Sprintf("file %q already exists", file.Name)}
-		}
-		newData[key] = file.Content
-	}
-	newExtraFiles, err := m.createExtraFiles(ctx, *instance, newData)
-	if err != nil {
-		return err
-	}
-	if instance.Spec.ExtraFiles == nil {
-		instance.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-			Files: map[string]string{},
-		}
-	}
-	for _, file := range files {
-		key := convertPathToConfigMapKey(file.Name)
-		instance.Spec.ExtraFiles.Files[key] = file.Name
-	}
-	instance.Spec.ExtraFiles.Name = newExtraFiles.Name
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
 func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {

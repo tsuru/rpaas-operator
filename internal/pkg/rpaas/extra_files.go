@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -22,17 +23,22 @@ import (
 
 const maxFileSize = int(1 << 20) // 1MiB
 
-var ErrNoSuchExtraFile = &NotFoundError{Msg: "extra file not found"}
+var (
+	ErrNoSuchExtraFile        = &NotFoundError{Msg: "extra file not found"}
+	ErrExtraFileAlreadyExists = &ConflictError{Msg: "file already exists"}
+)
+
+func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
+	return m.addOrUpdateExtraFiles(ctx, instanceName, files, true)
+}
 
 func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
-	if len(files) == 0 {
-		return &ValidationError{Msg: "you must provide a file"}
-	}
+	return m.addOrUpdateExtraFiles(ctx, instanceName, files, false)
+}
 
-	for _, f := range files {
-		if err := validateFile(f); err != nil {
-			return err
-		}
+func (m *k8sRpaasManager) addOrUpdateExtraFiles(ctx context.Context, instanceName string, files []File, creating bool) error {
+	if err := validateFiles(files); err != nil {
+		return err
 	}
 
 	i, err := m.GetInstance(ctx, instanceName)
@@ -43,6 +49,15 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 	original := i.DeepCopy()
 
 	for _, f := range files {
+		_, found := i.Spec.Files[f.Name]
+		if creating && found {
+			return ErrExtraFileAlreadyExists
+		}
+
+		if !creating && !found {
+			return ErrNoSuchExtraFile
+		}
+
 		// NOTE(nettoclaudio): Since the data stored in a ConfigMap cannot exceed 1MiB
 		// we should limit a file for ConfigMap to support greater file contents.
 		//
@@ -63,6 +78,13 @@ func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName str
 			},
 		}}
 	}
+
+	if i.Spec.PodTemplate.Annotations == nil {
+		i.Spec.PodTemplate.Annotations = make(map[string]string)
+	}
+
+	// we should ensure rollout of pods even for file updates
+	i.Spec.PodTemplate.Annotations[fmt.Sprintf("%s/extra-files-last-update", defaultKeyLabelPrefix)] = time.Now().UTC().String()
 
 	return m.patchInstance(ctx, original, i)
 }
@@ -140,6 +162,20 @@ func labelsSelectorForFile(filename string) map[string]string {
 		fmt.Sprintf("%s/is-file", defaultKeyLabelPrefix):   "true",
 		fmt.Sprintf("%s/file-name", defaultKeyLabelPrefix): filename,
 	}
+}
+
+func validateFiles(fs []File) error {
+	if len(fs) == 0 {
+		return &ValidationError{Msg: "you must provide a file"}
+	}
+
+	for _, f := range fs {
+		if err := validateFile(f); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 func validateFile(f File) error {
