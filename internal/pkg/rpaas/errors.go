@@ -14,6 +14,23 @@ var (
 	ErrNoPoolDefined = errors.New("No pool defined")
 )
 
+type NotModifiedError struct {
+	Msg      string `json:"message"`
+	Internal error  `json:"-"`
+}
+
+func (NotModifiedError) IsNotModified() bool {
+	return true
+}
+
+func (e NotModifiedError) Error() string {
+	return e.Msg
+}
+
+func (e NotModifiedError) Unwrap() error {
+	return e.Internal
+}
+
 type ValidationError struct {
 	Msg      string `json:"message"`
 	Internal error  `json:"-"`
@@ -63,6 +80,11 @@ func (e NotFoundError) Error() string {
 
 func (e NotFoundError) Unwrap() error {
 	return e.Internal
+}
+
+func IsNotModifiedError(err error) bool {
+	_, ok := err.(interface{ IsNotModified() bool })
+	return ok
 }
 
 func IsValidationError(err error) bool {

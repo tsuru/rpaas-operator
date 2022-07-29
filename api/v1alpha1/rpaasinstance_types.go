@@ -58,8 +58,18 @@ type RpaasInstanceSpec struct {
 	Service *nginxv1alpha1.NginxService `json:"service,omitempty"`
 
 	// ExtraFiles points to a ConfigMap where the files are stored.
+	//
+	// Deprecated: ExtraFiles stores all files in a single ConfigMap. In other
+	// words, they share the limit of 1MiB due to etcd limitations. In order to
+	// get around it, use the Field field.
+	//
 	// +optional
 	ExtraFiles *nginxv1alpha1.FilesRef `json:"extraFiles,omitempty"`
+
+	// Files is a list of regular files of general purpose to be mounted on
+	// Nginx pods. As ConfigMap stores the file content, a file cannot exceed 1MiB.
+	// +optional
+	Files map[string]Value `json:"files,omitempty"`
 
 	// The number of old Configs to retain to allow rollback.
 	// +optional

@@ -17,6 +17,10 @@ func ErrorMiddleware(next echo.HandlerFunc) echo.HandlerFunc {
 
 		internal := errors.Unwrap(err)
 
+		if rpaas.IsNotModifiedError(err) {
+			return c.NoContent(http.StatusNoContent)
+		}
+
 		if rpaas.IsValidationError(err) {
 			return &echo.HTTPError{Code: http.StatusBadRequest, Message: err, Internal: internal}
 		}
@@ -53,13 +57,13 @@ func HTTPErrorHandler(err error, c echo.Context) {
 		return
 	}
 
+	c.Logger().Error("Final error: %s; Wrapped error: %s", err, internal)
+
 	if c.Request().Method == http.MethodHead {
 		err = c.NoContent(code)
 	} else {
 		err = c.JSON(code, msg)
 	}
 
-	if err != nil {
-		c.Logger().Error("Final error: %s; Wrapped error: %s", err, internal)
-	}
+	c.Logger().Errorf("failed to submit response: %s", err)
 }

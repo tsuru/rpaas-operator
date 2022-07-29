@@ -505,6 +505,13 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 		*out = new(apiv1alpha1.FilesRef)
 		(*in).DeepCopyInto(*out)
 	}
+	if in.Files != nil {
+		in, out := &in.Files, &out.Files
+		*out = make(map[string]Value, len(*in))
+		for key, val := range *in {
+			(*out)[key] = *val.DeepCopy()
+		}
+	}
 	if in.ConfigHistoryLimit != nil {
 		in, out := &in.ConfigHistoryLimit, &out.ConfigHistoryLimit
 		*out = new(int)

@@ -874,38 +874,6 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 	return files, nil
 }
 
-func (m *k8sRpaasManager) UpdateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-	extraFiles, err := m.getExtraFiles(ctx, *instance)
-	if err != nil {
-		return err
-	}
-	newData := map[string][]byte{}
-	if extraFiles.BinaryData != nil {
-		newData = extraFiles.BinaryData
-	}
-	for _, file := range files {
-		key := convertPathToConfigMapKey(file.Name)
-		if _, ok := newData[key]; !ok {
-			return &NotFoundError{Msg: fmt.Sprintf("file %q does not exist", file.Name)}
-		}
-		newData[key] = file.Content
-	}
-	extraFiles, err = m.createExtraFiles(ctx, *instance, newData)
-	if err != nil && k8sErrors.IsAlreadyExists(err) {
-		return ConflictError{Msg: "extra files already is defined"}
-	}
-	if err != nil {
-		return err
-	}
-	instance.Spec.ExtraFiles.Name = extraFiles.Name
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
 func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args BindAppArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
