@@ -33,6 +33,137 @@ import (
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
+func Test_newNginx(t *testing.T) {
+	tests := map[string]struct {
+		instance func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance
+		plan     func(p *v1alpha1.RpaasPlan) *v1alpha1.RpaasPlan
+		cm       func(c *corev1.ConfigMap) *corev1.ConfigMap
+		expected func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx
+	}{
+		"w/ extra files": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Files = map[string]v1alpha1.Value{
+					"waf.cfg": {ValueFrom: &v1alpha1.ValueSource{
+						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-1"},
+						},
+					}},
+					"binary.exe": {ValueFrom: &v1alpha1.ValueSource{
+						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+							LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-2"},
+						},
+					}},
+				}
+				return i
+			},
+			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
+				n.Spec.PodTemplate.Volumes = []corev1.Volume{
+					{
+						Name: "extra-files-0",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-2"},
+							},
+						},
+					},
+					{
+						Name: "extra-files-1",
+						VolumeSource: corev1.VolumeSource{
+							ConfigMap: &corev1.ConfigMapVolumeSource{
+								LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-1"},
+							},
+						},
+					},
+				}
+				n.Spec.PodTemplate.VolumeMounts = []corev1.VolumeMount{
+					{
+						Name:      "extra-files-0",
+						MountPath: "/etc/nginx/extra_files/binary.exe",
+						SubPath:   "binary.exe",
+						ReadOnly:  true,
+					},
+					{
+						Name:      "extra-files-1",
+						MountPath: "/etc/nginx/extra_files/waf.cfg",
+						SubPath:   "waf.cfg",
+						ReadOnly:  true,
+					},
+				}
+				return n
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			instance := &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName: "my-plan",
+				},
+			}
+			if tt.instance != nil {
+				instance = tt.instance(instance)
+			}
+
+			plan := &v1alpha1.RpaasPlan{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-plan",
+					Namespace: "rpaasv2",
+				},
+			}
+			if tt.plan != nil {
+				plan = tt.plan(plan)
+			}
+
+			cm := &corev1.ConfigMap{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance-nginx-conf",
+					Namespace: "rpaasv2",
+				},
+			}
+
+			nginx := &nginxv1alpha1.Nginx{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "nginx.tsuru.io/v1alpha1",
+					Kind:       "Nginx",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+					},
+					OwnerReferences: []metav1.OwnerReference{{
+						APIVersion:         "extensions.tsuru.io/v1alpha1",
+						Kind:               "RpaasInstance",
+						Name:               "my-instance",
+						Controller:         func(b bool) *bool { return &b }(true),
+						BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+					}},
+				},
+				Spec: nginxv1alpha1.NginxSpec{
+					Config: &nginxv1alpha1.ConfigRef{
+						Kind: nginxv1alpha1.ConfigKindConfigMap,
+						Name: "my-instance-nginx-conf",
+					},
+					HealthcheckPath: "/_nginx_healthcheck",
+				},
+			}
+			if tt.expected != nil {
+				nginx = tt.expected(nginx)
+			}
+
+			got := newNginx(instance, plan, cm)
+			assert.Equal(t, nginx, got)
+		})
+	}
+}
+
 func Test_mergePlans(t *testing.T) {
 	tests := []struct {
 		base     v1alpha1.RpaasPlanSpec

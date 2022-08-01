@@ -38,7 +38,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
 	"k8s.io/apimachinery/pkg/util/validation"
@@ -1018,47 +1017,6 @@ func validateRoute(r Route) error {
 	}
 
 	return nil
-}
-
-func (m *k8sRpaasManager) createExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance, data map[string][]byte) (*corev1.ConfigMap, error) {
-	hash := util.SHA256(data)
-	cm := corev1.ConfigMap{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-extra-files-%s", instance.Name, hash[:10]),
-			Namespace: instance.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(&instance, schema.GroupVersionKind{
-					Group:   v1alpha1.GroupVersion.Group,
-					Version: v1alpha1.GroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-			Annotations: map[string]string{
-				"rpaas.extensions.tsuru.io/sha256-hash": hash,
-			},
-		},
-		BinaryData: data,
-	}
-	if err := m.cli.Create(ctx, &cm); err != nil && !k8sErrors.IsAlreadyExists(err) {
-		return nil, err
-	}
-	return &cm, nil
-}
-
-func (m *k8sRpaasManager) getExtraFiles(ctx context.Context, instance v1alpha1.RpaasInstance) (*corev1.ConfigMap, error) {
-	if instance.Spec.ExtraFiles == nil {
-		return nil, &NotFoundError{Msg: "there are no extra files"}
-	}
-
-	configMapName := types.NamespacedName{
-		Name:      instance.Spec.ExtraFiles.Name,
-		Namespace: instance.Namespace,
-	}
-	configMap := corev1.ConfigMap{}
-	if err := m.cli.Get(ctx, configMapName, &configMap); err != nil {
-		return nil, err
-	}
-	return &configMap, nil
 }
 
 func (m *k8sRpaasManager) getPlan(ctx context.Context, name string) (*v1alpha1.RpaasPlan, error) {

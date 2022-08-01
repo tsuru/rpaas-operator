@@ -879,19 +879,6 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 	}
 }
 
-func newEmptyExtraFiles() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-instance-extra-files",
-			Namespace: getServiceName(),
-		},
-	}
-}
-
 func newEmptyLocations() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
