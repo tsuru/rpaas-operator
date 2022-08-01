@@ -22,6 +22,86 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 )
 
+func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
+	tests := map[string]struct {
+		resources     []runtime.Object
+		instance      func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance
+		expected      []File
+		expectedError string
+	}{
+		"no extra files": {},
+
+		"w/ confimap not found": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Files = map[string]v1alpha1.Value{"index.html": {}}
+				return i
+			},
+			expectedError: "extra file not found",
+		},
+
+		"w/ multiple extra files": {
+			resources: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-extra-file-123456",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "index.html",
+						},
+					},
+					BinaryData: map[string][]byte{"index.html": []byte(`<h1>Hello world!</h1>`)},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-extra-file-abcde",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "binary.exe",
+						},
+					},
+					BinaryData: map[string][]byte{"binary.exe": {66, 55, 10, 00, 20}},
+				},
+			},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Files = map[string]v1alpha1.Value{"index.html": {}, "binary.exe": {}}
+				return i
+			},
+			expected: []File{
+				{Name: "binary.exe", Content: []byte{66, 55, 10, 00, 20}},
+				{Name: "index.html", Content: []byte(`<h1>Hello world!</h1>`)},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			instance := newRpaasInstance("my-instance")
+			if tt.instance != nil {
+				instance = tt.instance(instance)
+			}
+
+			resources := append(tt.resources, instance)
+
+			files, err := (&k8sRpaasManager{
+				cli: fake.NewClientBuilder().
+					WithScheme(newScheme()).
+					WithRuntimeObjects(resources...).
+					Build(),
+			}).GetExtraFiles(context.TODO(), instance.Name)
+
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, files)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 	tests := mergeMapAny(commonCreateOrUpdateExtraFilesTestCases, map[string]createOrUpdateExtraFilesTestCase{
 		"when file already exists": {

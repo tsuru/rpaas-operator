@@ -1314,60 +1314,6 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "another-instance"
-	instance2.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-		Name: "another-instance-extra-files",
-		Files: map[string]string{
-			"index.html": "index.html",
-		},
-	}
-
-	configMap := newEmptyExtraFiles()
-	configMap.Name = "another-instance-extra-files"
-	configMap.BinaryData = map[string][]byte{
-		"index.html": []byte("Hello world"),
-	}
-
-	resources := []runtime.Object{instance1, instance2, configMap}
-
-	testCases := []struct {
-		instance      string
-		expectedFiles []File
-	}{
-		{
-			instance:      "my-instance",
-			expectedFiles: []File{},
-		},
-		{
-			instance: "another-instance",
-			expectedFiles: []File{
-				{
-					Name:    "index.html",
-					Content: []byte("Hello world"),
-				},
-			},
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			files, err := manager.GetExtraFiles(context.Background(), tt.instance)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedFiles, files)
-		})
-	}
-}
-
 func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 	scheme := runtime.NewScheme()
 	corev1.AddToScheme(scheme)
@@ -4506,23 +4452,33 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			resources: []runtime.Object{
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "my-instance-extra-files",
+						Name:      "my-instance-extra-files-1",
 						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "waf.cfg",
+						},
 					},
 					BinaryData: map[string][]byte{
-						"waf.cfg":    []byte("My WAF rules :P"),
+						"waf.cfg": []byte("My WAF rules :P"),
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-extra-files-2",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "binary.exe",
+						},
+					},
+					BinaryData: map[string][]byte{
 						"binary.exe": {66, 55, 10, 0},
 					},
 				},
 			},
 			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
-				i.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-					Name: "my-instance-extra-files",
-					Files: map[string]string{
-						"waf.cfg":    "waf.cfg",
-						"binary.exe": "binary.exe",
-					},
-				}
+				i.Spec.Files = map[string]v1alpha1.Value{"waf.cfg": {}, "binary.exe": {}}
 				return i
 			},
 			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {

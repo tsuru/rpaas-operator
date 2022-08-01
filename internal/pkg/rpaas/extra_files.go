@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"reflect"
 	"regexp"
+	"sort"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -27,6 +28,27 @@ var (
 	ErrNoSuchExtraFile        = &NotFoundError{Msg: "extra file not found"}
 	ErrExtraFileAlreadyExists = &ConflictError{Msg: "file already exists"}
 )
+
+func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string) ([]File, error) {
+	i, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	var files []File
+	for filename := range i.Spec.Files {
+		cm, err := m.getConfigMapByFileName(ctx, i, filename)
+		if err != nil {
+			return nil, err
+		}
+
+		files = append(files, File{Name: filename, Content: cm.BinaryData[filename]})
+	}
+
+	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
+
+	return files, nil
+}
 
 func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
 	return m.addOrUpdateExtraFiles(ctx, instanceName, files, true)

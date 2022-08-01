@@ -804,35 +804,6 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 	return m.patchInstance(ctx, originalInstance, instance)
 }
 
-func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string) ([]File, error) {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return nil, err
-	}
-
-	extraFiles, err := m.getExtraFiles(ctx, *instance)
-	if err != nil && IsNotFoundError(err) {
-		return []File{}, nil
-	}
-	if err != nil {
-		return nil, err
-	}
-
-	files := []File{}
-	for key, path := range instance.Spec.ExtraFiles.Files {
-		files = append(files, File{
-			Name:    path,
-			Content: extraFiles.BinaryData[key],
-		})
-	}
-
-	sort.Slice(files, func(i, j int) bool {
-		return files[i].Name < files[j].Name
-	})
-
-	return files, nil
-}
-
 func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args BindAppArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
