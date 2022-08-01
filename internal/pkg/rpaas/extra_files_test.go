@@ -102,6 +102,97 @@ func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
+	tests := map[string]struct {
+		resources     []runtime.Object
+		instance      func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance
+		filenames     []string
+		assert        func(t *testing.T, c client.Client)
+		expectedError string
+	}{
+		"without file names": {
+			expectedError: "you must provide a filename",
+		},
+
+		"w/ empty file name": {
+			filenames:     []string{""},
+			expectedError: "file name cannot be empty",
+		},
+
+		"w/ file name not found": {
+			filenames:     []string{"not-found.txt"},
+			expectedError: "extra file not found",
+		},
+
+		"remove a file": {
+			resources: []runtime.Object{
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-extra-files-1",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "index.html",
+						},
+					},
+					BinaryData: map[string][]byte{"index.html": []byte("<h1>Hello world!</h1>")},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-extra-files-2",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "binary.exe",
+						},
+					},
+					BinaryData: map[string][]byte{"binary.exe": {66, 55, 00, 10}},
+				},
+			},
+			filenames: []string{"binary.exe"},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Files = map[string]v1alpha1.Value{"index.html": {}, "binary.exe": {}}
+				return i
+			},
+			assert: func(t *testing.T, c client.Client) {
+				var i v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "rpaasv2"}, &i)
+				require.NoError(t, err)
+				assert.Equal(t, map[string]v1alpha1.Value{"index.html": {}}, i.Spec.Files)
+				assert.NotEmpty(t, i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/extra-files-last-update"])
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			instance := newRpaasInstance("my-instance")
+			if tt.instance != nil {
+				instance = tt.instance(instance)
+			}
+
+			resources := append(tt.resources, instance)
+
+			manager := &k8sRpaasManager{
+				cli: fake.NewClientBuilder().
+					WithScheme(newScheme()).
+					WithRuntimeObjects(resources...).
+					Build(),
+			}
+
+			err := manager.DeleteExtraFiles(context.TODO(), instance.Name, tt.filenames...)
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			require.NoError(t, err)
+			require.NotNil(t, tt.assert, "test case must provide an assert function")
+			tt.assert(t, manager.cli)
+		})
+	}
+}
+
 func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 	tests := mergeMapAny(commonCreateOrUpdateExtraFilesTestCases, map[string]createOrUpdateExtraFilesTestCase{
 		"when file already exists": {

@@ -50,6 +50,40 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 	return files, nil
 }
 
+func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error {
+	if len(filenames) == 0 {
+		return &ValidationError{Msg: "you must provide a filename"}
+	}
+
+	i, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	original := i.DeepCopy()
+
+	for _, f := range filenames {
+		if f == "" {
+			return &ValidationError{Msg: "file name cannot be empty"}
+		}
+
+		cm, err := m.getConfigMapByFileName(ctx, i, f)
+		if err != nil {
+			return err
+		}
+
+		if err = m.cli.Delete(ctx, cm); err != nil {
+			return err
+		}
+
+		delete(i.Spec.Files, f)
+	}
+
+	// we should ensure rollout of pods even for file updates
+	updatePodAnnotationOfLastUpdateOnExtraFiles(i)
+
+	return m.patchInstance(ctx, original, i)
+}
+
 func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
 	return m.addOrUpdateExtraFiles(ctx, instanceName, files, true)
 }
@@ -101,12 +135,8 @@ func (m *k8sRpaasManager) addOrUpdateExtraFiles(ctx context.Context, instanceNam
 		}}
 	}
 
-	if i.Spec.PodTemplate.Annotations == nil {
-		i.Spec.PodTemplate.Annotations = make(map[string]string)
-	}
-
 	// we should ensure rollout of pods even for file updates
-	i.Spec.PodTemplate.Annotations[fmt.Sprintf("%s/extra-files-last-update", defaultKeyLabelPrefix)] = time.Now().UTC().String()
+	updatePodAnnotationOfLastUpdateOnExtraFiles(i)
 
 	return m.patchInstance(ctx, original, i)
 }
@@ -159,6 +189,18 @@ func (m *k8sRpaasManager) getConfigMapByFileName(ctx context.Context, i *v1alpha
 	default:
 		return nil, &ConflictError{Msg: fmt.Sprintf("too many config maps for %q file", filename)}
 	}
+}
+
+func updatePodAnnotationOfLastUpdateOnExtraFiles(i *v1alpha1.RpaasInstance) {
+	if i == nil {
+		return
+	}
+
+	if i.Spec.PodTemplate.Annotations == nil {
+		i.Spec.PodTemplate.Annotations = make(map[string]string)
+	}
+
+	i.Spec.PodTemplate.Annotations[fmt.Sprintf("%s/extra-files-last-update", defaultKeyLabelPrefix)] = time.Now().UTC().String()
 }
 
 func newConfigMapForFile(i *v1alpha1.RpaasInstance, f File) *corev1.ConfigMap {

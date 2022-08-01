@@ -764,46 +764,6 @@ func (m *k8sRpaasManager) selectFlavor(ctx context.Context, flavors []v1alpha1.R
 	return nil
 }
 
-func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-	extraFiles, err := m.getExtraFiles(ctx, *instance)
-	if err != nil {
-		return err
-	}
-	newData := map[string][]byte{}
-	if extraFiles.BinaryData != nil {
-		newData = extraFiles.BinaryData
-	}
-	for _, filename := range filenames {
-		key := convertPathToConfigMapKey(filename)
-		if _, ok := newData[key]; !ok {
-			return &NotFoundError{Msg: fmt.Sprintf("file %q does not exist", filename)}
-		}
-		delete(newData, key)
-	}
-	if len(newData) == 0 {
-		instance.Spec.ExtraFiles = nil
-		return m.patchInstance(ctx, originalInstance, instance)
-	}
-	extraFiles, err = m.createExtraFiles(ctx, *instance, newData)
-	if err != nil && k8sErrors.IsAlreadyExists(err) {
-		return ConflictError{Msg: "extra files already is defined"}
-	}
-	if err != nil {
-		return err
-	}
-	for _, filename := range filenames {
-		key := convertPathToConfigMapKey(filename)
-		delete(instance.Spec.ExtraFiles.Files, key)
-	}
-	instance.Spec.ExtraFiles.Name = extraFiles.Name
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
 func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args BindAppArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
