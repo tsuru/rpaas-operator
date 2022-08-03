@@ -36,13 +36,13 @@ func (m *k8sRpaasManager) GetExtraFiles(ctx context.Context, instanceName string
 	}
 
 	var files []File
-	for filename := range i.Spec.Files {
-		cm, err := m.getConfigMapByFileName(ctx, i, filename)
+	for _, f := range i.Spec.Files {
+		cm, err := m.getConfigMapByFileName(ctx, i, f.Name)
 		if err != nil {
 			return nil, err
 		}
 
-		files = append(files, File{Name: filename, Content: cm.BinaryData[filename]})
+		files = append(files, File{Name: f.Name, Content: cm.BinaryData[f.Name]})
 	}
 
 	sort.Slice(files, func(i, j int) bool { return files[i].Name < files[j].Name })
@@ -61,12 +61,12 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 	}
 	original := i.DeepCopy()
 
-	for _, f := range filenames {
-		if f == "" {
+	for _, name := range filenames {
+		if name == "" {
 			return &ValidationError{Msg: "file name cannot be empty"}
 		}
 
-		cm, err := m.getConfigMapByFileName(ctx, i, f)
+		cm, err := m.getConfigMapByFileName(ctx, i, name)
 		if err != nil {
 			return err
 		}
@@ -75,7 +75,9 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 			return err
 		}
 
-		delete(i.Spec.Files, f)
+		if index, found := findFileByName(i.Spec.Files, name); found {
+			i.Spec.Files = append(i.Spec.Files[:index], i.Spec.Files[index+1:]...)
+		}
 	}
 
 	// we should ensure rollout of pods even for file updates
@@ -105,7 +107,7 @@ func (m *k8sRpaasManager) addOrUpdateExtraFiles(ctx context.Context, instanceNam
 	original := i.DeepCopy()
 
 	for _, f := range files {
-		_, found := i.Spec.Files[f.Name]
+		_, found := findFileByName(i.Spec.Files, f.Name)
 		if creating && found {
 			return ErrExtraFileAlreadyExists
 		}
@@ -123,16 +125,21 @@ func (m *k8sRpaasManager) addOrUpdateExtraFiles(ctx context.Context, instanceNam
 			return err
 		}
 
-		if i.Spec.Files == nil {
-			i.Spec.Files = make(map[string]v1alpha1.Value)
+		if !creating {
+			continue
 		}
 
-		i.Spec.Files[f.Name] = v1alpha1.Value{ValueFrom: &v1alpha1.ValueSource{
-			ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+		if i.Spec.Files == nil {
+			i.Spec.Files = make([]v1alpha1.File, 0, len(files))
+		}
+
+		i.Spec.Files = append(i.Spec.Files, v1alpha1.File{
+			Name: f.Name,
+			ConfigMap: &corev1.ConfigMapKeySelector{
 				LocalObjectReference: corev1.LocalObjectReference{Name: cm.Name},
 				Key:                  f.Name,
 			},
-		}}
+		})
 	}
 
 	// we should ensure rollout of pods even for file updates
@@ -261,3 +268,13 @@ func validateFile(f File) error {
 var basePathRegexp = regexp.MustCompile("^[a-zA-Z0-9][^/ ]+$")
 
 func isFileNameValid(filename string) bool { return basePathRegexp.MatchString(filename) }
+
+func findFileByName(files []v1alpha1.File, filename string) (int, bool) {
+	for i := range files {
+		if files[i].Name == filename {
+			return i, true
+		}
+	}
+
+	return -1, false
+}

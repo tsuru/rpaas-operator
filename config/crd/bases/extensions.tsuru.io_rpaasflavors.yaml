@@ -253,38 +253,36 @@ spec:
                     - name
                     type: object
                   files:
-                    additionalProperties:
-                      properties:
-                        value:
-                          type: string
-                        valueFrom:
-                          properties:
-                            configMapKeyRef:
-                              description: Selects a key from a ConfigMap.
-                              properties:
-                                key:
-                                  description: The key to select.
-                                  type: string
-                                name:
-                                  description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind,
-                                    uid?'
-                                  type: string
-                                optional:
-                                  description: Specify whether the ConfigMap or its
-                                    key must be defined
-                                  type: boolean
-                              required:
-                              - key
-                              type: object
-                            namespace:
-                              type: string
-                          type: object
-                      type: object
                     description: Files is a list of regular files of general purpose
                       to be mounted on Nginx pods. As ConfigMap stores the file content,
                       a file cannot exceed 1MiB.
-                    type: object
+                    items:
+                      properties:
+                        configMap:
+                          description: ConfigMap is a reference to ConfigMap in the
+                            namespace that contains the file content.
+                          properties:
+                            key:
+                              description: The key to select.
+                              type: string
+                            name:
+                              description: 'Name of the referent. More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                TODO: Add other useful fields. apiVersion, kind, uid?'
+                              type: string
+                            optional:
+                              description: Specify whether the ConfigMap or its key
+                                must be defined
+                              type: boolean
+                          required:
+                          - key
+                          type: object
+                        name:
+                          description: Name is the filaname of the file.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
                   flavors:
                     description: Flavors are references to RpaasFlavors resources.
                       When provided, each flavor merges its instance template spec

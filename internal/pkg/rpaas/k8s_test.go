@@ -4395,7 +4395,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				},
 			},
 			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
-				i.Spec.Files = map[string]v1alpha1.Value{"waf.cfg": {}, "binary.exe": {}}
+				i.Spec.Files = []v1alpha1.File{{Name: "waf.cfg"}, {Name: "binary.exe"}}
 				return i
 			},
 			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {

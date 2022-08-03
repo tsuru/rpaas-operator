@@ -42,17 +42,19 @@ func Test_newNginx(t *testing.T) {
 	}{
 		"w/ extra files": {
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Files = map[string]v1alpha1.Value{
-					"waf.cfg": {ValueFrom: &v1alpha1.ValueSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+				i.Spec.Files = []v1alpha1.File{
+					{
+						Name: "waf.cfg",
+						ConfigMap: &corev1.ConfigMapKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-1"},
 						},
-					}},
-					"binary.exe": {ValueFrom: &v1alpha1.ValueSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
+					},
+					{
+						Name: "binary.exe",
+						ConfigMap: &corev1.ConfigMapKeySelector{
 							LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-2"},
 						},
-					}},
+					},
 				}
 				return i
 			},
@@ -62,7 +64,7 @@ func Test_newNginx(t *testing.T) {
 						Name: "extra-files-0",
 						VolumeSource: corev1.VolumeSource{
 							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-2"},
+								LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-1"},
 							},
 						},
 					},
@@ -70,7 +72,7 @@ func Test_newNginx(t *testing.T) {
 						Name: "extra-files-1",
 						VolumeSource: corev1.VolumeSource{
 							ConfigMap: &corev1.ConfigMapVolumeSource{
-								LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-1"},
+								LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-2"},
 							},
 						},
 					},
@@ -78,14 +80,14 @@ func Test_newNginx(t *testing.T) {
 				n.Spec.PodTemplate.VolumeMounts = []corev1.VolumeMount{
 					{
 						Name:      "extra-files-0",
-						MountPath: "/etc/nginx/extra_files/binary.exe",
-						SubPath:   "binary.exe",
+						MountPath: "/etc/nginx/extra_files/waf.cfg",
+						SubPath:   "waf.cfg",
 						ReadOnly:  true,
 					},
 					{
 						Name:      "extra-files-1",
-						MountPath: "/etc/nginx/extra_files/waf.cfg",
-						SubPath:   "waf.cfg",
+						MountPath: "/etc/nginx/extra_files/binary.exe",
+						SubPath:   "binary.exe",
 						ReadOnly:  true,
 					},
 				}

@@ -33,7 +33,7 @@ func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
 
 		"w/ confimap not found": {
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Files = map[string]v1alpha1.Value{"index.html": {}}
+				i.Spec.Files = []v1alpha1.File{{Name: "index.html"}}
 				return i
 			},
 			expectedError: "extra file not found",
@@ -65,7 +65,7 @@ func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
 				},
 			},
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Files = map[string]v1alpha1.Value{"index.html": {}, "binary.exe": {}}
+				i.Spec.Files = []v1alpha1.File{{Name: "index.html"}, {Name: "binary.exe"}}
 				return i
 			},
 			expected: []File{
@@ -151,14 +151,14 @@ func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
 			},
 			filenames: []string{"binary.exe"},
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Files = map[string]v1alpha1.Value{"index.html": {}, "binary.exe": {}}
+				i.Spec.Files = []v1alpha1.File{{Name: "index.html"}, {Name: "binary.exe"}}
 				return i
 			},
 			assert: func(t *testing.T, c client.Client) {
 				var i v1alpha1.RpaasInstance
 				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "rpaasv2"}, &i)
 				require.NoError(t, err)
-				assert.Equal(t, map[string]v1alpha1.Value{"index.html": {}}, i.Spec.Files)
+				assert.Equal(t, []v1alpha1.File{{Name: "index.html"}}, i.Spec.Files)
 				assert.NotEmpty(t, i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/extra-files-last-update"])
 			},
 		},
@@ -198,9 +198,7 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 		"when file already exists": {
 			files: []File{{Name: "index.html", Content: []byte("<h1>Hello world!</h1>")}},
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Files = map[string]v1alpha1.Value{
-					"index.html": {Value: "WTF"},
-				}
+				i.Spec.Files = []v1alpha1.File{{Name: "index.html"}}
 				return i
 			},
 			expectedError: "file already exists",
@@ -234,14 +232,13 @@ func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.NotEmpty(t, i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/extra-files-last-update"])
-				assert.Equal(t, map[string]v1alpha1.Value{
-					"index.html": {ValueFrom: &v1alpha1.ValueSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{Name: cm.Name},
-							Key:                  "index.html",
-						},
-					}},
-				}, i.Spec.Files)
+				assert.Equal(t, []v1alpha1.File{{
+					Name: "index.html",
+					ConfigMap: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: cm.Name},
+						Key:                  "index.html",
+					},
+				}}, i.Spec.Files)
 			},
 		},
 	})
@@ -302,12 +299,11 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 				},
 			},
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Files = map[string]v1alpha1.Value{
-					"index.html": {ValueFrom: &v1alpha1.ValueSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-abcde"},
-							Key:                  "index.html",
-						},
+				i.Spec.Files = []v1alpha1.File{{
+					Name: "index.html",
+					ConfigMap: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-abcde"},
+						Key:                  "index.html",
 					}},
 				}
 				return i
@@ -332,14 +328,13 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 			},
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				i.Spec.PodTemplate.Annotations = map[string]string{"rpaas.extensions.tsuru.io/extra-files-last-update": "OLD VALUE"}
-				i.Spec.Files = map[string]v1alpha1.Value{
-					"index.html": {ValueFrom: &v1alpha1.ValueSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-abcde"},
-							Key:                  "index.html",
-						},
-					}},
-				}
+				i.Spec.Files = []v1alpha1.File{{
+					Name: "index.html",
+					ConfigMap: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-abcde"},
+						Key:                  "index.html",
+					},
+				}}
 				return i
 			},
 			files: []File{{Name: "index.html", Content: []byte("<h1>Hello there!</h1>")}},
@@ -354,12 +349,11 @@ func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.NotEqual(t, "OLD VALUE", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/extra-files-last-update"])
-				assert.Equal(t, map[string]v1alpha1.Value{
-					"index.html": {ValueFrom: &v1alpha1.ValueSource{
-						ConfigMapKeyRef: &corev1.ConfigMapKeySelector{
-							LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-abcde"},
-							Key:                  "index.html",
-						},
+				assert.Equal(t, []v1alpha1.File{{
+					Name: "index.html",
+					ConfigMap: &corev1.ConfigMapKeySelector{
+						LocalObjectReference: corev1.LocalObjectReference{Name: "my-instance-extra-files-abcde"},
+						Key:                  "index.html",
 					}},
 				}, i.Spec.Files)
 			},

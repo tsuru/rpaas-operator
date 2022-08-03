@@ -69,7 +69,7 @@ type RpaasInstanceSpec struct {
 	// Files is a list of regular files of general purpose to be mounted on
 	// Nginx pods. As ConfigMap stores the file content, a file cannot exceed 1MiB.
 	// +optional
-	Files map[string]Value `json:"files,omitempty"`
+	Files []File `json:"files,omitempty"`
 
 	// The number of old Configs to retain to allow rollback.
 	// +optional
@@ -203,6 +203,14 @@ type ValueSource struct {
 type Value struct {
 	Value     string       `json:"value,omitempty"`
 	ValueFrom *ValueSource `json:"valueFrom,omitempty"`
+}
+
+type File struct {
+	// Name is the filaname of the file.
+	Name string `json:"name"`
+	// ConfigMap is a reference to ConfigMap in the namespace that contains the
+	// file content.
+	ConfigMap *corev1.ConfigMapKeySelector `json:"configMap,omitempty"`
 }
 
 const CertificateNameDefault = "default"

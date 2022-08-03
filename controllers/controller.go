@@ -1120,29 +1120,22 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		n.Spec.Service.Type = corev1.ServiceTypeLoadBalancer
 	}
 
-	var filenames []string
-	for f := range instanceMergedWithFlavors.Spec.Files {
-		filenames = append(filenames, f)
-	}
-
-	sort.Strings(filenames)
-
-	for i, filename := range filenames {
+	for i, f := range instanceMergedWithFlavors.Spec.Files {
 		volumeName := fmt.Sprintf("extra-files-%d", i)
 
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
 			Name: volumeName,
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
-					LocalObjectReference: instanceMergedWithFlavors.Spec.Files[filename].ValueFrom.ConfigMapKeyRef.LocalObjectReference,
+					LocalObjectReference: f.ConfigMap.LocalObjectReference,
 				},
 			},
 		})
 
 		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, corev1.VolumeMount{
 			Name:      volumeName,
-			MountPath: fmt.Sprintf("/etc/nginx/extra_files/%s", filename),
-			SubPath:   filename,
+			MountPath: fmt.Sprintf("/etc/nginx/extra_files/%s", f.Name),
+			SubPath:   f.Name,
 			ReadOnly:  true,
 		})
 	}
