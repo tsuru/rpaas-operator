@@ -1108,7 +1108,6 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 			Resources:       plan.Spec.Resources,
 			Service:         instanceMergedWithFlavors.Spec.Service.DeepCopy(),
 			HealthcheckPath: "/_nginx_healthcheck",
-			ExtraFiles:      instanceMergedWithFlavors.Spec.ExtraFiles,
 			TLS:             instanceMergedWithFlavors.Spec.TLS,
 			Cache:           cacheConfig,
 			PodTemplate:     instanceMergedWithFlavors.Spec.PodTemplate,
@@ -1119,6 +1118,26 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 
 	if n.Spec.Service != nil && n.Spec.Service.Type == "" {
 		n.Spec.Service.Type = corev1.ServiceTypeLoadBalancer
+	}
+
+	for i, f := range instanceMergedWithFlavors.Spec.Files {
+		volumeName := fmt.Sprintf("extra-files-%d", i)
+
+		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				ConfigMap: &corev1.ConfigMapVolumeSource{
+					LocalObjectReference: f.ConfigMap.LocalObjectReference,
+				},
+			},
+		})
+
+		n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: fmt.Sprintf("/etc/nginx/extra_files/%s", f.Name),
+			SubPath:   f.Name,
+			ReadOnly:  true,
+		})
 	}
 
 	if isTLSSessionTicketEnabled(instanceMergedWithFlavors) {

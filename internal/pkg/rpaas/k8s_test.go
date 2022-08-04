@@ -879,19 +879,6 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 	}
 }
 
-func newEmptyExtraFiles() *corev1.ConfigMap {
-	return &corev1.ConfigMap{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "ConfigMap",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-instance-extra-files",
-			Namespace: getServiceName(),
-		},
-	}
-}
-
 func newEmptyLocations() *corev1.ConfigMap {
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
@@ -1314,355 +1301,6 @@ func Test_k8sRpaasManager_GetInstanceStatus(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_CreateExtraFiles(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "another-instance"
-	instance2.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-		Name: "another-instance-extra-files",
-		Files: map[string]string{
-			"index.html": "index.html",
-		},
-	}
-
-	configMap := newEmptyExtraFiles()
-	configMap.Name = "another-instance-extra-files"
-	configMap.BinaryData = map[string][]byte{
-		"index.html": []byte("Hello world"),
-	}
-
-	resources := []runtime.Object{instance1, instance2, configMap}
-
-	testCases := []struct {
-		instance  string
-		files     []File
-		assertion func(*testing.T, error, *k8sRpaasManager)
-	}{
-		{
-			instance: "my-instance",
-			files: []File{
-				{
-					Name:    "/path/to/my/file",
-					Content: []byte("My invalid filename"),
-				},
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.True(t, IsValidationError(err))
-			},
-		},
-		{
-			instance: "my-instance",
-			files: []File{
-				{
-					Name:    "www/index.html",
-					Content: []byte("<h1>Hello world!</h1>"),
-				},
-				{
-					Name:    "waf/sqli-rules.cnf",
-					Content: []byte("# my awesome rules against SQLi :)..."),
-				},
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.NoError(t, err)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, &instance)
-				require.NoError(t, err)
-
-				expectedFiles := map[string]string{
-					"www_index.html":     "www/index.html",
-					"waf_sqli-rules.cnf": "waf/sqli-rules.cnf",
-				}
-				assert.Equal(t, expectedFiles, instance.Spec.ExtraFiles.Files)
-
-				cm, err := m.getExtraFiles(context.Background(), instance)
-				assert.NoError(t, err)
-				expectedConfigMapData := map[string][]byte{
-					"www_index.html":     []byte("<h1>Hello world!</h1>"),
-					"waf_sqli-rules.cnf": []byte("# my awesome rules against SQLi :)..."),
-				}
-				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
-			},
-		},
-		{
-			instance: "another-instance",
-			files: []File{
-				{
-					Name:    "index.html",
-					Content: []byte("My new hello world"),
-				},
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.True(t, IsConflictError(err))
-				assert.Equal(t, &ConflictError{Msg: `file "index.html" already exists`}, err)
-			},
-		},
-		{
-			instance: "another-instance",
-			files: []File{
-				{
-					Name:    "www/index.html",
-					Content: []byte("<h1>Hello world!</h1>"),
-				},
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.NoError(t, err)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
-				require.NoError(t, err)
-
-				assert.NotEqual(t, "another-instance-extra-files", instance.Spec.ExtraFiles.Name)
-				expectedFiles := map[string]string{
-					"index.html":     "index.html",
-					"www_index.html": "www/index.html",
-				}
-				assert.Equal(t, expectedFiles, instance.Spec.ExtraFiles.Files)
-
-				cm, err := m.getExtraFiles(context.Background(), instance)
-				require.NoError(t, err)
-
-				expectedConfigMapData := map[string][]byte{
-					"index.html":     []byte("Hello world"),
-					"www_index.html": []byte("<h1>Hello world!</h1>"),
-				}
-				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
-			},
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			err := manager.CreateExtraFiles(context.Background(), tt.instance, tt.files...)
-			tt.assertion(t, err, manager)
-		})
-	}
-}
-
-func Test_k8sRpaasManager_GetExtraFiles(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "another-instance"
-	instance2.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-		Name: "another-instance-extra-files",
-		Files: map[string]string{
-			"index.html": "index.html",
-		},
-	}
-
-	configMap := newEmptyExtraFiles()
-	configMap.Name = "another-instance-extra-files"
-	configMap.BinaryData = map[string][]byte{
-		"index.html": []byte("Hello world"),
-	}
-
-	resources := []runtime.Object{instance1, instance2, configMap}
-
-	testCases := []struct {
-		instance      string
-		expectedFiles []File
-	}{
-		{
-			instance:      "my-instance",
-			expectedFiles: []File{},
-		},
-		{
-			instance: "another-instance",
-			expectedFiles: []File{
-				{
-					Name:    "index.html",
-					Content: []byte("Hello world"),
-				},
-			},
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			files, err := manager.GetExtraFiles(context.Background(), tt.instance)
-			assert.NoError(t, err)
-			assert.Equal(t, tt.expectedFiles, files)
-		})
-	}
-}
-
-func Test_k8sRpaasManager_UpdateExtraFiles(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "another-instance"
-	instance2.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-		Name: "another-instance-extra-files",
-		Files: map[string]string{
-			"index.html": "index.html",
-		},
-	}
-
-	configMap := newEmptyExtraFiles()
-	configMap.Name = "another-instance-extra-files"
-	configMap.BinaryData = map[string][]byte{
-		"index.html": []byte("Hello world"),
-	}
-
-	resources := []runtime.Object{instance1, instance2, configMap}
-
-	testCases := []struct {
-		instance  string
-		files     []File
-		assertion func(*testing.T, error, *k8sRpaasManager)
-	}{
-		{
-			instance: "my-instance",
-			files: []File{
-				{
-					Name:    "www/index.html",
-					Content: []byte("<h1>Hello world!</h1>"),
-				},
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, &NotFoundError{Msg: "there are no extra files"}, err)
-			},
-		},
-		{
-			instance: "another-instance",
-			files: []File{
-				{
-					Name:    "www/index.html",
-					Content: []byte("<h1>Hello world!</h1>"),
-				},
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, &NotFoundError{Msg: `file "www/index.html" does not exist`}, err)
-			},
-		},
-		{
-			instance: "another-instance",
-			files: []File{
-				{
-					Name:    "index.html",
-					Content: []byte("<h1>Hello world!</h1>"),
-				},
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.NoError(t, err)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "another-instance", Namespace: getServiceName()}, &instance)
-				require.NoError(t, err)
-
-				cm, err := m.getExtraFiles(context.Background(), instance)
-				require.NoError(t, err)
-
-				expectedConfigMapData := map[string][]byte{
-					"index.html": []byte("<h1>Hello world!</h1>"),
-				}
-				assert.Equal(t, expectedConfigMapData, cm.BinaryData)
-
-			},
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			err := manager.UpdateExtraFiles(context.Background(), tt.instance, tt.files...)
-			tt.assertion(t, err, manager)
-		})
-	}
-}
-
-func Test_k8sRpaasManager_DeleteExtraFiles(t *testing.T) {
-	scheme := runtime.NewScheme()
-	corev1.AddToScheme(scheme)
-	v1alpha1.SchemeBuilder.AddToScheme(scheme)
-	nginxv1alpha1.SchemeBuilder.AddToScheme(scheme)
-
-	instance1 := newEmptyRpaasInstance()
-	instance1.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-		Name: "my-instance-extra-files",
-		Files: map[string]string{
-			"index.html":     "index.html",
-			"waf_rules.conf": "waf/rules.conf",
-		},
-	}
-
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "another-instance"
-
-	configMap := newEmptyExtraFiles()
-	configMap.Name = "my-instance-extra-files"
-	configMap.BinaryData = map[string][]byte{
-		"index.html":     []byte("Hello world"),
-		"waf_rules.conf": []byte("# my awesome WAF rules"),
-	}
-
-	resources := []runtime.Object{instance1, instance2, configMap}
-
-	testCases := []struct {
-		instance  string
-		filenames []string
-		assertion func(*testing.T, error, *k8sRpaasManager)
-	}{
-		{
-			instance:  "another-instance",
-			filenames: []string{"whatever-file.txt"},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, &NotFoundError{Msg: `there are no extra files`}, err)
-			},
-		},
-		{
-			instance:  "my-instance",
-			filenames: []string{"index.html", "waf_rules.conf"},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.NoError(t, err)
-
-				instance := v1alpha1.RpaasInstance{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, &instance)
-				require.NoError(t, err)
-				assert.Nil(t, instance.Spec.ExtraFiles)
-			},
-		},
-		{
-			instance:  "my-instance",
-			filenames: []string{"not-found.txt"},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
-				assert.Error(t, err)
-				assert.Equal(t, &NotFoundError{Msg: `file "not-found.txt" does not exist`}, err)
-			},
-		},
-	}
-
-	for _, tt := range testCases {
-		t.Run("", func(t *testing.T) {
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			err := manager.DeleteExtraFiles(context.Background(), tt.instance, tt.filenames...)
-			tt.assertion(t, err, manager)
-		})
-	}
-}
 func Test_k8sRpaasManager_PurgeCache(t *testing.T) {
 	instance1 := newEmptyRpaasInstance()
 	instance1.ObjectMeta.Name = "my-instance"
@@ -4731,23 +4369,33 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 			resources: []runtime.Object{
 				&corev1.ConfigMap{
 					ObjectMeta: metav1.ObjectMeta{
-						Name:      "my-instance-extra-files",
+						Name:      "my-instance-extra-files-1",
 						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "waf.cfg",
+						},
 					},
 					BinaryData: map[string][]byte{
-						"waf.cfg":    []byte("My WAF rules :P"),
+						"waf.cfg": []byte("My WAF rules :P"),
+					},
+				},
+				&corev1.ConfigMap{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-extra-files-2",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/is-file":   "true",
+							"rpaas.extensions.tsuru.io/file-name": "binary.exe",
+						},
+					},
+					BinaryData: map[string][]byte{
 						"binary.exe": {66, 55, 10, 0},
 					},
 				},
 			},
 			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
-				i.Spec.ExtraFiles = &nginxv1alpha1.FilesRef{
-					Name: "my-instance-extra-files",
-					Files: map[string]string{
-						"waf.cfg":    "waf.cfg",
-						"binary.exe": "binary.exe",
-					},
-				}
+				i.Spec.Files = []v1alpha1.File{{Name: "waf.cfg"}, {Name: "binary.exe"}}
 				return i
 			},
 			expected: func(info clientTypes.InstanceInfo) clientTypes.InstanceInfo {
