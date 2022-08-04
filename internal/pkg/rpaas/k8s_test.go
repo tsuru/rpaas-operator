@@ -4145,6 +4145,39 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						},
 					},
 				},
+				&corev1.Pod{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-klmno",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"nginx.tsuru.io/app":           "nginx",
+							"nginx.tsuru.io/resource-name": "my-instance",
+						},
+						CreationTimestamp: metav1.NewTime(t0),
+						DeletionTimestamp: &metav1.Time{Time: t0.Add(time.Minute)},
+						UID:               types.UID("my-instance-6f86f957b7-klmno"),
+					},
+					Spec: corev1.PodSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "nginx",
+								Ports: []corev1.ContainerPort{
+									{Name: "http", HostPort: int32(30000)},
+									{Name: "https", HostPort: int32(30001)},
+									{Name: "nginx-metrics", HostPort: int32(30002)},
+								},
+							},
+						},
+					},
+					Status: corev1.PodStatus{
+						Phase:  corev1.PodRunning,
+						PodIP:  "172.16.100.20",
+						HostIP: "10.10.10.10",
+						ContainerStatuses: []corev1.ContainerStatus{
+							{Name: "nginx", Ready: true},
+						},
+					},
+				},
 				&metricsv1beta1.PodMetrics{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "my-instance-6f86f957b7-abcde",
@@ -4161,6 +4194,26 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 							Usage: corev1.ResourceList{
 								"cpu":    resource.MustParse("100m"),
 								"memory": resource.MustParse("100Mi"),
+							},
+						},
+					},
+				},
+				&metricsv1beta1.PodMetrics{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-6f86f957b7-klmno",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"nginx.tsuru.io/app":           "nginx",
+							"nginx.tsuru.io/resource-name": "my-instance",
+						},
+						UID: types.UID("my-instance-6f86f957b7-klmno"),
+					},
+					Containers: []metricsv1beta1.ContainerMetrics{
+						{
+							Name: "nginx",
+							Usage: corev1.ResourceList{
+								"cpu":    resource.MustParse("30m"),
+								"memory": resource.MustParse("10Mi"),
 							},
 						},
 					},
@@ -4265,6 +4318,24 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 								Count:   int32(16),
 								Message: "Back-off restarting failed container",
 							},
+						},
+					},
+					{
+						Name:         "my-instance-6f86f957b7-klmno",
+						IP:           "172.16.100.20",
+						HostIP:       "10.10.10.10",
+						Status:       "Terminating",
+						CreatedAt:    time.Date(2020, 4, 2, 16, 10, 0, 0, time.UTC),
+						TerminatedAt: time.Date(2020, 4, 2, 16, 11, 0, 0, time.UTC),
+						Ready:        true,
+						Ports: []clientTypes.PodPort{
+							{Name: "http", HostPort: int32(30000)},
+							{Name: "https", HostPort: int32(30001)},
+							{Name: "nginx-metrics", HostPort: int32(30002)},
+						},
+						Metrics: &clientTypes.PodMetrics{
+							CPU:    "30m",
+							Memory: "10Mi",
 						},
 					},
 				}

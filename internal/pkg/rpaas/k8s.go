@@ -1917,6 +1917,12 @@ func (m *k8sRpaasManager) newPodStatus(ctx context.Context, pod *corev1.Pod) (cl
 		phase = corev1.PodUnknown
 	}
 
+	var terminatedAt time.Time
+	if d := pod.DeletionTimestamp; d != nil {
+		phase = "Terminating"
+		terminatedAt = d.In(time.UTC)
+	}
+
 	errors, err := m.getErrorsForPod(ctx, pod)
 	if err != nil {
 		return clientTypes.Pod{}, err
@@ -1937,15 +1943,16 @@ func (m *k8sRpaasManager) newPodStatus(ctx context.Context, pod *corev1.Pod) (cl
 	}
 
 	return clientTypes.Pod{
-		CreatedAt: pod.CreationTimestamp.Time.In(time.UTC),
-		Name:      pod.Name,
-		IP:        pod.Status.PodIP,
-		HostIP:    pod.Status.HostIP,
-		Status:    string(phase),
-		Ports:     getPortsForPod(pod),
-		Errors:    errors,
-		Restarts:  restarts,
-		Ready:     ready,
+		CreatedAt:    pod.CreationTimestamp.In(time.UTC),
+		TerminatedAt: terminatedAt,
+		Name:         pod.Name,
+		IP:           pod.Status.PodIP,
+		HostIP:       pod.Status.HostIP,
+		Status:       string(phase),
+		Ports:        getPortsForPod(pod),
+		Errors:       errors,
+		Restarts:     restarts,
+		Ready:        ready,
 	}, nil
 }
 
