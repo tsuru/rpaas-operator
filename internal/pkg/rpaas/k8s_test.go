@@ -2565,7 +2565,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 	}{
 		{
 			name:          "without name",
-			args:          CreateArgs{},
 			expectedError: `name is required`,
 		},
 		{
@@ -2630,6 +2629,56 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name:        "w/ custom number of replicas",
+			args:        CreateArgs{Name: "r1", Team: "t1"},
+			extraConfig: config.RpaasConfig{NewInstanceReplicas: 3},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: func(n int32) *int32 { return &n }(3),
 					PlanName: "plan1",
 					Service: &nginxv1alpha1.NginxService{
 						Labels: map[string]string{
@@ -3051,6 +3100,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			baseConfig := config.RpaasConfig{
+				NewInstanceReplicas:      1,
 				ServiceName:              "rpaasv2",
 				LoadBalancerNameLabelKey: "cloudprovider.example/lb-name",
 				TeamAffinity: map[string]corev1.Affinity{

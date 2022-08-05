@@ -22,33 +22,25 @@ func Test_Init(t *testing.T) {
 	tests := []struct {
 		config   string
 		envs     map[string]string
-		expected RpaasConfig
+		expected func(c RpaasConfig) RpaasConfig
 	}{
+		{},
 		{
-			expected: RpaasConfig{
-				ServiceName:               "rpaasv2",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      1 * time.Minute,
-				WebSocketWriteWait:        time.Second,
+			config: `
+new-instance-replicas: 5
+`,
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.NewInstanceReplicas = 5
+				return c
 			},
 		},
 		{
 			config: `
 sync-interval: 2m
 `,
-			expected: RpaasConfig{
-				ServiceName:               "rpaasv2",
-				SyncInterval:              2 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      time.Minute,
-				WebSocketWriteWait:        time.Second,
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.SyncInterval = 2 * time.Minute
+				return c
 			},
 		},
 		{
@@ -56,33 +48,19 @@ sync-interval: 2m
 tls-certificate: /var/share/tls/mycert.pem
 tls-key: /var/share/tls/key.pem
 `,
-			expected: RpaasConfig{
-				ServiceName:               "rpaasv2",
-				TLSCertificate:            "/var/share/tls/mycert.pem",
-				TLSKey:                    "/var/share/tls/key.pem",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      time.Minute,
-				WebSocketWriteWait:        time.Second,
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.TLSCertificate = "/var/share/tls/mycert.pem"
+				c.TLSKey = "/var/share/tls/key.pem"
+				return c
 			},
 		},
 		{
 			config: `
 api-username: u1
 `,
-			expected: RpaasConfig{
-				APIUsername:               "u1",
-				ServiceName:               "rpaasv2",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      time.Minute,
-				WebSocketWriteWait:        time.Second,
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.APIUsername = "u1"
+				return c
 			},
 		},
 		{
@@ -94,17 +72,11 @@ service-name: rpaasv2be
 				"RPAASV2_API_USERNAME": "u1",
 				"RPAASV2_API_PASSWORD": "p1",
 			},
-			expected: RpaasConfig{
-				APIUsername:               "u1",
-				APIPassword:               "p1",
-				ServiceName:               "rpaasv2be",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      time.Minute,
-				WebSocketWriteWait:        time.Second,
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.APIUsername = "u1"
+				c.APIPassword = "p1"
+				c.ServiceName = "rpaasv2be"
+				return c
 			},
 		},
 		{
@@ -114,15 +86,9 @@ service-name: ignored-service-name
 			envs: map[string]string{
 				"RPAASV2_SERVICE_NAME": "my-custom-service-name",
 			},
-			expected: RpaasConfig{
-				ServiceName:               "my-custom-service-name",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      time.Minute,
-				WebSocketWriteWait:        time.Second,
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.ServiceName = "my-custom-service-name"
+				return c
 			},
 		},
 		{
@@ -147,16 +113,8 @@ team-affinity:
             values:
             - dev
 `,
-			expected: RpaasConfig{
-				ServiceName:               "rpaasv2",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      time.Minute,
-				WebSocketWriteWait:        time.Second,
-				DefaultAffinity: &corev1.Affinity{
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.DefaultAffinity = &corev1.Affinity{
 					NodeAffinity: &corev1.NodeAffinity{
 						RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
 							NodeSelectorTerms: []corev1.NodeSelectorTerm{
@@ -172,8 +130,8 @@ team-affinity:
 							},
 						},
 					},
-				},
-				TeamAffinity: map[string]corev1.Affinity{
+				}
+				c.TeamAffinity = map[string]corev1.Affinity{
 					"team1": {
 						NodeAffinity: &corev1.NodeAffinity{
 							RequiredDuringSchedulingIgnoredDuringExecution: &corev1.NodeSelector{
@@ -191,23 +149,17 @@ team-affinity:
 							},
 						},
 					},
-				},
+				}
+				return c
 			},
 		},
 		{
 			config: `
 loadbalancer-name-label-key: my.cloudprovider.example.com/lb-name
 `,
-			expected: RpaasConfig{
-				ServiceName:               "rpaasv2",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      time.Minute,
-				WebSocketWriteWait:        time.Second,
-				LoadBalancerNameLabelKey:  "my.cloudprovider.example.com/lb-name",
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.LoadBalancerNameLabelKey = "my.cloudprovider.example.com/lb-name"
+				return c
 			},
 		},
 		{
@@ -225,20 +177,19 @@ config-deny-patterns:
 - pattern1.*
 - pattern2.*
 `,
-			expected: RpaasConfig{
-				ServiceName:               "rpaasv2",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: time.Minute,
-				WebSocketReadBufferSize:   8192,
-				WebSocketWriteBufferSize:  8192,
-				WebSocketPingInterval:     500 * time.Millisecond,
-				WebSocketMaxIdleTime:      5 * time.Second,
-				WebSocketWriteWait:        5 * time.Second,
-				WebSocketAllowedOrigins:   []string{"rpaasv2.example.com", "rpaasv2.test"},
-				ConfigDenyPatterns: []regexp.Regexp{
+			expected: func(c RpaasConfig) RpaasConfig {
+				c.WebSocketHandshakeTimeout = time.Minute
+				c.WebSocketReadBufferSize = 8192
+				c.WebSocketWriteBufferSize = 8192
+				c.WebSocketPingInterval = 500 * time.Millisecond
+				c.WebSocketMaxIdleTime = 5 * time.Second
+				c.WebSocketWriteWait = 5 * time.Second
+				c.WebSocketAllowedOrigins = []string{"rpaasv2.example.com", "rpaasv2.test"}
+				c.ConfigDenyPatterns = []regexp.Regexp{
 					*regexp.MustCompile(`pattern1.*`),
 					*regexp.MustCompile(`pattern2.*`),
-				},
+				}
+				return c
 			},
 		},
 	}
@@ -260,7 +211,21 @@ config-deny-patterns:
 			err = Init()
 			require.NoError(t, err)
 			config := Get()
-			assert.Equal(t, tt.expected, config)
+			expected := RpaasConfig{
+				ServiceName:               "rpaasv2",
+				SyncInterval:              5 * time.Minute,
+				WebSocketHandshakeTimeout: 5 * time.Second,
+				WebSocketReadBufferSize:   1024,
+				WebSocketWriteBufferSize:  4096,
+				WebSocketPingInterval:     2 * time.Second,
+				WebSocketMaxIdleTime:      1 * time.Minute,
+				WebSocketWriteWait:        time.Second,
+				NewInstanceReplicas:       1,
+			}
+			if tt.expected != nil {
+				expected = tt.expected(expected)
+			}
+			assert.Equal(t, expected, config)
 		})
 	}
 }

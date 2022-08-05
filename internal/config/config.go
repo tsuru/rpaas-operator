@@ -52,6 +52,7 @@ type RpaasConfig struct {
 	MultiCluster                         bool                       `json:"multi-cluster"`
 	NamespacedInstances                  bool                       `json:"namespaced-instances"`
 	EnableCertManager                    bool                       `json:"enable-cert-manager"`
+	NewInstanceReplicas                  int                        `json:"new-instance-replicas"`
 }
 
 type ClusterConfig struct {
@@ -107,6 +108,7 @@ func Init() error {
 	viper.SetDefault("websocket-max-idle-time", 60*time.Second)
 	viper.SetDefault("websocket-write-wait", time.Second)
 	viper.SetDefault("enable-cert-manager", false)
+	viper.SetDefault("new-instance-replicas", 1)
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {

@@ -237,10 +237,15 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 		return err
 	}
 
+	replicas := func(n int32) *int32 { return &n }(1)
+	if r := config.Get().NewInstanceReplicas; r > 0 {
+		replicas = func(n int32) *int32 { return &n }(int32(r))
+	}
+
 	instance := newRpaasInstance(args.Name)
 	instance.Namespace = nsName
 	instance.Spec = v1alpha1.RpaasInstanceSpec{
-		Replicas: func(n int32) *int32 { return &n }(int32(1)),
+		Replicas: replicas,
 		PlanName: plan.Name,
 		Flavors:  args.Flavors(),
 		Service: &nginxv1alpha1.NginxService{
