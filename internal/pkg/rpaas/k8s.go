@@ -1166,46 +1166,65 @@ func (m *k8sRpaasManager) validateUpdateInstanceArgs(ctx context.Context, instan
 }
 
 func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, flavors []string) error {
-	encountered := map[string]bool{}
+	encountered := map[string]struct{}{}
+	for _, f := range flavors {
+		if _, duplicated := encountered[f]; duplicated {
+			return &ValidationError{Msg: fmt.Sprintf("flavor %q only can be set once", f)}
+		}
+		encountered[f] = struct{}{}
+	}
+
+	var existingFlavors []string
+	if instance != nil {
+		existingFlavors = instance.Spec.Flavors
+	}
+
 	allFlavors, err := m.getFlavors(ctx)
 	if err != nil {
 		return err
 	}
-	for _, f := range flavors {
-		flavorObj := m.selectFlavor(ctx, allFlavors, f)
 
+	added, removed := diffFlavors(existingFlavors, flavors)
+
+	for _, f := range added {
+		flavorObj := m.selectFlavor(ctx, allFlavors, f)
 		if flavorObj == nil {
-			return ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
+			return &ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
 		}
 
-		if flavorObj.Spec.CreationOnly && instance != nil {
-			return ValidationError{Msg: fmt.Sprintf("flavor %q can used only in the creation of instance", f)}
+		if flavorObj.Spec.CreationOnly {
+			return &ValidationError{Msg: fmt.Sprintf("flavor %q can used only in the creation of instance", f)}
 		}
-
-		if _, duplicated := encountered[f]; duplicated {
-			return ValidationError{Msg: fmt.Sprintf("flavor %q only can be set once", f)}
-		}
-
-		encountered[f] = true
 	}
 
-	if instance == nil {
-		return nil
-	}
-
-	for _, f := range instance.Spec.Flavors {
+	for _, f := range removed {
 		flavorObj := m.selectFlavor(ctx, allFlavors, f)
-
 		if flavorObj == nil {
 			continue
 		}
 
-		if flavorObj.Spec.CreationOnly && !encountered[f] {
-			return ValidationError{Msg: fmt.Sprintf("flavor %q can unset, cause it is a creation only flavor", f)}
+		if flavorObj.Spec.CreationOnly {
+			return &ValidationError{Msg: fmt.Sprintf("cannot unset flavor %q as it is a creation only flavor", f)}
 		}
 	}
 
 	return nil
+}
+
+func diffFlavors(existing, updated []string) (added, removed []string) {
+	for _, f := range updated {
+		if !contains(existing, f) {
+			added = append(added, f)
+		}
+	}
+
+	for _, f := range existing {
+		if !contains(updated, f) {
+			removed = append(removed, f)
+		}
+	}
+
+	return
 }
 
 func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {
@@ -2248,4 +2267,14 @@ func hasIntersection(a []string, b []string) bool {
 func podIsAllowedToFail(pod corev1.Pod) bool {
 	reason := strings.ToLower(pod.Status.Reason)
 	return pod.Status.Phase == corev1.PodFailed && podAllowedReasonsToFail[reason]
+}
+
+func contains(ss []string, s string) bool {
+	for i := range ss {
+		if ss[i] == s {
+			return true
+		}
+	}
+
+	return false
 }

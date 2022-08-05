@@ -3241,7 +3241,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			},
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
 				require.Error(t, err)
-				assert.Equal(t, `flavor "feature-create-only" can used only in the creation of instance`, err.Error())
+				assert.EqualError(t, err, `flavor "feature-create-only" can used only in the creation of instance`)
 			},
 		},
 		{
@@ -3258,7 +3258,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			},
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
 				require.Error(t, err)
-				assert.Equal(t, `flavor "feature-create-only" can unset, cause it is a creation only flavor`, err.Error())
+				assert.Equal(t, `cannot unset flavor "feature-create-only" as it is a creation only flavor`, err.Error())
 			},
 		},
 		{
