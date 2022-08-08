@@ -181,7 +181,7 @@ func (m *k8sRpaasManager) getConfigMapByFileName(ctx context.Context, i *v1alpha
 	var cms corev1.ConfigMapList
 	if err := m.cli.List(ctx, &cms, &client.ListOptions{
 		Namespace:     i.Namespace,
-		LabelSelector: labels.SelectorFromSet(labels.Set(labelsSelectorForFile(filename))),
+		LabelSelector: labels.SelectorFromSet(labels.Set(labelsSelectorForFile(i.Name, filename))),
 	}); err != nil {
 		return nil, err
 	}
@@ -215,7 +215,7 @@ func newConfigMapForFile(i *v1alpha1.RpaasInstance, f File) *corev1.ConfigMap {
 		ObjectMeta: metav1.ObjectMeta{
 			GenerateName: fmt.Sprintf("%s-extra-files-", i.Name),
 			Namespace:    i.Namespace,
-			Labels:       labelsSelectorForFile(f.Name),
+			Labels:       labelsSelectorForFile(i.Name, f.Name),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(i, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
@@ -228,11 +228,11 @@ func newConfigMapForFile(i *v1alpha1.RpaasInstance, f File) *corev1.ConfigMap {
 	}
 }
 
-func labelsSelectorForFile(filename string) map[string]string {
-	return map[string]string{
+func labelsSelectorForFile(instance, filename string) map[string]string {
+	return mergeMap(labelsForRpaasInstance(instance), map[string]string{
 		fmt.Sprintf("%s/is-file", defaultKeyLabelPrefix):   "true",
 		fmt.Sprintf("%s/file-name", defaultKeyLabelPrefix): filename,
-	}
+	})
 }
 
 func validateFiles(fs []File) error {

@@ -4493,8 +4493,12 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Name:      "my-instance-extra-files-1",
 						Namespace: "rpaasv2",
 						Labels: map[string]string{
-							"rpaas.extensions.tsuru.io/is-file":   "true",
-							"rpaas.extensions.tsuru.io/file-name": "waf.cfg",
+							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas_instance":                          "my-instance",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas.extensions.tsuru.io/is-file":       "true",
+							"rpaas.extensions.tsuru.io/file-name":     "waf.cfg",
 						},
 					},
 					BinaryData: map[string][]byte{
@@ -4506,8 +4510,12 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Name:      "my-instance-extra-files-2",
 						Namespace: "rpaasv2",
 						Labels: map[string]string{
-							"rpaas.extensions.tsuru.io/is-file":   "true",
-							"rpaas.extensions.tsuru.io/file-name": "binary.exe",
+							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas_instance":                          "my-instance",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas.extensions.tsuru.io/is-file":       "true",
+							"rpaas.extensions.tsuru.io/file-name":     "binary.exe",
 						},
 					},
 					BinaryData: map[string][]byte{
