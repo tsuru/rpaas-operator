@@ -6,7 +6,7 @@ package web
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 
@@ -83,7 +83,7 @@ func formValue(req *http.Request, key string) (string, error) {
 		return "", fmt.Errorf("content-type is not application form")
 	}
 
-	rawBody, err := ioutil.ReadAll(req.Body)
+	rawBody, err := io.ReadAll(req.Body)
 	if err != nil {
 		return "", err
 	}

@@ -6,7 +6,7 @@ package web
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/url"
@@ -177,7 +177,7 @@ func newRpaasFile(fh *multipart.FileHeader) (file rpaas.File, err error) {
 		return
 	}
 	defer uploaded.Close()
-	rawContent, err := ioutil.ReadAll(uploaded)
+	rawContent, err := io.ReadAll(uploaded)
 	if err != nil {
 		return
 	}

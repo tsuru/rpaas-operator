@@ -2,7 +2,6 @@ package target
 
 import (
 	"context"
-	"io/ioutil"
 	"net/http"
 	"os"
 	"testing"
@@ -15,7 +14,7 @@ import (
 var ctx = context.Background()
 
 func TestMultiClusterTokenFile(t *testing.T) {
-	tmpfile, err := ioutil.TempFile("", "example")
+	tmpfile, err := os.CreateTemp("", "example")
 	require.NoError(t, err)
 	target := NewMultiClustersFactory([]config.ClusterConfig{
 		{
@@ -43,7 +42,7 @@ func TestMultiClusterTokenFile(t *testing.T) {
 }
 
 func TestMultiClusterNoToken(t *testing.T) {
-	tmpfile, err := ioutil.TempFile("", "example")
+	tmpfile, err := os.CreateTemp("", "example")
 	require.NoError(t, err)
 	target := NewMultiClustersFactory([]config.ClusterConfig{
 		{

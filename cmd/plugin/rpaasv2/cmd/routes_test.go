@@ -7,7 +7,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -192,7 +191,7 @@ func TestListRoutes(t *testing.T) {
 
 func TestUpdateRoute(t *testing.T) {
 	nginxConfig := `# My custom NGINX configuration`
-	configFile, err := ioutil.TempFile("", "nginx.*.cfg")
+	configFile, err := os.CreateTemp("", "nginx.*.cfg")
 	require.NoError(t, err)
 	_, err = configFile.Write([]byte(nginxConfig))
 	require.NoError(t, err)

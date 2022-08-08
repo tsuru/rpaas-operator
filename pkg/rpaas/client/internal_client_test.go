@@ -5,7 +5,7 @@
 package client
 
 import (
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -135,7 +135,7 @@ func newClientThroughTsuru(t *testing.T, h http.Handler) (Client, *httptest.Serv
 }
 
 func getBody(t *testing.T, r *http.Request) string {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	require.NoError(t, err)
 	defer r.Body.Close()
 	return string(body)

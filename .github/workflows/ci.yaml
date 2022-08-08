@@ -21,7 +21,7 @@ jobs:
     - uses: actions/checkout@v2
     - uses: golangci/golangci-lint-action@v2
       with:
-        version: v1.45.2
+        version: v1.48.0
 
   integration:
     runs-on: ubuntu-latest

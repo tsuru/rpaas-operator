@@ -8,7 +8,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net/http"
 	"strings"
 
@@ -228,7 +227,7 @@ func decodeFormParameters(r *http.Request) map[string]interface{} {
 		Parameters map[string]interface{} `form:"parameters"`
 	}
 	newFormDecoder(reader).Decode(&obj)
-	r.Body = ioutil.NopCloser(&buffer)
+	r.Body = io.NopCloser(&buffer)
 	return obj.Parameters
 }
 

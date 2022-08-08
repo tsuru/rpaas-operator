@@ -7,7 +7,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -37,14 +36,14 @@ AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
 EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 -----END EC PRIVATE KEY-----`
 
-	certFile, err := ioutil.TempFile("", "cert.*.pem")
+	certFile, err := os.CreateTemp("", "cert.*.pem")
 	require.NoError(t, err)
 	_, err = certFile.Write([]byte(certPem))
 	require.NoError(t, err)
 	require.NoError(t, certFile.Close())
 	defer os.Remove(certFile.Name())
 
-	keyFile, err := ioutil.TempFile("", "key.*.pem")
+	keyFile, err := os.CreateTemp("", "key.*.pem")
 	require.NoError(t, err)
 	_, err = keyFile.Write([]byte(keyPem))
 	require.NoError(t, err)

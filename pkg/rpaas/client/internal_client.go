@@ -11,7 +11,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -54,7 +53,7 @@ func (e *ErrUnexpectedStatusCode) Error() string {
 }
 
 func newErrUnexpectedStatusCodeFromResponse(r *http.Response) error {
-	body, err := ioutil.ReadAll(r.Body)
+	body, err := io.ReadAll(r.Body)
 	if err != nil {
 		return err
 	}
@@ -251,7 +250,7 @@ func (c *client) formatURLWithQueryString(pathName, instance string, qs url.Valu
 }
 
 func unmarshalBody(resp *http.Response, dst interface{}) error {
-	body, err := ioutil.ReadAll(resp.Body)
+	body, err := io.ReadAll(resp.Body)
 	if err != nil {
 		return err
 	}

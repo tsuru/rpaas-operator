@@ -7,7 +7,7 @@ package cmd
 import (
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
@@ -93,12 +93,12 @@ func runUpdateCertificate(c *cli.Context) error {
 		return err
 	}
 
-	certificate, err := ioutil.ReadFile(c.Path("certificate"))
+	certificate, err := os.ReadFile(c.Path("certificate"))
 	if err != nil {
 		return err
 	}
 
-	key, err := ioutil.ReadFile(c.Path("key"))
+	key, err := os.ReadFile(c.Path("key"))
 	if err != nil {
 		return err
 	}

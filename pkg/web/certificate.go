@@ -8,7 +8,7 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"mime"
 	"net/http"
 	"net/url"
@@ -173,7 +173,7 @@ func getValueFromFormOrMultipart(r *http.Request, key string) ([]byte, error) {
 		}
 		defer f.Close()
 
-		return ioutil.ReadAll(f)
+		return io.ReadAll(f)
 	}
 
 	return nil, nil

@@ -7,7 +7,7 @@ package test
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"math/rand"
 	"net/http"
 	"os"
@@ -42,7 +42,7 @@ func assertInstanceContains(t *testing.T, localPort int, expectedStatus int, bod
 	require.NoError(t, iErr)
 	assert.Equal(t, expectedStatus, rsp.StatusCode)
 	defer rsp.Body.Close()
-	rawBody, iErr := ioutil.ReadAll(rsp.Body)
+	rawBody, iErr := io.ReadAll(rsp.Body)
 	require.NoError(t, iErr)
 	assert.Contains(t, string(rawBody), bodyPart)
 }

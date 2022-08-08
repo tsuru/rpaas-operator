@@ -7,7 +7,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -81,9 +80,9 @@ func TestDeleteExtraFiles(t *testing.T) {
 func TestAddExtraFiles(t *testing.T) {
 	c1 := "content1"
 	c2 := "content2"
-	f1, err := ioutil.TempFile("", "f1")
+	f1, err := os.CreateTemp("", "f1")
 	require.NoError(t, err)
-	f2, err := ioutil.TempFile("", "f2")
+	f2, err := os.CreateTemp("", "f2")
 	require.NoError(t, err)
 	_, err = f1.Write([]byte(c1))
 	require.NoError(t, err)
@@ -169,9 +168,9 @@ func TestAddExtraFiles(t *testing.T) {
 func TestUpdateExtraFiles(t *testing.T) {
 	c1 := "content1"
 	c2 := "content2"
-	f1, err := ioutil.TempFile("", "f1")
+	f1, err := os.CreateTemp("", "f1")
 	require.NoError(t, err)
-	f2, err := ioutil.TempFile("", "f2")
+	f2, err := os.CreateTemp("", "f2")
 	require.NoError(t, err)
 	_, err = f1.Write([]byte(c1))
 	require.NoError(t, err)

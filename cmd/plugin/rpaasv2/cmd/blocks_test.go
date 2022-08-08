@@ -7,7 +7,6 @@ package cmd
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"testing"
 
@@ -21,7 +20,7 @@ import (
 func TestUpdateBlock(t *testing.T) {
 	nginxConfig := `# My custom NGINX configuration`
 
-	blockFile, err := ioutil.TempFile("", "nginx.*.cfg")
+	blockFile, err := os.CreateTemp("", "nginx.*.cfg")
 	require.NoError(t, err)
 	_, err = blockFile.Write([]byte(nginxConfig))
 	require.NoError(t, err)

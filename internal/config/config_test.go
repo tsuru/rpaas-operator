@@ -5,7 +5,6 @@
 package config
 
 import (
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -201,10 +200,10 @@ config-deny-patterns:
 				os.Setenv(k, v)
 				defer os.Unsetenv(k)
 			}
-			dir, err := ioutil.TempDir("", "")
+			dir, err := os.MkdirTemp("", "")
 			require.NoError(t, err)
 			name := filepath.Join(dir, "config.yaml")
-			err = ioutil.WriteFile(name, []byte(tt.config), 0644)
+			err = os.WriteFile(name, []byte(tt.config), 0644)
 			require.NoError(t, err)
 			defer os.RemoveAll(dir)
 			os.Args = []string{"test", "--config", name}

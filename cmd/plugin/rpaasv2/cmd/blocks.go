@@ -8,7 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
+	"os"
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -69,7 +69,7 @@ func runUpdateBlock(c *cli.Context) error {
 		return err
 	}
 
-	content, err := ioutil.ReadFile(c.Path("content"))
+	content, err := os.ReadFile(c.Path("content"))
 	if err != nil {
 		return err
 	}

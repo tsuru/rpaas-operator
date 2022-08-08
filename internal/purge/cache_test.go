@@ -2,7 +2,7 @@ package purge
 
 import (
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"reflect"
@@ -20,7 +20,7 @@ import (
 )
 
 func bodyContent(rsp *httptest.ResponseRecorder) string {
-	data, _ := ioutil.ReadAll(rsp.Body)
+	data, _ := io.ReadAll(rsp.Body)
 	return strings.TrimSuffix(string(data), "\n")
 }
 

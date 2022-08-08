@@ -6,7 +6,7 @@ package web
 
 import (
 	"bytes"
-	"io/ioutil"
+	"io"
 	"mime/multipart"
 	"net/http"
 	"net/http/httptest"
@@ -57,6 +57,6 @@ func newTestingServer(t *testing.T, m rpaas.RpaasManager) *httptest.Server {
 }
 
 func bodyContent(rsp *http.Response) string {
-	data, _ := ioutil.ReadAll(rsp.Body)
+	data, _ := io.ReadAll(rsp.Body)
 	return strings.TrimSuffix(string(data), "\n")
 }

@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -235,10 +234,10 @@ func fetchContentFile(c *cli.Context) ([]byte, error) {
 	if contentFile == "" {
 		return nil, nil
 	}
-	content, err := ioutil.ReadFile(contentFile)
+	content, err := os.ReadFile(contentFile)
 	if os.IsNotExist(err) &&
 		strings.HasPrefix(contentFile, "@") {
-		return ioutil.ReadFile(strings.TrimPrefix(contentFile, "@"))
+		return os.ReadFile(strings.TrimPrefix(contentFile, "@"))
 	}
 
 	return content, err

@@ -9,7 +9,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"net/url"
 	"os/exec"
@@ -123,10 +123,10 @@ func portForward(ctx context.Context, ns, name, port string, fn func(localPort i
 
 	err = cmd.Process.Kill()
 
-	rawStderr, newErr := ioutil.ReadAll(stderr)
+	rawStderr, newErr := io.ReadAll(stderr)
 	fmt.Printf("Process standard error: %q - %v\n", string(rawStderr), newErr)
 
-	rawStdout, newErr := ioutil.ReadAll(stdout)
+	rawStdout, newErr := io.ReadAll(stdout)
 	fmt.Printf("Process standard output: %q - %v\n", string(rawStdout), newErr)
 
 	return err
@@ -168,7 +168,7 @@ func (api *rpaasApi) createInstance(name, plan, team string) (func() error, erro
 	}
 	if rsp.StatusCode != http.StatusCreated {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return nilFunc, err
 		}
@@ -190,7 +190,7 @@ func (api *rpaasApi) deleteInstance(name string) error {
 	}
 	if rsp.StatusCode != http.StatusOK {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return err
 		}
@@ -208,7 +208,7 @@ func (api *rpaasApi) createBlock(instanceName, blockName, blockContent string) (
 	}
 	if rsp.StatusCode != http.StatusOK {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return nilFunc, err
 		}
@@ -230,7 +230,7 @@ func (api *rpaasApi) deleteBlock(instanceName, blockName string) error {
 	}
 	if rsp.StatusCode != http.StatusOK {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return err
 		}
@@ -255,7 +255,7 @@ func (api *rpaasApi) bind(appName, instanceName, host string) error {
 	}
 	if rsp.StatusCode != http.StatusCreated {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return err
 		}
@@ -277,7 +277,7 @@ func (api *rpaasApi) unbind(appName, instanceName, host string) error {
 	}
 	if rsp.StatusCode != http.StatusOK {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return err
 		}
@@ -299,7 +299,7 @@ func (api *rpaasApi) updateRoute(name string, r rpaas.Route) error {
 	}
 	if rsp.StatusCode != http.StatusCreated {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return err
 		}
@@ -320,7 +320,7 @@ func (api *rpaasApi) deleteRoute(name, path string) error {
 	}
 	if rsp.StatusCode != http.StatusOK {
 		defer rsp.Body.Close()
-		body, err := ioutil.ReadAll(rsp.Body)
+		body, err := io.ReadAll(rsp.Body)
 		if err != nil {
 			return err
 		}

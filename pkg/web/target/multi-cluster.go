@@ -4,8 +4,8 @@ import (
 	"context"
 	"encoding/base64"
 	"errors"
-	"io/ioutil"
 	"net/http"
+	"os"
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
@@ -165,7 +165,7 @@ func (m *multiClusterFactory) readTokenFile(tokenFile string) (string, error) {
 		return tokenInterface.(string), nil
 	}
 
-	token, err := ioutil.ReadFile(tokenFile)
+	token, err := os.ReadFile(tokenFile)
 	if err != nil {
 		return "", err
 	}

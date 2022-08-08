@@ -8,7 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"testing"
 
@@ -138,7 +138,7 @@ func TestClientThroughTsuru_AddExtraFiles(t *testing.T) {
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
 
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
 				bodyString := string(body)
@@ -223,7 +223,7 @@ func TestClientThroughTsuru_UpdateExtraFiles(t *testing.T) {
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Contains(t, r.Header.Get("Content-Type"), "multipart/form-data")
 
-				body, err := ioutil.ReadAll(r.Body)
+				body, err := io.ReadAll(r.Body)
 				require.NoError(t, err)
 				defer r.Body.Close()
 				bodyString := string(body)
