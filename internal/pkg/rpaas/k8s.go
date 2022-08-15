@@ -290,13 +290,9 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	}
 
 	originalInstance := instance.DeepCopy()
-	if args.Plan != "" && args.Plan != instance.Spec.PlanName {
-		plan, err := m.getPlan(ctx, args.Plan)
-		if err != nil {
-			return err
-		}
 
-		instance.Spec.PlanName = plan.Name
+	if args.Plan != "" {
+		instance.Spec.PlanName = args.Plan
 	}
 
 	instance.Spec.Flavors = args.Flavors()
@@ -1158,11 +1154,24 @@ func (m *k8sRpaasManager) validateCreate(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) validateUpdateInstanceArgs(ctx context.Context, instance *v1alpha1.RpaasInstance, args UpdateInstanceArgs) error {
+	if err := m.validatePlan(ctx, args.Plan); err != nil {
+		return err
+	}
+
 	if err := m.validateFlavors(ctx, instance, args.Flavors()); err != nil {
 		return err
 	}
 
 	return nil
+}
+
+func (m *k8sRpaasManager) validatePlan(ctx context.Context, updatedPlan string) error {
+	_, err := m.getPlan(ctx, updatedPlan)
+	if err != nil && IsNotFoundError(err) {
+		return &ValidationError{Msg: "invalid plan", Internal: err}
+	}
+
+	return err
 }
 
 func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, flavors []string) error {

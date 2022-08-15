@@ -3222,9 +3222,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			},
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
 				require.Error(t, err)
-				assert.Error(t, NotFoundError{
-					Msg: `plan "not-found" not found`,
-				}, err)
+				assert.Equal(t, &ValidationError{Msg: "invalid plan", Internal: NotFoundError{Msg: `plan "not-found" not found`}}, err)
 			},
 		},
 		{
@@ -3295,8 +3293,12 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{
-				cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build(),
+				cli: fake.NewClientBuilder().
+					WithScheme(newScheme()).
+					WithRuntimeObjects(resources...).
+					Build(),
 			}
+
 			err := manager.UpdateInstance(context.TODO(), tt.instance, tt.args)
 			instance := new(v1alpha1.RpaasInstance)
 			if err == nil {
