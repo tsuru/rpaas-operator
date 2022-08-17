@@ -101,7 +101,7 @@ Plan overrides:
 {{ mustToPrettyJson . }}
 {{- end }}
 
-Pods: {{ .Replicas }}
+Pods: (current: {{ len .Pods }}{{ if not .Autoscale }} / desired: {{ .Replicas }}{{ end }})
 {{- with .Pods }}
 {{ formatPods . }}
 {{ formatPodErrors . }}
