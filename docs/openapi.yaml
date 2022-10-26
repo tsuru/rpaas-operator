@@ -4,9 +4,9 @@ info:
   title: Reverse Proxy as a Service
   description: |-
     The presented API definition (formally called as RPaaS v2 API) is a superset of [Tsuru Service API] and the [legacy RPaaS][RPaaS v1 API] (aka RPaaS v1).
-    
+
     Source code: [github.com/tsuru/rpaas-operator](https://github.com/tsuru/rpaas-operator.git)
-  
+
     [Tsuru Service API]: https://app.swaggerhub.com/apis/tsuru/tsuru-service_api/1.0.0
     [RPaaS v1 API]: https://raw.githubusercontent.com/tsuru/rpaas/master/rpaas/api.py
   contact:
@@ -234,27 +234,27 @@ paths:
         schema:
           type: string
 
-      post:
-        operationId: BindInstance
-        deprecated: true
-        summary: Bind Unit
-        description: Not used, just to follow Tsuru Service API spec
-        tags:
-          - rpaas
-        responses:
-          '200':
-            description: Nothing happens
+    post:
+      operationId: BindInstance
+      deprecated: true
+      summary: Bind Unit
+      description: Not used, just to follow Tsuru Service API spec
+      tags:
+        - rpaas
+      responses:
+        '200':
+          description: Nothing happens
 
-      delete:
-        operationId: UnbindInstance
-        deprecated: true
-        summary: Unbind Unit
-        description: Not used, just to follow Tsuru Service API spec
-        tags:
-          - rpaas
-        responses:
-          '200':
-            description: Nothing happens
+    delete:
+      operationId: UnbindInstance
+      deprecated: true
+      summary: Unbind Unit
+      description: Not used, just to follow Tsuru Service API spec
+      tags:
+        - rpaas
+      responses:
+        '200':
+          description: Nothing happens
 
   /resources/{instance}/info:
     get:
@@ -420,7 +420,7 @@ components:
     basicAuth:
       type: http
       scheme: basic
-      
+
   schemas:
     AdditionalInstanceInfo:
       type: object
@@ -494,7 +494,7 @@ components:
             # Some custom Nginx conf snippet which will be injected into root/main context.
             # See more at https://nginx.org/en/docs/ngx_core_module.html
             load_module /path/to/my/module.so;
-  
+
     CertificateInfo:
       type: object
       properties:
@@ -644,7 +644,7 @@ components:
           type: array
           items:
             $ref: '#/components/schemas/Route'
-  
+
     Plan:
       type: object
       properties:
