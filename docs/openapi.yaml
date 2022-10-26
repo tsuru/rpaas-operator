@@ -415,6 +415,93 @@ paths:
             text/plain:
               example: failed to get flavors from storage
 
+  /resources/{instance}/purge:
+    parameters:
+      - name: instance
+        in: path
+        description: Instance name
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Purge cache key of rpaasv2.
+      description: |-
+        This endpoint is exclusive for RPaaS v2 API.
+      operationId: PurgeCache
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/Purge'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: string
+                example: "Object purged on 2 servers"
+        '400':
+          description: Body or instance name empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
+  /resources/{instance}/purge/bulk:
+    parameters:
+      - name: instance
+        in: path
+        description: Instance name
+        required: true
+        schema:
+          type: string
+    post:
+      summary: Purge objects from rpaasv2.
+      description: |-
+        This endpoint is exclusive for RPaaS v2 API.
+      operationId: PurgeBulkCache
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: array
+              items:
+                $ref: '#/components/schemas/Purge'
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/PurgeBulkResponse'
+        '400':
+          description: Body or instance name empty.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+
 components:
   securitySchemes:
     basicAuth:
@@ -737,6 +824,32 @@ components:
         hostIP:
           type: string
           example: 0.0.0.0
+
+    Purge:
+      type: object
+      properties:
+        path:
+          type: string
+          example: http/v1/product/catalog.json
+        preserve_path:
+          type: boolean
+          example: true
+        extra_headers:
+          type: string
+          example: '{"accept": "image/jpeg,image/webp"}'
+
+    PurgeBulkResponse:
+      type: object
+      properties:
+        path:
+          type: string
+          example: http/v1/product/catalog.json
+        instances_purged:
+          type: integer
+          example: 2
+        error:
+          type: string
+          example: "Error trying purge cache."
 
     Route:
       type: object
