@@ -79,3 +79,5 @@ tags
 # End of https://www.gitignore.io/api/go,vim,emacs,visualstudiocode
 # rpaas-operator binaries
 bin/
+# manifest.json generated during CI
+manifest.json
