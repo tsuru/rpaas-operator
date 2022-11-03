@@ -74,3 +74,11 @@ kubectl apply -n rpaasv2 -f test/testdata/rpaas-full.yaml
 make build/plugin/rpaasv2
 ./bin/rpaasv2 --rpaas-url http://localhost:9999 info -s rpaasv2 -i my-instance
 ```
+
+## Installing tsuru plugin
+
+If you have the [tsuru-client](https://github.com/tsuru/tsuru-client/) installed, it is as easy as running:
+
+```bash
+tsuru plugin install rpaasv2 "https://github.com/tsuru/rpaas-operator/releases/latest/download/manifest.json"
+```
