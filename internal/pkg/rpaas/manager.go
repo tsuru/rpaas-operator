@@ -17,9 +17,11 @@ import (
 	"text/template"
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/validation"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/config"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
@@ -110,6 +112,10 @@ func (args CreateArgs) PlanOverride() string {
 	return getPlanOverride(args.Parameters, args.Tags)
 }
 
+func (args CreateArgs) Annotations() map[string]string {
+	return getAnnotations(args.Parameters)
+}
+
 type UpdateInstanceArgs struct {
 	Team        string                 `form:"team"`
 	Description string                 `form:"description"`
@@ -132,6 +138,10 @@ func (args UpdateInstanceArgs) LoadBalancerName() string {
 
 func (args UpdateInstanceArgs) PlanOverride() string {
 	return getPlanOverride(args.Parameters, args.Tags)
+}
+
+func (args UpdateInstanceArgs) Annotations() map[string]string {
+	return getAnnotations(args.Parameters)
 }
 
 type PodStatusMap map[string]PodStatus
@@ -250,6 +260,43 @@ type CertificateData struct {
 	Name        string `json:"name"`
 	Certificate string `json:"certificate"`
 	Key         string `json:"key"`
+}
+
+func getAnnotations(params map[string]interface{}) (annotations map[string]string) {
+	p, found := params["annotations"]
+	if !found {
+		return
+	}
+	err := json.Unmarshal([]byte(p.(string)), &annotations)
+	if err != nil {
+		return
+	}
+	forbiddenAnnotationsPrefixes := config.Get().ForbiddenAnnotationsPrefixes
+	for k := range annotations {
+		// check if annotation complies with allowed k8s annotations
+		annotationParts := strings.Split(k, "/")
+		if len(annotationParts) > 1 {
+			if errs := validation.IsDNS1123Subdomain(annotationParts[0]); len(errs) != 0 {
+				delete(annotations, k)
+				continue
+			}
+			if errs := validation.IsValidLabelValue(annotationParts[1]); len(errs) != 0 {
+				delete(annotations, k)
+				continue
+			}
+		} else {
+			if errs := validation.IsValidLabelValue(annotationParts[0]); len(errs) != 0 {
+				delete(annotations, k)
+				continue
+			}
+		}
+		for _, prefix := range forbiddenAnnotationsPrefixes {
+			if strings.HasPrefix(k, prefix) {
+				delete(annotations, k)
+			}
+		}
+	}
+	return annotations
 }
 
 func getFlavors(params map[string]interface{}, tags []string) (flavors []string) {

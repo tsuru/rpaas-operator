@@ -8,6 +8,8 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+	"github.com/tsuru/rpaas-operator/internal/config"
 )
 
 func TestCreateArgs_Flavors(t *testing.T) {
@@ -315,6 +317,35 @@ func TestUpdateInstanceArgs_PlanOverride(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			have := tt.args.PlanOverride()
+			assert.Equal(t, tt.want, have)
+		})
+	}
+}
+func TestUpdateInstanceArgs_Annotations(t *testing.T) {
+	tests := []struct {
+		args UpdateInstanceArgs
+		want map[string]string
+	}{
+		{},
+		{
+			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{"annotations": `{"image": "nginx:alpine", "rpaas.extensions.tsuru.io/test": "not valid", "test.io/valid": "valid"}`},
+			},
+			want: map[string]string{"image": "nginx:alpine", "test.io/valid": "valid"},
+		},
+		{
+			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{"annotations": `{"invalid_domain.io/test": "test"}`},
+			},
+			want: map[string]string{},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run("", func(t *testing.T) {
+			err := config.Init()
+			require.NoError(t, err)
+			have := tt.args.Annotations()
 			assert.Equal(t, tt.want, have)
 		})
 	}

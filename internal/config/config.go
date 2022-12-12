@@ -53,6 +53,7 @@ type RpaasConfig struct {
 	NamespacedInstances                  bool                       `json:"namespaced-instances"`
 	EnableCertManager                    bool                       `json:"enable-cert-manager"`
 	NewInstanceReplicas                  int                        `json:"new-instance-replicas"`
+	ForbiddenAnnotationsPrefixes         []string                   `json:"forbidden-annotations-prefixes"`
 }
 
 type ClusterConfig struct {
@@ -109,6 +110,7 @@ func Init() error {
 	viper.SetDefault("websocket-write-wait", time.Second)
 	viper.SetDefault("enable-cert-manager", false)
 	viper.SetDefault("new-instance-replicas", 1)
+	viper.SetDefault("forbidden-annotations-prefixes", []string{"rpaas.extensions.tsuru.io", "afh.tsuru.io"})
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {

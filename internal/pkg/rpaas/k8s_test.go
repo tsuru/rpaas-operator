@@ -3096,6 +3096,57 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:        "with custom annotations only set allowed ones",
+			args:        CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"annotations": "{\"my-custom-annotation\": \"my-value\", \"rpaas.extensions.tsuru.io/tags\": \"tag1,tag2\", \"rpaas.extensions.tsuru.io/description\": \"my description\"}"}},
+			extraConfig: config.RpaasConfig{ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io"}},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
+						"my-custom-annotation":                  "my-value",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Service: &nginxv1alpha1.NginxService{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+				},
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -3148,7 +3199,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 	cfg := config.Get()
 	defer func() { config.Set(cfg) }()
-	config.Set(config.RpaasConfig{LoadBalancerNameLabelKey: "cloudprovider.example/lb-name"})
+	config.Set(config.RpaasConfig{LoadBalancerNameLabelKey: "cloudprovider.example/lb-name", ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io"}})
 
 	instance1 := newEmptyRpaasInstance()
 	instance1.Name = "instance1"
@@ -3268,7 +3319,8 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				Tags:        []string{"tag3", "tag4", "tag5", `plan-override={"image": "my.registry.test/nginx:latest"}`},
 				Team:        "team-two",
 				Parameters: map[string]interface{}{
-					"lb-name": "my-instance.example",
+					"lb-name":     "my-instance.example",
+					"annotations": "{\"my-custom-annotation\": \"my-value\", \"rpaas.extensions.tsuru.io/tags\": \"tag1,tag2\", \"rpaas.extensions.tsuru.io/description\": \"my description\"}",
 				},
 			},
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
@@ -3278,6 +3330,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				require.NotNil(t, instance.Labels)
 				assert.Equal(t, "team-two", instance.Labels["rpaas.extensions.tsuru.io/team-owner"])
 				require.NotNil(t, instance.Annotations)
+				assert.Equal(t, "my-value", instance.Annotations["my-custom-annotation"])
 				assert.Equal(t, "Another description", instance.Annotations["rpaas.extensions.tsuru.io/description"])
 				assert.Equal(t, `plan-override={"image": "my.registry.test/nginx:latest"},tag3,tag4,tag5`, instance.Annotations["rpaas.extensions.tsuru.io/tags"])
 				assert.Equal(t, "team-two", instance.Annotations["rpaas.extensions.tsuru.io/team-owner"])

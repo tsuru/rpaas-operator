@@ -175,6 +175,9 @@ websocket-allowed-origins:
 config-deny-patterns:
 - pattern1.*
 - pattern2.*
+forbidden-annotations-prefixes:
+- foo.bar/test
+- foo.bar/another
 `,
 			expected: func(c RpaasConfig) RpaasConfig {
 				c.WebSocketHandshakeTimeout = time.Minute
@@ -188,6 +191,7 @@ config-deny-patterns:
 					*regexp.MustCompile(`pattern1.*`),
 					*regexp.MustCompile(`pattern2.*`),
 				}
+				c.ForbiddenAnnotationsPrefixes = []string{"foo.bar/test", "foo.bar/another"}
 				return c
 			},
 		},
@@ -211,15 +215,16 @@ config-deny-patterns:
 			require.NoError(t, err)
 			config := Get()
 			expected := RpaasConfig{
-				ServiceName:               "rpaasv2",
-				SyncInterval:              5 * time.Minute,
-				WebSocketHandshakeTimeout: 5 * time.Second,
-				WebSocketReadBufferSize:   1024,
-				WebSocketWriteBufferSize:  4096,
-				WebSocketPingInterval:     2 * time.Second,
-				WebSocketMaxIdleTime:      1 * time.Minute,
-				WebSocketWriteWait:        time.Second,
-				NewInstanceReplicas:       1,
+				ServiceName:                  "rpaasv2",
+				SyncInterval:                 5 * time.Minute,
+				WebSocketHandshakeTimeout:    5 * time.Second,
+				WebSocketReadBufferSize:      1024,
+				WebSocketWriteBufferSize:     4096,
+				WebSocketPingInterval:        2 * time.Second,
+				WebSocketMaxIdleTime:         1 * time.Minute,
+				WebSocketWriteWait:           time.Second,
+				NewInstanceReplicas:          1,
+				ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io", "afh.tsuru.io"},
 			}
 			if tt.expected != nil {
 				expected = tt.expected(expected)

@@ -264,6 +264,7 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	}
 
 	setDescription(instance, args.Description)
+	setAnnotations(instance, args.Annotations())
 	instance.SetTeamOwner(args.Team)
 	if m.clusterName != "" {
 		instance.SetClusterName(m.clusterName)
@@ -302,6 +303,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	if m.clusterName != "" {
 		instance.SetClusterName(m.clusterName)
 	}
+	setAnnotations(instance, args.Annotations())
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 	setLoadBalancerName(instance, args.LoadBalancerName())
@@ -1420,6 +1422,14 @@ func mergeMap(a, b map[string]string) map[string]string {
 		a[k] = v
 	}
 	return a
+}
+
+func setAnnotations(instance *v1alpha1.RpaasInstance, annotations map[string]string) {
+	if instance == nil {
+		return
+	}
+
+	instance.Annotations = mergeMap(instance.Annotations, annotations)
 }
 
 func setDescription(instance *v1alpha1.RpaasInstance, description string) {
