@@ -267,7 +267,12 @@ func getAnnotations(params map[string]interface{}) (annotations map[string]strin
 	if !found {
 		return
 	}
-	err := json.Unmarshal([]byte(p.(string)), &annotations)
+	annotationsStr, ok := p.(string)
+	if !ok {
+		return
+	}
+
+	err := json.Unmarshal([]byte(annotationsStr), &annotations)
 	if err != nil {
 		return
 	}
