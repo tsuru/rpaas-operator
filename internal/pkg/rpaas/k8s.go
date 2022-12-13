@@ -264,6 +264,11 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	}
 
 	setDescription(instance, args.Description)
+	annotations, err := args.Annotations()
+	if err != nil {
+		return err
+	}
+	setAnnotations(instance, annotations)
 	instance.SetTeamOwner(args.Team)
 	if m.clusterName != "" {
 		instance.SetClusterName(m.clusterName)
@@ -280,12 +285,13 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
+	var err error
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
-	if err := m.validateUpdateInstanceArgs(ctx, instance, args); err != nil {
+	if err = m.validateUpdateInstanceArgs(ctx, instance, args); err != nil {
 		return err
 	}
 
@@ -302,6 +308,11 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	if m.clusterName != "" {
 		instance.SetClusterName(m.clusterName)
 	}
+	annotations, err := args.Annotations()
+	if err != nil {
+		return err
+	}
+	setAnnotations(instance, annotations)
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 	setLoadBalancerName(instance, args.LoadBalancerName())
@@ -1420,6 +1431,14 @@ func mergeMap(a, b map[string]string) map[string]string {
 		a[k] = v
 	}
 	return a
+}
+
+func setAnnotations(instance *v1alpha1.RpaasInstance, annotations map[string]string) {
+	if instance == nil {
+		return
+	}
+
+	instance.Annotations = mergeMap(instance.Annotations, annotations)
 }
 
 func setDescription(instance *v1alpha1.RpaasInstance, description string) {
