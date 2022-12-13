@@ -5,11 +5,13 @@
 package rpaas
 
 import (
+	"fmt"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/rpaas-operator/internal/config"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 func TestCreateArgs_Flavors(t *testing.T) {
@@ -323,21 +325,28 @@ func TestUpdateInstanceArgs_PlanOverride(t *testing.T) {
 }
 func TestUpdateInstanceArgs_Annotations(t *testing.T) {
 	tests := []struct {
-		args UpdateInstanceArgs
-		want map[string]string
+		args          UpdateInstanceArgs
+		want          map[string]string
+		expectedError string
 	}{
 		{},
 		{
 			args: UpdateInstanceArgs{
-				Parameters: map[string]interface{}{"annotations": `{"image": "nginx:alpine", "rpaas.extensions.tsuru.io/test": "not valid", "test.io/valid": "valid"}`},
+				Parameters: map[string]interface{}{"annotations": `{"image": "nginx:alpine", "test.io/valid": "valid"}`},
 			},
 			want: map[string]string{"image": "nginx:alpine", "test.io/valid": "valid"},
 		},
 		{
 			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{"annotations": `{"image": "nginx:alpine", "rpaas.extensions.tsuru.io/test": "not valid", "test.io/valid": "valid"}`},
+			},
+			expectedError: "annotation \"rpaas.extensions.tsuru.io/test\" is not allowed",
+		},
+		{
+			args: UpdateInstanceArgs{
 				Parameters: map[string]interface{}{"annotations": `{"invalid_domain.io/test": "test"}`},
 			},
-			want: map[string]string{},
+			expectedError: fmt.Sprintf("invalid annotation \"invalid_domain.io/test\": %s", validation.IsDNS1123Subdomain("invalid_domain.io/test")),
 		},
 	}
 
@@ -345,7 +354,11 @@ func TestUpdateInstanceArgs_Annotations(t *testing.T) {
 		t.Run("", func(t *testing.T) {
 			err := config.Init()
 			require.NoError(t, err)
-			have := tt.args.Annotations()
+			have, err := tt.args.Annotations()
+			if tt.expectedError != "" {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
 			assert.Equal(t, tt.want, have)
 		})
 	}

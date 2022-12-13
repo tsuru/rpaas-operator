@@ -264,7 +264,11 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 	}
 
 	setDescription(instance, args.Description)
-	setAnnotations(instance, args.Annotations())
+	annotations, err := args.Annotations()
+	if err != nil {
+		return err
+	}
+	setAnnotations(instance, annotations)
 	instance.SetTeamOwner(args.Team)
 	if m.clusterName != "" {
 		instance.SetClusterName(m.clusterName)
@@ -281,12 +285,13 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
+	var err error
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
-	if err := m.validateUpdateInstanceArgs(ctx, instance, args); err != nil {
+	if err = m.validateUpdateInstanceArgs(ctx, instance, args); err != nil {
 		return err
 	}
 
@@ -303,7 +308,11 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 	if m.clusterName != "" {
 		instance.SetClusterName(m.clusterName)
 	}
-	setAnnotations(instance, args.Annotations())
+	annotations, err := args.Annotations()
+	if err != nil {
+		return err
+	}
+	setAnnotations(instance, annotations)
 	setTags(instance, args.Tags)
 	setIP(instance, args.IP())
 	setLoadBalancerName(instance, args.LoadBalancerName())

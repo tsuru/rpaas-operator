@@ -7,6 +7,7 @@ package rpaas
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"net/http"
 	"regexp"
 	"testing"
@@ -23,6 +24,7 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/validation"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -3098,7 +3100,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name:        "with custom annotations only set allowed ones",
-			args:        CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"annotations": "{\"my-custom-annotation\": \"my-value\", \"rpaas.extensions.tsuru.io/tags\": \"tag1,tag2\", \"rpaas.extensions.tsuru.io/description\": \"my description\"}"}},
+			args:        CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"annotations": "{\"my-custom-annotation\": \"my-value\"}"}},
 			extraConfig: config.RpaasConfig{ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io"}},
 			expected: v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
@@ -3146,6 +3148,12 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					},
 				},
 			},
+		},
+		{
+			name:          "with custom annotations and forbidden prefixes",
+			args:          CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"annotations": "{\"my-custom-annotation\": \"my-value\", \"rpaas.extensions.tsuru.io/tags\": \"tag1,tag2\", \"rpaas.extensions.tsuru.io/description\": \"my description\"}"}},
+			extraConfig:   config.RpaasConfig{ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io"}},
+			expectedError: `annotation "rpaas.extensions.tsuru.io/tags" is not allowed`,
 		},
 	}
 	for _, tt := range tests {
@@ -3311,6 +3319,23 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			},
 		},
 		{
+			name:     "when tries to set an invalid annotation format",
+			instance: "instance1",
+			args: UpdateInstanceArgs{
+				Description: "Another description",
+				Plan:        "plan2",
+				Tags:        []string{},
+				Team:        "team-two",
+				Parameters: map[string]interface{}{
+					"annotations": "{\"test.io/_my-custom-annotation\": \"my-value\"}",
+				},
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Equal(t, fmt.Sprintf(`invalid annotation "test.io/_my-custom-annotation": %v`, validation.IsValidLabelValue("test.io/_my-custom-annotation")), err.Error())
+			},
+		},
+		{
 			name:     "when successfully updating an instance",
 			instance: "instance1",
 			args: UpdateInstanceArgs{
@@ -3320,7 +3345,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				Team:        "team-two",
 				Parameters: map[string]interface{}{
 					"lb-name":     "my-instance.example",
-					"annotations": "{\"my-custom-annotation\": \"my-value\", \"rpaas.extensions.tsuru.io/tags\": \"tag1,tag2\", \"rpaas.extensions.tsuru.io/description\": \"my description\"}",
+					"annotations": "{\"my-custom-annotation\": \"my-value\"}",
 				},
 			},
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {

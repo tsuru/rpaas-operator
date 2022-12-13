@@ -112,7 +112,7 @@ func (args CreateArgs) PlanOverride() string {
 	return getPlanOverride(args.Parameters, args.Tags)
 }
 
-func (args CreateArgs) Annotations() map[string]string {
+func (args CreateArgs) Annotations() (map[string]string, error) {
 	return getAnnotations(args.Parameters)
 }
 
@@ -140,7 +140,7 @@ func (args UpdateInstanceArgs) PlanOverride() string {
 	return getPlanOverride(args.Parameters, args.Tags)
 }
 
-func (args UpdateInstanceArgs) Annotations() map[string]string {
+func (args UpdateInstanceArgs) Annotations() (map[string]string, error) {
 	return getAnnotations(args.Parameters)
 }
 
@@ -262,19 +262,19 @@ type CertificateData struct {
 	Key         string `json:"key"`
 }
 
-func getAnnotations(params map[string]interface{}) (annotations map[string]string) {
+func getAnnotations(params map[string]interface{}) (map[string]string, error) {
 	p, found := params["annotations"]
 	if !found {
-		return
+		return nil, nil
 	}
 	annotationsStr, ok := p.(string)
 	if !ok {
-		return
+		return nil, fmt.Errorf("invalid annotations: %v", p)
 	}
-
+	annotations := map[string]string{}
 	err := json.Unmarshal([]byte(annotationsStr), &annotations)
 	if err != nil {
-		return
+		return nil, err
 	}
 	forbiddenAnnotationsPrefixes := config.Get().ForbiddenAnnotationsPrefixes
 	for k := range annotations {
@@ -282,26 +282,23 @@ func getAnnotations(params map[string]interface{}) (annotations map[string]strin
 		annotationParts := strings.Split(k, "/")
 		if len(annotationParts) > 1 {
 			if errs := validation.IsDNS1123Subdomain(annotationParts[0]); len(errs) != 0 {
-				delete(annotations, k)
-				continue
+				return nil, fmt.Errorf("invalid annotation %q: %s", k, errs)
 			}
 			if errs := validation.IsValidLabelValue(annotationParts[1]); len(errs) != 0 {
-				delete(annotations, k)
-				continue
+				return nil, fmt.Errorf("invalid annotation %q: %s", k, errs)
 			}
 		} else {
 			if errs := validation.IsValidLabelValue(annotationParts[0]); len(errs) != 0 {
-				delete(annotations, k)
-				continue
+				return nil, fmt.Errorf("invalid annotation %q: %s", k, errs)
 			}
 		}
 		for _, prefix := range forbiddenAnnotationsPrefixes {
 			if strings.HasPrefix(k, prefix) {
-				delete(annotations, k)
+				return nil, fmt.Errorf("annotation %q is not allowed", k)
 			}
 		}
 	}
-	return annotations
+	return annotations, nil
 }
 
 func getFlavors(params map[string]interface{}, tags []string) (flavors []string) {
