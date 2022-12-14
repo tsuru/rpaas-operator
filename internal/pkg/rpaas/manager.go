@@ -277,7 +277,12 @@ func getAnnotations(params map[string]interface{}) (map[string]string, error) {
 		return nil, err
 	}
 	forbiddenAnnotationsPrefixes := config.Get().ForbiddenAnnotationsPrefixes
+	var sortedAnnotationsKeys []string
 	for k := range annotations {
+		sortedAnnotationsKeys = append(sortedAnnotationsKeys, k)
+	}
+	sort.Strings(sortedAnnotationsKeys)
+	for _, k := range sortedAnnotationsKeys {
 		// check if annotation complies with allowed k8s annotations
 		annotationParts := strings.Split(k, "/")
 		if len(annotationParts) > 1 {

@@ -3153,7 +3153,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			name:          "with custom annotations and forbidden prefixes",
 			args:          CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"annotations": "{\"my-custom-annotation\": \"my-value\", \"rpaas.extensions.tsuru.io/tags\": \"tag1,tag2\", \"rpaas.extensions.tsuru.io/description\": \"my description\"}"}},
 			extraConfig:   config.RpaasConfig{ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io"}},
-			expectedError: `annotation "rpaas.extensions.tsuru.io/tags" is not allowed`,
+			expectedError: `annotation "rpaas.extensions.tsuru.io/description" is not allowed`,
 		},
 	}
 	for _, tt := range tests {
