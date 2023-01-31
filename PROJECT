@@ -29,11 +29,4 @@ resources:
   kind: RpaasFlavor
   path: github.com/tsuru/rpaas-operator/api/v1alpha1
   version: v1alpha1
-- api:
-    crdVersion: v1
-  domain: tsuru.io
-  group: extensions
-  kind: RpaasPortAllocation
-  path: github.com/tsuru/rpaas-operator/api/v1alpha1
-  version: v1alpha1
 version: "3"

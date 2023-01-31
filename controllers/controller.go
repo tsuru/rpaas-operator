@@ -20,7 +20,6 @@ import (
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
-	"github.com/willf/bitset"
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
 	batchv1 "k8s.io/api/batch/v1"
@@ -28,7 +27,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
-	"k8s.io/apimachinery/pkg/api/errors"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -1497,116 +1495,6 @@ func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, 
 	}
 
 	return nil
-}
-
-func portBelongsTo(port extensionsv1alpha1.AllocatedPort, instance *extensionsv1alpha1.RpaasInstance) bool {
-	if instance == nil {
-		return false
-	}
-	return instance.UID == port.Owner.UID && port.Owner.Namespace == instance.Namespace && port.Owner.RpaasName == instance.Name
-}
-
-func (r *RpaasInstanceReconciler) reconcileDedicatedPorts(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance, portCount int) ([]int, error) {
-	allocation := extensionsv1alpha1.RpaasPortAllocation{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: defaultPortAllocationResource,
-		},
-	}
-
-	err := r.Client.Get(ctx, types.NamespacedName{Name: allocation.Name}, &allocation)
-	if err != nil {
-		if !errors.IsNotFound(err) {
-			return nil, err
-		}
-
-		err = r.Client.Create(ctx, &allocation)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	var newPorts []extensionsv1alpha1.AllocatedPort
-	var usedSet bitset.BitSet
-	var instancePorts []int
-	highestPortUsed := r.PortRangeMin - 1
-
-	// Loop through all allocated ports and remove ports from removed Nginx
-	// resources or from resources that have AllocateContainerPorts==false (or nil).
-	for _, port := range allocation.Spec.Ports {
-		if port.Port > highestPortUsed {
-			highestPortUsed = port.Port
-		}
-		var rpaas extensionsv1alpha1.RpaasInstance
-		err = r.Client.Get(ctx, types.NamespacedName{
-			Namespace: port.Owner.Namespace,
-			Name:      port.Owner.RpaasName,
-		}, &rpaas)
-		if err != nil {
-			if errors.IsNotFound(err) {
-				continue
-			}
-			return nil, err
-		}
-		if portBelongsTo(port, instance) {
-			if !v1alpha1.BoolValue(instance.Spec.AllocateContainerPorts) {
-				continue
-			}
-			instancePorts = append(instancePorts, int(port.Port))
-		}
-		if portBelongsTo(port, &rpaas) {
-			usedSet.Set(uint(port.Port))
-			newPorts = append(newPorts, port)
-		}
-	}
-
-	// If we should allocate ports and none are allocated yet we have to look
-	// for available ports and allocate them.
-	if instance != nil && v1alpha1.BoolValue(instance.Spec.AllocateContainerPorts) {
-
-		if r.PortRangeMin >= r.PortRangeMax {
-			return nil, fmt.Errorf("unable to allocate container ports, range is invalid: min: %d, max: %d", r.PortRangeMin, r.PortRangeMax)
-		}
-
-		for port := highestPortUsed + 1; port != highestPortUsed; port++ {
-			if len(instancePorts) >= portCount {
-				break
-			}
-
-			if port > r.PortRangeMax {
-				port = r.PortRangeMin - 1
-				continue
-			}
-
-			if usedSet.Test(uint(port)) {
-				continue
-			}
-
-			usedSet.Set(uint(port))
-			newPorts = append(newPorts, extensionsv1alpha1.AllocatedPort{
-				Port: int32(port),
-				Owner: extensionsv1alpha1.NamespacedOwner{
-					Namespace: instance.Namespace,
-					RpaasName: instance.Name,
-					UID:       instance.UID,
-				},
-			})
-			instancePorts = append(instancePorts, int(port))
-		}
-
-		if len(instancePorts) < portCount {
-			return nil, fmt.Errorf("unable to allocate container ports, wanted %d, allocated %d", portCount, len(instancePorts))
-		}
-	}
-
-	if !reflect.DeepEqual(allocation.Spec.Ports, newPorts) {
-		allocation.Spec.Ports = newPorts
-		err = r.Client.Update(ctx, &allocation)
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	return instancePorts, nil
 }
 
 func labelsForRpaasInstance(instance *extensionsv1alpha1.RpaasInstance) map[string]string {

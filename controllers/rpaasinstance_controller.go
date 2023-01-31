@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"sort"
 	"strconv"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -52,7 +51,6 @@ type RpaasInstanceReconciler struct {
 
 // +kubebuilder:rbac:groups=nginx.tsuru.io,resources=nginxes,verbs=get;list;watch;create;update
 
-// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasportallocations,verbs=get;list;watch;create;update
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasflavors,verbs=get;list;watch
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasplans,verbs=get;list;watch
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;update;patch
@@ -63,8 +61,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
 	if k8serrors.IsNotFound(err) {
-		_, err = r.reconcileDedicatedPorts(ctx, nil, 0)
-		return reconcile.Result{}, err
+		return reconcile.Result{}, nil
 	}
 
 	if err != nil {
@@ -108,39 +105,12 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 
-	dedicatedPorts, err := r.reconcileDedicatedPorts(ctx, instance, 3)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if len(dedicatedPorts) == 0 {
-		// nginx-operator will allocate http and https ports by hostNetwork setting
-		instanceMergedWithFlavors.Spec.PodTemplate.Ports = []corev1.ContainerPort{
-			{
-				Name:          nginx.PortNameManagement,
-				ContainerPort: nginx.DefaultManagePort,
-				Protocol:      corev1.ProtocolTCP,
-			},
-		}
-	} else if len(dedicatedPorts) == 3 {
-		sort.Ints(dedicatedPorts)
-		instanceMergedWithFlavors.Spec.PodTemplate.Ports = []corev1.ContainerPort{
-			{
-				Name:          nginx.PortNameHTTP,
-				ContainerPort: int32(dedicatedPorts[0]),
-				Protocol:      corev1.ProtocolTCP,
-			},
-			{
-				Name:          nginx.PortNameHTTPS,
-				ContainerPort: int32(dedicatedPorts[1]),
-				Protocol:      corev1.ProtocolTCP,
-			},
-			{
-				Name:          nginx.PortNameManagement,
-				ContainerPort: int32(dedicatedPorts[2]),
-				Protocol:      corev1.ProtocolTCP,
-			},
-		}
+	instanceMergedWithFlavors.Spec.PodTemplate.Ports = []corev1.ContainerPort{
+		{
+			Name:          nginx.PortNameManagement,
+			ContainerPort: nginx.DefaultManagePort,
+			Protocol:      corev1.ProtocolTCP,
+		},
 	}
 
 	rendered, err := r.renderTemplate(ctx, instanceMergedWithFlavors, plan)

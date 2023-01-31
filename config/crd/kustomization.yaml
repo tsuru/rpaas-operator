@@ -5,5 +5,4 @@ resources:
 - bases/extensions.tsuru.io_rpaasinstances.yaml
 - bases/extensions.tsuru.io_rpaasplans.yaml
 - bases/extensions.tsuru.io_rpaasflavors.yaml
-- bases/extensions.tsuru.io_rpaasportallocations.yaml
 # +kubebuilder:scaffold:crdkustomizeresource

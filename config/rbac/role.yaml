@@ -96,16 +96,6 @@ rules:
   - list
   - watch
 - apiGroups:
-  - extensions.tsuru.io
-  resources:
-  - rpaasportallocations
-  verbs:
-  - create
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
   - nginx.tsuru.io
   resources:
   - nginxes
