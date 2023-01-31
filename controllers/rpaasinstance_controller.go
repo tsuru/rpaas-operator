@@ -113,6 +113,20 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		},
 	}
 
+	if instanceMergedWithFlavors.Spec.ProxyProtocol {
+		instanceMergedWithFlavors.Spec.PodTemplate.Ports = append(instanceMergedWithFlavors.Spec.PodTemplate.Ports, corev1.ContainerPort{
+			Name:          nginx.PortNameProxyProtocolHTTP,
+			ContainerPort: nginx.DefaultProxyProtocolHTTPPort,
+			Protocol:      corev1.ProtocolTCP,
+		})
+
+		instanceMergedWithFlavors.Spec.PodTemplate.Ports = append(instanceMergedWithFlavors.Spec.PodTemplate.Ports, corev1.ContainerPort{
+			Name:          nginx.PortNameProxyProtocolHTTPS,
+			ContainerPort: nginx.DefaultProxyProtocolHTTPSPort,
+			Protocol:      corev1.ProtocolTCP,
+		})
+	}
+
 	rendered, err := r.renderTemplate(ctx, instanceMergedWithFlavors, plan)
 	if err != nil {
 		return reconcile.Result{}, err

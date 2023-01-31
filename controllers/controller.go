@@ -49,7 +49,6 @@ const (
 	defaultConfigHistoryLimit     = 10
 	defaultCacheSnapshotCronImage = "bitnami/kubectl:latest"
 	defaultCacheSnapshotSchedule  = "* * * * *"
-	defaultPortAllocationResource = "default"
 	volumeTeamLabel               = "tsuru.io/volume-team"
 
 	cacheSnapshotCronJobSuffix = "-snapshot-cron-job"

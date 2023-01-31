@@ -22,7 +22,10 @@ const (
 	PortNameMetrics            = "nginx-metrics"
 	PortNameManagement         = PortNameMetrics
 
-	DefaultManagePort         = 8800
+	DefaultManagePort             = 8800
+	DefaultProxyProtocolHTTPPort  = 9080
+	DefaultProxyProtocolHTTPSPort = 9443
+
 	defaultPurgeTimeout       = time.Duration(1 * time.Second)
 	defaultPurgeLocation      = "/purge"
 	defaultPurgeLocationMatch = "^/purge/(.+)"

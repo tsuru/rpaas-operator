@@ -6061,6 +6061,10 @@ spec:
                           type: object
                         type: array
                     type: object
+                  proxyProtocol:
+                    description: ProxyProtocol defines whether allocate additional
+                      ports to expose via proxy protocol
+                    type: boolean
                   replicas:
                     description: Number of desired pods. This is a pointer to distinguish
                       between explicit zero and not specified. Defaults to 1.

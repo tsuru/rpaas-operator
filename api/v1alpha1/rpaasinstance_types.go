@@ -128,6 +128,9 @@ type RpaasInstanceSpec struct {
 	//
 	// +optional
 	EnablePodDisruptionBudget *bool `json:"enablePodDisruptionBudget,omitempty"`
+
+	// ProxyProtocol defines whether allocate additional ports to expose via proxy protocol
+	ProxyProtocol bool `json:"proxyProtocol,omitempty"`
 }
 
 type DynamicCertificates struct {

@@ -157,7 +157,7 @@ func proxyProtocolHTTPPort(instance *v1alpha1.RpaasInstance) int32 {
 		}
 	}
 
-	return 9080
+	return DefaultProxyProtocolHTTPPort
 }
 
 func proxyProtocolHTTPSPort(instance *v1alpha1.RpaasInstance) int32 {
@@ -168,7 +168,7 @@ func proxyProtocolHTTPSPort(instance *v1alpha1.RpaasInstance) int32 {
 		}
 	}
 
-	return 9443
+	return DefaultProxyProtocolHTTPSPort
 }
 
 func managePort(instance *v1alpha1.RpaasInstance) int32 {

@@ -1882,6 +1882,48 @@ func TestReconcile(t *testing.T) {
 
 }
 
+func TestReconcileWithProxyProtocol(t *testing.T) {
+	rpaas := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PlanName: "my-plan",
+		},
+	}
+	plan := &v1alpha1.RpaasPlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-plan",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasPlanSpec{
+			Image: "tsuru:mynginx:test",
+		},
+	}
+
+	defaultFlavor := newRpaasFlavor()
+	defaultFlavor.Name = "default"
+	defaultFlavor.Spec.Default = true
+	defaultFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
+		ProxyProtocol: true,
+	}
+	reconciler := newRpaasInstanceReconciler(rpaas, plan, defaultFlavor)
+	result, err := reconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
+	require.NoError(t, err)
+
+	assert.Equal(t, result, reconcile.Result{})
+
+	nginx := &nginxv1alpha1.Nginx{}
+	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
+	require.NoError(t, err)
+	assert.Equal(t, nginx.Spec.PodTemplate.Ports, []corev1.ContainerPort{
+		{Name: "nginx-metrics", ContainerPort: 8800, Protocol: "TCP"},
+		{Name: "proxy-protocol-http", ContainerPort: 9080, Protocol: "TCP"},
+		{Name: "proxy-protocol-https", ContainerPort: 9443, Protocol: "TCP"},
+	})
+}
+
 func TestReconcilePoolNamespaced(t *testing.T) {
 	rpaas := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
