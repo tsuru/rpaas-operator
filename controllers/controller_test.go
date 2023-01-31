@@ -1919,8 +1919,8 @@ func TestReconcileWithProxyProtocol(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, nginx.Spec.PodTemplate.Ports, []corev1.ContainerPort{
 		{Name: "nginx-metrics", ContainerPort: 8800, Protocol: "TCP"},
-		{Name: "proxy-protocol-http", ContainerPort: 9080, Protocol: "TCP"},
-		{Name: "proxy-protocol-https", ContainerPort: 9443, Protocol: "TCP"},
+		{Name: "proxy-http", ContainerPort: 9080, Protocol: "TCP"},
+		{Name: "proxy-https", ContainerPort: 9443, Protocol: "TCP"},
 	})
 }
 

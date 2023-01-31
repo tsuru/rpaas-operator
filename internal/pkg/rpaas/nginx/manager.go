@@ -17,8 +17,8 @@ const (
 	PortNameHTTP  = "http"
 	PortNameHTTPS = "https"
 
-	PortNameProxyProtocolHTTP  = "proxy-protocol-http"
-	PortNameProxyProtocolHTTPS = "proxy-protocol-https"
+	PortNameProxyProtocolHTTP  = "proxy-http"
+	PortNameProxyProtocolHTTPS = "proxy-https"
 	PortNameMetrics            = "nginx-metrics"
 	PortNameManagement         = PortNameMetrics
 
