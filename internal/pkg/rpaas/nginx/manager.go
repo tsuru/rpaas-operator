@@ -14,10 +14,13 @@ import (
 )
 
 const (
-	PortNameHTTP       = "http"
-	PortNameHTTPS      = "https"
-	PortNameMetrics    = "nginx-metrics"
-	PortNameManagement = PortNameMetrics
+	PortNameHTTP  = "http"
+	PortNameHTTPS = "https"
+
+	PortNameProxyProtocolHTTP  = "proxy-protocol-http"
+	PortNameProxyProtocolHTTPS = "proxy-protocol-https"
+	PortNameMetrics            = "nginx-metrics"
+	PortNameManagement         = PortNameMetrics
 
 	DefaultManagePort         = 8800
 	defaultPurgeTimeout       = time.Duration(1 * time.Second)

@@ -149,6 +149,28 @@ func httpsPort(instance *v1alpha1.RpaasInstance) int32 {
 	return 8443
 }
 
+func proxyProtocolHTTPPort(instance *v1alpha1.RpaasInstance) int32 {
+	if instance != nil {
+		port := util.PortByName(instance.Spec.PodTemplate.Ports, PortNameProxyProtocolHTTP)
+		if port != 0 {
+			return port
+		}
+	}
+
+	return 9080
+}
+
+func proxyProtocolHTTPSPort(instance *v1alpha1.RpaasInstance) int32 {
+	if instance != nil {
+		port := util.PortByName(instance.Spec.PodTemplate.Ports, PortNameProxyProtocolHTTPS)
+		if port != 0 {
+			return port
+		}
+	}
+
+	return 9443
+}
+
 func managePort(instance *v1alpha1.RpaasInstance) int32 {
 	if instance != nil {
 		port := util.PortByName(instance.Spec.PodTemplate.Ports, PortNameManagement)
@@ -218,6 +240,8 @@ var internalTemplateFuncs = template.FuncMap(map[string]interface{}{
 	"managePort":              managePort,
 	"httpPort":                httpPort,
 	"httpsPort":               httpsPort,
+	"proxyProtocolHTTPPort":   proxyProtocolHTTPPort,
+	"proxyProtocolHTTPSPort":  proxyProtocolHTTPSPort,
 	"purgeLocationMatch":      purgeLocationMatch,
 	"vtsLocationMatch":        vtsLocationMatch,
 	"contains":                strings.Contains,
