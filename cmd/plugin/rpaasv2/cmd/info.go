@@ -9,7 +9,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"sort"
 	"strings"
 	"text/template"
 	"time"
@@ -17,7 +16,6 @@ import (
 	sprig "github.com/Masterminds/sprig/v3"
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
-	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/duration"
 
@@ -159,24 +157,14 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 		return ""
 	}
 
-	portSet := map[string][]clientTypes.PodPort{}
 	var data [][]string
 	hasMetrics := false
 	for _, pod := range pods {
-		var ports []string
-		for _, p := range pod.Ports {
-			ports = append(ports, fmt.Sprintf("%#v", p))
-		}
-		sort.Strings(ports)
-		acc := strings.Join(ports, " ")
-		portSet[acc] = pod.Ports
 
 		if pod.Metrics != nil {
 			hasMetrics = true
 		}
 	}
-
-	differentPorts := len(portSet) > 1
 
 	for _, pod := range pods {
 		row := []string{
@@ -199,14 +187,6 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 			}
 		}
 
-		if differentPorts {
-			var ports []string
-			for _, p := range pod.Ports {
-				ports = append(ports, p.String())
-			}
-			p := strings.Join(ports, " ")
-			row = append(row, p)
-		}
 		data = append(data, row)
 	}
 
@@ -216,22 +196,13 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 	if hasMetrics {
 		header = append(header, "CPU", "Memory")
 	}
-	if differentPorts {
-		header = append(header, "Ports")
-	}
+
 	table.SetHeader(header)
 	table.SetAutoWrapText(true)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.AppendBulk(data)
 	table.Render()
-
-	if !differentPorts {
-		for _, ports := range portSet {
-			writePortsTable(&buffer, ports)
-			break
-		}
-	}
 
 	return buffer.String()
 }
@@ -253,56 +224,6 @@ func memoryValue(q string) string {
 		memory = fmt.Sprintf("%vMi", qt.Value()/(1024*1024))
 	}
 	return memory
-}
-
-func writePortsTable(w io.Writer, ports []clientTypes.PodPort) {
-	fmt.Fprintf(w, "\nPorts:\n")
-	table := tablewriter.NewWriter(w)
-
-	table.SetAutoWrapText(true)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-
-	hasHostIP := false
-	hasHostPort := false
-
-	for _, port := range ports {
-		if port.HostIP != "" {
-			hasHostIP = true
-		}
-		if port.HostPort > 0 {
-			hasHostPort = true
-		}
-	}
-
-	for _, port := range ports {
-		if port.Protocol == "" {
-			port.Protocol = corev1.ProtocolTCP
-		}
-		row := []string{
-			port.Name,
-			fmt.Sprintf("%d", port.ContainerPort),
-			string(port.Protocol),
-		}
-
-		if hasHostIP {
-			row = append(row, port.HostIP)
-		}
-		if hasHostPort {
-			row = append(row, fmt.Sprintf("%d", port.HostPort))
-		}
-		table.Append(row)
-	}
-
-	headers := []string{"Name", "Container port", "Protocol"}
-	if hasHostIP {
-		headers = append(headers, "Host IP")
-	}
-	if hasHostPort {
-		headers = append(headers, "Host port")
-	}
-	table.SetHeader(headers)
-	table.Render()
 }
 
 func unifiedStatus(status string, ready bool) string {
