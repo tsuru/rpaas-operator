@@ -5,7 +5,7 @@
 package web
 
 import (
-	"fmt"
+	"errors"
 	"io"
 	"net/http"
 	"strconv"
@@ -16,27 +16,50 @@ import (
 )
 
 type flushWriter struct {
-	sync.Mutex
-	io.Writer
+	w      io.Writer
+	m      sync.Mutex
+	closed bool
 }
 
 func (fw *flushWriter) Write(p []byte) (int, error) {
-	fw.Lock()
-	defer fw.Unlock()
+	fw.m.Lock()
+	defer fw.m.Unlock()
 
-	n, err := fmt.Fprintln(fw.Writer, string(p))
-	if err != nil {
-		return n, err
+	if fw.closed {
+		return 0, nil
 	}
 
-	if f, ok := fw.Writer.(http.Flusher); ok {
+	if fw.w == nil {
+		return 0, errors.New("no writer available")
+	}
+
+	n, err := fw.w.Write(p)
+	if err != nil {
+		return 0, err
+	}
+
+	if n < len(p) {
+		return 0, io.ErrShortWrite
+	}
+
+	fw.w.Write([]byte{'\n'}) // carrier return
+
+	if f, ok := fw.w.(http.Flusher); ok {
 		f.Flush()
 	}
 
 	return n, nil
 }
 
-func extractLogArgs(c echo.Context) rpaas.LogArgs {
+func (fw *flushWriter) Close() {
+	fw.m.Lock()
+	defer fw.m.Unlock()
+
+	fw.closed = true
+	fw.w = io.Discard
+}
+
+func extractLogArgs(c echo.Context, w io.Writer) rpaas.LogArgs {
 	params := c.Request().URL.Query()
 
 	var lines *int64
@@ -53,7 +76,7 @@ func extractLogArgs(c echo.Context) rpaas.LogArgs {
 	color, _ := strconv.ParseBool(params.Get("color"))
 
 	return rpaas.LogArgs{
-		Stdout:    &flushWriter{Writer: c.Response().Writer},
+		Stdout:    w,
 		Stderr:    io.Discard,
 		Pod:       params.Get("pod"),
 		Container: params.Get("container"),
@@ -70,5 +93,8 @@ func log(c echo.Context) error {
 		return err
 	}
 
-	return manager.Log(c.Request().Context(), c.Param("instance"), extractLogArgs(c))
+	w := &flushWriter{w: c.Response()}
+	defer w.Close()
+
+	return manager.Log(c.Request().Context(), c.Param("instance"), extractLogArgs(c, w))
 }
