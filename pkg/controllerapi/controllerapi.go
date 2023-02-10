@@ -61,6 +61,7 @@ func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginx
 
 		serviceInstance := svc.Labels["rpaas.extensions.tsuru.io/instance-name"]
 		service := svc.Labels["rpaas.extensions.tsuru.io/service-name"]
+		teamOwner := svc.Labels["rpaas.extensions.tsuru.io/team-owner"]
 
 		targetGroups = append(targetGroups, TargetGroup{
 			Targets: []string{
@@ -69,6 +70,7 @@ func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginx
 			Labels: map[string]string{
 				"service_instance": serviceInstance,
 				"service":          service,
+				"team_owner":       teamOwner,
 			},
 		})
 
@@ -82,6 +84,7 @@ func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginx
 						"service_instance": serviceInstance,
 						"service":          service,
 						"servername":       host,
+						"team_owner":       teamOwner,
 					},
 				})
 			}

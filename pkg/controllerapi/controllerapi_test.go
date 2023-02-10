@@ -51,6 +51,7 @@ func TestPrometheusDiscover(t *testing.T) {
 				"nginx.tsuru.io/app":                      "nginx",
 				"rpaas.extensions.tsuru.io/instance-name": "test",
 				"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+				"rpaas.extensions.tsuru.io/team-owner":    "team01",
 			},
 		},
 		Status: coreV1.ServiceStatus{
@@ -84,6 +85,7 @@ func TestPrometheusDiscover(t *testing.T) {
 			Labels: map[string]string{
 				"service":          "rpaasv2",
 				"service_instance": "test",
+				"team_owner":       "team01",
 			},
 		},
 		{
@@ -92,6 +94,7 @@ func TestPrometheusDiscover(t *testing.T) {
 				"servername":       "test.internal",
 				"service":          "rpaasv2",
 				"service_instance": "test",
+				"team_owner":       "team01",
 			},
 		},
 		{
@@ -100,6 +103,7 @@ func TestPrometheusDiscover(t *testing.T) {
 				"servername":       "hello.globo",
 				"service":          "rpaasv2",
 				"service_instance": "test",
+				"team_owner":       "team01",
 			},
 		},
 	}, l)
