@@ -59,6 +59,7 @@ func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginx
 
 		svcIP := svc.Status.LoadBalancer.Ingress[0].IP
 
+		namespace := svc.ObjectMeta.Namespace
 		serviceInstance := svc.Labels["rpaas.extensions.tsuru.io/instance-name"]
 		service := svc.Labels["rpaas.extensions.tsuru.io/service-name"]
 		teamOwner := svc.Labels["rpaas.extensions.tsuru.io/team-owner"]
@@ -68,6 +69,7 @@ func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginx
 				"http://" + svcIP + healthcheckPath,
 			},
 			Labels: map[string]string{
+				"namespace":        namespace,
 				"service_instance": serviceInstance,
 				"service":          service,
 				"team_owner":       teamOwner,
@@ -81,6 +83,7 @@ func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginx
 						"https://" + svcIP + healthcheckPath,
 					},
 					Labels: map[string]string{
+						"namespace":        namespace,
 						"service_instance": serviceInstance,
 						"service":          service,
 						"servername":       host,

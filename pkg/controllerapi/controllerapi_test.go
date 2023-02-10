@@ -83,6 +83,7 @@ func TestPrometheusDiscover(t *testing.T) {
 		{
 			Targets: []string{"http://1.1.1.1/_nginx_healthcheck"},
 			Labels: map[string]string{
+				"namespace":        "default",
 				"service":          "rpaasv2",
 				"service_instance": "test",
 				"team_owner":       "team01",
@@ -91,6 +92,7 @@ func TestPrometheusDiscover(t *testing.T) {
 		{
 			Targets: []string{"https://1.1.1.1/_nginx_healthcheck"},
 			Labels: map[string]string{
+				"namespace":        "default",
 				"servername":       "test.internal",
 				"service":          "rpaasv2",
 				"service_instance": "test",
@@ -100,6 +102,7 @@ func TestPrometheusDiscover(t *testing.T) {
 		{
 			Targets: []string{"https://1.1.1.1/_nginx_healthcheck"},
 			Labels: map[string]string{
+				"namespace":        "default",
 				"servername":       "hello.globo",
 				"service":          "rpaasv2",
 				"service_instance": "test",
