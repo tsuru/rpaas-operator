@@ -74,7 +74,7 @@ jobs:
       id: smarttag
       with:
         docker_image: tsuru/rpaas-api
-        default_branch: master
+        default_branch: main
         tag_with_sha: "true"
     - uses: docker/login-action@v1
       with:
@@ -108,7 +108,7 @@ jobs:
       id: smarttag
       with:
         docker_image: tsuru/rpaas-operator
-        default_branch: master
+        default_branch: main
         tag_with_sha: "true"
     - uses: docker/login-action@v1
       with:
@@ -142,7 +142,7 @@ jobs:
       id: smarttag
       with:
         docker_image: tsuru/rpaas-purger
-        default_branch: master
+        default_branch: main
         tag_with_sha: "true"
     - uses: docker/login-action@v1
       with:
