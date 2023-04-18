@@ -118,6 +118,8 @@ spec:
                     type: string
                   logFormatName:
                     type: string
+                  mapHashBucketSize:
+                    type: integer
                   syslogEnabled:
                     type: boolean
                   syslogFacility:
