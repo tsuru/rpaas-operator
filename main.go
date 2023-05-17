@@ -6,7 +6,6 @@ package main
 
 import (
 	"flag"
-	"fmt"
 	"log"
 	"net/http"
 	"os"
@@ -34,8 +33,6 @@ type configOpts struct {
 	leaderElectionResourceName string
 	namespace                  string
 	syncPeriod                 time.Duration
-	portRangeMin               int
-	portRangeMax               int
 }
 
 func (o *configOpts) bindFlags(fs *flag.FlagSet) {
@@ -51,16 +48,6 @@ func (o *configOpts) bindFlags(fs *flag.FlagSet) {
 
 	fs.DurationVar(&o.syncPeriod, "sync-period", 10*time.Hour, "The resync period for reconciling manager resources.")
 	fs.StringVar(&o.namespace, "namespace", "", "Limit the observed RpaasInstance resources from specific namespace (empty means all namespaces)")
-
-	fs.IntVar(&o.portRangeMin, "port-range-min", 20000, "Allocated port range start")
-	fs.IntVar(&o.portRangeMax, "port-range-max", 30000, "Allocated port range end")
-}
-
-func (o *configOpts) validate() error {
-	if o.portRangeMin >= o.portRangeMax {
-		return fmt.Errorf("invalid port range, min: %d, max: %d", o.portRangeMin, o.portRangeMax)
-	}
-	return nil
 }
 
 func main() {
@@ -70,12 +57,6 @@ func main() {
 	zapOpts := zap.Options{}
 	zapOpts.BindFlags(flag.CommandLine)
 	flag.Parse()
-
-	err := opts.validate()
-	if err != nil {
-		setupLog.Error(err, "invalid args")
-		os.Exit(1)
-	}
 
 	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&zapOpts)))
 
@@ -98,8 +79,6 @@ func main() {
 		Client:        mgr.GetClient(),
 		Log:           ctrl.Log.WithName("controllers").WithName("RpaasInstance"),
 		Scheme:        mgr.GetScheme(),
-		PortRangeMin:  int32(opts.portRangeMin),
-		PortRangeMax:  int32(opts.portRangeMax),
 		ImageMetadata: registry.NewImageMetadata(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")

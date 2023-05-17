@@ -507,11 +507,6 @@ func (in *RpaasInstanceSpec) DeepCopyInto(out *RpaasInstanceSpec) {
 		**out = **in
 	}
 	in.PodTemplate.DeepCopyInto(&out.PodTemplate)
-	if in.AllocateContainerPorts != nil {
-		in, out := &in.AllocateContainerPorts, &out.AllocateContainerPorts
-		*out = new(bool)
-		**out = **in
-	}
 	if in.Autoscale != nil {
 		in, out := &in.Autoscale, &out.Autoscale
 		*out = new(RpaasInstanceAutoscaleSpec)

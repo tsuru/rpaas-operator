@@ -79,13 +79,6 @@ type RpaasInstanceSpec struct {
 	// +optional
 	PodTemplate nginxv1alpha1.NginxPodTemplateSpec `json:"podTemplate,omitempty"`
 
-	// AllocateContainerPorts enabled causes the operator to allocate a random
-	// port to be used as container ports for nginx containers. This is useful
-	// when combined with HostNetwork config to avoid conflicts between
-	// multiple nginx instances.
-	// +optional
-	AllocateContainerPorts *bool `json:"allocateContainerPorts,omitempty"`
-
 	// Autoscale holds the infos used to configure the HorizontalPodAutoscaler
 	// for this instance.
 	// +optional

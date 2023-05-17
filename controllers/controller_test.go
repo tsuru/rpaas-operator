@@ -315,619 +315,226 @@ func Test_mergePlans(t *testing.T) {
 	}
 }
 
-func Test_mergeInstance(t *testing.T) {
-	tests := []struct {
-		base     v1alpha1.RpaasInstanceSpec
-		override v1alpha1.RpaasInstanceSpec
-		expected v1alpha1.RpaasInstanceSpec
-	}{
-		{},
-		{
-			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
-			override: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
-			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
-		},
-		{
-			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
-			override: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
-			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
-		},
-		{
-			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
-			override: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
-			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(false)},
-		},
-		{
-			base:     v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
-			expected: v1alpha1.RpaasInstanceSpec{AllocateContainerPorts: v1alpha1.Bool(true)},
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run("", func(t *testing.T) {
-			merged, err := mergeInstance(tt.base, tt.override)
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, merged)
-		})
-	}
-}
-
 func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
-	instance1 := newEmptyRpaasInstance()
-	instance1.Name = "instance1"
+	t.Parallel()
 
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "instance2"
-	instance2.Spec.Flavors = []string{"mint"}
-	instance2.Spec.Lifecycle = &nginxv1alpha1.NginxLifecycle{
-		PostStart: &nginxv1alpha1.NginxLifecycleHandler{
-			Exec: &corev1.ExecAction{
-				Command: []string{
-					"echo",
-					"hello world",
-				},
-			},
-		},
-	}
-	instance2.Spec.Service = &nginxv1alpha1.NginxService{
-		Annotations: map[string]string{
-			"some-instance-annotation-key": "blah",
-		},
-		Labels: map[string]string{
-			"some-instance-label-key": "label1",
-			"conflict-label":          "instance value",
-		},
-	}
-
-	instance3 := newEmptyRpaasInstance()
-	instance3.Name = "instance3"
-	instance3.Spec.Flavors = []string{"mint", "mango", "blueberry"}
-	instance3.Spec.Service = &nginxv1alpha1.NginxService{
-		Annotations: map[string]string{
-			"some-instance-annotation-key": "blah",
-		},
-		Labels: map[string]string{
-			"some-instance-label-key": "label1",
-			"conflict-label":          "instance value",
-		},
-	}
-
-	instance4 := newEmptyRpaasInstance()
-	instance4.Name = "instance4"
-	instance4.Labels = map[string]string{
-		"rpaas_instance": "my-instance-name",
-		"rpaas_service":  "my-service-name",
-	}
-	instance4.Spec.Service = &nginxv1alpha1.NginxService{
-		Annotations: map[string]string{
-			"some-instance-annotation-key": "my custom value: {{ .Labels.rpaas_service }}/{{ .Labels.rpaas_instance }}/{{ .Name }}",
-		},
-	}
-	instance4.Spec.Ingress = &nginxv1alpha1.NginxIngress{
-		Annotations: map[string]string{
-			"some-instance-annotation-key": "my custom value: {{ .Labels.rpaas_service }}/{{ .Name }}",
-		},
-	}
-
-	instance5 := newEmptyRpaasInstance()
-	instance5.Name = "instance5"
-	instance5.Spec.Flavors = []string{"banana"}
-
-	instance6 := newEmptyRpaasInstance()
-	instance6.Name = "instance6"
-	instance6.Spec.Flavors = []string{"raspberry"}
-
-	instance7 := newEmptyRpaasInstance()
-	instance7.Name = "instance7"
-	instance7.Spec.Flavors = []string{"beer"}
-	instance7.Spec.PlanNamespace = "rpaasv2-system"
-
-	mintFlavor := newRpaasFlavor()
-	mintFlavor.Name = "mint"
-	mintFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		Service: &nginxv1alpha1.NginxService{
-			Annotations: map[string]string{
-				"flavored-service-annotation": "v1",
-			},
-			Labels: map[string]string{
-				"flavored-service-label": "v1",
-				"conflict-label":         "ignored",
-			},
-		},
-		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-			Annotations: map[string]string{
-				"flavored-pod-annotation": "v1",
-			},
-			Labels: map[string]string{
-				"flavored-pod-label": "v1",
-			},
-			HostNetwork: true,
-		},
-	}
-
-	mangoFlavor := newRpaasFlavor()
-	mangoFlavor.Name = "mango"
-	mangoFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		Service: &nginxv1alpha1.NginxService{
-			Annotations: map[string]string{
-				"mango-service-annotation": "mango",
-			},
-			Labels: map[string]string{
-				"mango-service-label":    "mango",
-				"flavored-service-label": "mango",
-				"conflict-label":         "ignored",
-			},
-		},
-		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-			Toleration: []corev1.Toleration{{
-				Key:      "mango-toleration",
-				Operator: corev1.TolerationOpExists,
-			}},
-			Annotations: map[string]string{
-				"mango-pod-annotation": "mango",
-			},
-			Labels: map[string]string{
-				"mango-pod-label": "mango",
-			},
-		},
-	}
-
-	bananaFlavor := newRpaasFlavor()
-	bananaFlavor.Name = "banana"
-	bananaFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		AllocateContainerPorts: v1alpha1.Bool(false),
-	}
-
-	poolNameSpacedFlavor := newRpaasFlavor()
-	poolNameSpacedFlavor.Name = "beer"
-	poolNameSpacedFlavor.Namespace = "rpaasv2-system"
-	poolNameSpacedFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		AllocateContainerPorts: v1alpha1.Bool(false),
-	}
-
-	defaultFlavor := newRpaasFlavor()
-	defaultFlavor.Name = "default"
-	defaultFlavor.Spec.Default = true
-	defaultFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		AllocateContainerPorts: v1alpha1.Bool(true),
-		Service: &nginxv1alpha1.NginxService{
-			Annotations: map[string]string{
-				"default-service-annotation": "default",
-			},
-			Labels: map[string]string{
-				"default-service-label":  "default",
-				"flavored-service-label": "default",
-			},
-		},
-		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-			Annotations: map[string]string{
-				"default-pod-annotation": "default",
-			},
-			Labels: map[string]string{
-				"mango-pod-label":   "not-a-mango",
-				"default-pod-label": "default",
-			},
-		},
-		DNS: &v1alpha1.DNSConfig{
-			Zone: "test-zone",
-			TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
-		},
-	}
-
-	defaultFlavorNamespaced := newRpaasFlavor()
-	defaultFlavorNamespaced.Name = "default"
-	defaultFlavorNamespaced.Namespace = "rpaasv2-system"
-	defaultFlavorNamespaced.Spec.Default = true
-	defaultFlavorNamespaced.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		AllocateContainerPorts: v1alpha1.Bool(true),
-		Service: &nginxv1alpha1.NginxService{
-			Annotations: map[string]string{
-				"default-service-annotation": "defaultNamespaced",
-			},
-			Labels: map[string]string{
-				"default-service-label":  "defaultNamespaced",
-				"flavored-service-label": "defaultNamespaced",
-			},
-		},
-		PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-			Annotations: map[string]string{
-				"default-pod-annotation": "defaultNamespaced",
-			},
-			Labels: map[string]string{
-				"mango-pod-label":   "not-a-mango",
-				"default-pod-label": "defaultNamespaced",
-			},
-		},
-		DNS: &v1alpha1.DNSConfig{
-			Zone: "test-zone-2",
-			TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
-		},
-	}
-
-	raspberryFlavor := newRpaasFlavor()
-	raspberryFlavor.Name = "raspberry"
-	raspberryFlavor.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		DNS: &v1alpha1.DNSConfig{
-			Zone: "raspberry-zone",
-			TTL:  func() *int32 { ttl := int32(25); return &ttl }(),
-		},
-	}
-
-	blueberry := newRpaasFlavor()
-	blueberry.Name = "blueberry"
-	blueberry.Spec.InstanceTemplate = &v1alpha1.RpaasInstanceSpec{
-		Ingress: &nginxv1alpha1.NginxIngress{
-			IngressClassName: func(s string) *string { return &s }("custom-ingress"),
-			Annotations: map[string]string{
-				"custom.example.com/flavor": "blueberry",
-			},
-			Labels: map[string]string{
-				"flavor.custom.example.com": "blueberry",
-			},
-		},
-	}
-
-	resources := []runtime.Object{
-		instance1, instance2, instance3, instance4, instance5, instance6, instance7,
-		mintFlavor, mangoFlavor, bananaFlavor, defaultFlavor, defaultFlavorNamespaced, poolNameSpacedFlavor, raspberryFlavor, blueberry,
-	}
-
-	tests := []struct {
-		name      string
-		objectKey types.NamespacedName
-		expected  v1alpha1.RpaasInstance
+	tests := map[string]struct {
+		resources []runtime.Object
+		instance  func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance
+		expected  func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance
 	}{
-		{
-			name:      "when the fetched RpaasInstance has no flavor provided it should merge with default flavors only",
-			objectKey: types.NamespacedName{Name: instance1.Name, Namespace: instance1.Namespace},
-			expected: v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance1.Name,
-					Namespace: instance1.Namespace,
-				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanName:               "my-plan",
-					AllocateContainerPorts: v1alpha1.Bool(true),
-					Service: &nginxv1alpha1.NginxService{
-						Annotations: map[string]string{
-							"default-service-annotation": "default",
-						},
-						Labels: map[string]string{
-							"default-service-label":  "default",
-							"flavored-service-label": "default",
-						},
-					},
-					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-						Annotations: map[string]string{
-							"default-pod-annotation": "default",
-						},
-						Labels: map[string]string{
-							"mango-pod-label":   "not-a-mango",
-							"default-pod-label": "default",
-						},
-					},
-					DNS: &v1alpha1.DNSConfig{
-						Zone: "test-zone",
-						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
-					},
-				},
+		"instance with neither custom flavor nor default ones": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				return i
 			},
 		},
-		{
-			name:      "when instance refers to one flavor, the returned instance should be merged with it",
-			objectKey: types.NamespacedName{Name: instance2.Name, Namespace: instance2.Namespace},
-			expected: v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance2.Name,
-					Namespace: instance2.Namespace,
-				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors:                []string{"mint"},
-					PlanName:               "my-plan",
-					AllocateContainerPorts: v1alpha1.Bool(true),
-					Lifecycle: &nginxv1alpha1.NginxLifecycle{
-						PostStart: &nginxv1alpha1.NginxLifecycleHandler{
-							Exec: &corev1.ExecAction{
-								Command: []string{
-									"echo",
-									"hello world",
+
+		"instance without custom flavor, but with default one": {
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Default: true,
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							Service: &nginxv1alpha1.NginxService{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/is-default-service-annotation": "true",
+								},
+								Labels: map[string]string{
+									"rpaas.extensions.tsuru.io/is-default-service-label": "true",
+								},
+							},
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/is-default-pod-annotation": "true",
+								},
+								Labels: map[string]string{
+									"rpaas.extensions.tsuru.io/is-default-pod-label": "true",
 								},
 							},
 						},
 					},
-					Service: &nginxv1alpha1.NginxService{
-						Annotations: map[string]string{
-							"default-service-annotation":   "default",
-							"some-instance-annotation-key": "blah",
-							"flavored-service-annotation":  "v1",
-						},
-						Labels: map[string]string{
-							"flavored-service-label":  "v1",
-							"default-service-label":   "default",
-							"some-instance-label-key": "label1",
-							"conflict-label":          "instance value",
-						},
-					},
-					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-						Annotations: map[string]string{
-							"flavored-pod-annotation": "v1",
-							"default-pod-annotation":  "default",
-						},
-						Labels: map[string]string{
-							"mango-pod-label":    "not-a-mango",
-							"default-pod-label":  "default",
-							"flavored-pod-label": "v1",
-						},
-						HostNetwork: true,
-					},
-					DNS: &v1alpha1.DNSConfig{
-						Zone: "test-zone",
-						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
-					},
 				},
 			},
-		},
-		{
-			name: "when the instance refers to more than one flavor, the returned instance spec should be merged with those flavors",
-			objectKey: types.NamespacedName{
-				Name:      instance3.Name,
-				Namespace: instance3.Namespace,
-			},
-			expected: v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance3.Name,
-					Namespace: instance3.Namespace,
-				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					Flavors:                []string{"mint", "mango", "blueberry"},
-					PlanName:               "my-plan",
-					AllocateContainerPorts: v1alpha1.Bool(true),
-					Service: &nginxv1alpha1.NginxService{
-						Annotations: map[string]string{
-							"default-service-annotation":   "default",
-							"some-instance-annotation-key": "blah",
-							"flavored-service-annotation":  "v1",
-							"mango-service-annotation":     "mango",
-						},
-						Labels: map[string]string{
-							"default-service-label":   "default",
-							"some-instance-label-key": "label1",
-							"conflict-label":          "instance value",
-							"flavored-service-label":  "v1",
-							"mango-service-label":     "mango",
-						},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Service = &nginxv1alpha1.NginxService{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/is-instance-service-annotation": "true",
 					},
-					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-						Toleration: []corev1.Toleration{{
-							Key:      "mango-toleration",
-							Operator: corev1.TolerationOpExists,
-						}},
-						Annotations: map[string]string{
-							"default-pod-annotation":  "default",
-							"flavored-pod-annotation": "v1",
-							"mango-pod-annotation":    "mango",
-						},
-						Labels: map[string]string{
-							"flavored-pod-label": "v1",
-							"mango-pod-label":    "mango",
-							"default-pod-label":  "default",
-						},
-						HostNetwork: true,
-					},
-					DNS: &v1alpha1.DNSConfig{
-						Zone: "test-zone",
-						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
-					},
-					Ingress: &nginxv1alpha1.NginxIngress{
-						IngressClassName: func(s string) *string { return &s }("custom-ingress"),
-						Annotations: map[string]string{
-							"custom.example.com/flavor": "blueberry",
-						},
-						Labels: map[string]string{
-							"flavor.custom.example.com": "blueberry",
-						},
-					},
-				},
-			},
-		},
-		{
-			name: "when service annotations have custom values, should render them",
-			objectKey: types.NamespacedName{
-				Name:      instance4.Name,
-				Namespace: instance4.Namespace,
-			},
-			expected: v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance4.Name,
-					Namespace: instance4.Namespace,
 					Labels: map[string]string{
-						"rpaas_instance": "my-instance-name",
-						"rpaas_service":  "my-service-name",
+						"rpaas.extensions.tsuru.io/is-instance-service-label": "true",
+					},
+				}
+				i.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/is-instance-pod-annotation": "true",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/is-instance-pod-label": "true",
+					},
+				}
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Service = &nginxv1alpha1.NginxService{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/is-default-service-annotation":  "true",
+						"rpaas.extensions.tsuru.io/is-instance-service-annotation": "true",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/is-default-service-label":  "true",
+						"rpaas.extensions.tsuru.io/is-instance-service-label": "true",
+					},
+				}
+				i.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/is-default-pod-annotation":  "true",
+						"rpaas.extensions.tsuru.io/is-instance-pod-annotation": "true",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/is-default-pod-label":  "true",
+						"rpaas.extensions.tsuru.io/is-instance-pod-label": "true",
+					},
+				}
+				return i
+			},
+		},
+
+		"when DNS zone is defined on default flavor but custom flavor overrides it": {
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							DNS: &v1alpha1.DNSConfig{
+								Zone: "apps.example.com",
+								TTL:  func(n int32) *int32 { return &n }(300),
+							},
+						},
 					},
 				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanName:               "my-plan",
-					AllocateContainerPorts: v1alpha1.Bool(true),
-					Service: &nginxv1alpha1.NginxService{
-						Annotations: map[string]string{
-							"default-service-annotation":   "default",
-							"some-instance-annotation-key": "my custom value: my-service-name/my-instance-name/instance4",
-						},
-						Labels: map[string]string{
-							"default-service-label":  "default",
-							"flavored-service-label": "default",
-						},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-a",
+						Namespace: "default",
 					},
-					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-						Annotations: map[string]string{
-							"default-pod-annotation": "default",
-						},
-						Labels: map[string]string{
-							"mango-pod-label":   "not-a-mango",
-							"default-pod-label": "default",
-						},
-					},
-					DNS: &v1alpha1.DNSConfig{
-						Zone: "test-zone",
-						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
-					},
-					Ingress: &nginxv1alpha1.NginxIngress{
-						Annotations: map[string]string{
-							"some-instance-annotation-key": "my custom value: my-service-name/instance4",
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							DNS: &v1alpha1.DNSConfig{
+								Zone: "apps.test",
+								TTL:  func(n int32) *int32 { return &n }(30),
+							},
 						},
 					},
 				},
 			},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Flavors = []string{"flavor-a"}
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.DNS = &v1alpha1.DNSConfig{
+					Zone: "apps.test",
+					TTL:  func(n int32) *int32 { return &n }(30),
+				}
+				return i
+			},
 		},
-		{
-			name:      "when default flavor has container port allocations enabled but flavor turn off it",
-			objectKey: types.NamespacedName{Name: instance5.Name, Namespace: instance5.Namespace},
-			expected: v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance5.Name,
-					Namespace: instance5.Namespace,
-				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanName:               "my-plan",
-					Flavors:                []string{"banana"},
-					AllocateContainerPorts: v1alpha1.Bool(false),
-					Service: &nginxv1alpha1.NginxService{
-						Annotations: map[string]string{
-							"default-service-annotation": "default",
-						},
-						Labels: map[string]string{
-							"default-service-label":  "default",
-							"flavored-service-label": "default",
-						},
+
+		"using a custom flavor from another namespace": {
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-a",
+						Namespace: "rpaasv2-system",
 					},
-					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-						Annotations: map[string]string{
-							"default-pod-annotation": "default",
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
 						},
-						Labels: map[string]string{
-							"mango-pod-label":   "not-a-mango",
-							"default-pod-label": "default",
-						},
-					},
-					DNS: &v1alpha1.DNSConfig{
-						Zone: "test-zone",
-						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
 					},
 				},
 			},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Flavors = []string{"flavor-a"}
+				i.Spec.PlanNamespace = "rpaasv2-system"
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.EnablePodDisruptionBudget = func(b bool) *bool { return &b }(true)
+				return i
+			},
 		},
-		{
-			name:      "when default flavor defines a DNS value but a custom flavor defines another, the custom flavor should take precedence",
-			objectKey: types.NamespacedName{Name: instance6.Name, Namespace: instance6.Namespace},
-			expected: v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance6.Name,
-					Namespace: instance6.Namespace,
-				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanName:               "my-plan",
-					Flavors:                []string{"raspberry"},
-					AllocateContainerPorts: v1alpha1.Bool(true),
-					Service: &nginxv1alpha1.NginxService{
-						Annotations: map[string]string{
-							"default-service-annotation": "default",
-						},
-						Labels: map[string]string{
-							"default-service-label":  "default",
-							"flavored-service-label": "default",
-						},
+
+		"when there's a flavor with custom values on service annotations": {
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-a",
+						Namespace: "default",
 					},
-					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-						Annotations: map[string]string{
-							"default-pod-annotation": "default",
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							Service: &nginxv1alpha1.NginxService{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation": "Custom annotation value: {{ .Labels.rpaas_service }}/{{ .Labels.rpaas_instance }}/{{ .Name }}",
+								},
+							},
 						},
-						Labels: map[string]string{
-							"mango-pod-label":   "not-a-mango",
-							"default-pod-label": "default",
-						},
-					},
-					DNS: &v1alpha1.DNSConfig{
-						Zone: "raspberry-zone",
-						TTL:  func() *int32 { ttl := int32(25); return &ttl }(),
 					},
 				},
 			},
-		},
-		{
-			name:      "when flavor has another namespace",
-			objectKey: types.NamespacedName{Name: instance7.Name, Namespace: instance7.Namespace},
-			expected: v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance7.Name,
-					Namespace: instance7.Namespace,
-				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanName:               "my-plan",
-					PlanNamespace:          "rpaasv2-system",
-					Flavors:                []string{"beer"},
-					AllocateContainerPorts: v1alpha1.Bool(false),
-					Service: &nginxv1alpha1.NginxService{
-						Annotations: map[string]string{
-							"default-service-annotation": "defaultNamespaced",
-						},
-						Labels: map[string]string{
-							"default-service-label":  "defaultNamespaced",
-							"flavored-service-label": "defaultNamespaced",
-						},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Flavors = []string{"flavor-a"}
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Service = &nginxv1alpha1.NginxService{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/custom-annotation": "Custom annotation value: rpaasv2/my-instance/my-instance",
 					},
-					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-						Annotations: map[string]string{
-							"default-pod-annotation": "defaultNamespaced",
-						},
-						Labels: map[string]string{
-							"mango-pod-label":   "not-a-mango",
-							"default-pod-label": "defaultNamespaced",
-						},
-					},
-					DNS: &v1alpha1.DNSConfig{
-						Zone: "test-zone-2",
-						TTL:  func() *int32 { ttl := int32(30); return &ttl }(),
-					},
-				},
+				}
+				return i
 			},
 		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			instance := tt.instance(&v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+					Kind:       "RpaasInstance",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: metav1.NamespaceDefault,
+					Labels: map[string]string{
+						"rpaas_service":  "rpaasv2",
+						"rpaas_instance": "my-instance",
+					},
+				},
+			})
+
+			resources := append(tt.resources, instance.DeepCopy())
+
 			reconciler := newRpaasInstanceReconciler(resources...)
-			instance, err := reconciler.getRpaasInstance(context.TODO(), tt.objectKey)
-			merged, _ := reconciler.mergeWithFlavors(context.TODO(), instance.DeepCopy())
+			i, err := reconciler.getRpaasInstance(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 			require.NoError(t, err)
-			assert.Equal(t, tt.expected, *merged)
+
+			got, err := reconciler.mergeWithFlavors(context.TODO(), i)
+			require.NoError(t, err)
+
+			assert.Equal(t, tt.expected(i.DeepCopy()), got)
 		})
 	}
 }
@@ -2386,10 +1993,9 @@ func (i *fakeImageMetadata) Modules(ctx context.Context, img string) ([]string, 
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
 	scheme := extensionsruntime.NewScheme()
 	return &RpaasInstanceReconciler{
-		Client:              fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
-		Log:                 ctrl.Log,
-		Scheme:              scheme,
-		RolloutNginxEnabled: true,
-		ImageMetadata:       &fakeImageMetadata{},
+		Client:        fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
+		Log:           ctrl.Log,
+		Scheme:        scheme,
+		ImageMetadata: &fakeImageMetadata{},
 	}
 }

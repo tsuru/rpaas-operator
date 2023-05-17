@@ -36,12 +36,6 @@ spec:
           spec:
             description: RpaasInstanceSpec defines the desired state of RpaasInstance
             properties:
-              allocateContainerPorts:
-                description: AllocateContainerPorts enabled causes the operator to
-                  allocate a random port to be used as container ports for nginx containers.
-                  This is useful when combined with HostNetwork config to avoid conflicts
-                  between multiple nginx instances.
-                type: boolean
               allowedUpstreams:
                 description: AllowedUpstreams holds the endpoints to which the RpaasInstance
                   should be able to access
