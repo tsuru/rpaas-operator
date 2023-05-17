@@ -127,6 +127,11 @@ type RpaasInstanceSpec struct {
 	// ProxyProtocol defines whether allocate additional ports to expose via proxy protocol
 	// +optional
 	ProxyProtocol bool `json:"proxyProtocol,omitempty"`
+
+	// Suspend flag tells whether controller should suspend any further
+	// modifications on this resource. Defaults to false.
+	// +optional
+	Suspend *bool `json:"suspend,omitempty"`
 }
 
 type DynamicCertificates struct {

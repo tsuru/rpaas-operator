@@ -23,6 +23,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1633,6 +1634,29 @@ func Test_mergeServiceWithDNS(t *testing.T) {
 	}
 }
 
+func TestRpaasInstanceController_Reconcile_Suspended(t *testing.T) {
+	t.Parallel()
+
+	i := v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Suspend: func(b bool) *bool { return &b }(true),
+		},
+	}
+
+	r := newRpaasInstanceReconciler(i.DeepCopy())
+	result, err := r.Reconcile(context.TODO(), ctrl.Request{NamespacedName: types.NamespacedName{Name: i.Name, Namespace: i.Namespace}})
+	require.NoError(t, err)
+	assert.Equal(t, ctrl.Result{Requeue: true}, result)
+
+	fr, ok := r.EventRecorder.(*record.FakeRecorder)
+	require.True(t, ok)
+	assert.Equal(t, "Warning RpaasInstanceSuspended no modifications will be done by RPaaS controller", <-fr.Events)
+}
+
 type fakeImageMetadata struct{}
 
 func (i *fakeImageMetadata) Modules(ctx context.Context, img string) ([]string, error) {
@@ -1643,6 +1667,7 @@ func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler
 	scheme := extensionsruntime.NewScheme()
 	return &RpaasInstanceReconciler{
 		Client:        fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
+		EventRecorder: record.NewFakeRecorder(1),
 		Log:           ctrl.Log,
 		Scheme:        scheme,
 		ImageMetadata: &fakeImageMetadata{},

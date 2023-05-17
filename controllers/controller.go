@@ -53,8 +53,6 @@ const (
 
 	externalDNSHostnameLabel = "external-dns.alpha.kubernetes.io/hostname"
 	externalDNSTTLLabel      = "external-dns.alpha.kubernetes.io/ttl"
-
-	skipReconcileLabel = "rpaas.extensions.tsuru.io/skip-reconcile"
 )
 
 var (

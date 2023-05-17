@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"strconv"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -19,6 +18,7 @@ import (
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -33,12 +33,10 @@ import (
 // RpaasInstanceReconciler reconciles a RpaasInstance object
 type RpaasInstanceReconciler struct {
 	client.Client
-	Log                 logr.Logger
-	Scheme              *runtime.Scheme
-	RolloutNginxEnabled bool
-	PortRangeMin        int32
-	PortRangeMax        int32
-	ImageMetadata       registry.ImageMetadata
+	Log           logr.Logger
+	Scheme        *runtime.Scheme
+	EventRecorder record.EventRecorder
+	ImageMetadata registry.ImageMetadata
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets;services,verbs=get;list;watch;create;update;delete
@@ -57,8 +55,6 @@ type RpaasInstanceReconciler struct {
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances/status,verbs=get;update;patch
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	l := r.Log.WithValues("rpaasinstance", req.NamespacedName)
-
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
 	if k8serrors.IsNotFound(err) {
 		return reconcile.Result{}, nil
@@ -68,11 +64,9 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 
-	if s, ok := instance.Annotations[skipReconcileLabel]; ok {
-		if skipped, _ := strconv.ParseBool(s); skipped {
-			l.Info(fmt.Sprintf("Skipping reconciliation as %s=true annotation was found in the resource", skipReconcileLabel))
-			return reconcile.Result{Requeue: true}, nil
-		}
+	if s := instance.Spec.Suspend; s != nil && *s {
+		r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceSuspended", "no modifications will be done by RPaaS controller")
+		return reconcile.Result{Requeue: true}, nil
 	}
 
 	planName := types.NamespacedName{
