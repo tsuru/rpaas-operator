@@ -46,18 +46,7 @@ import (
 )
 
 const (
-	defaultConfigHistoryLimit     = 10
-	defaultCacheSnapshotCronImage = "bitnami/kubectl:latest"
-	defaultCacheSnapshotSchedule  = "* * * * *"
-	volumeTeamLabel               = "tsuru.io/volume-team"
-
-	cacheSnapshotCronJobSuffix = "-snapshot-cron-job"
-	cacheSnapshotVolumeSuffix  = "-snapshot-volume"
-
-	cacheSnapshotMountPoint = "/var/cache/cache-snapshot"
-
-	rsyncCommandPodToPVC = "rsync -avz --recursive --delete --temp-dir=${CACHE_SNAPSHOT_MOUNTPOINT}/temp ${CACHE_PATH}/nginx ${CACHE_SNAPSHOT_MOUNTPOINT}"
-	rsyncCommandPVCToPod = "rsync -avz --recursive --delete --temp-dir=${CACHE_PATH}/nginx_tmp ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx ${CACHE_PATH}"
+	defaultConfigHistoryLimit = 10
 
 	sessionTicketsSecretSuffix  = "-session-tickets"
 	sessionTicketsCronJobSuffix = "-session-tickets"
@@ -69,30 +58,6 @@ const (
 )
 
 var (
-	defaultCacheSnapshotCmdPodToPVC = []string{
-		"/bin/bash",
-		"-c",
-		`pods=($(kubectl -n ${SERVICE_NAME} get pod -l rpaas.extensions.tsuru.io/service-name=${SERVICE_NAME} -l rpaas.extensions.tsuru.io/instance-name=${INSTANCE_NAME} --field-selector status.phase=Running -o=jsonpath='{.items[*].metadata.name}'));
-for pod in ${pods[@]}; do
-	kubectl -n ${SERVICE_NAME} exec ${pod} -- ${POD_CMD};
-	if [[ $? == 0 ]]; then
-		exit 0;
-	fi
-done
-echo "No pods found";
-exit 1
-`}
-
-	defaultCacheSnapshotCmdPVCToPod = []string{
-		"/bin/bash",
-		"-c",
-		`
-mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/temp;
-mkdir -p ${CACHE_SNAPSHOT_MOUNTPOINT}/nginx;
-mkdir -p ${CACHE_PATH}/nginx_tmp;
-${POD_CMD}
-`}
-
 	defaultRotateTLSSessionTicketsImage = "bitnami/kubectl:latest"
 
 	sessionTicketsVolumeName      = "tls-session-tickets"
@@ -371,10 +336,11 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 		rotationInterval = instance.Spec.TLSSessionResumption.SessionTicket.KeyRotationInterval
 	}
 
-	image := defaultCacheSnapshotCronImage
+	image := defaultRotateTLSSessionTicketsImage
 	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.Image != "" {
 		image = instance.Spec.TLSSessionResumption.SessionTicket.Image
 	}
+
 	var jobsHistoryLimit int32 = 1
 	return &batchv1beta1.CronJob{
 		TypeMeta: metav1.TypeMeta{
@@ -746,141 +712,6 @@ func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *
 	return err
 }
 
-func (r *RpaasInstanceReconciler) reconcileCacheSnapshot(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	if plan.Spec.Config.CacheSnapshotEnabled {
-		err := r.reconcileCacheSnapshotCronJob(ctx, instance, plan)
-		if err != nil {
-			return err
-		}
-		return r.reconcileCacheSnapshotVolume(ctx, instance, plan)
-	}
-
-	err := r.destroyCacheSnapshotCronJob(ctx, instance)
-	if err != nil {
-		return err
-	}
-
-	return r.destroyCacheSnapshotVolume(ctx, instance)
-}
-
-func (r *RpaasInstanceReconciler) reconcileCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	foundCronJob := &batchv1beta1.CronJob{}
-	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
-	err := r.Client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, foundCronJob)
-	if err != nil && !k8sErrors.IsNotFound(err) {
-		return err
-	}
-
-	newestCronJob := newCronJob(instance, plan)
-	if k8sErrors.IsNotFound(err) {
-		return r.Client.Create(ctx, newestCronJob)
-	}
-
-	newestCronJob.ObjectMeta.ResourceVersion = foundCronJob.ObjectMeta.ResourceVersion
-	if !equality.Semantic.DeepDerivative(foundCronJob.Spec, newestCronJob.Spec) {
-		return r.Client.Update(ctx, newestCronJob)
-	}
-
-	return nil
-}
-
-func (r *RpaasInstanceReconciler) destroyCacheSnapshotCronJob(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
-	cronJob := &batchv1beta1.CronJob{}
-
-	err := r.Client.Get(ctx, types.NamespacedName{Name: cronName, Namespace: instance.Namespace}, cronJob)
-	isNotFound := k8sErrors.IsNotFound(err)
-	if err != nil && !isNotFound {
-		return err
-	} else if isNotFound {
-		return nil
-	}
-
-	logrus.Infof("deleting cronjob %s", cronName)
-	return r.Client.Delete(ctx, cronJob)
-}
-
-func (r *RpaasInstanceReconciler) reconcileCacheSnapshotVolume(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) error {
-	pvcName := instance.Name + cacheSnapshotVolumeSuffix
-
-	pvc := &corev1.PersistentVolumeClaim{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
-	isNotFound := k8sErrors.IsNotFound(err)
-	if err != nil && !isNotFound {
-		return err
-	} else if !isNotFound {
-		return nil
-	}
-
-	cacheSnapshotStorage := plan.Spec.Config.CacheSnapshotStorage
-	volumeMode := corev1.PersistentVolumeFilesystem
-	labels := labelsForRpaasInstance(instance)
-	if teamOwner := instance.TeamOwner(); teamOwner != "" {
-		labels[volumeTeamLabel] = teamOwner
-	}
-	for k, v := range cacheSnapshotStorage.VolumeLabels {
-		labels[k] = v
-	}
-
-	pvc = &corev1.PersistentVolumeClaim{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      pvcName,
-			Namespace: instance.Namespace,
-			Labels:    labels,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
-					Group:   v1alpha1.GroupVersion.Group,
-					Version: v1alpha1.GroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "v1",
-			Kind:       "PersistentVolumeClaim",
-		},
-		Spec: corev1.PersistentVolumeClaimSpec{
-			AccessModes: []corev1.PersistentVolumeAccessMode{
-				corev1.ReadWriteMany,
-			},
-			VolumeMode:       &volumeMode,
-			StorageClassName: cacheSnapshotStorage.StorageClassName,
-		},
-	}
-
-	storageSize := plan.Spec.Config.CacheSize
-	if cacheSnapshotStorage.StorageSize != nil && !cacheSnapshotStorage.StorageSize.IsZero() {
-		storageSize = cacheSnapshotStorage.StorageSize
-	}
-
-	if storageSize != nil && !storageSize.IsZero() {
-		pvc.Spec.Resources = corev1.ResourceRequirements{
-			Requests: corev1.ResourceList{
-				"storage": *storageSize,
-			},
-		}
-	}
-
-	logrus.Infof("creating PersistentVolumeClaim %s", pvcName)
-	return r.Client.Create(ctx, pvc)
-}
-
-func (r *RpaasInstanceReconciler) destroyCacheSnapshotVolume(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	pvcName := instance.Name + cacheSnapshotVolumeSuffix
-
-	pvc := &corev1.PersistentVolumeClaim{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: pvcName, Namespace: instance.Namespace}, pvc)
-	isNotFound := k8sErrors.IsNotFound(err)
-	if err != nil && !isNotFound {
-		return err
-	} else if isNotFound {
-		return nil
-	}
-
-	logrus.Infof("deleting PersistentVolumeClaim %s", pvcName)
-	return r.Client.Delete(ctx, pvc)
-}
-
 func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
 	blocks, err := r.getConfigurationBlocks(ctx, instance, plan)
 	if err != nil {
@@ -1154,51 +985,6 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		})
 	}
 
-	if !plan.Spec.Config.CacheSnapshotEnabled {
-		return n
-	}
-
-	initCmd := defaultCacheSnapshotCmdPVCToPod
-	if len(plan.Spec.Config.CacheSnapshotSync.CmdPVCToPod) > 0 {
-		initCmd = plan.Spec.Config.CacheSnapshotSync.CmdPVCToPod
-	}
-
-	n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
-		Name: "cache-snapshot-volume",
-		VolumeSource: corev1.VolumeSource{
-			PersistentVolumeClaim: &corev1.PersistentVolumeClaimVolumeSource{
-				ClaimName: instanceMergedWithFlavors.Name + cacheSnapshotVolumeSuffix,
-			},
-		},
-	})
-
-	cacheSnapshotVolume := corev1.VolumeMount{
-		Name:      "cache-snapshot-volume",
-		MountPath: cacheSnapshotMountPoint,
-	}
-
-	n.Spec.PodTemplate.VolumeMounts = append(n.Spec.PodTemplate.VolumeMounts, cacheSnapshotVolume)
-
-	n.Spec.PodTemplate.InitContainers = append(n.Spec.PodTemplate.InitContainers, corev1.Container{
-		Name:  "restore-snapshot",
-		Image: plan.Spec.Image,
-		Command: []string{
-			initCmd[0],
-		},
-		Args: initCmd[1:],
-		VolumeMounts: []corev1.VolumeMount{
-			cacheSnapshotVolume,
-			{
-				Name:      "cache-vol",
-				MountPath: plan.Spec.Config.CachePath,
-			},
-		},
-		Env: append(cacheSnapshotEnvVars(instanceMergedWithFlavors, plan), corev1.EnvVar{
-			Name:  "POD_CMD",
-			Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPVCToPod, plan),
-		}),
-	})
-
 	return n
 }
 
@@ -1287,82 +1073,6 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 	}
 }
 
-func newCronJob(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) *batchv1beta1.CronJob {
-	cronName := nameForCronJob(instance.Name + cacheSnapshotCronJobSuffix)
-
-	schedule := defaultCacheSnapshotSchedule
-	if plan.Spec.Config.CacheSnapshotSync.Schedule != "" {
-		schedule = plan.Spec.Config.CacheSnapshotSync.Schedule
-	}
-
-	image := defaultCacheSnapshotCronImage
-	if plan.Spec.Config.CacheSnapshotSync.Image != "" {
-		image = plan.Spec.Config.CacheSnapshotSync.Image
-	}
-
-	cmds := defaultCacheSnapshotCmdPodToPVC
-	if len(plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC) > 0 {
-		cmds = plan.Spec.Config.CacheSnapshotSync.CmdPodToPVC
-	}
-	jobLabels := labelsForRpaasInstance(instance)
-	jobLabels["log-app-name"] = instance.Name
-	jobLabels["log-process-name"] = "cache-synchronize"
-
-	var jobsHistoryLimit int32 = 1
-
-	return &batchv1beta1.CronJob{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      cronName,
-			Namespace: instance.Namespace,
-			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
-					Group:   v1alpha1.GroupVersion.Group,
-					Version: v1alpha1.GroupVersion.Version,
-					Kind:    "RpaasInstance",
-				}),
-			},
-			Labels: labelsForRpaasInstance(instance),
-		},
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1beta1",
-			Kind:       "CronJob",
-		},
-		Spec: batchv1beta1.CronJobSpec{
-			Schedule:                   schedule,
-			ConcurrencyPolicy:          batchv1beta1.ForbidConcurrent,
-			SuccessfulJobsHistoryLimit: &jobsHistoryLimit,
-			FailedJobsHistoryLimit:     &jobsHistoryLimit,
-			JobTemplate: batchv1beta1.JobTemplateSpec{
-				Spec: batchv1.JobSpec{
-					Template: corev1.PodTemplateSpec{
-						ObjectMeta: metav1.ObjectMeta{
-							Labels: jobLabels,
-						},
-						Spec: corev1.PodSpec{
-							ServiceAccountName: "rpaas-cache-snapshot-cronjob",
-							Containers: []corev1.Container{
-								{
-									Name:  "cache-synchronize",
-									Image: image,
-									Command: []string{
-										cmds[0],
-									},
-									Args: cmds[1:],
-									Env: append(cacheSnapshotEnvVars(instance, plan), corev1.EnvVar{
-										Name:  "POD_CMD",
-										Value: interpolateCacheSnapshotPodCmdTemplate(rsyncCommandPodToPVC, plan),
-									}),
-								},
-							},
-							RestartPolicy: corev1.RestartPolicyNever,
-						},
-					},
-				},
-			},
-		},
-	}
-}
-
 func minutesIntervalToSchedule(minutes uint32) string {
 	oneMinute := uint32(1)
 	if minutes <= oneMinute {
@@ -1370,23 +1080,6 @@ func minutesIntervalToSchedule(minutes uint32) string {
 	}
 
 	return fmt.Sprintf("*/%d * * * *", minutes)
-}
-
-func interpolateCacheSnapshotPodCmdTemplate(podCmd string, plan *v1alpha1.RpaasPlan) string {
-	replacer := strings.NewReplacer(
-		"${CACHE_SNAPSHOT_MOUNTPOINT}", cacheSnapshotMountPoint,
-		"${CACHE_PATH}", plan.Spec.Config.CachePath,
-	)
-	return replacer.Replace(podCmd)
-}
-
-func cacheSnapshotEnvVars(instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) []corev1.EnvVar {
-	return []corev1.EnvVar{
-		{Name: "SERVICE_NAME", Value: instance.Namespace},
-		{Name: "INSTANCE_NAME", Value: instance.Name},
-		{Name: "CACHE_SNAPSHOT_MOUNTPOINT", Value: cacheSnapshotMountPoint},
-		{Name: "CACHE_PATH", Value: plan.Spec.Config.CachePath},
-	}
 }
 
 func shouldDeleteOldConfig(instance *v1alpha1.RpaasInstance, configList *corev1.ConfigMapList) bool {

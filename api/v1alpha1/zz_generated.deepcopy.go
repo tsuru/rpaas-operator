@@ -232,8 +232,6 @@ func (in *NginxConfig) DeepCopyInto(out *NginxConfig) {
 		x := (*in).DeepCopy()
 		*out = &x
 	}
-	in.CacheSnapshotStorage.DeepCopyInto(&out.CacheSnapshotStorage)
-	in.CacheSnapshotSync.DeepCopyInto(&out.CacheSnapshotSync)
 	if in.LogAdditionalHeaders != nil {
 		in, out := &in.LogAdditionalHeaders, &out.LogAdditionalHeaders
 		*out = make([]string, len(*in))

@@ -54,46 +54,6 @@ spec:
                     - type: string
                     pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
                     x-kubernetes-int-or-string: true
-                  cacheSnapshotEnabled:
-                    type: boolean
-                  cacheSnapshotStorage:
-                    properties:
-                      storageClassName:
-                        type: string
-                      storageSize:
-                        anyOf:
-                        - type: integer
-                        - type: string
-                        pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
-                        x-kubernetes-int-or-string: true
-                      volumeLabels:
-                        additionalProperties:
-                          type: string
-                        type: object
-                    type: object
-                  cacheSnapshotSync:
-                    properties:
-                      cmdPVCToPod:
-                        description: CmdPVCToPod is used to customize command used
-                          to sync persistent storage (PVC) to memory cache (POD)
-                        items:
-                          type: string
-                        type: array
-                      cmdPodToPVC:
-                        description: CmdPodToPVC is used to customize command used
-                          to sync memory cache (POD) to persistent storage (PVC)
-                        items:
-                          type: string
-                        type: array
-                      image:
-                        description: Container is the image used to sync the containers
-                          default is bitnami/kubectl:latest
-                        type: string
-                      schedule:
-                        description: Schedule is the the cron time string format,
-                          see https://en.wikipedia.org/wiki/Cron.
-                        type: string
-                    type: object
                   cacheZoneSize:
                     anyOf:
                     - type: integer

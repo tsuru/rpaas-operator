@@ -66,10 +66,6 @@ type NginxConfig struct {
 	CacheSize        *resource.Quantity `json:"cacheSize,omitempty"`
 	CacheZoneSize    *resource.Quantity `json:"cacheZoneSize,omitempty"`
 
-	CacheSnapshotEnabled bool                  `json:"cacheSnapshotEnabled,omitempty"`
-	CacheSnapshotStorage CacheSnapshotStorage  `json:"cacheSnapshotStorage,omitempty"`
-	CacheSnapshotSync    CacheSnapshotSyncSpec `json:"cacheSnapshotSync,omitempty"`
-
 	LogFormat            string            `json:"logFormat,omitempty"`
 	LogFormatEscape      string            `json:"logFormatEscape,omitempty"`
 	LogFormatName        string            `json:"logFormatName,omitempty"`

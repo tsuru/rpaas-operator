@@ -338,8 +338,6 @@ Plan overrides:
   "image": "registry.example.com/my/repository/nginx:v1",
   "config": {
     "cacheEnabled": false,
-    "cacheSnapshotStorage": {},
-    "cacheSnapshotSync": {},
     "workerProcesses": 4,
     "workerConnections": 4096
   },
