@@ -19,11 +19,11 @@ type RpaasInstanceSpec struct {
 
 	// PlanName is the name of the rpaasplan instance.
 	// +optional
-	PlanName string `json:"planName"`
+	PlanName string `json:"planName,omitempty"`
 
 	// PlanNamespace is the namespace of target plan and their flavors, when empty uses the same namespace of instance.
 	// +optional
-	PlanNamespace string `json:"planNamespace"`
+	PlanNamespace string `json:"planNamespace,omitempty"`
 
 	// Flavors are references to RpaasFlavors resources. When provided, each flavor
 	// merges its instance template spec with this instance spec.
@@ -31,9 +31,11 @@ type RpaasInstanceSpec struct {
 	Flavors []string `json:"flavors,omitempty"`
 
 	// PlanTemplate allow overriding fields in the specified plan.
+	// +optional
 	PlanTemplate *RpaasPlanSpec `json:"planTemplate,omitempty"`
 
 	// Binds is the list of apps bounded to the instance
+	// +optional
 	Binds []Bind `json:"binds,omitempty"`
 
 	// Blocks are configuration file fragments added to the generated nginx
@@ -123,6 +125,7 @@ type RpaasInstanceSpec struct {
 	EnablePodDisruptionBudget *bool `json:"enablePodDisruptionBudget,omitempty"`
 
 	// ProxyProtocol defines whether allocate additional ports to expose via proxy protocol
+	// +optional
 	ProxyProtocol bool `json:"proxyProtocol,omitempty"`
 }
 
