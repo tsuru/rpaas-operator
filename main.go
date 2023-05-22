@@ -16,7 +16,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 
 	"github.com/tsuru/rpaas-operator/controllers"
-	"github.com/tsuru/rpaas-operator/internal/registry"
 	"github.com/tsuru/rpaas-operator/pkg/controllerapi"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	// +kubebuilder:scaffold:imports
@@ -80,7 +79,6 @@ func main() {
 		Log:           mgr.GetLogger().WithName("controllers").WithName("RpaasInstance"),
 		Scheme:        mgr.GetScheme(),
 		EventRecorder: mgr.GetEventRecorderFor("rpaas-operator"),
-		ImageMetadata: registry.NewImageMetadata(),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")
 		os.Exit(1)

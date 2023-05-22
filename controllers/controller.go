@@ -724,19 +724,9 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
-	modules, err := r.ImageMetadata.Modules(ctx, plan.Spec.Image)
-	if err != nil {
-		return "", err
-	}
-
 	config := nginx.ConfigurationData{
 		Instance: instance,
 		Config:   &plan.Spec.Config,
-		Modules:  make(map[string]interface{}),
-	}
-
-	for _, mod := range modules {
-		config.Modules[mod] = nil
 	}
 
 	return cr.Render(config)

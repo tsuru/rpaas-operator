@@ -1657,12 +1657,6 @@ func TestRpaasInstanceController_Reconcile_Suspended(t *testing.T) {
 	assert.Equal(t, "Warning RpaasInstanceSuspended no modifications will be done by RPaaS controller", <-fr.Events)
 }
 
-type fakeImageMetadata struct{}
-
-func (i *fakeImageMetadata) Modules(ctx context.Context, img string) ([]string, error) {
-	return []string{"mod1"}, nil
-}
-
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
 	scheme := extensionsruntime.NewScheme()
 	return &RpaasInstanceReconciler{
@@ -1670,6 +1664,5 @@ func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler
 		EventRecorder: record.NewFakeRecorder(1),
 		Log:           ctrl.Log,
 		Scheme:        scheme,
-		ImageMetadata: &fakeImageMetadata{},
 	}
 }

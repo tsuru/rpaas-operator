@@ -27,7 +27,6 @@ import (
 	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
-	"github.com/tsuru/rpaas-operator/internal/registry"
 )
 
 // RpaasInstanceReconciler reconciles a RpaasInstance object
@@ -36,7 +35,6 @@ type RpaasInstanceReconciler struct {
 	Log           logr.Logger
 	Scheme        *runtime.Scheme
 	EventRecorder record.EventRecorder
-	ImageMetadata registry.ImageMetadata
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets;services,verbs=get;list;watch;create;update;delete
