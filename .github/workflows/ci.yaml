@@ -29,7 +29,7 @@ jobs:
       fail-fast: true
       matrix:
         k8s_version:
-        - 1.24.11 # current version at GKE stable channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
+        - 1.24.13 # current version at GKE stable channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
         - 1.25.8  # current version at GKE regular channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
     steps:
       - uses: actions/checkout@master
