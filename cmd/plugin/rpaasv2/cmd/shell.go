@@ -17,7 +17,7 @@ import (
 func NewCmdShell() *cli.Command {
 	return &cli.Command{
 		Name:      "shell",
-		Usage:     "Run a command in an instance",
+		Usage:     "Opens a remote shell inside unit",
 		ArgsUsage: "[-p POD] [-c CONTAINER]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
