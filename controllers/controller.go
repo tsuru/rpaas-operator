@@ -23,7 +23,6 @@ import (
 	appsv1 "k8s.io/api/apps/v1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	"k8s.io/apimachinery/pkg/api/equality"
@@ -291,7 +290,7 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 
 	newCronJob := newCronJobForSessionTickets(instance)
 
-	var cj batchv1beta1.CronJob
+	var cj batchv1.CronJob
 	cjName := types.NamespacedName{
 		Name:      newCronJob.Name,
 		Namespace: newCronJob.Namespace,
@@ -321,7 +320,7 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 	return r.Client.Update(ctx, newCronJob)
 }
 
-func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1.CronJob {
+func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.CronJob {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	keyLength := v1alpha1.DefaultSessionTicketKeyLength
@@ -340,9 +339,9 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 	}
 
 	var jobsHistoryLimit int32 = 1
-	return &batchv1beta1.CronJob{
+	return &batchv1.CronJob{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "batch/v1beta1",
+			APIVersion: "batch/v1",
 			Kind:       "CronJob",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -357,11 +356,11 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1beta1
 			},
 			Labels: labelsForRpaasInstance(instance),
 		},
-		Spec: batchv1beta1.CronJobSpec{
+		Spec: batchv1.CronJobSpec{
 			Schedule:                   minutesIntervalToSchedule(rotationInterval),
 			SuccessfulJobsHistoryLimit: &jobsHistoryLimit,
 			FailedJobsHistoryLimit:     &jobsHistoryLimit,
-			JobTemplate: batchv1beta1.JobTemplateSpec{
+			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Annotations: map[string]string{},
 					Labels:      labelsForRpaasInstance(instance),

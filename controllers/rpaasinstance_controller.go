@@ -12,7 +12,7 @@ import (
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -213,7 +213,7 @@ func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Owns(&corev1.PersistentVolumeClaim{}).
-		Owns(&batchv1beta1.CronJob{}).
+		Owns(&batchv1.CronJob{}).
 		Owns(&nginxv1alpha1.Nginx{}).
 		Owns(&cmv1.Certificate{}).
 		Complete(r)

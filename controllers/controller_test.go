@@ -13,7 +13,7 @@ import (
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
-	batchv1beta1 "k8s.io/api/batch/v1beta1"
+	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1268,7 +1268,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 		name     string
 		instance *v1alpha1.RpaasInstance
 		objects  []runtime.Object
-		assert   func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob)
+		assert   func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob)
 	}{
 		{
 			name: "when no TLS session resumption is enabled",
@@ -1292,7 +1292,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 				require.NotNil(t, gotSecret)
 
@@ -1384,7 +1384,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 						Namespace: "default",
 					},
 				},
-				&batchv1beta1.CronJob{
+				&batchv1.CronJob{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "my-instance-session-tickets",
 						Namespace: "default",
@@ -1407,7 +1407,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 				require.NotNil(t, gotSecret)
 				require.NotNil(t, gotCronJob)
@@ -1434,7 +1434,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 						Namespace: "default",
 					},
 				},
-				&batchv1beta1.CronJob{
+				&batchv1.CronJob{
 					ObjectMeta: metav1.ObjectMeta{
 						Name:      "my-instance-session-tickets",
 						Namespace: "default",
@@ -1450,7 +1450,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					TLSSessionResumption: &v1alpha1.TLSSessionResumption{},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 				assert.Empty(t, gotSecret.Name)
 				assert.Empty(t, gotCronJob.Name)
@@ -1485,7 +1485,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					},
 				},
 			},
-			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1beta1.CronJob) {
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
 				require.NoError(t, err)
 
 				expectedKeys := 2
@@ -1518,7 +1518,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 			}
 			r.Client.Get(context.TODO(), secretName, &secret)
 
-			var cronJob batchv1beta1.CronJob
+			var cronJob batchv1.CronJob
 			cronJobName := types.NamespacedName{
 				Name:      tt.instance.Name + sessionTicketsCronJobSuffix,
 				Namespace: tt.instance.Namespace,
