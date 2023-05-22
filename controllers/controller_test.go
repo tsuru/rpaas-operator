@@ -12,7 +12,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
 	policyv1beta1 "k8s.io/api/policy/v1beta1"
@@ -553,30 +553,30 @@ func Test_reconcileHPA(t *testing.T) {
 	instance2 := newEmptyRpaasInstance()
 	instance2.Name = "instance-2"
 
-	hpa2 := &autoscalingv2beta2.HorizontalPodAutoscaler{
+	hpa2 := &autoscalingv2.HorizontalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HorizontalPodAutoscaler",
-			APIVersion: "autoscaling/v2beta2",
+			APIVersion: "autoscaling/v2",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance2.Name,
 			Namespace: instance2.Namespace,
 		},
-		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 				APIVersion: "extensions.tsuru.io/v1alpha1",
 				Kind:       "RpaasInstance",
 				Name:       instance2.Name,
 			},
 			MinReplicas: int32Ptr(5),
 			MaxReplicas: int32(100),
-			Metrics: []autoscalingv2beta2.MetricSpec{
+			Metrics: []autoscalingv2.MetricSpec{
 				{
-					Type: autoscalingv2beta2.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta2.ResourceMetricSource{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
 						Name: corev1.ResourceCPU,
-						Target: autoscalingv2beta2.MetricTarget{
-							Type:               autoscalingv2beta2.UtilizationMetricType,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
 							AverageUtilization: int32Ptr(75),
 						},
 					},
@@ -591,12 +591,12 @@ func Test_reconcileHPA(t *testing.T) {
 		name      string
 		instance  *v1alpha1.RpaasInstance
 		nginx     *nginxv1alpha1.Nginx
-		assertion func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler)
+		assertion func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler)
 	}{
 		"when there is HPA resource but autoscale spec is nil": {
 			instance: instance2,
 			nginx:    &nginxv1alpha1.Nginx{},
-			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
+			assertion: func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler) {
 				require.Error(t, err)
 				assert.True(t, k8sErrors.IsNotFound(err))
 			},
@@ -609,7 +609,7 @@ func Test_reconcileHPA(t *testing.T) {
 					Deployments: []nginxv1alpha1.DeploymentStatus{{Name: "some-deployment"}},
 				},
 			},
-			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
+			assertion: func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
 
@@ -618,31 +618,31 @@ func Test_reconcileHPA(t *testing.T) {
 					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
 				}, got.ObjectMeta.Labels)
 
-				assert.Equal(t, autoscalingv2beta2.HorizontalPodAutoscalerSpec{
-					ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+				assert.Equal(t, autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
 						Name:       "some-deployment",
 					},
 					MinReplicas: int32Ptr(4),
 					MaxReplicas: int32(25),
-					Metrics: []autoscalingv2beta2.MetricSpec{
+					Metrics: []autoscalingv2.MetricSpec{
 						{
-							Type: autoscalingv2beta2.ResourceMetricSourceType,
-							Resource: &autoscalingv2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: corev1.ResourceCPU,
-								Target: autoscalingv2beta2.MetricTarget{
-									Type:               autoscalingv2beta2.UtilizationMetricType,
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
 									AverageUtilization: int32Ptr(75),
 								},
 							},
 						},
 						{
-							Type: autoscalingv2beta2.ResourceMetricSourceType,
-							Resource: &autoscalingv2beta2.ResourceMetricSource{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
 								Name: corev1.ResourceMemory,
-								Target: autoscalingv2beta2.MetricTarget{
-									Type:               autoscalingv2beta2.UtilizationMetricType,
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
 									AverageUtilization: int32Ptr(90),
 								},
 							},
@@ -676,33 +676,33 @@ func Test_reconcileHPA(t *testing.T) {
 					Name: "instance-2",
 				},
 			},
-			assertion: func(t *testing.T, err error, got *autoscalingv2beta2.HorizontalPodAutoscaler) {
+			assertion: func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler) {
 				require.NoError(t, err)
 				require.NotNil(t, got)
 				assert.Equal(t, int32(200), got.Spec.MaxReplicas)
 				assert.Equal(t, int32Ptr(2), got.Spec.MinReplicas)
-				assert.Equal(t, autoscalingv2beta2.CrossVersionObjectReference{
+				assert.Equal(t, autoscalingv2.CrossVersionObjectReference{
 					APIVersion: "apps/v1",
 					Kind:       "Deployment",
 					Name:       "instance-2",
 				}, got.Spec.ScaleTargetRef)
 				require.Len(t, got.Spec.Metrics, 2)
-				assert.Equal(t, autoscalingv2beta2.MetricSpec{
-					Type: autoscalingv2beta2.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta2.ResourceMetricSource{
+				assert.Equal(t, autoscalingv2.MetricSpec{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
 						Name: corev1.ResourceCPU,
-						Target: autoscalingv2beta2.MetricTarget{
-							Type:               autoscalingv2beta2.UtilizationMetricType,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
 							AverageUtilization: int32Ptr(60),
 						},
 					},
 				}, got.Spec.Metrics[0])
-				assert.Equal(t, autoscalingv2beta2.MetricSpec{
-					Type: autoscalingv2beta2.ResourceMetricSourceType,
-					Resource: &autoscalingv2beta2.ResourceMetricSource{
+				assert.Equal(t, autoscalingv2.MetricSpec{
+					Type: autoscalingv2.ResourceMetricSourceType,
+					Resource: &autoscalingv2.ResourceMetricSource{
 						Name: corev1.ResourceMemory,
-						Target: autoscalingv2beta2.MetricTarget{
-							Type:               autoscalingv2beta2.UtilizationMetricType,
+						Target: autoscalingv2.MetricTarget{
+							Type:               autoscalingv2.UtilizationMetricType,
 							AverageUtilization: int32Ptr(85),
 						},
 					},
@@ -717,7 +717,7 @@ func Test_reconcileHPA(t *testing.T) {
 			err := r.reconcileHPA(context.TODO(), tt.instance, tt.nginx)
 			require.NoError(t, err)
 
-			hpa := new(autoscalingv2beta2.HorizontalPodAutoscaler)
+			hpa := new(autoscalingv2.HorizontalPodAutoscaler)
 			if err == nil {
 				err = r.Client.Get(context.TODO(), types.NamespacedName{Name: tt.instance.Name, Namespace: tt.instance.Namespace}, hpa)
 			}

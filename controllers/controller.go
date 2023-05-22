@@ -21,7 +21,7 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	appsv1 "k8s.io/api/apps/v1"
-	autoscalingv2beta2 "k8s.io/api/autoscaling/v2beta2"
+	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	batchv1beta1 "k8s.io/api/batch/v1beta1"
 	corev1 "k8s.io/api/core/v1"
@@ -529,7 +529,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	logger.V(4).Info("Starting reconciliation of HorizontalPodAutoscaler")
 	defer logger.V(4).Info("Finishing reconciliation of HorizontalPodAutoscaler")
 
-	var hpa autoscalingv2beta2.HorizontalPodAutoscaler
+	var hpa autoscalingv2.HorizontalPodAutoscaler
 	err := r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &hpa)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		if instance.Spec.Autoscale == nil {
@@ -1000,16 +1000,16 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
 }
 
-func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autoscalingv2beta2.HorizontalPodAutoscaler {
-	var metrics []autoscalingv2beta2.MetricSpec
+func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autoscalingv2.HorizontalPodAutoscaler {
+	var metrics []autoscalingv2.MetricSpec
 
 	if instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.ResourceMetricSourceType,
-			Resource: &autoscalingv2beta2.ResourceMetricSource{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ResourceMetricSourceType,
+			Resource: &autoscalingv2.ResourceMetricSource{
 				Name: corev1.ResourceCPU,
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:               autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:               autoscalingv2.UtilizationMetricType,
 					AverageUtilization: instance.Spec.Autoscale.TargetCPUUtilizationPercentage,
 				},
 			},
@@ -1017,12 +1017,12 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 	}
 
 	if instance.Spec.Autoscale.TargetMemoryUtilizationPercentage != nil {
-		metrics = append(metrics, autoscalingv2beta2.MetricSpec{
-			Type: autoscalingv2beta2.ResourceMetricSourceType,
-			Resource: &autoscalingv2beta2.ResourceMetricSource{
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ResourceMetricSourceType,
+			Resource: &autoscalingv2.ResourceMetricSource{
 				Name: corev1.ResourceMemory,
-				Target: autoscalingv2beta2.MetricTarget{
-					Type:               autoscalingv2beta2.UtilizationMetricType,
+				Target: autoscalingv2.MetricTarget{
+					Type:               autoscalingv2.UtilizationMetricType,
 					AverageUtilization: instance.Spec.Autoscale.TargetMemoryUtilizationPercentage,
 				},
 			},
@@ -1041,10 +1041,10 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 		}
 	}
 
-	return autoscalingv2beta2.HorizontalPodAutoscaler{
+	return autoscalingv2.HorizontalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HorizontalPodAutoscaler",
-			APIVersion: "autoscaling/v2beta2",
+			APIVersion: "autoscaling/v2",
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instance.Name,
@@ -1058,8 +1058,8 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 			},
 			Labels: labelsForRpaasInstance(instance),
 		},
-		Spec: autoscalingv2beta2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv2beta2.CrossVersionObjectReference{
+		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
+			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 				APIVersion: appsv1.SchemeGroupVersion.String(),
 				Kind:       "Deployment",
 				Name:       targetResourceName,
