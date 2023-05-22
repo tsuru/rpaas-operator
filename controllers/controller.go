@@ -24,7 +24,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -589,7 +589,7 @@ func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1
 		return err
 	}
 
-	var existingPDB policyv1beta1.PodDisruptionBudget
+	var existingPDB policyv1.PodDisruptionBudget
 	err = r.Get(ctx, client.ObjectKey{Name: pdb.Name, Namespace: pdb.Namespace}, &existingPDB)
 	if err != nil {
 		if !k8serrors.IsNotFound(err) {
@@ -615,7 +615,7 @@ func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1
 	return r.Update(ctx, pdb)
 }
 
-func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*policyv1beta1.PodDisruptionBudget, error) {
+func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*policyv1.PodDisruptionBudget, error) {
 	set, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
 	if err != nil {
 		return nil, err
@@ -625,9 +625,9 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 	// in the cluster, e.g scaling up/down nodes from Cluster Autoscaler.
 	maxUnavailable := intstr.FromString("10%")
 
-	return &policyv1beta1.PodDisruptionBudget{
+	return &policyv1.PodDisruptionBudget{
 		TypeMeta: metav1.TypeMeta{
-			APIVersion: "policy/v1beta1",
+			APIVersion: "policy/v1",
 			Kind:       "PodDisruptionBudget",
 		},
 		ObjectMeta: metav1.ObjectMeta{
@@ -642,7 +642,7 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 			},
 			Labels: labelsForRpaasInstance(instance),
 		},
-		Spec: policyv1beta1.PodDisruptionBudgetSpec{
+		Spec: policyv1.PodDisruptionBudgetSpec{
 			MaxUnavailable: &maxUnavailable,
 			Selector: &metav1.LabelSelector{
 				MatchLabels: map[string]string(set),

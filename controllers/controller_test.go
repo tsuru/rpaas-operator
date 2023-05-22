@@ -15,7 +15,7 @@ import (
 	autoscalingv2 "k8s.io/api/autoscaling/v2"
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
-	policyv1beta1 "k8s.io/api/policy/v1beta1"
+	policyv1 "k8s.io/api/policy/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -740,9 +740,9 @@ func Test_reconcilePDB(t *testing.T) {
 			},
 		},
 
-		&policyv1beta1.PodDisruptionBudget{
+		&policyv1.PodDisruptionBudget{
 			TypeMeta: metav1.TypeMeta{
-				APIVersion: "policy/v1beta1",
+				APIVersion: "policy/v1",
 				Kind:       "PodDisruptionBudget",
 			},
 			ObjectMeta: metav1.ObjectMeta{
@@ -762,7 +762,7 @@ func Test_reconcilePDB(t *testing.T) {
 					},
 				},
 			},
-			Spec: policyv1beta1.PodDisruptionBudgetSpec{
+			Spec: policyv1.PodDisruptionBudgetSpec{
 				MinAvailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromInt(9)),
 				Selector: &metav1.LabelSelector{
 					MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "another-instance"},
@@ -797,12 +797,12 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {
-				var pdb policyv1beta1.PodDisruptionBudget
+				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
 				require.NoError(t, err)
-				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+				assert.Equal(t, policyv1.PodDisruptionBudget{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "policy/v1beta1",
+						APIVersion: "policy/v1",
 						Kind:       "PodDisruptionBudget",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -823,7 +823,7 @@ func Test_reconcilePDB(t *testing.T) {
 							},
 						},
 					},
-					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+					Spec: policyv1.PodDisruptionBudgetSpec{
 						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
@@ -854,12 +854,12 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {
-				var pdb policyv1beta1.PodDisruptionBudget
+				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
 				require.NoError(t, err)
-				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+				assert.Equal(t, policyv1.PodDisruptionBudget{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "policy/v1beta1",
+						APIVersion: "policy/v1",
 						Kind:       "PodDisruptionBudget",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -880,7 +880,7 @@ func Test_reconcilePDB(t *testing.T) {
 							},
 						},
 					},
-					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+					Spec: policyv1.PodDisruptionBudgetSpec{
 						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
@@ -915,12 +915,12 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {
-				var pdb policyv1beta1.PodDisruptionBudget
+				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "another-instance", Namespace: "rpaasv2"}, &pdb)
 				require.NoError(t, err)
-				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+				assert.Equal(t, policyv1.PodDisruptionBudget{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "policy/v1beta1",
+						APIVersion: "policy/v1",
 						Kind:       "PodDisruptionBudget",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -941,7 +941,7 @@ func Test_reconcilePDB(t *testing.T) {
 							},
 						},
 					},
-					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+					Spec: policyv1.PodDisruptionBudgetSpec{
 						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "another-instance"},
@@ -975,7 +975,7 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {
-				var pdb policyv1beta1.PodDisruptionBudget
+				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "another-instance", Namespace: "rpaasv2"}, &pdb)
 				require.Error(t, err)
 				assert.True(t, k8serrors.IsNotFound(err))
@@ -1003,12 +1003,12 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {
-				var pdb policyv1beta1.PodDisruptionBudget
+				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
 				require.NoError(t, err)
-				assert.Equal(t, policyv1beta1.PodDisruptionBudget{
+				assert.Equal(t, policyv1.PodDisruptionBudget{
 					TypeMeta: metav1.TypeMeta{
-						APIVersion: "policy/v1beta1",
+						APIVersion: "policy/v1",
 						Kind:       "PodDisruptionBudget",
 					},
 					ObjectMeta: metav1.ObjectMeta{
@@ -1029,7 +1029,7 @@ func Test_reconcilePDB(t *testing.T) {
 							},
 						},
 					},
-					Spec: policyv1beta1.PodDisruptionBudgetSpec{
+					Spec: policyv1.PodDisruptionBudgetSpec{
 						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
@@ -1060,7 +1060,7 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {
-				var pdb policyv1beta1.PodDisruptionBudget
+				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
 				require.Error(t, err)
 				assert.True(t, k8serrors.IsNotFound(err))
@@ -1085,7 +1085,7 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {
-				var pdb policyv1beta1.PodDisruptionBudget
+				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
 				require.Error(t, err)
 				assert.True(t, k8serrors.IsNotFound(err))
