@@ -25,12 +25,18 @@ jobs:
 
   integration:
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: true
+      matrix:
+        k8s_version:
+        - 1.24.11 # current version at GKE stable channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
+        - 1.25.8  # current version at GKE regular channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
     steps:
       - uses: actions/checkout@master
       - uses: engineerd/setup-kind@v0.5.0
         with:
           version: "v0.11.1"
-          image: 'kindest/node:v1.21.2'
+          image: kindest/node:v${{ matrix.k8s_version }}
       - uses: azure/setup-helm@v1
         with:
           version: v3.7.0
