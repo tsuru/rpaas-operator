@@ -56,6 +56,7 @@ jobs:
         env:
           GOPATH: /tmp/go
           INSTALL_CERT_MANAGER: "true"
+          CLUSTER_PROVIDER: minikube
           DEBUG: "true"
         run: |
           ./scripts/localkube-integration.sh
