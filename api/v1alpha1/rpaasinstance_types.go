@@ -313,6 +313,7 @@ type RpaasInstanceStatus struct {
 }
 
 // +kubebuilder:object:root=true
+// +kubebuilder:resource:shortName=rpaas
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.currentReplicas,selectorpath=.status.podSelector
 

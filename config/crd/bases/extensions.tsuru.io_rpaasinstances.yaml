@@ -13,6 +13,8 @@ spec:
     kind: RpaasInstance
     listKind: RpaasInstanceList
     plural: rpaasinstances
+    shortNames:
+    - rpaas
     singular: rpaasinstance
   scope: Namespaced
   versions:
