@@ -18,7 +18,11 @@ spec:
     singular: rpaasinstance
   scope: Namespaced
   versions:
-  - name: v1alpha1
+  - additionalPrinterColumns:
+    - jsonPath: .spec.suspend
+      name: Suspended
+      type: boolean
+    name: v1alpha1
     schema:
       openAPIV3Schema:
         description: RpaasInstance is the Schema for the rpaasinstances API
@@ -5818,6 +5822,7 @@ spec:
                     type: boolean
                 type: object
               suspend:
+                default: false
                 description: Suspend flag tells whether controller should suspend
                   any further modifications on this resource. Defaults to false.
                 type: boolean

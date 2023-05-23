@@ -131,6 +131,7 @@ type RpaasInstanceSpec struct {
 	// Suspend flag tells whether controller should suspend any further
 	// modifications on this resource. Defaults to false.
 	// +optional
+	// +kubebuilder:default:=false
 	Suspend *bool `json:"suspend,omitempty"`
 }
 
@@ -316,6 +317,7 @@ type RpaasInstanceStatus struct {
 // +kubebuilder:resource:shortName=rpaas
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.currentReplicas,selectorpath=.status.podSelector
+// +kubebuilder:printcolumn:name="Suspended",type=boolean,JSONPath=`.spec.suspend`
 
 // RpaasInstance is the Schema for the rpaasinstances API
 type RpaasInstance struct {
