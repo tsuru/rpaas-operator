@@ -5,6 +5,7 @@
 package controllers
 
 import (
+	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -17,6 +18,7 @@ import (
 	"strings"
 
 	"github.com/imdario/mergo"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/sirupsen/logrus"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
@@ -525,6 +527,10 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	logger := r.Log.WithName("reconcileHPA").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
+	if r.KEDAOptions.Enabled {
+		return r.reconcileKEDA(ctx, instance, nginx)
+	}
+
 	logger.V(4).Info("Starting reconciliation of HorizontalPodAutoscaler")
 	defer logger.V(4).Info("Finishing reconciliation of HorizontalPodAutoscaler")
 
@@ -578,6 +584,112 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	}
 
 	return nil
+}
+
+func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+	desired := newKEDAScaledObject(instance, nginx, &r.KEDAOptions)
+
+	var observed kedav1alpha1.ScaledObject
+	err := r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
+	if k8sErrors.IsNotFound(err) {
+		if instance.Spec.Autoscale == nil {
+			return nil // nothing to do
+		}
+
+		return r.Client.Create(ctx, desired)
+	}
+
+	if err != nil {
+		return err
+	}
+
+	if instance.Spec.Autoscale == nil {
+		return r.Client.Delete(ctx, &observed)
+	}
+
+	if !reflect.DeepEqual(desired.Spec, observed.Spec) {
+		desired.ResourceVersion = observed.ResourceVersion
+		return r.Client.Update(ctx, desired)
+	}
+
+	return nil
+}
+
+func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx, kedaOpts *KEDAOptions) *kedav1alpha1.ScaledObject {
+	var triggers []kedav1alpha1.ScaleTriggers
+	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
+		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+			Type:       "cpu",
+			MetricType: autoscalingv2.UtilizationMetricType,
+			Metadata: map[string]string{
+				"value": strconv.Itoa(int(*instance.Spec.Autoscale.TargetCPUUtilizationPercentage)),
+			},
+		})
+	}
+
+	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetMemoryUtilizationPercentage != nil {
+		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+			Type:       "memory",
+			MetricType: autoscalingv2.UtilizationMetricType,
+			Metadata: map[string]string{
+				"value": strconv.Itoa(int(*instance.Spec.Autoscale.TargetMemoryUtilizationPercentage)),
+			},
+		})
+	}
+
+	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetRequestsPerSecond != nil {
+		var query bytes.Buffer
+		kedaOpts.PrometheusQuery.Execute(&query, instance)
+
+		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+			Type: "prometheus",
+			Metadata: map[string]string{
+				"serverAddress": kedaOpts.PrometheusServerAddress,
+				"query":         query.String(),
+				"threshold":     strconv.Itoa(int(*instance.Spec.Autoscale.TargetRequestsPerSecond)),
+			},
+		})
+	}
+
+	deployName := instance.Name
+	if deployments := nginx.Status.Deployments; len(deployments) > 0 {
+		deployName = deployments[0].Name
+	}
+
+	var min *int32
+	if instance.Spec.Autoscale != nil {
+		min = instance.Spec.Autoscale.MinReplicas
+	}
+
+	var max *int32
+	if instance.Spec.Autoscale != nil {
+		max = &instance.Spec.Autoscale.MaxReplicas
+	}
+
+	return &kedav1alpha1.ScaledObject{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      instance.Name,
+			Namespace: instance.Namespace,
+			OwnerReferences: []metav1.OwnerReference{
+				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
+					Group:   v1alpha1.GroupVersion.Group,
+					Version: v1alpha1.GroupVersion.Version,
+					Kind:    "RpaasInstance",
+				}),
+			},
+			Labels: labelsForRpaasInstance(instance),
+		},
+		Spec: kedav1alpha1.ScaledObjectSpec{
+			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       deployName,
+			},
+			MinReplicaCount: min,
+			MaxReplicaCount: max,
+			Triggers:        triggers,
+		},
+	}
 }
 
 func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {

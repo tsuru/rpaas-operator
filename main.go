@@ -9,6 +9,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"text/template"
 	"time"
 
 	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
@@ -24,14 +25,17 @@ import (
 var setupLog = ctrl.Log.WithName("setup")
 
 type configOpts struct {
-	metricsAddr                string
-	healthAddr                 string
-	internalAPIAddr            string
-	leaderElection             bool
-	leaderElectionNamespace    string
-	leaderElectionResourceName string
-	namespace                  string
-	syncPeriod                 time.Duration
+	metricsAddr                 string
+	healthAddr                  string
+	internalAPIAddr             string
+	leaderElection              bool
+	leaderElectionNamespace     string
+	leaderElectionResourceName  string
+	namespace                   string
+	syncPeriod                  time.Duration
+	autoscalingController       string
+	kedaPrometheusServerAddress string
+	kedaPrometheusQueryTemplate string
 }
 
 func (o *configOpts) bindFlags(fs *flag.FlagSet) {
@@ -47,6 +51,10 @@ func (o *configOpts) bindFlags(fs *flag.FlagSet) {
 
 	fs.DurationVar(&o.syncPeriod, "sync-period", 10*time.Hour, "The resync period for reconciling manager resources.")
 	fs.StringVar(&o.namespace, "namespace", "", "Limit the observed RpaasInstance resources from specific namespace (empty means all namespaces)")
+
+	fs.StringVar(&o.autoscalingController, "autoscaling-controller", "native", "Which controller should use to configure pod autoscaling features on RpaasInstances (available options: \"native\" or \"keda\")")
+	fs.StringVar(&o.kedaPrometheusServerAddress, "keda-prometheus-server-address", "", "Address of Prometheus server used to configure KEDA ScaledObjects")
+	fs.StringVar(&o.kedaPrometheusQueryTemplate, "keda-prometheus-query-template", `sum(rate(nginx_vts_server_requests_total{nginx_tsuru_io_resource_name="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`, "Query template (gotemplate) used to generate the query to KEDA ScaledObjects' Prometheus trigger")
 }
 
 func main() {
@@ -77,8 +85,12 @@ func main() {
 	if err = (&controllers.RpaasInstanceReconciler{
 		Client:        mgr.GetClient(),
 		Log:           mgr.GetLogger().WithName("controllers").WithName("RpaasInstance"),
-		Scheme:        mgr.GetScheme(),
 		EventRecorder: mgr.GetEventRecorderFor("rpaas-operator"),
+		KEDAOptions: controllers.KEDAOptions{
+			Enabled:                 opts.autoscalingController == "keda",
+			PrometheusServerAddress: opts.kedaPrometheusServerAddress,
+			PrometheusQuery:         template.Must(template.New("prometheus-query").Parse(opts.kedaPrometheusQueryTemplate)),
+		},
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")
 		os.Exit(1)

@@ -6,8 +6,8 @@ package controllers
 
 import (
 	"context"
-	"fmt"
 	"reflect"
+	"text/template"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -16,7 +16,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
-	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -33,8 +32,14 @@ import (
 type RpaasInstanceReconciler struct {
 	client.Client
 	Log           logr.Logger
-	Scheme        *runtime.Scheme
 	EventRecorder record.EventRecorder
+	KEDAOptions   KEDAOptions
+}
+
+type KEDAOptions struct {
+	Enabled                 bool
+	PrometheusServerAddress string
+	PrometheusQuery         *template.Template
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets;services,verbs=get;list;watch;create;update;delete
@@ -51,6 +56,8 @@ type RpaasInstanceReconciler struct {
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasplans,verbs=get;list;watch
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances/status,verbs=get;update;patch
+
+// +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;create;update;patch
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)

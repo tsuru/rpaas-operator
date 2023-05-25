@@ -6,6 +6,7 @@ package runtime
 
 import (
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
@@ -26,6 +27,7 @@ func NewScheme() *runtime.Scheme {
 	utilruntime.Must(metricsv1beta1.AddToScheme(scheme))
 	utilruntime.Must(extensionsv1alpha1.AddToScheme(scheme))
 	utilruntime.Must(cmv1.AddToScheme(scheme))
+	utilruntime.Must(kedav1alpha1.AddToScheme(scheme))
 	// +kubebuilder:scaffold:scheme
 	return scheme
 }
