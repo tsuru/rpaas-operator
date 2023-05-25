@@ -1,10 +1,10 @@
-FROM golang:1.18-alpine3.15 AS builder
+FROM golang:1.20-alpine3.18 AS builder
 COPY . /go/src/github.com/tsuru/rpaas-operator
 WORKDIR /go/src/github.com/tsuru/rpaas-operator
 RUN apk add --update gcc git make musl-dev && \
     make build/manager
 
-FROM alpine:3.15
+FROM alpine:3.18
 COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/bin/manager /bin/rpaas-operator
 RUN apk update && \
     apk add --no-cache ca-certificates && \
