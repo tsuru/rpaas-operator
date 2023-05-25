@@ -3693,6 +3693,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 				MinReplicas: pointerToInt32(5),
 				CPU:         pointerToInt32(80),
 				Memory:      pointerToInt32(512),
+				RPS:         pointerToInt32(100),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -3707,6 +3708,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 					MinReplicas:                       pointerToInt32(5),
 					TargetCPUUtilizationPercentage:    pointerToInt32(80),
 					TargetMemoryUtilizationPercentage: pointerToInt32(512),
+					TargetRequestsPerSecond:           pointerToInt32(100),
 				}
 				assert.Equal(t, expectedAutoscale, instance.Spec.Autoscale)
 			},

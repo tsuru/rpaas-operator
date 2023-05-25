@@ -26,6 +26,7 @@ func getAutoscale(c echo.Context) error {
 
 	return c.JSON(http.StatusOK, autoscale)
 }
+
 func createAutoscale(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
@@ -70,6 +71,7 @@ func updateAutoscale(c echo.Context) error {
 		updateValueIfNeeded(&autoscale.MinReplicas, originalAutoscale.MinReplicas)
 		updateValueIfNeeded(&autoscale.CPU, originalAutoscale.CPU)
 		updateValueIfNeeded(&autoscale.Memory, originalAutoscale.Memory)
+		updateValueIfNeeded(&autoscale.RPS, originalAutoscale.RPS)
 	}
 
 	err = manager.UpdateAutoscale(ctx, c.Param("instance"), &autoscale)

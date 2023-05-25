@@ -387,6 +387,7 @@ func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName stri
 		MaxReplicas:                       *autoscale.MaxReplicas,
 		TargetCPUUtilizationPercentage:    autoscale.CPU,
 		TargetMemoryUtilizationPercentage: autoscale.Memory,
+		TargetRequestsPerSecond:           autoscale.RPS,
 	}
 
 	return m.patchInstance(ctx, originalInstance, instance)
@@ -422,7 +423,11 @@ func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName stri
 		s.TargetMemoryUtilizationPercentage = autoscale.Memory
 	}
 
-	err = validateAutoscaleSpec(ctx, s)
+	if s.TargetRequestsPerSecond != autoscale.RPS {
+		s.TargetRequestsPerSecond = autoscale.RPS
+	}
+
+	err = validateAutoscaleSpec(s)
 	if err != nil {
 		return err
 	}
@@ -450,7 +455,7 @@ func validateAutoscale(ctx context.Context, s *clientTypes.Autoscale) error {
 	return nil
 }
 
-func validateAutoscaleSpec(ctx context.Context, s *v1alpha1.RpaasInstanceAutoscaleSpec) error {
+func validateAutoscaleSpec(s *v1alpha1.RpaasInstanceAutoscaleSpec) error {
 	if s.MaxReplicas == 0 {
 		return ValidationError{Msg: "max replicas is required"}
 	}
