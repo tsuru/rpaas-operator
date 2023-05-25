@@ -456,7 +456,7 @@ var commonCreateOrUpdateExtraFilesTestCases = map[string]createOrUpdateExtraFile
 	},
 }
 
-func mergeMapAny[K comparable, V any](a, b map[K]V) map[K]V {
+func mergeMapAny[M ~map[K]V, K comparable, V any](a, b M) M {
 	if len(a) == 0 {
 		return b
 	}
