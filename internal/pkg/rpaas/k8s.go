@@ -205,7 +205,7 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		}
 	}
 
-	return executor.Stream(remotecommand.StreamOptions{
+	return executor.StreamWithContext(ctx, remotecommand.StreamOptions{
 		Stdin:             args.Stdin,
 		Stdout:            args.Stdout,
 		Stderr:            args.Stderr,
@@ -1320,9 +1320,19 @@ func (m *k8sRpaasManager) eventsForObject(ctx context.Context, namespace, kind s
 		}.AsSelector(),
 		Namespace: namespace,
 	}
+
 	var eventList corev1.EventList
 	if err := m.cli.List(ctx, &eventList, listOpts); err != nil {
-		return nil, err
+		// NOTE: As of controller-runtime v0.13, fake package added listing filter
+		// support however it only supports a single requirement per filter, so
+		// it's not thrustworthy.
+		if err.Error() == fmt.Sprintf("field selector %s is not in one of the two supported forms \"key==val\" or \"key=val\"", listOpts.FieldSelector) {
+			err = m.cli.List(ctx, &eventList, &client.ListOptions{Namespace: namespace})
+		}
+
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	// NOTE: re-applying the above filter to work on unit tests as well.
@@ -1867,7 +1877,7 @@ func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc
 func (m *k8sRpaasManager) ingressAddresses(ctx context.Context, ing *networkingv1.Ingress) ([]clientTypes.InstanceAddress, error) {
 	var addresses []clientTypes.InstanceAddress
 
-	if isLoadBalancerReady(ing.Status.LoadBalancer.Ingress) {
+	if isIngressLoadBalacerReady(ing.Status.LoadBalancer.Ingress) {
 		for _, lbIngress := range ing.Status.LoadBalancer.Ingress {
 			hostname := lbIngress.Hostname
 			if h, ok := ing.Annotations[externalDNSHostnameLabel]; ok {
@@ -1919,6 +1929,15 @@ func formatEventsToString(events []v1.Event) string {
 }
 
 func isLoadBalancerReady(ings []v1.LoadBalancerIngress) bool {
+	if len(ings) == 0 {
+		return false
+	}
+
+	// NOTE: AWS load balancers does not have IP
+	return ings[0].IP != "" || ings[0].Hostname != ""
+}
+
+func isIngressLoadBalacerReady(ings []networkingv1.IngressLoadBalancerIngress) bool {
 	if len(ings) == 0 {
 		return false
 	}
