@@ -240,6 +240,10 @@ type RpaasInstanceAutoscaleSpec struct {
 	// int32(80) equals to 80%.
 	// +optional
 	TargetMemoryUtilizationPercentage *int32 `json:"targetMemoryUtilizationPercentage,omitempty"`
+	// TargetRequestsPerSecond is the target rate of HTTP requests (in a second)
+	// pods should keep before scaling up/down pods.
+	// +optional
+	TargetRequestsPerSecond *int32 `json:"targetRequestsPerSecond,omitempty"`
 }
 
 type TLSSessionResumption struct {
