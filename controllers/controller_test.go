@@ -602,7 +602,7 @@ func Test_reconcileHPA(t *testing.T) {
 		nginx                func(*nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx
 		expectedHPA          func(*autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler
 		expectedScaledObject func(*kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject
-		customAssert         func(t *testing.T, c client.Client) bool
+		customAssert         func(t *testing.T, r *RpaasInstanceReconciler) bool
 
 		expectedError func(t *testing.T)
 	}{
@@ -718,10 +718,26 @@ func Test_reconcileHPA(t *testing.T) {
 			resources: []runtime.Object{
 				baseExpectedHPA.DeepCopy(),
 			},
-			customAssert: func(t *testing.T, c client.Client) bool {
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
 				var hpa autoscalingv2.HorizontalPodAutoscaler
-				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &hpa)
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &hpa)
 				return assert.True(t, k8sErrors.IsNotFound(err))
+			},
+		},
+
+		"(native HPA controller) with RPS enabled": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:             func(n int32) *int32 { return &n }(2),
+					MaxReplicas:             500,
+					TargetRequestsPerSecond: func(n int32) *int32 { return &n }(50),
+				}
+				return ri
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				rec, ok := r.EventRecorder.(*record.FakeRecorder)
+				require.True(t, ok, "event recorder must be FakeRecorder")
+				return assert.Equal(t, "Warning RpaasInstanceAutoscaleFailed native HPA controller doesn't support RPS metric target yet", <-rec.Events)
 			},
 		},
 
@@ -850,9 +866,9 @@ func Test_reconcileHPA(t *testing.T) {
 				}
 				return r
 			},
-			customAssert: func(t *testing.T, c client.Client) bool {
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
 				var so kedav1alpha1.ScaledObject
-				err := c.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
 				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
 			},
 		},
@@ -903,7 +919,7 @@ func Test_reconcileHPA(t *testing.T) {
 			}
 
 			if tt.customAssert != nil {
-				require.True(t, tt.customAssert(t, r.Client), "custom assert function should return true")
+				require.True(t, tt.customAssert(t, r), "custom assert function should return true")
 			}
 
 			if tt.expectedHPA != nil {

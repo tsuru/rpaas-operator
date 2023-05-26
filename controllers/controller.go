@@ -534,9 +534,15 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	logger.V(4).Info("Starting reconciliation of HorizontalPodAutoscaler")
 	defer logger.V(4).Info("Finishing reconciliation of HorizontalPodAutoscaler")
 
-	var hpa autoscalingv2.HorizontalPodAutoscaler
-	err := r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &hpa)
-	if err != nil && k8sErrors.IsNotFound(err) {
+	if a := instance.Spec.Autoscale; a != nil && a.TargetRequestsPerSecond != nil {
+		r.EventRecorder.Event(instance, corev1.EventTypeWarning, "RpaasInstanceAutoscaleFailed", "native HPA controller doesn't support RPS metric target yet")
+	}
+
+	desired := newHPA(instance, nginx)
+
+	var observed autoscalingv2.HorizontalPodAutoscaler
+	err := r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
+	if k8sErrors.IsNotFound(err) {
 		if instance.Spec.Autoscale == nil {
 			logger.V(4).Info("Skipping HorizontalPodAutoscaler reconciliation: both HPA resource and desired RpaasAutoscaleSpec not found")
 			return nil
@@ -544,8 +550,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 
 		logger.V(4).Info("Creating HorizontalPodAutoscaler resource")
 
-		hpa = newHPA(instance, nginx)
-		if err = r.Client.Create(ctx, &hpa); err != nil {
+		if err = r.Client.Create(ctx, desired); err != nil {
 			logger.Error(err, "Unable to create the HorizontalPodAutoscaler resource")
 			return err
 		}
@@ -558,11 +563,11 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 		return err
 	}
 
-	logger = logger.WithValues("HorizontalPodAutoscaler", types.NamespacedName{Name: hpa.Name, Namespace: hpa.Namespace})
+	logger = logger.WithValues("HorizontalPodAutoscaler", types.NamespacedName{Name: observed.Name, Namespace: observed.Namespace})
 
 	if instance.Spec.Autoscale == nil {
 		logger.V(4).Info("Deleting HorizontalPodAutoscaler resource")
-		if err = r.Client.Delete(ctx, &hpa); err != nil {
+		if err = r.Client.Delete(ctx, &observed); err != nil {
 			logger.Error(err, "Unable to delete the HorizontalPodAutoscaler resource")
 			return err
 		}
@@ -570,17 +575,14 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 		return nil
 	}
 
-	newerHPA := newHPA(instance, nginx)
-	if !reflect.DeepEqual(hpa.Spec, newerHPA.Spec) {
+	if !reflect.DeepEqual(desired.Spec, observed.Spec) {
 		logger.V(4).Info("Updating the HorizontalPodAustocaler spec")
 
-		hpa.Spec = newerHPA.Spec
-		if err = r.Client.Update(ctx, &hpa); err != nil {
+		observed.Spec = desired.Spec
+		if err = r.Client.Update(ctx, &observed); err != nil {
 			logger.Error(err, "Unable to update the HorizontalPodAustoscaler resource")
 			return err
 		}
-
-		return nil
 	}
 
 	return nil
@@ -1101,10 +1103,10 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
 }
 
-func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autoscalingv2.HorizontalPodAutoscaler {
+func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autoscalingv2.HorizontalPodAutoscaler {
 	var metrics []autoscalingv2.MetricSpec
 
-	if instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
+	if a := instance.Spec.Autoscale; a != nil && a.TargetCPUUtilizationPercentage != nil {
 		metrics = append(metrics, autoscalingv2.MetricSpec{
 			Type: autoscalingv2.ResourceMetricSourceType,
 			Resource: &autoscalingv2.ResourceMetricSource{
@@ -1117,7 +1119,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 		})
 	}
 
-	if instance.Spec.Autoscale.TargetMemoryUtilizationPercentage != nil {
+	if a := instance.Spec.Autoscale; a != nil && a.TargetMemoryUtilizationPercentage != nil {
 		metrics = append(metrics, autoscalingv2.MetricSpec{
 			Type: autoscalingv2.ResourceMetricSourceType,
 			Resource: &autoscalingv2.ResourceMetricSource{
@@ -1130,9 +1132,14 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 		})
 	}
 
-	minReplicas := instance.Spec.Autoscale.MinReplicas
-	if minReplicas == nil && instance.Spec.Replicas != nil {
-		minReplicas = instance.Spec.Replicas
+	minReplicas := instance.Spec.Replicas
+	if a := instance.Spec.Autoscale; a != nil && a.MinReplicas != nil {
+		minReplicas = a.MinReplicas
+	}
+
+	var maxReplicas int32
+	if a := instance.Spec.Autoscale; a != nil {
+		maxReplicas = a.MaxReplicas
 	}
 
 	targetResourceName := nginx.Name
@@ -1142,7 +1149,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 		}
 	}
 
-	return autoscalingv2.HorizontalPodAutoscaler{
+	return &autoscalingv2.HorizontalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HorizontalPodAutoscaler",
 			APIVersion: "autoscaling/v2",
@@ -1166,7 +1173,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) autosc
 				Name:       targetResourceName,
 			},
 			MinReplicas: minReplicas,
-			MaxReplicas: instance.Spec.Autoscale.MaxReplicas,
+			MaxReplicas: maxReplicas,
 			Metrics:     metrics,
 		},
 	}
