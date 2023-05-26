@@ -40,7 +40,7 @@ type RpaasInstanceReconciler struct {
 type KEDAOptions struct {
 	Enabled                 bool
 	PrometheusServerAddress string
-	PrometheusQuery         *template.Template
+	PrometheusRPSQuery      *template.Template
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets;services,verbs=get;list;watch;create;update;delete

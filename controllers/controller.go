@@ -641,7 +641,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 
 	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetRequestsPerSecond != nil {
 		var query bytes.Buffer
-		kedaOpts.PrometheusQuery.Execute(&query, instance)
+		kedaOpts.PrometheusRPSQuery.Execute(&query, instance)
 
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 			Type: "prometheus",

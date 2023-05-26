@@ -746,7 +746,7 @@ func Test_reconcileHPA(t *testing.T) {
 				r.KEDAOptions = KEDAOptions{
 					Enabled:                 true,
 					PrometheusServerAddress: "https://prometheus.example.com",
-					PrometheusQuery:         template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
+					PrometheusRPSQuery:      template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
 				}
 				return r
 			},
@@ -811,7 +811,7 @@ func Test_reconcileHPA(t *testing.T) {
 				r.KEDAOptions = KEDAOptions{
 					Enabled:                 true,
 					PrometheusServerAddress: "https://prometheus.example.com",
-					PrometheusQuery:         template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
+					PrometheusRPSQuery:      template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
 				}
 				return r
 			},
