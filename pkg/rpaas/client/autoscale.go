@@ -94,6 +94,9 @@ func (c *client) UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) 
 	if args.Memory != nil && *args.Memory > 0 {
 		values.Memory = args.Memory
 	}
+	if args.RPS != nil && *args.RPS > 0 {
+		values.RPS = args.RPS
+	}
 
 	shouldCreate, err := c.shouldCreate(ctx, args.Instance)
 	if err != nil {
