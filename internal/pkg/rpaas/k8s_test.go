@@ -4524,6 +4524,25 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					Reason:         "ServiceCreated",
 					Message:        `service created successfully`,
 				},
+				&corev1.Event{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:              "my-instance.100",
+						Namespace:         "rpaasv2",
+						CreationTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					},
+					InvolvedObject: corev1.ObjectReference{
+						Kind:      "RpaasInstance",
+						Name:      "my-instance",
+						Namespace: "rpaasv2",
+						UID:       types.UID("my-instance"),
+					},
+					FirstTimestamp: metav1.NewTime(t0.Add(-time.Hour)),
+					LastTimestamp:  metav1.NewTime(t0.Add(-time.Minute)),
+					Count:          777,
+					Type:           corev1.EventTypeWarning,
+					Reason:         "RpaasInstanceSuspended",
+					Message:        "no modifications will be done by RPaaS controller",
+				},
 			},
 			instance: func(i v1alpha1.RpaasInstance) v1alpha1.RpaasInstance {
 				return i
@@ -4537,6 +4556,14 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						Type:    "Warning",
 						Reason:  "ServiceQuotaExceeded",
 						Message: `failed to create Service: services "my-instance-service" is forbidden: exceeded quota: my-custom-quota, requested: services.loadbalancers=1, used: services.loadbalancers=1, limited: services.loadbalancers=1`,
+					},
+					{
+						First:   t0.Add(-time.Hour),
+						Last:    t0.Add(-time.Minute),
+						Count:   777,
+						Type:    "Warning",
+						Reason:  "RpaasInstanceSuspended",
+						Message: "no modifications will be done by RPaaS controller",
 					},
 					{
 						First:   t0.Add(-30 * time.Second),
@@ -4628,6 +4655,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
+					UID:       types.UID("my-instance"),
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "Some description about this instance",
 						"rpaas.extensions.tsuru.io/tags":        "tag1,tag2,tag3",

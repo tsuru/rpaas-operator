@@ -1640,7 +1640,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
-	info.Events, err = m.getEvents(ctx, nginx)
+	info.Events, err = m.getEvents(ctx, instance, nginx)
 	if err != nil {
 		return nil, err
 	}
@@ -2117,12 +2117,18 @@ func (m *k8sRpaasManager) getErrorsForPod(ctx context.Context, pod *corev1.Pod) 
 	return errors, nil
 }
 
-func (m *k8sRpaasManager) getEvents(ctx context.Context, nginx *nginxv1alpha1.Nginx) ([]clientTypes.Event, error) {
-	events, err := m.eventsForObject(ctx, nginx.Namespace, "Nginx", nginx.UID)
+func (m *k8sRpaasManager) getEvents(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) ([]clientTypes.Event, error) {
+	instanceEvents, err := m.eventsForObject(ctx, instance.Namespace, "RpaasInstance", instance.UID)
 	if err != nil {
 		return nil, err
 	}
 
+	nginxEvents, err := m.eventsForObject(ctx, nginx.Namespace, "Nginx", nginx.UID)
+	if err != nil {
+		return nil, err
+	}
+
+	events := append(instanceEvents, nginxEvents...)
 	if len(events) == 0 {
 		return nil, nil
 	}
