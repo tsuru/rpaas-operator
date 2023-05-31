@@ -46,15 +46,17 @@ func TestGetAutoscale(t *testing.T) {
 						MinReplicas: int32Ptr(2),
 						CPU:         int32Ptr(50),
 						Memory:      int32Ptr(55),
+						RPS:         int32Ptr(100),
 					}, nil
 				},
 			},
-			expected: `+----------+--------------------+
-| Replicas | Target Utilization |
-+----------+--------------------+
-| Max: 5   | CPU: 50%           |
-| Min: 2   | Memory: 55%        |
-+----------+--------------------+
+			expected: `+----------+----------------+
+| Replicas | Target         |
++----------+----------------+
+| Max: 5   | CPU: 50%       |
+| Min: 2   | Memory: 55%    |
+|          | RPS: 100 req/s |
++----------+----------------+
 `,
 		},
 		{
@@ -68,10 +70,11 @@ func TestGetAutoscale(t *testing.T) {
 						MinReplicas: int32Ptr(2),
 						CPU:         int32Ptr(50),
 						Memory:      int32Ptr(55),
+						RPS:         int32Ptr(100),
 					}, nil
 				},
 			},
-			expected: "{\n\t\"minReplicas\": 2,\n\t\"maxReplicas\": 5,\n\t\"cpu\": 50,\n\t\"memory\": 55\n}\n",
+			expected: "{\n\t\"minReplicas\": 2,\n\t\"maxReplicas\": 5,\n\t\"cpu\": 50,\n\t\"memory\": 55,\n\t\"rps\": 100\n}\n",
 		},
 	}
 	for _, tt := range tests {

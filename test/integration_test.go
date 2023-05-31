@@ -32,7 +32,6 @@ func TestMain(m *testing.M) {
 		fmt.Println("Skipping the integration tests since RPAAS_OPERATOR_INTEGRATION env var isn't defined")
 		os.Exit(0)
 	}
-	rand.Seed(time.Now().Unix())
 
 	os.Exit(m.Run())
 }

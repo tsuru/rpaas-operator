@@ -99,6 +99,7 @@ type UpdateAutoscaleArgs struct {
 	MaxReplicas *int32
 	CPU         *int32
 	Memory      *int32
+	RPS         *int32
 }
 
 type RemoveAutoscaleArgs struct {

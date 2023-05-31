@@ -897,15 +897,15 @@ func newEmptyLocations() *corev1.ConfigMap {
 func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 	testCases := []struct {
 		name      string
-		resources func() []runtime.Object
+		resources func() []client.Object
 		instance  string
 		assertion func(*testing.T, string, error)
 	}{
 		{
 			name: "when the Service has type LoadBalancer and already has an external IP, should returns the provided extenal IP",
-			resources: func() []runtime.Object {
+			resources: func() []client.Object {
 				instance := newEmptyRpaasInstance()
-				return []runtime.Object{
+				return []client.Object{
 					instance,
 					&nginxv1alpha1.Nginx{
 						ObjectMeta: metav1.ObjectMeta{
@@ -945,9 +945,9 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		},
 		{
 			name: "when the Service has type LoadBalancer and already has an external Hostname, but does not have an IP",
-			resources: func() []runtime.Object {
+			resources: func() []client.Object {
 				instance := newEmptyRpaasInstance()
-				return []runtime.Object{
+				return []client.Object{
 					instance,
 					&nginxv1alpha1.Nginx{
 						ObjectMeta: metav1.ObjectMeta{
@@ -987,9 +987,9 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		},
 		{
 			name: "when the Service has type LoadBalancer with no external IP provided, should returns an empty address",
-			resources: func() []runtime.Object {
+			resources: func() []client.Object {
 				instance := newEmptyRpaasInstance()
-				return []runtime.Object{
+				return []client.Object{
 					instance,
 					&nginxv1alpha1.Nginx{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1006,6 +1006,7 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 						ObjectMeta: metav1.ObjectMeta{
 							Name:      instance.Name + "-service",
 							Namespace: instance.Namespace,
+							UID:       "00000000-0000-0000-0000-000000000001",
 						},
 						Spec: corev1.ServiceSpec{
 							Type:      corev1.ServiceTypeLoadBalancer,
@@ -1022,10 +1023,10 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		},
 		{
 			name: "when the Service is ClusterIP type, should returns the ClusterIP address",
-			resources: func() []runtime.Object {
+			resources: func() []client.Object {
 				instance := newEmptyRpaasInstance()
 				instance.Name = "another-instance"
-				return []runtime.Object{
+				return []client.Object{
 					instance,
 					&nginxv1alpha1.Nginx{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1058,10 +1059,10 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		},
 		{
 			name: "when Nginx object has no Services under Status field, should returns an empty address",
-			resources: func() []runtime.Object {
+			resources: func() []client.Object {
 				instance := newEmptyRpaasInstance()
 				instance.Name = "instance3"
-				return []runtime.Object{
+				return []client.Object{
 					instance,
 					&nginxv1alpha1.Nginx{
 						ObjectMeta: metav1.ObjectMeta{
@@ -1080,10 +1081,10 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		},
 		{
 			name: "when Nginx object is not found, should returns an empty address",
-			resources: func() []runtime.Object {
+			resources: func() []client.Object {
 				instance := newEmptyRpaasInstance()
 				instance.Name = "instance4"
-				return []runtime.Object{
+				return []client.Object{
 					instance,
 				}
 			},
@@ -1095,8 +1096,8 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 		},
 		{
 			name: "when RpaasInstance is not found, should returns an NotFoundError",
-			resources: func() []runtime.Object {
-				return []runtime.Object{}
+			resources: func() []client.Object {
+				return []client.Object{}
 			},
 			instance: "not-found-instance",
 			assertion: func(t *testing.T, address string, err error) {
@@ -1108,8 +1109,9 @@ func Test_k8sRpaasManager_GetInstanceAddress(t *testing.T) {
 
 	for _, tt := range testCases {
 		t.Run(tt.name, func(t *testing.T) {
+			resources := tt.resources()
 			manager := &k8sRpaasManager{
-				cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources()...).Build(),
+				cli: fake.NewClientBuilder().WithObjects(resources...).WithScheme(newScheme()).Build(),
 			}
 			address, err := manager.GetInstanceAddress(context.Background(), tt.instance)
 			tt.assertion(t, address, err)
@@ -3691,6 +3693,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 				MinReplicas: pointerToInt32(5),
 				CPU:         pointerToInt32(80),
 				Memory:      pointerToInt32(512),
+				RPS:         pointerToInt32(100),
 			},
 			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
 				assert.NoError(t, err)
@@ -3705,6 +3708,7 @@ func Test_k8sRpaasManager_UpdateAutoscale(t *testing.T) {
 					MinReplicas:                       pointerToInt32(5),
 					TargetCPUUtilizationPercentage:    pointerToInt32(80),
 					TargetMemoryUtilizationPercentage: pointerToInt32(512),
+					TargetRequestsPerSecond:           pointerToInt32(100),
 				}
 				assert.Equal(t, expectedAutoscale, instance.Spec.Autoscale)
 			},
@@ -4149,8 +4153,8 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 						},
 					},
 					Status: networkingv1.IngressStatus{
-						LoadBalancer: corev1.LoadBalancerStatus{
-							Ingress: []corev1.LoadBalancerIngress{
+						LoadBalancer: networkingv1.IngressLoadBalancerStatus{
+							Ingress: []networkingv1.IngressLoadBalancerIngress{
 								{IP: "192.168.200.200"},
 								{Hostname: "abc.lb.example.com"},
 							},

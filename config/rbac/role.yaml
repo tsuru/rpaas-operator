@@ -97,6 +97,15 @@ rules:
   - list
   - watch
 - apiGroups:
+  - keda.sh
+  resources:
+  - scaledobjects
+  verbs:
+  - create
+  - get
+  - patch
+  - update
+- apiGroups:
   - nginx.tsuru.io
   resources:
   - nginxes

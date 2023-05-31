@@ -8,7 +8,9 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"text/template"
 
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
@@ -541,188 +543,398 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 }
 
 func Test_reconcileHPA(t *testing.T) {
-	instance1 := newEmptyRpaasInstance()
-	instance1.Name = "instance-1"
-	instance1.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-		MaxReplicas:                       int32(25),
-		MinReplicas:                       int32Ptr(4),
-		TargetCPUUtilizationPercentage:    int32Ptr(75),
-		TargetMemoryUtilizationPercentage: int32Ptr(90),
-	}
+	t.Parallel()
 
-	instance2 := newEmptyRpaasInstance()
-	instance2.Name = "instance-2"
-
-	hpa2 := &autoscalingv2.HorizontalPodAutoscaler{
+	baseExpectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{
-			Kind:       "HorizontalPodAutoscaler",
 			APIVersion: "autoscaling/v2",
+			Kind:       "HorizontalPodAutoscaler",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instance2.Name,
-			Namespace: instance2.Namespace,
-		},
-		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
-				APIVersion: "extensions.tsuru.io/v1alpha1",
-				Kind:       "RpaasInstance",
-				Name:       instance2.Name,
-			},
-			MinReplicas: int32Ptr(5),
-			MaxReplicas: int32(100),
-			Metrics: []autoscalingv2.MetricSpec{
+			Name:      "my-instance",
+			Namespace: metav1.NamespaceDefault,
+			OwnerReferences: []metav1.OwnerReference{
 				{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: corev1.ResourceCPU,
-						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: int32Ptr(75),
-						},
-					},
+					APIVersion:         "extensions.tsuru.io/v1alpha1",
+					Kind:               "RpaasInstance",
+					Name:               "my-instance",
+					Controller:         func(b bool) *bool { return &b }(true),
+					BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
 				},
+			},
+			ResourceVersion: "1",
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+				"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
 			},
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, hpa2}
-
-	tests := map[string]struct {
-		name      string
-		instance  *v1alpha1.RpaasInstance
-		nginx     *nginxv1alpha1.Nginx
-		assertion func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler)
-	}{
-		"when there is HPA resource but autoscale spec is nil": {
-			instance: instance2,
-			nginx:    &nginxv1alpha1.Nginx{},
-			assertion: func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler) {
-				require.Error(t, err)
-				assert.True(t, k8sErrors.IsNotFound(err))
-			},
+	baseExpectedScaledObject := &kedav1alpha1.ScaledObject{
+		TypeMeta: metav1.TypeMeta{
+			APIVersion: "keda.sh/v1alpha1",
+			Kind:       "ScaledObject",
 		},
-
-		"when there is no HPA resource but autoscale spec is provided": {
-			instance: instance1,
-			nginx: &nginxv1alpha1.Nginx{
-				Status: nginxv1alpha1.NginxStatus{
-					Deployments: []nginxv1alpha1.DeploymentStatus{{Name: "some-deployment"}},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "default",
+			OwnerReferences: []metav1.OwnerReference{
+				{
+					APIVersion:         "extensions.tsuru.io/v1alpha1",
+					Kind:               "RpaasInstance",
+					Name:               "my-instance",
+					Controller:         func(b bool) *bool { return &b }(true),
+					BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
 				},
 			},
-			assertion: func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler) {
-				require.NoError(t, err)
-				require.NotNil(t, got)
+			ResourceVersion: "1",
+			Labels: map[string]string{
+				"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+				"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+			},
+		},
+	}
 
-				assert.Equal(t, map[string]string{
-					"rpaas.extensions.tsuru.io/instance-name": "instance-1",
-					"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
-				}, got.ObjectMeta.Labels)
+	tests := map[string]struct {
+		reconciler           func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler
+		resources            []runtime.Object
+		instance             func(*v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance
+		nginx                func(*nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx
+		expectedHPA          func(*autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler
+		expectedScaledObject func(*kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject
+		customAssert         func(t *testing.T, r *RpaasInstanceReconciler) bool
 
-				assert.Equal(t, autoscalingv2.HorizontalPodAutoscalerSpec{
+		expectedError func(t *testing.T)
+	}{
+		"(native HPA controller) setting autoscaling params first time": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(5),
+					MaxReplicas:                    100,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
 					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
 						APIVersion: "apps/v1",
 						Kind:       "Deployment",
-						Name:       "some-deployment",
+						Name:       "my-instance",
 					},
-					MinReplicas: int32Ptr(4),
-					MaxReplicas: int32(25),
+					MinReplicas: func(n int32) *int32 { return &n }(5),
+					MaxReplicas: 100,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
 							Type: autoscalingv2.ResourceMetricSourceType,
 							Resource: &autoscalingv2.ResourceMetricSource{
-								Name: corev1.ResourceCPU,
+								Name: "cpu",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: int32Ptr(75),
+									AverageUtilization: func(n int32) *int32 { return &n }(90),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+		},
+
+		"(native HPA controller) updating autoscaling params": {
+			resources: []runtime.Object{
+				func(hpa *autoscalingv2.HorizontalPodAutoscaler) runtime.Object {
+					hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+						ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MaxReplicas: 10,
+						Metrics: []autoscalingv2.MetricSpec{
+							{
+								Type: autoscalingv2.ResourceMetricSourceType,
+								Resource: &autoscalingv2.ResourceMetricSource{
+									Name: "cpu",
+									Target: autoscalingv2.MetricTarget{
+										Type:               autoscalingv2.UtilizationMetricType,
+										AverageUtilization: func(n int32) *int32 { return &n }(200),
+									},
+								},
+							},
+						},
+					}
+					return hpa
+				}(baseExpectedHPA.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                       func(n int32) *int32 { return &n }(2),
+					MaxReplicas:                       100,
+					TargetCPUUtilizationPercentage:    func(n int32) *int32 { return &n }(90),
+					TargetMemoryUtilizationPercentage: func(n int32) *int32 { return &n }(70),
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.ResourceVersion = "2" // second change
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(2),
+					MaxReplicas: 100,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: "cpu",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(90),
 								},
 							},
 						},
 						{
 							Type: autoscalingv2.ResourceMetricSourceType,
 							Resource: &autoscalingv2.ResourceMetricSource{
-								Name: corev1.ResourceMemory,
+								Name: "memory",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: int32Ptr(90),
+									AverageUtilization: func(n int32) *int32 { return &n }(70),
 								},
 							},
 						},
 					},
-				}, got.Spec)
+				}
+				return hpa
 			},
 		},
 
-		"when there is HPA resource but differs from autoscale spec": {
-			instance: &v1alpha1.RpaasInstance{
-				TypeMeta: metav1.TypeMeta{
-					APIVersion: "extensions.tsuru.io/v1alpha1",
-					Kind:       "RpaasInstance",
-				},
-				ObjectMeta: metav1.ObjectMeta{
-					Name:      instance2.Name,
-					Namespace: instance2.Namespace,
-				},
-				Spec: v1alpha1.RpaasInstanceSpec{
-					Replicas: int32Ptr(2),
-					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
-						MaxReplicas:                       int32(200),
-						TargetCPUUtilizationPercentage:    int32Ptr(60),
-						TargetMemoryUtilizationPercentage: int32Ptr(85),
+		"(native HPA controller) removing autoscale params": {
+			resources: []runtime.Object{
+				baseExpectedHPA.DeepCopy(),
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				var hpa autoscalingv2.HorizontalPodAutoscaler
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &hpa)
+				return assert.True(t, k8sErrors.IsNotFound(err))
+			},
+		},
+
+		"(native HPA controller) with RPS enabled": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:             func(n int32) *int32 { return &n }(2),
+					MaxReplicas:             500,
+					TargetRequestsPerSecond: func(n int32) *int32 { return &n }(50),
+				}
+				return ri
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				rec, ok := r.EventRecorder.(*record.FakeRecorder)
+				require.True(t, ok, "event recorder must be FakeRecorder")
+				return assert.Equal(t, "Warning RpaasInstanceAutoscaleFailed native HPA controller doesn't support RPS metric target yet", <-rec.Events)
+			},
+		},
+
+		"(KEDA controller) with RPS enabled": {
+			reconciler: func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler {
+				r.KEDAOptions = KEDAOptions{
+					Enabled:                 true,
+					PrometheusServerAddress: "https://prometheus.example.com",
+					PrometheusRPSQuery:      template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
+				}
+				return r
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:             func(n int32) *int32 { return &n }(2),
+					MaxReplicas:             500,
+					TargetRequestsPerSecond: func(n int32) *int32 { return &n }(50),
+				}
+				return ri
+			},
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.Spec = kedav1alpha1.ScaledObjectSpec{
+					ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
 					},
-				},
-			},
-			nginx: &nginxv1alpha1.Nginx{
-				ObjectMeta: metav1.ObjectMeta{
-					Name: "instance-2",
-				},
-			},
-			assertion: func(t *testing.T, err error, got *autoscalingv2.HorizontalPodAutoscaler) {
-				require.NoError(t, err)
-				require.NotNil(t, got)
-				assert.Equal(t, int32(200), got.Spec.MaxReplicas)
-				assert.Equal(t, int32Ptr(2), got.Spec.MinReplicas)
-				assert.Equal(t, autoscalingv2.CrossVersionObjectReference{
-					APIVersion: "apps/v1",
-					Kind:       "Deployment",
-					Name:       "instance-2",
-				}, got.Spec.ScaleTargetRef)
-				require.Len(t, got.Spec.Metrics, 2)
-				assert.Equal(t, autoscalingv2.MetricSpec{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: corev1.ResourceCPU,
-						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: int32Ptr(60),
+					MinReplicaCount: func(n int32) *int32 { return &n }(2),
+					MaxReplicaCount: func(n int32) *int32 { return &n }(500),
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{
+							Type: "prometheus",
+							Metadata: map[string]string{
+								"serverAddress": "https://prometheus.example.com",
+								"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+								"threshold":     "50",
+							},
 						},
 					},
-				}, got.Spec.Metrics[0])
-				assert.Equal(t, autoscalingv2.MetricSpec{
-					Type: autoscalingv2.ResourceMetricSourceType,
-					Resource: &autoscalingv2.ResourceMetricSource{
-						Name: corev1.ResourceMemory,
-						Target: autoscalingv2.MetricTarget{
-							Type:               autoscalingv2.UtilizationMetricType,
-							AverageUtilization: int32Ptr(85),
+				}
+				return so
+			},
+		},
+
+		"(KEDA controller) updating autoscaling params": {
+			resources: []runtime.Object{
+				func(so *kedav1alpha1.ScaledObject) runtime.Object {
+					so.Spec = kedav1alpha1.ScaledObjectSpec{
+						ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicaCount: func(n int32) *int32 { return &n }(2),
+						MaxReplicaCount: func(n int32) *int32 { return &n }(500),
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type: "prometheus",
+								Metadata: map[string]string{
+									"serverAddress": "https://prometheus.example.com",
+									"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+									"threshold":     "50",
+								},
+							},
+						},
+					}
+					return so
+				}(baseExpectedScaledObject.DeepCopy()),
+			},
+			reconciler: func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler {
+				r.KEDAOptions = KEDAOptions{
+					Enabled:                 true,
+					PrometheusServerAddress: "https://prometheus.example.com",
+					PrometheusRPSQuery:      template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
+				}
+				return r
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(5),
+					MaxReplicas:                    42,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					TargetRequestsPerSecond:        func(n int32) *int32 { return &n }(100),
+				}
+				return ri
+			},
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.ResourceVersion = "2" // second update
+				so.Spec = kedav1alpha1.ScaledObjectSpec{
+					ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicaCount: func(n int32) *int32 { return &n }(5),
+					MaxReplicaCount: func(n int32) *int32 { return &n }(42),
+					Triggers: []kedav1alpha1.ScaleTriggers{
+						{
+							Type:       "cpu",
+							MetricType: autoscalingv2.UtilizationMetricType,
+							Metadata: map[string]string{
+								"value": "90",
+							},
+						},
+						{
+							Type: "prometheus",
+							Metadata: map[string]string{
+								"serverAddress": "https://prometheus.example.com",
+								"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+								"threshold":     "100",
+							},
 						},
 					},
-				}, got.Spec.Metrics[1])
+				}
+				return so
+			},
+		},
+
+		"(KEDA controller) removing autoscaling params": {
+			resources: []runtime.Object{
+				baseExpectedScaledObject.DeepCopy(),
+			},
+			reconciler: func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler {
+				r.KEDAOptions = KEDAOptions{
+					Enabled: true,
+				}
+				return r
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				var so kedav1alpha1.ScaledObject
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
+				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
 			},
 		},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			r := newRpaasInstanceReconciler(resources...)
-			err := r.reconcileHPA(context.TODO(), tt.instance, tt.nginx)
-			require.NoError(t, err)
-
-			hpa := new(autoscalingv2.HorizontalPodAutoscaler)
-			if err == nil {
-				err = r.Client.Get(context.TODO(), types.NamespacedName{Name: tt.instance.Name, Namespace: tt.instance.Namespace}, hpa)
+			instance := &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PlanName: "my-plan",
+				},
+			}
+			if tt.instance != nil {
+				instance = tt.instance(instance)
 			}
 
-			tt.assertion(t, err, hpa)
+			nginx := &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: metav1.NamespaceDefault,
+				},
+				Status: nginxv1alpha1.NginxStatus{
+					Deployments: []nginxv1alpha1.DeploymentStatus{
+						{Name: "my-instance"},
+					},
+				},
+			}
+			if tt.nginx != nil {
+				nginx = tt.nginx(nginx)
+			}
+
+			resources := append(tt.resources, instance, nginx)
+
+			r := newRpaasInstanceReconciler(resources...)
+			if tt.reconciler != nil {
+				r = tt.reconciler(r)
+			}
+
+			err := r.reconcileHPA(context.TODO(), instance, nginx)
+			require.NoError(t, err)
+
+			if tt.expectedHPA == nil && tt.expectedScaledObject == nil && tt.customAssert == nil {
+				require.Fail(t, "you must provide either expected HPA and/or ScaledObject or custom assert function")
+			}
+
+			if tt.customAssert != nil {
+				require.True(t, tt.customAssert(t, r), "custom assert function should return true")
+			}
+
+			if tt.expectedHPA != nil {
+				var got autoscalingv2.HorizontalPodAutoscaler
+				err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &got)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedHPA(baseExpectedHPA.DeepCopy()), got.DeepCopy())
+			}
+
+			if tt.expectedScaledObject != nil {
+				var got kedav1alpha1.ScaledObject
+				err = r.Client.Get(context.TODO(), types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &got)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedScaledObject(baseExpectedScaledObject.DeepCopy()), got.DeepCopy())
+			}
 		})
 	}
 }
@@ -1102,26 +1314,6 @@ func Test_reconcilePDB(t *testing.T) {
 			require.NoError(t, err)
 			tt.assert(t, r.Client)
 		})
-	}
-}
-
-func int32Ptr(n int32) *int32 {
-	return &n
-}
-
-func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
-	return &v1alpha1.RpaasInstance{
-		TypeMeta: metav1.TypeMeta{
-			APIVersion: "extensions.tsuru.io/v1alpha1",
-			Kind:       "RpaasInstance",
-		},
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "my-instance",
-			Namespace: "default",
-		},
-		Spec: v1alpha1.RpaasInstanceSpec{
-			PlanName: "my-plan",
-		},
 	}
 }
 
@@ -1658,11 +1850,9 @@ func TestRpaasInstanceController_Reconcile_Suspended(t *testing.T) {
 }
 
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
-	scheme := extensionsruntime.NewScheme()
 	return &RpaasInstanceReconciler{
-		Client:        fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(objs...).Build(),
+		Client:        fake.NewClientBuilder().WithScheme(extensionsruntime.NewScheme()).WithRuntimeObjects(objs...).Build(),
 		EventRecorder: record.NewFakeRecorder(1),
 		Log:           ctrl.Log,
-		Scheme:        scheme,
 	}
 }

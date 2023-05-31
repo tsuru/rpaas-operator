@@ -58,7 +58,7 @@ func Test_getAutoscale(t *testing.T) {
 			name:         "when successfully getting autoscale settings",
 			instance:     "my-instance",
 			expectedCode: http.StatusOK,
-			expectedBody: `{"minReplicas":3,"maxReplicas":10,"cpu":60,"memory":512}`,
+			expectedBody: `{"minReplicas":3,"maxReplicas":10,"cpu":60,"memory":512,"rps":500}`,
 			manager: &fake.RpaasManager{
 				FakeGetAutoscale: func(instance string) (*clientTypes.Autoscale, error) {
 					assert.Equal(t, "my-instance", instance)
@@ -67,6 +67,7 @@ func Test_getAutoscale(t *testing.T) {
 						MinReplicas: pointerToInt32(3),
 						CPU:         pointerToInt32(60),
 						Memory:      pointerToInt32(512),
+						RPS:         pointerToInt32(500),
 					}
 					return s, nil
 				},
@@ -129,7 +130,7 @@ func Test_createAutoscale(t *testing.T) {
 		{
 			name:         "when successfully creating autoscale settings",
 			instance:     "my-instance",
-			requestBody:  "max=10&min=3&cpu=60&memory=512",
+			requestBody:  "max=10&min=3&cpu=60&memory=512&rps=500",
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
 				FakeCreateAutoscale: func(instance string, autoscale *clientTypes.Autoscale) error {
@@ -139,6 +140,7 @@ func Test_createAutoscale(t *testing.T) {
 						MinReplicas: pointerToInt32(3),
 						CPU:         pointerToInt32(60),
 						Memory:      pointerToInt32(512),
+						RPS:         pointerToInt32(500),
 					}
 					assert.Equal(t, expectedAutoscale, autoscale)
 					return nil
@@ -220,6 +222,7 @@ func Test_updateAutoscale(t *testing.T) {
 						MinReplicas: pointerToInt32(3),
 						CPU:         pointerToInt32(80),
 						Memory:      pointerToInt32(1024),
+						RPS:         pointerToInt32(100),
 					}
 					return currentAutoscale, nil
 				},
@@ -230,6 +233,7 @@ func Test_updateAutoscale(t *testing.T) {
 						MinReplicas: pointerToInt32(5),
 						CPU:         pointerToInt32(80),
 						Memory:      pointerToInt32(512),
+						RPS:         pointerToInt32(100),
 					}
 					assert.Equal(t, expectedAutoscale, autoscale)
 					return nil

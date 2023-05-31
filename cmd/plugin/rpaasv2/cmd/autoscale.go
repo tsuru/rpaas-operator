@@ -8,7 +8,6 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
-	"strconv"
 
 	"github.com/olekukonko/tablewriter"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -56,19 +55,24 @@ func NewCmdUpdateAutoscale() *cli.Command {
 				Required: true,
 			},
 			&cli.IntFlag{
-				Name:     "cpu",
-				Aliases:  []string{"cpu-utilization"},
-				Usage:    "the target average CPU utilization on all replicas (in percentage format, e.g. 80 equals to 80%)",
-				Required: false,
+				Name:        "cpu",
+				Aliases:     []string{"cpu-utilization"},
+				Usage:       "the target average CPU utilization on all replicas (in percentage format, e.g. 80 equals to 80%)",
+				DefaultText: "N/A",
 			},
 			&cli.IntFlag{
-				Name:     "memory",
-				Aliases:  []string{"memory-utilization"},
-				Usage:    "the target average memory utilization on all the replicas (in percentage format, e.g. 80 equals to 80%)",
-				Required: false,
+				Name:        "memory",
+				Aliases:     []string{"memory-utilization"},
+				Usage:       "the target average memory utilization on all the replicas (in percentage format, e.g. 80 equals to 80%)",
+				DefaultText: "N/A",
+			},
+			&cli.IntFlag{
+				Name:        "rps",
+				Aliases:     []string{"requests-per-second"},
+				Usage:       "the target average of HTTP requests per seconds between replicas (e.g. 100, means 100 req/s)",
+				DefaultText: "N/A",
 			},
 		},
-
 		Before: setupClient,
 		Action: runUpdateAutoscale,
 	}
@@ -97,6 +101,10 @@ func runUpdateAutoscale(c *cli.Context) error {
 
 	if c.IsSet("memory") {
 		updateArgs.Memory = pointerToInt32(int32(c.Int("memory")))
+	}
+
+	if c.IsSet("rps") {
+		updateArgs.RPS = pointerToInt32(int32(c.Int("rps")))
 	}
 
 	err = client.UpdateAutoscale(c.Context, updateArgs)
@@ -221,36 +229,41 @@ func writeAutoscale(w io.Writer, autoscale *clientTypes.Autoscale) {
 		return
 	}
 	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Replicas", "Target Utilization"})
+	table.SetHeader([]string{"Replicas", "Target"})
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(true)
 	table.SetRowLine(false)
-	var max, min, cpuPercentage, memPercentage string
 
+	max := "Max: N/A"
 	if autoscale.MaxReplicas != nil {
-		max = fmt.Sprintf("Max: %s", strconv.Itoa(int(*autoscale.MaxReplicas)))
-	} else {
-		max = "Max: N/A"
+		max = fmt.Sprintf("Max: %d", *autoscale.MaxReplicas)
 	}
+
+	min := "Min: N/A"
 	if autoscale.MinReplicas != nil {
-		min = fmt.Sprintf("Min: %s", strconv.Itoa(int(*autoscale.MinReplicas)))
-	} else {
-		min = "Min: N/A"
+		min = fmt.Sprintf("Min: %d", *autoscale.MinReplicas)
 	}
+
+	cpuPercentage := "CPU: N/A"
 	if autoscale.CPU != nil {
-		cpuPercentage = fmt.Sprintf("CPU: %s%%", strconv.Itoa(int(*autoscale.CPU)))
-	} else {
-		cpuPercentage = "CPU: N/A"
+		cpuPercentage = fmt.Sprintf("CPU: %d%%", *autoscale.CPU)
 	}
+
+	memPercentage := "Memory: N/A"
 	if autoscale.Memory != nil {
-		memPercentage = fmt.Sprintf("Memory: %s%%", strconv.Itoa(int(*autoscale.Memory)))
-	} else {
-		memPercentage = "Memory: N/A"
+		memPercentage = fmt.Sprintf("Memory: %d%%", *autoscale.Memory)
 	}
+
+	rps := "RPS: N/A"
+	if autoscale.RPS != nil {
+		rps = fmt.Sprintf("RPS: %d req/s", *autoscale.RPS)
+	}
+
 	data := [][]string{
 		{max, cpuPercentage},
 		{min, memPercentage},
+		{"", rps},
 	}
 	table.AppendBulk(data)
 	table.Render()

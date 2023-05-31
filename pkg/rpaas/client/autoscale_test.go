@@ -52,6 +52,7 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 				MaxReplicas: pointerToInt(10),
 				CPU:         pointerToInt(27),
 				Memory:      pointerToInt(33),
+				RPS:         pointerToInt(42),
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				switch handlerCount {
@@ -74,6 +75,7 @@ func TestClientThroughTsuru_UpdateAutoscale(t *testing.T) {
 						MinReplicas: pointerToInt(5),
 						CPU:         pointerToInt(27),
 						Memory:      pointerToInt(33),
+						RPS:         pointerToInt(42),
 					}
 					defer r.Body.Close()
 					var values types.Autoscale
