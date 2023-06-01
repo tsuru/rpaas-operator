@@ -1,13 +1,17 @@
 FROM golang:1.20-alpine3.18 AS builder
 COPY . /go/src/github.com/tsuru/rpaas-operator
 WORKDIR /go/src/github.com/tsuru/rpaas-operator
-RUN apk add --update gcc git make musl-dev && \
-    make build/api
+RUN set -x \
+    && apk add --update gcc git make musl-dev \
+    && make build/api
 
-FROM alpine:3.18
+FROM google/cloud-sdk:alpine
+RUN set -x \
+    && gcloud --version \
+    && gcloud --quiet components install gke-gcloud-auth-plugin \
+    && gke-gcloud-auth-plugin --version \
+    && apk add --update --no-cache ca-certificates \
+    && update-ca-certificates
 COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/bin/api /bin/rpaas-api
-RUN apk update && \
-    apk add --no-cache ca-certificates && \
-    rm /var/cache/apk/*
 EXPOSE 9999
 CMD ["/bin/rpaas-api"]

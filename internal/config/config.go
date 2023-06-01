@@ -65,6 +65,7 @@ type ClusterConfig struct {
 	CA        string `json:"ca"`
 
 	AuthProvider *clientcmdapi.AuthProviderConfig `json:"authProvider"`
+	ExecProvider *clientcmdapi.ExecConfig         `json:"execProvider"`
 }
 
 var rpaasConfig struct {

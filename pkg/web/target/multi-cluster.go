@@ -13,7 +13,6 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
 	"k8s.io/client-go/rest"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -90,6 +89,7 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 	if err != nil {
 		return nil, err
 	}
+
 	k8sClient, err := sigsk8sclient.New(kubernetesRestConfig, sigsk8sclient.Options{Scheme: extensionsruntime.NewScheme()})
 	if err != nil {
 		return nil, err
@@ -136,6 +136,10 @@ func (m *multiClusterFactory) getKubeConfig(name, address string) (*rest.Config,
 
 	if selectedCluster.AuthProvider != nil {
 		restConfig.AuthProvider = selectedCluster.AuthProvider
+	}
+
+	if selectedCluster.ExecProvider != nil {
+		restConfig.ExecProvider = selectedCluster.ExecProvider
 	}
 
 	if selectedCluster.CA != "" {
