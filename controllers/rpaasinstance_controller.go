@@ -44,6 +44,8 @@ type KEDAOptions struct {
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets;services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
+
 // +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=autoscaling,resources=horizontalpodautoscalers,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups=policy,resources=poddisruptionbudgets,verbs=get;list;watch;create;update;delete
