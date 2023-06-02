@@ -43,7 +43,7 @@ type KEDAOptions struct {
 	PrometheusRPSQuery      *template.Template
 }
 
-// +kubebuilder:rbac:groups="",resources=configmaps;persistentvolumeclaims;secrets;services,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=configmaps;secrets;services,verbs=get;list;watch;create;update;delete
 // +kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
 
 // +kubebuilder:rbac:groups=batch,resources=cronjobs,verbs=get;list;watch;create;update;delete
@@ -220,7 +220,6 @@ func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 		For(&extensionsv1alpha1.RpaasInstance{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
-		Owns(&corev1.PersistentVolumeClaim{}).
 		Owns(&batchv1.CronJob{}).
 		Owns(&nginxv1alpha1.Nginx{}).
 		Owns(&cmv1.Certificate{}).
