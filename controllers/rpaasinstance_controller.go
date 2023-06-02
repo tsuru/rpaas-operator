@@ -60,7 +60,7 @@ type KEDAOptions struct {
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances,verbs=get;list;watch;update;patch
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasinstances/status,verbs=get;update;patch
 
-// +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;create;update;patch
+// +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)

@@ -109,9 +109,11 @@ rules:
   - scaledobjects
   verbs:
   - create
+  - delete
   - get
-  - patch
+  - list
   - update
+  - watch
 - apiGroups:
   - nginx.tsuru.io
   resources:
