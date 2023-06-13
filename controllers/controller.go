@@ -11,11 +11,13 @@ import (
 	"crypto/sha256"
 	"encoding/base32"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"reflect"
 	"sort"
 	"strconv"
 	"strings"
+	"text/template"
 
 	"github.com/imdario/mergo"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
@@ -527,7 +529,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	logger := r.Log.WithName("reconcileHPA").
 		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
-	if r.KEDAOptions.Enabled {
+	if isKEDAHandlingHPA(instance) {
 		return r.reconcileKEDA(ctx, instance, nginx)
 	}
 
@@ -543,7 +545,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	var observed autoscalingv2.HorizontalPodAutoscaler
 	err := r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
 	if k8sErrors.IsNotFound(err) {
-		if instance.Spec.Autoscale == nil {
+		if !isAutoscaleEnabled(instance.Spec.Autoscale) {
 			logger.V(4).Info("Skipping HorizontalPodAutoscaler reconciliation: both HPA resource and desired RpaasAutoscaleSpec not found")
 			return nil
 		}
@@ -565,7 +567,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 
 	logger = logger.WithValues("HorizontalPodAutoscaler", types.NamespacedName{Name: observed.Name, Namespace: observed.Namespace})
 
-	if instance.Spec.Autoscale == nil {
+	if !isAutoscaleEnabled(instance.Spec.Autoscale) {
 		logger.V(4).Info("Deleting HorizontalPodAutoscaler resource")
 		if err = r.Client.Delete(ctx, &observed); err != nil {
 			logger.Error(err, "Unable to delete the HorizontalPodAutoscaler resource")
@@ -588,13 +590,20 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	return nil
 }
 
+func isKEDAHandlingHPA(instance *v1alpha1.RpaasInstance) bool {
+	return instance.Spec.Autoscale != nil && instance.Spec.Autoscale.KEDAOptions != nil && instance.Spec.Autoscale.KEDAOptions.Enabled
+}
+
 func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
-	desired := newKEDAScaledObject(instance, nginx, &r.KEDAOptions)
+	desired, err := newKEDAScaledObject(instance, nginx)
+	if err != nil {
+		return err
+	}
 
 	var observed kedav1alpha1.ScaledObject
-	err := r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
 	if k8sErrors.IsNotFound(err) {
-		if instance.Spec.Autoscale == nil {
+		if !isAutoscaleEnabled(instance.Spec.Autoscale) {
 			return nil // nothing to do
 		}
 
@@ -605,7 +614,7 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 		return err
 	}
 
-	if instance.Spec.Autoscale == nil {
+	if !isAutoscaleEnabled(instance.Spec.Autoscale) {
 		return r.Client.Delete(ctx, &observed)
 	}
 
@@ -617,7 +626,13 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 	return nil
 }
 
-func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx, kedaOpts *KEDAOptions) *kedav1alpha1.ScaledObject {
+func isAutoscaleEnabled(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
+	return a != nil &&
+		(a.MinReplicas != nil && a.MaxReplicas > 0) &&
+		(a.TargetCPUUtilizationPercentage != nil || a.TargetMemoryUtilizationPercentage != nil || a.TargetRequestsPerSecond != nil)
+}
+
+func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*kedav1alpha1.ScaledObject, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
 	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
@@ -640,16 +655,29 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 	}
 
 	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetRequestsPerSecond != nil {
+		kopts := instance.Spec.Autoscale.KEDAOptions
+		if kopts == nil {
+			return nil, errors.New("keda options not provided")
+		}
+
+		queryTemplate, err := template.New("rpaasv2-autoscale-rps-query").Parse(kopts.RPSQueryTemplate)
+		if err != nil {
+			return nil, fmt.Errorf("unable to parse the request per second query template: %w", err)
+		}
+
 		var query bytes.Buffer
-		kedaOpts.PrometheusRPSQuery.Execute(&query, instance)
+		if err = queryTemplate.Execute(&query, instance); err != nil {
+			return nil, fmt.Errorf("unable to render the requestg per second query template: %w", err)
+		}
 
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 			Type: "prometheus",
 			Metadata: map[string]string{
-				"serverAddress": kedaOpts.PrometheusServerAddress,
+				"serverAddress": instance.Spec.Autoscale.KEDAOptions.PrometheusServerAddress,
 				"query":         query.String(),
 				"threshold":     strconv.Itoa(int(*instance.Spec.Autoscale.TargetRequestsPerSecond)),
 			},
+			AuthenticationRef: kopts.RPSAuthenticationRef,
 		})
 	}
 
@@ -666,6 +694,11 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 	var max *int32
 	if instance.Spec.Autoscale != nil {
 		max = &instance.Spec.Autoscale.MaxReplicas
+	}
+
+	var pollingInterval *int32
+	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.KEDAOptions != nil {
+		pollingInterval = instance.Spec.Autoscale.KEDAOptions.PollingInterval
 	}
 
 	return &kedav1alpha1.ScaledObject{
@@ -689,9 +722,10 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 			},
 			MinReplicaCount: min,
 			MaxReplicaCount: max,
+			PollingInterval: pollingInterval,
 			Triggers:        triggers,
 		},
-	}
+	}, nil
 }
 
 func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {

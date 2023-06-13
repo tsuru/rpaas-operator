@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"testing"
-	"text/template"
 
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
@@ -596,7 +595,6 @@ func Test_reconcileHPA(t *testing.T) {
 	}
 
 	tests := map[string]struct {
-		reconciler           func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler
 		resources            []runtime.Object
 		instance             func(*v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance
 		nginx                func(*nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx
@@ -742,19 +740,16 @@ func Test_reconcileHPA(t *testing.T) {
 		},
 
 		"(KEDA controller) with RPS enabled": {
-			reconciler: func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler {
-				r.KEDAOptions = KEDAOptions{
-					Enabled:                 true,
-					PrometheusServerAddress: "https://prometheus.example.com",
-					PrometheusRPSQuery:      template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
-				}
-				return r
-			},
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MinReplicas:             func(n int32) *int32 { return &n }(2),
 					MaxReplicas:             500,
 					TargetRequestsPerSecond: func(n int32) *int32 { return &n }(50),
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:                 true,
+						PrometheusServerAddress: "https://prometheus.example.com",
+						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
+					},
 				}
 				return ri
 			},
@@ -807,20 +802,22 @@ func Test_reconcileHPA(t *testing.T) {
 					return so
 				}(baseExpectedScaledObject.DeepCopy()),
 			},
-			reconciler: func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler {
-				r.KEDAOptions = KEDAOptions{
-					Enabled:                 true,
-					PrometheusServerAddress: "https://prometheus.example.com",
-					PrometheusRPSQuery:      template.Must(template.New("query").Parse(`sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`)),
-				}
-				return r
-			},
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MinReplicas:                    func(n int32) *int32 { return &n }(5),
 					MaxReplicas:                    42,
 					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
 					TargetRequestsPerSecond:        func(n int32) *int32 { return &n }(100),
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:                 true,
+						PrometheusServerAddress: "https://prometheus.example.com",
+						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
+						RPSAuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+							Kind: "ClusterTriggerAuthentication",
+							Name: "prometheus-auth",
+						},
+						PollingInterval: func(n int32) *int32 { return &n }(5),
+					},
 				}
 				return ri
 			},
@@ -834,6 +831,7 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 					MinReplicaCount: func(n int32) *int32 { return &n }(5),
 					MaxReplicaCount: func(n int32) *int32 { return &n }(42),
+					PollingInterval: func(n int32) *int32 { return &n }(5),
 					Triggers: []kedav1alpha1.ScaleTriggers{
 						{
 							Type:       "cpu",
@@ -849,6 +847,10 @@ func Test_reconcileHPA(t *testing.T) {
 								"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
 								"threshold":     "100",
 							},
+							AuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+								Kind: "ClusterTriggerAuthentication",
+								Name: "prometheus-auth",
+							},
 						},
 					},
 				}
@@ -860,11 +862,15 @@ func Test_reconcileHPA(t *testing.T) {
 			resources: []runtime.Object{
 				baseExpectedScaledObject.DeepCopy(),
 			},
-			reconciler: func(r *RpaasInstanceReconciler) *RpaasInstanceReconciler {
-				r.KEDAOptions = KEDAOptions{
-					Enabled: true,
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:                 true,
+						PrometheusServerAddress: "https://prometheus.example.com",
+						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
+					},
 				}
-				return r
+				return ri
 			},
 			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
 				var so kedav1alpha1.ScaledObject
@@ -907,9 +913,6 @@ func Test_reconcileHPA(t *testing.T) {
 			resources := append(tt.resources, instance, nginx)
 
 			r := newRpaasInstanceReconciler(resources...)
-			if tt.reconciler != nil {
-				r = tt.reconciler(r)
-			}
 
 			err := r.reconcileHPA(context.TODO(), instance, nginx)
 			require.NoError(t, err)

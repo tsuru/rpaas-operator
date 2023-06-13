@@ -5,6 +5,7 @@
 package v1alpha1
 
 import (
+	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -244,6 +245,30 @@ type RpaasInstanceAutoscaleSpec struct {
 	// pods should keep before scaling up/down pods.
 	// +optional
 	TargetRequestsPerSecond *int32 `json:"targetRequestsPerSecond,omitempty"`
+	// KEDAOptions defines the options used when creating autoscaling resources via KEDA's API.
+	// +optional
+	KEDAOptions *AutoscaleKEDAOptions `json:"kedaOptions,omitempty"`
+}
+
+type AutoscaleKEDAOptions struct {
+	// Enabled whether should use KEDA as the autoscaling controller.
+	// +optional
+	Enabled bool `json:"enabled,omitempty"`
+	// PrometheusServerAddress is the Prometheus server (URL) address.
+	// Mandatory if Enabled field is true.
+	// +optional
+	PrometheusServerAddress string `json:"prometheusServerAddress,omitempty"`
+	// RPSQueryTemplate is a gotemplate used to define the requests per second Prometheus query.
+	// Mandatory if Enabled field is true.
+	// +optional
+	RPSQueryTemplate string `json:"rpsQueryTemplate,omitempty"`
+	// RPSAuthenticationRef is the reference to KEDA's authentication resource regarding the
+	// request per second trigger.
+	// +optional
+	RPSAuthenticationRef *kedav1alpha1.ScaledObjectAuthRef `json:"rpsAuthenticationRef,omitempty"`
+	// PollingInterval is the interval in seconds to check each trigger on.
+	// +optional
+	PollingInterval *int32 `json:"pollingInterval,omitempty"`
 }
 
 type TLSSessionResumption struct {

@@ -8,7 +8,6 @@ import (
 	"context"
 	"fmt"
 	"reflect"
-	"text/template"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -34,13 +33,6 @@ type RpaasInstanceReconciler struct {
 	client.Client
 	Log           logr.Logger
 	EventRecorder record.EventRecorder
-	KEDAOptions   KEDAOptions
-}
-
-type KEDAOptions struct {
-	Enabled                 bool
-	PrometheusServerAddress string
-	PrometheusRPSQuery      *template.Template
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;services,verbs=get;list;watch;create;update;delete

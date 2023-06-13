@@ -57,6 +57,43 @@ spec:
                 description: Autoscale holds the infos used to configure the HorizontalPodAutoscaler
                   for this instance.
                 properties:
+                  kedaOptions:
+                    description: KEDAOptions defines the options used when creating
+                      autoscaling resources via KEDA's API.
+                    properties:
+                      enabled:
+                        description: Enabled whether should use KEDA as the autoscaling
+                          controller.
+                        type: boolean
+                      pollingInterval:
+                        description: PollingInterval is the interval in seconds to
+                          check each trigger on.
+                        format: int32
+                        type: integer
+                      prometheusServerAddress:
+                        description: PrometheusServerAddress is the Prometheus server
+                          (URL) address. Mandatory if Enabled field is true.
+                        type: string
+                      rpsAuthenticationRef:
+                        description: RPSAuthenticationRef is the reference to KEDA's
+                          authentication resource regarding the request per second
+                          trigger.
+                        properties:
+                          kind:
+                            description: Kind of the resource being referred to. Defaults
+                              to TriggerAuthentication.
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      rpsQueryTemplate:
+                        description: RPSQueryTemplate is a gotemplate used to define
+                          the requests per second Prometheus query. Mandatory if Enabled
+                          field is true.
+                        type: string
+                    type: object
                   maxReplicas:
                     description: MaxReplicas is the upper limit for the number of
                       replicas that can be set by the HorizontalPodAutoscaler.
