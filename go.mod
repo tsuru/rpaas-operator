@@ -28,7 +28,7 @@ require (
 	github.com/spf13/viper v1.10.0
 	github.com/stern/stern v1.20.1
 	github.com/stretchr/testify v1.8.2
-	github.com/tsuru/nginx-operator v0.13.1
+	github.com/tsuru/nginx-operator v0.13.2
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e

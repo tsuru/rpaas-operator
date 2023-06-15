@@ -754,8 +754,8 @@ github.com/tmc/grpc-websocket-proxy v0.0.0-20170815181823-89b8d40f7ca8/go.mod h1
 github.com/tmc/grpc-websocket-proxy v0.0.0-20190109142713-0ad062ec5ee5/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tmc/grpc-websocket-proxy v0.0.0-20201229170055-e5319fda7802/go.mod h1:ncp9v5uamzpCO7NfCPTXjqaC+bZgJeR0sMTm6dMHP7U=
 github.com/tommy-muehle/go-mnd v1.3.1-0.20200224220436-e6f9a994e8fa/go.mod h1:dSUh0FtTP8VhvkL1S+gUR1OKd9ZnSaozuI6r3m6wOig=
-github.com/tsuru/nginx-operator v0.13.1 h1:oLSgmlAoOFU3Ep0pUJ+u9lAVCxo0vUyhLJF6rLq1GPM=
-github.com/tsuru/nginx-operator v0.13.1/go.mod h1:CPfOU74PhA3kpR/hNkTswfTNYCsXK8L7ZCx25IYtlM0=
+github.com/tsuru/nginx-operator v0.13.2 h1:b6D+FnoVgt51/3JYUFTDYcQJwPufy+KjOUtgx6WDL9E=
+github.com/tsuru/nginx-operator v0.13.2/go.mod h1:CPfOU74PhA3kpR/hNkTswfTNYCsXK8L7ZCx25IYtlM0=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f h1:9dTZI6bQUVkKAsCnqaDl4V7fKAc5ErVpmX+bzevz3Cg=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f/go.mod h1:SUQKJ3CLsVARBwkz5z9IIL8Pj008JNj4U8eF50kkm2c=
 github.com/uber/jaeger-client-go v2.25.0+incompatible h1:IxcNZ7WRY1Y3G4poYlx24szfsn/3LvK9QHCq9oQw8+U=
