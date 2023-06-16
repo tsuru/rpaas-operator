@@ -23,6 +23,7 @@ import (
 // - rpaasinstance.spec.ingress.annotations
 // - rpaasinstance.spec.podTemplate.affinity.podAffinity
 // - rpaasinstance.spec.podTemplate.affinity.podAntiAffinity
+// - rpaasinstance.spec.podTemplate.topologySpreadConstraints
 func RenderCustomValues(instance *v1alpha1.RpaasInstance) error {
 	if instance == nil {
 		return nil
@@ -33,6 +34,10 @@ func RenderCustomValues(instance *v1alpha1.RpaasInstance) error {
 	}
 
 	if err := renderIngressCustomAnnotations(instance); err != nil {
+		return err
+	}
+
+	if err := renderTopologySpreadConstraints(instance); err != nil {
 		return err
 	}
 
@@ -70,6 +75,18 @@ func renderIngressCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
 		instance.Spec.Ingress.Annotations[k] = renderedValue
 	}
 
+	return nil
+}
+
+func renderTopologySpreadConstraints(instance *v1alpha1.RpaasInstance) error {
+	if len(instance.Spec.PodTemplate.TopologySpreadConstraints) < 1 {
+		return nil
+	}
+	for i := range instance.Spec.PodTemplate.TopologySpreadConstraints {
+		if err := renderLabelSelector(instance, instance.Spec.PodTemplate.TopologySpreadConstraints[i].LabelSelector); err != nil {
+			return err
+		}
+	}
 	return nil
 }
 

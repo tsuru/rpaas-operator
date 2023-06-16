@@ -301,8 +301,44 @@ func TestRenderCustomValues(t *testing.T) {
 				},
 			},
 		},
-	}
 
+		"with custom topology spread constraints": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+							{MaxSkew: 1, TopologyKey: "zone", WhenUnsatisfiable: corev1.ScheduleAnyway, LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"example-key1": `{{ .Namespace }}`},
+							}}, {MaxSkew: 1, TopologyKey: "host", WhenUnsatisfiable: corev1.ScheduleAnyway, LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"example-key2": `{{ .Name }}`},
+							}},
+						},
+					},
+				},
+			},
+			expected: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						TopologySpreadConstraints: []corev1.TopologySpreadConstraint{
+							{MaxSkew: 1, TopologyKey: "zone", WhenUnsatisfiable: corev1.ScheduleAnyway, LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"example-key1": "rpaasv2"},
+							}}, {MaxSkew: 1, TopologyKey: "host", WhenUnsatisfiable: corev1.ScheduleAnyway, LabelSelector: &metav1.LabelSelector{
+								MatchLabels: map[string]string{"example-key2": "my-instance"},
+							}},
+						},
+					},
+				},
+			},
+		},
+	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			err := util.RenderCustomValues(tt.instance)
