@@ -360,6 +360,7 @@ func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string)
 		MaxReplicas: &autoscale.MaxReplicas,
 		CPU:         autoscale.TargetCPUUtilizationPercentage,
 		Memory:      autoscale.TargetMemoryUtilizationPercentage,
+		RPS:         autoscale.TargetRequestsPerSecond,
 	}
 
 	return &s, nil
@@ -1560,6 +1561,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 			MaxReplicas: &autoscale.MaxReplicas,
 			CPU:         autoscale.TargetCPUUtilizationPercentage,
 			Memory:      autoscale.TargetMemoryUtilizationPercentage,
+			RPS:         autoscale.TargetRequestsPerSecond,
 		}
 	}
 

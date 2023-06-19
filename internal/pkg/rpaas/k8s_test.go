@@ -3482,6 +3482,7 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 		MinReplicas:                       pointerToInt32(1),
 		TargetCPUUtilizationPercentage:    pointerToInt32(70),
 		TargetMemoryUtilizationPercentage: pointerToInt32(1024),
+		TargetRequestsPerSecond:           pointerToInt32(50),
 	}
 
 	resources := []runtime.Object{instance1}
@@ -3509,6 +3510,7 @@ func Test_k8sRpaasManager_GetAutoscale(t *testing.T) {
 					MinReplicas: pointerToInt32(1),
 					CPU:         pointerToInt32(70),
 					Memory:      pointerToInt32(1024),
+					RPS:         pointerToInt32(50),
 				}
 				assert.Equal(t, expectedAutoscale, s)
 			},
@@ -3898,6 +3900,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					MaxReplicas:                    100,
 					MinReplicas:                    pointerToInt32(1),
 					TargetCPUUtilizationPercentage: pointerToInt32(90),
+					TargetRequestsPerSecond:        pointerToInt32(50),
 				}
 				return i
 			},
@@ -3906,6 +3909,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					MaxReplicas: pointerToInt32(100),
 					MinReplicas: pointerToInt32(1),
 					CPU:         pointerToInt32(90),
+					RPS:         pointerToInt32(50),
 				}
 				return info
 			},
