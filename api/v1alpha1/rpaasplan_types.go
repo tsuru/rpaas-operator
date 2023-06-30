@@ -73,6 +73,7 @@ type NginxConfig struct {
 	LogAdditionalFields  map[string]string `json:"logAdditionalFields,omitempty"`
 
 	MapHashBucketSize int `json:"mapHashBucketSize,omitempty"`
+	MapHashMaxSize    int `json:"mapHashMaxSize,omitempty"`
 
 	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
 	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`

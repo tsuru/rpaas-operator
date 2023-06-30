@@ -492,6 +492,8 @@ spec:
                             type: string
                           mapHashBucketSize:
                             type: integer
+                          mapHashMaxSize:
+                            type: integer
                           syslogEnabled:
                             type: boolean
                           syslogFacility:
