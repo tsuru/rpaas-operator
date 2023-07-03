@@ -37,7 +37,7 @@ archives:
     {{- end }}_
     {{- if eq .Arch "amd64" -}}
       x86_64
-    {{- if eq .Arch "386" -}}
+    {{- else if eq .Arch "386" -}}
       i386
     {{- else -}}
       {{ .Arch }}
