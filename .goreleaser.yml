@@ -41,7 +41,7 @@ archives:
       i386
     {{- else -}}
       {{- .Arch }}
-    {{ end }}
+    {{- end }}
   format_overrides:
   - goos: windows
     format: zip
