@@ -25,7 +25,7 @@ archives:
   builds:
   - rpaasv2
   name_template: >-
-    "rpaasv2_{{ .Version }}_
+    rpaasv2_{{ .Version }}_
     {{- if eq .Os "darwin" -}}
       Darwin
     {{- else if eq .Os "linux" -}}
@@ -37,6 +37,8 @@ archives:
     {{- end }}_
     {{- if eq .Arch "amd64" -}}
       x86_64
+    {{- if eq .Arch "386" -}}
+      i386
     {{- else -}}
       {{ .Arch }}
     {{ end }}
