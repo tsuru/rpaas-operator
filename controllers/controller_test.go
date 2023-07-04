@@ -95,6 +95,23 @@ func Test_newNginx(t *testing.T) {
 				return n
 			},
 		},
+		"with KEDA configs set but autoscale disabled": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Replicas = func(n int32) *int32 { return &n }(15)
+				i.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:                 true,
+						PrometheusServerAddress: "https://prometheus.example.com",
+						RPSQueryTemplate:        "vector(100)",
+					},
+				}
+				return i
+			},
+			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
+				n.Spec.Replicas = func(n int32) *int32 { return &n }(15)
+				return n
+			},
+		},
 	}
 
 	for name, tt := range tests {

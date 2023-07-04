@@ -1039,7 +1039,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 	instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(instanceMergedWithFlavors)
 
 	replicas := instanceMergedWithFlavors.Spec.Replicas
-	if instanceMergedWithFlavors.Spec.Autoscale != nil {
+	if isAutoscaleEnabled(instanceMergedWithFlavors.Spec.Autoscale) {
 		// NOTE: we should avoid changing the number of replicas as it's managed by HPA.
 		replicas = nil
 	}
