@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 

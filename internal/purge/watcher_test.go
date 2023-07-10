@@ -4,13 +4,13 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
-
 	apiv1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 func TestCanListPods(t *testing.T) {

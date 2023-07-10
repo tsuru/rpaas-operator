@@ -9,12 +9,13 @@ import (
 	"sync"
 
 	"github.com/opentracing/opentracing-go"
+	"k8s.io/client-go/rest"
+	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
-	"k8s.io/client-go/rest"
-	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 var _ Factory = &multiClusterFactory{}

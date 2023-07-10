@@ -5,8 +5,9 @@
 package cmd
 
 import (
-	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
+
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
 
 func NewCmdLogs() *cli.Command {

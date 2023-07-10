@@ -18,7 +18,6 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
-
 	v1 "k8s.io/client-go/kubernetes/typed/core/v1"
 )
 

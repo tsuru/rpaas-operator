@@ -12,6 +12,7 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/fake"
 )

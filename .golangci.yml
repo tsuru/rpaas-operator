@@ -1,20 +1,26 @@
 run:
-  deadline: 30m
+  deadline: 5m
   tests: true
 
 linters-settings:
   govet:
     check-shadowing: true
+
   gofmt:
     simplify: true
-  maligned:
-    suggest-new: true
+
+  gci:
+    sections:
+    - standard
+    - default
+    - prefix(github.com/tsuru/rpaas-operator)
 
 linters:
   enable:
-    - goimports
-    - gofmt
-    - misspell
-    - govet
+  - goimports
+  - gofmt
+  - misspell
+  - govet
+  - gci
   disable:
-    - errcheck
+  - errcheck

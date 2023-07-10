@@ -11,9 +11,10 @@ import (
 	"os"
 	"time"
 
+	"github.com/urfave/cli/v2"
+
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/version"
-	"github.com/urfave/cli/v2"
 )
 
 func NewDefaultApp() *cli.App {

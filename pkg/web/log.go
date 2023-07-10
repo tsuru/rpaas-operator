@@ -12,6 +12,7 @@ import (
 	"sync"
 
 	"github.com/labstack/echo/v4"
+
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 

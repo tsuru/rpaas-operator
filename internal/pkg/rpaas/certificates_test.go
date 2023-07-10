@@ -11,15 +11,16 @@ import (
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/config"
-	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
-	rpaasruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/config"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
+	rpaasruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 func Test_k8sRpaasManager_GetCertManagerRequests(t *testing.T) {

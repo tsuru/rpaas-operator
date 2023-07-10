@@ -10,8 +10,9 @@ import (
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/urfave/cli/v2"
+
+	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
 func NewCmdAccessControlList() *cli.Command {

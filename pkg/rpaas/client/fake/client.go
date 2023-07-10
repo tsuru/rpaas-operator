@@ -8,6 +8,7 @@ import (
 	"context"
 
 	"github.com/gorilla/websocket"
+
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )

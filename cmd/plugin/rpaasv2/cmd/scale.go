@@ -7,8 +7,9 @@ package cmd
 import (
 	"fmt"
 
-	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
+
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
 
 func NewCmdScale() *cli.Command {

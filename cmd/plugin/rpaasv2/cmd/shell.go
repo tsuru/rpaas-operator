@@ -9,9 +9,10 @@ import (
 	"os"
 
 	"github.com/gorilla/websocket"
-	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/urfave/cli/v2"
 	"k8s.io/kubectl/pkg/util/term"
+
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
 
 func NewCmdShell() *cli.Command {

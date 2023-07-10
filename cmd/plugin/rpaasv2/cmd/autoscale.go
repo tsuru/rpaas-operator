@@ -10,9 +10,10 @@ import (
 	"io"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/urfave/cli/v2"
+
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
-	"github.com/urfave/cli/v2"
 )
 
 func NewCmdAutoscale() *cli.Command {

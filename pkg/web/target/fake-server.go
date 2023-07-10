@@ -4,10 +4,11 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
-	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	"k8s.io/apimachinery/pkg/runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 var _ Factory = &fakeServerFactory{}

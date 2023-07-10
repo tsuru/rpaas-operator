@@ -4,11 +4,12 @@ import (
 	"context"
 	"fmt"
 
+	v1 "k8s.io/api/core/v1"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/util"
-	v1 "k8s.io/api/core/v1"
-	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 // Should be exported from rpaas/k8s.go

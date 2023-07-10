@@ -10,8 +10,9 @@ import (
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/tsuru/rpaas-operator/internal/config"
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	"github.com/tsuru/rpaas-operator/internal/config"
 )
 
 func TestCreateArgs_Flavors(t *testing.T) {

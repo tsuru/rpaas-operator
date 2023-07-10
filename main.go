@@ -17,7 +17,6 @@ import (
 	"github.com/tsuru/rpaas-operator/controllers"
 	"github.com/tsuru/rpaas-operator/pkg/controllerapi"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
-	// +kubebuilder:scaffold:imports
 )
 
 var setupLog = ctrl.Log.WithName("setup")

@@ -12,6 +12,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 

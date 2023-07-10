@@ -4,11 +4,12 @@ import (
 	"context"
 	"net/http"
 
+	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
+	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
+
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
-	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
-	sigsk8sconfig "sigs.k8s.io/controller-runtime/pkg/client/config"
 )
 
 var _ Factory = &localClusterFactory{}

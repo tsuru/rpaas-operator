@@ -9,12 +9,12 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/nginx-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/controllerapi"
-	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+
+	"github.com/tsuru/rpaas-operator/pkg/controllerapi"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 func TestPrometheusDiscover(t *testing.T) {

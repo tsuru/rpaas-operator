@@ -6,11 +6,9 @@ import (
 	"net/http"
 
 	"github.com/tsuru/nginx-operator/api/v1alpha1"
-	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
-
 	coreV1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/labels"
-	_ "k8s.io/client-go/plugin/pkg/client/auth/gcp"
+	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
 const healthcheckPath = "/_nginx_healthcheck"

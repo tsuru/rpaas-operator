@@ -285,7 +285,6 @@ func (m *k8sRpaasManager) CreateInstance(ctx context.Context, args CreateArgs) e
 }
 
 func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName string, args UpdateInstanceArgs) error {
-	var err error
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
