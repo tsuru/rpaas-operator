@@ -308,6 +308,10 @@ http {
     include       mime.types;
     default_type  application/octet-stream;
 
+    {{- if $config.ResolverAddresses }}
+    resolver {{ join " " $config.ResolverAddresses }}{{ with $config.ResolverTTL }} ttl={{ . }}{{ end }};
+    {{- end }}
+
     {{- $logFormatName := default "rpaasv2" $config.LogFormatName }}
 
     {{- if $config.LogFormat }}

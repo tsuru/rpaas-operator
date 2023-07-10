@@ -275,6 +275,11 @@ func (in *NginxConfig) DeepCopyInto(out *NginxConfig) {
 		*out = new(bool)
 		**out = **in
 	}
+	if in.ResolverAddresses != nil {
+		in, out := &in.ResolverAddresses, &out.ResolverAddresses
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.SyslogEnabled != nil {
 		in, out := &in.SyslogEnabled, &out.SyslogEnabled
 		*out = new(bool)

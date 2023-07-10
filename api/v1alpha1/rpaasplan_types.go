@@ -81,6 +81,9 @@ type NginxConfig struct {
 	VTSEnabled                *bool  `json:"vtsEnabled,omitempty"`
 	VTSStatusHistogramBuckets string `json:"vtsStatusHistogramBuckets,omitempty"`
 
+	ResolverAddresses []string `json:"resolverAddresses,omitempty"`
+	ResolverTTL       string   `json:"resolverTTL,omitempty"`
+
 	SyslogEnabled       *bool  `json:"syslogEnabled,omitempty"`
 	SyslogServerAddress string `json:"syslogServerAddress,omitempty"`
 	SyslogFacility      string `json:"syslogFacility,omitempty"`

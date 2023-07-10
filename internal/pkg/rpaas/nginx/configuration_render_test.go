@@ -570,6 +570,31 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 `, result)
 			},
 		},
+		{
+			name: "with custom resolver",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					ResolverAddresses: []string{"kube-dns.kube-system.svc.cluster.local.", "169.196.255.254:3553"},
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `\s+resolver kube-dns\.kube-system\.svc\.cluster\.local\. 169\.196\.255\.254:3553;\n`, result)
+			},
+		},
+		{
+			name: "with custom resolvers and TTL",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					ResolverAddresses: []string{"kube-dns.kube-system.svc.cluster.local.", "169.196.255.254:3553"},
+					ResolverTTL:       "30m",
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `\s+resolver kube-dns\.kube-system\.svc\.cluster\.local\. 169\.196\.255\.254:3553 ttl=30m;\n`, result)
+			},
+		},
 	}
 
 	for _, tt := range tests {

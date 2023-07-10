@@ -494,6 +494,12 @@ spec:
                             type: integer
                           mapHashMaxSize:
                             type: integer
+                          resolverAddresses:
+                            items:
+                              type: string
+                            type: array
+                          resolverTTL:
+                            type: string
                           syslogEnabled:
                             type: boolean
                           syslogFacility:
