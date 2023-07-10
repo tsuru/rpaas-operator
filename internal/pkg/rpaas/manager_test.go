@@ -79,6 +79,11 @@ func TestCreateArgs_Flavors(t *testing.T) {
 			},
 			want: []string{"banana"},
 		},
+		{
+			args: CreateArgs{
+				Parameters: map[string]interface{}{"flavors": ""},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -231,6 +236,11 @@ func TestUpdateInstanceArgs_Flavors(t *testing.T) {
 				Tags: []string{"flavor:banana", "flavors=strawberry,blueberry"},
 			},
 			want: []string{"banana"},
+		},
+		{
+			args: UpdateInstanceArgs{
+				Parameters: map[string]interface{}{"flavors": ""},
+			},
 		},
 	}
 

@@ -314,6 +314,10 @@ func getFlavors(params map[string]interface{}, tags []string) (flavors []string)
 
 	flavorsString, ok := p.(string)
 	if ok {
+		if flavorsString == "" {
+			return
+		}
+
 		flavors = strings.Split(flavorsString, ",")
 		return
 	}
