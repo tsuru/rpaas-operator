@@ -608,6 +608,21 @@ func Test_reconcileHPA(t *testing.T) {
 				"rpaas.extensions.tsuru.io/instance-name": "my-instance",
 				"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
 			},
+			Annotations: map[string]string{
+				"scaledobject.keda.sh/transfer-hpa-ownership": "true",
+			},
+		},
+		Spec: kedav1alpha1.ScaledObjectSpec{
+			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+				APIVersion: "apps/v1",
+				Kind:       "Deployment",
+				Name:       "my-instance",
+			},
+			Advanced: &kedav1alpha1.AdvancedConfig{
+				HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+					Name: "my-instance",
+				},
+			},
 		},
 	}
 
@@ -771,22 +786,15 @@ func Test_reconcileHPA(t *testing.T) {
 				return ri
 			},
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
-				so.Spec = kedav1alpha1.ScaledObjectSpec{
-					ScaleTargetRef: &kedav1alpha1.ScaleTarget{
-						APIVersion: "apps/v1",
-						Kind:       "Deployment",
-						Name:       "my-instance",
-					},
-					MinReplicaCount: func(n int32) *int32 { return &n }(2),
-					MaxReplicaCount: func(n int32) *int32 { return &n }(500),
-					Triggers: []kedav1alpha1.ScaleTriggers{
-						{
-							Type: "prometheus",
-							Metadata: map[string]string{
-								"serverAddress": "https://prometheus.example.com",
-								"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
-								"threshold":     "50",
-							},
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(2)
+				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(500)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type: "prometheus",
+						Metadata: map[string]string{
+							"serverAddress": "https://prometheus.example.com",
+							"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+							"threshold":     "50",
 						},
 					},
 				}
@@ -840,34 +848,27 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
 				so.ResourceVersion = "2" // second update
-				so.Spec = kedav1alpha1.ScaledObjectSpec{
-					ScaleTargetRef: &kedav1alpha1.ScaleTarget{
-						APIVersion: "apps/v1",
-						Kind:       "Deployment",
-						Name:       "my-instance",
-					},
-					MinReplicaCount: func(n int32) *int32 { return &n }(5),
-					MaxReplicaCount: func(n int32) *int32 { return &n }(42),
-					PollingInterval: func(n int32) *int32 { return &n }(5),
-					Triggers: []kedav1alpha1.ScaleTriggers{
-						{
-							Type:       "cpu",
-							MetricType: autoscalingv2.UtilizationMetricType,
-							Metadata: map[string]string{
-								"value": "90",
-							},
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(5)
+				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(42)
+				so.Spec.PollingInterval = func(n int32) *int32 { return &n }(5)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type:       "cpu",
+						MetricType: autoscalingv2.UtilizationMetricType,
+						Metadata: map[string]string{
+							"value": "90",
 						},
-						{
-							Type: "prometheus",
-							Metadata: map[string]string{
-								"serverAddress": "https://prometheus.example.com",
-								"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
-								"threshold":     "100",
-							},
-							AuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
-								Kind: "ClusterTriggerAuthentication",
-								Name: "prometheus-auth",
-							},
+					},
+					{
+						Type: "prometheus",
+						Metadata: map[string]string{
+							"serverAddress": "https://prometheus.example.com",
+							"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+							"threshold":     "100",
+						},
+						AuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+							Kind: "ClusterTriggerAuthentication",
+							Name: "prometheus-auth",
 						},
 					},
 				}
@@ -889,6 +890,52 @@ func Test_reconcileHPA(t *testing.T) {
 				}
 				return ri
 			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				var so kedav1alpha1.ScaledObject
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
+				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
+			},
+		},
+
+		"(KEDA controller) KEDA controller enabled, but instance does not have RPS trigger": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(3),
+					MaxReplicas:                    int32(100),
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(75),
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:                 true,
+						PrometheusServerAddress: "https://prometheus.example.com",
+						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
+					},
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(3),
+					MaxReplicas: 100,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: "cpu",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(75),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+
 			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
 				var so kedav1alpha1.ScaledObject
 				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)

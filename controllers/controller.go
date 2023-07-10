@@ -526,12 +526,16 @@ func newSessionTicketData(old, new map[string][]byte) map[string][]byte {
 }
 
 func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
-	logger := r.Log.WithName("reconcileHPA").
-		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
-
 	if isKEDAHandlingHPA(instance) {
 		return r.reconcileKEDA(ctx, instance, nginx)
 	}
+
+	if err := r.cleanUpKEDAScaledObject(ctx, instance); err != nil {
+		return err
+	}
+
+	logger := r.Log.WithName("reconcileHPA").
+		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 
 	logger.V(4).Info("Starting reconciliation of HorizontalPodAutoscaler")
 	defer logger.V(4).Info("Finishing reconciliation of HorizontalPodAutoscaler")
@@ -590,8 +594,22 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	return nil
 }
 
+func (r *RpaasInstanceReconciler) cleanUpKEDAScaledObject(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+	var so kedav1alpha1.ScaledObject
+	err := r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &so)
+	if k8serrors.IsNotFound(err) {
+		return nil
+	}
+
+	if err != nil {
+		return nil // custom resource does likely not exist in the cluster, so we should ignore it
+	}
+
+	return r.Client.Delete(ctx, &so)
+}
+
 func isKEDAHandlingHPA(instance *v1alpha1.RpaasInstance) bool {
-	return instance.Spec.Autoscale != nil && instance.Spec.Autoscale.KEDAOptions != nil && instance.Spec.Autoscale.KEDAOptions.Enabled
+	return instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetRequestsPerSecond != nil && instance.Spec.Autoscale.KEDAOptions != nil && instance.Spec.Autoscale.KEDAOptions.Enabled
 }
 
 func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
@@ -713,6 +731,10 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 				}),
 			},
 			Labels: labelsForRpaasInstance(instance),
+			Annotations: map[string]string{
+				// NOTE: allows the KEDA controller to take over the ownership of HPA resources.
+				"scaledobject.keda.sh/transfer-hpa-ownership": strconv.FormatBool(true),
+			},
 		},
 		Spec: kedav1alpha1.ScaledObjectSpec{
 			ScaleTargetRef: &kedav1alpha1.ScaleTarget{
@@ -724,6 +746,11 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 			MaxReplicaCount: max,
 			PollingInterval: pollingInterval,
 			Triggers:        triggers,
+			Advanced: &kedav1alpha1.AdvancedConfig{
+				HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+					Name: instance.Name,
+				},
+			},
 		},
 	}, nil
 }
