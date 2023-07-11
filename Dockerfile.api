@@ -8,7 +8,7 @@ RUN set -x \
 FROM alpine:3.18
 COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/bin/api /bin/rpaas-api
 ARG gke_auth_plugin_version=0.1.1
-ARG TARGETARCH
+ARG TARGETARCH=amd64
 RUN set -x \
     && apk add --update --no-cache curl ca-certificates \
     && curl -fsSL "https://github.com/traviswt/gke-auth-plugin/releases/download/${gke_auth_plugin_version}/gke-auth-plugin_Linux_${TARGETARCH}.tar.gz" \
