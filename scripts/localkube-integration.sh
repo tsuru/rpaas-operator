@@ -19,7 +19,8 @@ readonly NAMESPACE=${NAMESPACE:-rpaasv2-system}
 
 readonly INSTALL_CERT_MANAGER=${INSTALL_CERT_MANAGER:-}
 readonly CHART_VERSION_CERT_MANAGER=${CHART_VERSION_CERT_MANAGER:-1.11.2}
-readonly CHART_VERSION_RPAAS_OPERATOR=${CHART_VERSION_RPAAS_OPERATOR:-0.10.1}
+readonly CHART_VERSION_RPAAS_OPERATOR=${CHART_VERSION_RPAAS_OPERATOR:-0.11.7}
+readonly CHART_VERSION_RPAAS_API=${CHART_VERSION_RPAAS_API:-0.2.0}
 
 function onerror() {
   echo
@@ -59,13 +60,14 @@ install_rpaas_operator() {
 }
 
 install_rpaas_api() {
-  (
-    cd config/api
-    ${KUSTOMIZE} edit set image tsuru/rpaas-api=localhost/tsuru/rpaas-api:integration
-    ${KUSTOMIZE} edit set namespace rpaasv2-system
-  )
+  ${HELM} repo add --force-update tsuru https://tsuru.github.io/charts
 
-  ${KUBECTL} apply -n ${NAMESPACE} -k config/api
+  ${HELM} upgrade --install --atomic \
+    --namespace ${NAMESPACE} --version ${CHART_VERSION_RPAAS_API} \
+    --set image.repository=localhost/tsuru/rpaas-api \
+    --set image.tag=integration \
+    --set image.pullPolicy=Never \
+    rpaas-api tsuru/rpaas-api
 }
 
 build_rpaasv2_container_images() {
@@ -105,15 +107,15 @@ main() {
   install_rpaas_operator
   install_rpaas_api
 
-  sleep 5s
+  sleep 5
 
   trap onerror ERR
 
   local_rpaas_api_port=39999
-  ${KUBECTL} -n ${NAMESPACE} port-forward svc/rpaas-api ${local_rpaas_api_port}:9999 --address=127.0.0.1 &
+  ${KUBECTL} -n ${NAMESPACE} port-forward svc/rpaas-api ${local_rpaas_api_port}:80 --address=127.0.0.1 &
   kubectl_port_forward_pid=${!}
 
-  sleep 5s
+  sleep 5
 
   make build/plugin/rpaasv2
 
