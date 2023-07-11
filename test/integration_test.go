@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"os"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -37,7 +38,7 @@ func TestMain(m *testing.M) {
 }
 
 func assertInstanceContains(t *testing.T, localPort int, expectedStatus int, bodyPart string) {
-	rsp, iErr := http.Get(fmt.Sprintf("http://127.0.0.1:%d/", localPort))
+	rsp, iErr := http.Post(fmt.Sprintf("http://127.0.0.1:%d/", localPort), "application/x-www-form-urlencoded", strings.NewReader(bodyPart))
 	require.NoError(t, iErr)
 	assert.Equal(t, expectedStatus, rsp.StatusCode)
 	defer rsp.Body.Close()
@@ -263,7 +264,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceContains(t, localPort, http.StatusOK, "CLIENT VALUES")
+			assertInstanceContains(t, localPort, http.StatusOK, "Hello world!!!")
 		})
 		require.NoError(t, err)
 
@@ -330,7 +331,7 @@ func Test_RpaasApi(t *testing.T) {
 		ctx, cancel = context.WithTimeout(context.Background(), time.Minute)
 		defer cancel()
 		err = portForward(ctx, namespaceName, serviceName, servicePort, func(localPort int) {
-			assertInstanceContains(t, localPort, http.StatusOK, "CLIENT VALUES")
+			assertInstanceContains(t, localPort, http.StatusOK, "Hello world!!!")
 		})
 		require.NoError(t, err)
 

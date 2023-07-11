@@ -13,7 +13,8 @@ spec:
     spec:
       containers:
       - name: hello
-        image: k8s.gcr.io/echoserver:1.4
+        image: jmalloc/echo-server:0.3.5
+        imagePullPolicy: IfNotPresent
 ---
 apiVersion: v1
 kind: Service
@@ -26,4 +27,3 @@ spec:
   - name: http
     port: 80
     targetPort: 8080
-
