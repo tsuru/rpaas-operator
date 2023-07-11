@@ -5,13 +5,14 @@ RUN set -x \
     && apk add --update gcc git make musl-dev \
     && make build/api
 
-FROM google/cloud-sdk:alpine
-RUN set -x \
-    && gcloud --version \
-    && gcloud --quiet components install gke-gcloud-auth-plugin \
-    && gke-gcloud-auth-plugin --version \
-    && apk add --update --no-cache ca-certificates \
-    && update-ca-certificates
+FROM alpine:3.18
 COPY --from=builder /go/src/github.com/tsuru/rpaas-operator/bin/api /bin/rpaas-api
+ARG gke_auth_plugin_version=0.1.1
+ARG TARGETARCH
+RUN set -x \
+    && apk add --update --no-cache curl ca-certificates \
+    && curl -fsSL "https://github.com/traviswt/gke-auth-plugin/releases/download/${gke_auth_plugin_version}/gke-auth-plugin_Linux_${TARGETARCH}.tar.gz" \
+    |  tar -C /usr/local/bin -xzvf- gke-auth-plugin \
+    && gke-auth-plugin version
 EXPOSE 9999
 CMD ["/bin/rpaas-api"]
