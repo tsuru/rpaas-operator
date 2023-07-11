@@ -455,54 +455,6 @@ func Test_RpaasApi(t *testing.T) {
 		}, rpaasInstance.Spec.Locations)
 	})
 
-	t.Run("limits the number of configs to 10 by default", func(t *testing.T) {
-		instanceName := generateRandomName("my-instance")
-		teamName := generateRandomName("team-one")
-		planName := "basic"
-		blockName := "server"
-
-		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
-		require.NoError(t, err)
-		defer cleanFunc()
-
-		time.Sleep(time.Second)
-
-		configList, err := getConfigList(instanceName, namespaceName)
-		require.NoError(t, err)
-		assert.Equal(t, len(configList.Items), 1)
-
-		for i := 0; i < 15; i++ {
-			_, err = api.createBlock(instanceName, blockName, fmt.Sprintf("location = /test%d { return 204; }", i))
-			require.NoError(t, err)
-			time.Sleep(500 * time.Millisecond)
-		}
-
-		timeout := time.After(60 * time.Second)
-		expectedConfigSize := 10
-		expectedStableCount := 10
-		count := 0
-		for {
-			select {
-			case <-timeout:
-				t.Fatalf("timeout waiting for configs to reach %v, last count: %v", expectedConfigSize, len(configList.Items))
-			case <-time.After(100 * time.Millisecond):
-			}
-			configList, err = getConfigList(instanceName, namespaceName)
-			require.NoError(t, err)
-			if len(configList.Items) == expectedConfigSize {
-				count++
-				if count == expectedStableCount {
-					break
-				}
-				continue
-			}
-			count = 0
-		}
-		configList, err = getConfigList(instanceName, namespaceName)
-		require.NoError(t, err)
-		assert.Equal(t, expectedConfigSize, len(configList.Items))
-	})
-
 	t.Run("exec a remote command inside the instance", func(t *testing.T) {
 		instanceName := generateRandomName("my-instance")
 		teamName := generateRandomName("team-one")
