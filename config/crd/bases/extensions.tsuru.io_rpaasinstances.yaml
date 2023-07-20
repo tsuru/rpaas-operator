@@ -96,6 +96,10 @@ spec:
                           the requests per second Prometheus query. Mandatory if Enabled
                           field is true.
                         type: string
+                      timezone:
+                        description: Timezone is a zone name registered on IANA time
+                          zone database, e.g. "America/Sao_Paulo".
+                        type: string
                     type: object
                   maxReplicas:
                     description: MaxReplicas is the upper limit for the number of
@@ -108,6 +112,34 @@ spec:
                       to the RpaasInstance replicas value.
                     format: int32
                     type: integer
+                  schedules:
+                    description: Schedules are the time windows where the minimum
+                      replica count should change.
+                    items:
+                      properties:
+                        end:
+                          description: End is a Cron expression indicating the end
+                            of the scheduled window.
+                          type: string
+                        minReplicas:
+                          description: MinReplicas is the minimum replica count set
+                            while the scheduled window is active.
+                          format: int32
+                          type: integer
+                        start:
+                          description: Start is a Cron expression indicating the start
+                            of the shedule window.
+                          type: string
+                        timezone:
+                          description: Timezone is a zone name registered on IANA
+                            time zone database, e.g. "America/Sao_Paulo".
+                          type: string
+                      required:
+                      - end
+                      - minReplicas
+                      - start
+                      type: object
+                    type: array
                   targetCPUUtilizationPercentage:
                     description: TargetCPUUtilizationPercentage is the target average
                       CPU utilization over all the pods. Represented as a percentage

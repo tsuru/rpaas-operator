@@ -245,9 +245,24 @@ type RpaasInstanceAutoscaleSpec struct {
 	// pods should keep before scaling up/down pods.
 	// +optional
 	TargetRequestsPerSecond *int32 `json:"targetRequestsPerSecond,omitempty"`
+	// Schedules are the time windows where the minimum replica count should change.
+	// +optional
+	Schedules []ScheduledWindow `json:"schedules,omitempty"`
 	// KEDAOptions defines the options used when creating autoscaling resources via KEDA's API.
 	// +optional
 	KEDAOptions *AutoscaleKEDAOptions `json:"kedaOptions,omitempty"`
+}
+
+type ScheduledWindow struct {
+	// MinReplicas is the minimum replica count set while the scheduled window is active.
+	MinReplicas int32 `json:"minReplicas"`
+	// Start is a Cron expression indicating the start of the shedule window.
+	Start string `json:"start"`
+	// End is a Cron expression indicating the end of the scheduled window.
+	End string `json:"end"`
+	// Timezone is a zone name registered on IANA time zone database, e.g. "America/Sao_Paulo".
+	// +optional
+	Timezone string `json:"timezone,omitempty"`
 }
 
 type AutoscaleKEDAOptions struct {
@@ -269,6 +284,9 @@ type AutoscaleKEDAOptions struct {
 	// PollingInterval is the interval in seconds to check each trigger on.
 	// +optional
 	PollingInterval *int32 `json:"pollingInterval,omitempty"`
+	// Timezone is a zone name registered on IANA time zone database, e.g. "America/Sao_Paulo".
+	// +optional
+	Timezone string `json:"timezone,omitempty"`
 }
 
 type TLSSessionResumption struct {
