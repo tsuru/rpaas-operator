@@ -119,6 +119,19 @@ type ExecArgs struct {
 	TTY            bool
 }
 
+type DebugArgs struct {
+	In             io.Reader
+	Command        []string
+	Instance       string
+	Pod            string
+	Container      string
+	Image          string
+	TerminalWidth  uint16
+	TerminalHeight uint16
+	TTY            bool
+	Interactive    bool
+}
+
 type LogArgs struct {
 	Out       io.Writer
 	Instance  string
@@ -149,6 +162,7 @@ type Client interface {
 	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, error)
 	UpdateRoute(ctx context.Context, args UpdateRouteArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
+	Debug(ctx context.Context, args DebugArgs) (*websocket.Conn, error)
 	Log(ctx context.Context, args LogArgs) error
 	AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error
 	UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) error
@@ -165,4 +179,12 @@ type Client interface {
 	ListCertManagerRequests(ctx context.Context, instance string) ([]types.CertManager, error)
 	UpdateCertManager(ctx context.Context, args UpdateCertManagerArgs) error
 	DeleteCertManager(ctx context.Context, instance, issuer string) error
+}
+
+type wsWriter struct {
+	*websocket.Conn
+}
+
+func (w *wsWriter) Write(p []byte) (int, error) {
+	return len(p), w.Conn.WriteMessage(websocket.BinaryMessage, p)
 }

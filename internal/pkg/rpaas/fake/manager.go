@@ -50,6 +50,7 @@ type RpaasManager struct {
 	FakeDeleteAutoscale          func(name string) error
 	FakeGetInstanceInfo          func(instanceName string) (*clientTypes.InstanceInfo, error)
 	FakeExec                     func(instanceName string, args rpaas.ExecArgs) error
+	FakeDebug                    func(instanceName string, args rpaas.DebugArgs) error
 	FakeLog                      func(instanceName string, args rpaas.LogArgs) error
 	FakeAddUpstream              func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 	FakeGetUpstreams             func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
@@ -280,6 +281,13 @@ func (m *RpaasManager) DeleteAutoscale(ctx context.Context, instanceName string)
 func (m *RpaasManager) Exec(ctx context.Context, instanceName string, args rpaas.ExecArgs) error {
 	if m.FakeExec != nil {
 		return m.FakeExec(instanceName, args)
+	}
+	return nil
+}
+
+func (m *RpaasManager) Debug(ctx context.Context, instanceName string, args rpaas.DebugArgs) error {
+	if m.FakeDebug != nil {
+		return m.FakeDebug(instanceName, args)
 	}
 	return nil
 }

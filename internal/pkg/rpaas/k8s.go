@@ -133,44 +133,66 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 	return q.sz
 }
 
-func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-
-	nginx, err := m.getNginx(ctx, instance)
-	if err != nil {
-		return err
-	}
-
-	podsInfo, err := m.getPodStatuses(ctx, nginx)
+func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args DebugArgs) error {
+	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
 	if err != nil {
 		return err
 	}
 
 	if args.Pod == "" {
-		for _, ps := range podsInfo {
-			if strings.EqualFold(ps.Status, "Running") {
-				args.Pod = ps.Name
-			}
-		}
-	} else {
-		var podFound bool
-		for _, ps := range podsInfo {
-			if ps.Name == args.Pod {
-				podFound = true
-				break
-			}
-		}
-
-		if !podFound {
-			return fmt.Errorf("no such pod %s in instance %s", args.Pod, instanceName)
-		}
+		return errors.New("pod name is required or no such running pod found")
 	}
 
-	if args.Container == "" {
-		args.Container = "nginx"
+	instancePod := corev1.Pod{}
+	err = m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
+	if err != nil {
+		return err
+	}
+
+	debugContainer := &corev1.EphemeralContainer{
+		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+			Name:            "debug",
+			Command:         args.Command,
+			Image:           args.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Stdin:           args.Stdin != nil,
+			TTY:             args.TTY,
+		}, TargetContainerName: args.Container,
+	}
+	instancePodWithDebug := instancePod.DeepCopy()
+	instancePodWithDebug.Spec.EphemeralContainers = append(instancePodWithDebug.Spec.EphemeralContainers, *debugContainer)
+	err = m.patchObject(ctx, instancePod, instancePodWithDebug)
+	if err != nil {
+		return err
+	}
+	req := m.kcs.
+		CoreV1().
+		RESTClient().
+		Post().
+		Resource("pods").
+		Name(args.Pod).
+		Namespace(instance.Namespace).
+		SubResource("attach").
+		VersionedParams(&corev1.PodAttachOptions{
+			Container: "debug",
+			Stdin:     args.Stdin != nil,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       args.TTY,
+		}, scheme.ParameterCodec)
+
+	executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+
+	return executorStream(args.CommonTerminalArgs, executor, ctx)
+}
+
+func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
+	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+	if err != nil {
+		return err
 	}
 
 	req := m.kcs.
@@ -195,6 +217,10 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		return err
 	}
 
+	return executorStream(args.CommonTerminalArgs, executor, ctx)
+}
+
+func executorStream(args CommonTerminalArgs, executor remotecommand.Executor, ctx context.Context) error {
 	var tsq remotecommand.TerminalSizeQueue
 	if args.TerminalWidth != uint16(0) && args.TerminalHeight != uint16(0) {
 		tsq = &fixedSizeQueue{
@@ -212,6 +238,48 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		Tty:               args.TTY,
 		TerminalSizeQueue: tsq,
 	})
+}
+
+func (m *k8sRpaasManager) checkPodOnInstance(ctx context.Context, instanceName string, args *CommonTerminalArgs) (*v1alpha1.RpaasInstance, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+
+	podsInfo, err := m.getPodStatuses(ctx, nginx)
+	if err != nil {
+		return nil, err
+	}
+
+	if args.Pod == "" {
+		for _, ps := range podsInfo {
+			if strings.EqualFold(ps.Status, "Running") {
+				args.Pod = ps.Name
+			}
+		}
+	} else {
+		var podFound bool
+		for _, ps := range podsInfo {
+			if ps.Name == args.Pod {
+				podFound = true
+				break
+			}
+		}
+
+		if !podFound {
+			return nil, fmt.Errorf("no such pod %s in instance %s", args.Pod, instanceName)
+		}
+	}
+
+	if args.Container == "" {
+		args.Container = "nginx"
+	}
+	return instance, nil
 }
 
 func (m *k8sRpaasManager) DeleteInstance(ctx context.Context, name string) error {
@@ -320,7 +388,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 		return err
 	}
 
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, error) {
@@ -361,7 +429,7 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 	}
 
 	delete(instance.Spec.Blocks, blockType)
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) ([]ConfigurationBlock, error) {
@@ -406,7 +474,7 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 	blockType := v1alpha1.BlockType(block.Name)
 	instance.Spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
 
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replicas int32) error {
@@ -424,7 +492,7 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
 	}
 	instance.Spec.Replicas = &replicas
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error) {
@@ -708,7 +776,7 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 
 	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: host, Name: args.AppName})
 
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName string) error {
@@ -738,7 +806,7 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName s
 		return &NotFoundError{Msg: "app not found in instance bind list"}
 	}
 
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error) {
@@ -783,7 +851,7 @@ func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path st
 	}
 
 	instance.Spec.Locations = append(instance.Spec.Locations[:index], instance.Spec.Locations[index+1:]...)
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {
@@ -847,7 +915,7 @@ func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, 
 		instance.Spec.Locations = append(instance.Spec.Locations, newLocation)
 	}
 
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found bool) {
@@ -2023,13 +2091,13 @@ func (m *k8sRpaasManager) getEvents(ctx context.Context, instance *v1alpha1.Rpaa
 	return e, nil
 }
 
-func (m *k8sRpaasManager) patchInstance(ctx context.Context, originalInstance *v1alpha1.RpaasInstance, updatedInstance *v1alpha1.RpaasInstance) error {
-	originalData, err := json.Marshal(originalInstance)
+func (m *k8sRpaasManager) patchObject(ctx context.Context, originalObject any, updatedObject any) error {
+	originalData, err := json.Marshal(originalObject)
 	if err != nil {
 		return err
 	}
 
-	updatedData, err := json.Marshal(updatedInstance)
+	updatedData, err := json.Marshal(updatedObject)
 	if err != nil {
 		return err
 	}
@@ -2039,7 +2107,12 @@ func (m *k8sRpaasManager) patchInstance(ctx context.Context, originalInstance *v
 		return err
 	}
 
-	return m.cli.Patch(ctx, originalInstance, client.RawPatch(types.MergePatchType, data))
+	originalObjectChecked, ok := originalObject.(client.Object)
+	if !ok {
+		return errors.New("invalid object type")
+	}
+
+	return m.cli.Patch(ctx, originalObjectChecked, client.RawPatch(types.MergePatchType, data))
 }
 
 func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
@@ -2145,7 +2218,7 @@ func (m *k8sRpaasManager) AddUpstream(ctx context.Context, instanceName string, 
 	}
 	instance.Spec.AllowedUpstreams = append(instance.Spec.AllowedUpstreams, upstream)
 
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetUpstreams(ctx context.Context, instanceName string) ([]v1alpha1.AllowedUpstream, error) {
@@ -2178,7 +2251,7 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 	}
 
 	instance.Spec.AllowedUpstreams = upstreams
-	return m.patchInstance(ctx, originalInstance, instance)
+	return m.patchObject(ctx, originalInstance, instance)
 }
 
 func hasIntersection(a []string, b []string) bool {

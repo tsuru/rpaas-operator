@@ -196,7 +196,17 @@ type AutoscaleHandler interface {
 }
 
 type ExecArgs struct {
-	Command        []string
+	Command []string
+	CommonTerminalArgs
+}
+
+type DebugArgs struct {
+	Command []string
+	Image   string
+	CommonTerminalArgs
+}
+
+type CommonTerminalArgs struct {
 	Pod            string
 	Container      string
 	TerminalWidth  uint16
@@ -207,6 +217,22 @@ type ExecArgs struct {
 	Stdin  io.Reader
 	Stdout io.Writer
 	Stderr io.Writer
+}
+
+func (c *CommonTerminalArgs) SetStdin(r io.Reader) {
+	c.Stdin = r
+}
+
+func (c *CommonTerminalArgs) SetStdout(w io.Writer) {
+	c.Stdout = w
+}
+
+func (c *CommonTerminalArgs) SetStderr(w io.Writer) {
+	c.Stderr = w
+}
+
+func (c *CommonTerminalArgs) GetInteractive() bool {
+	return c.Interactive
 }
 
 type LogArgs struct {
@@ -245,6 +271,7 @@ type RpaasManager interface {
 	PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error)
 	GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error)
 	Exec(ctx context.Context, instanceName string, args ExecArgs) error
+	Debug(ctx context.Context, instanceName string, args DebugArgs) error
 	Log(ctx context.Context, intanceName string, args LogArgs) error
 
 	AddUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error

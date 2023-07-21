@@ -37,6 +37,7 @@ var (
 	ErrInvalidMemoryUsage       = fmt.Errorf("rpaasv2: memory usage can't be lower than 1%%")
 	ErrMissingValues            = fmt.Errorf("rpaasv2: values can't be all empty")
 	ErrMissingExecCommand       = fmt.Errorf("rpaasv2: command cannot be empty")
+	ErrMissingDebugImage        = fmt.Errorf("rpaasv2: debug image cannot be empty")
 )
 
 type ErrUnexpectedStatusCode struct {
