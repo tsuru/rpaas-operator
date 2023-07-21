@@ -1,13 +1,13 @@
-openapi: 3.0.0
+openapi: 3.0.3
 
 info:
   title: Reverse Proxy as a Service
-  description: |-
+  description: |
     The presented API definition (formally called as RPaaS v2 API) is a superset of [Tsuru Service API] and the [legacy RPaaS][RPaaS v1 API] (aka RPaaS v1).
 
     Source code: [github.com/tsuru/rpaas-operator](https://github.com/tsuru/rpaas-operator.git)
 
-    [Tsuru Service API]: https://app.swaggerhub.com/apis/tsuru/tsuru-service_api/1.0.0
+    [Tsuru Service API]: https://app.swaggerhub.com/apis/tsuru/tsuru-service_api
     [RPaaS v1 API]: https://raw.githubusercontent.com/tsuru/rpaas/master/rpaas/api.py
   contact:
     name: Tsuru
@@ -19,6 +19,12 @@ info:
 
 security:
 - basicAuth: []
+
+tags:
+- name: rpaas
+  description: RPaaS v2's web API specification.
+- name: rpaas-purger
+  description: RPaaS v2 Purger's web API specification.
 
 paths:
   /healthcheck:
@@ -48,7 +54,7 @@ paths:
       - rpaas
       requestBody:
         content:
-          application/x-www-form-urlencoded:
+          application/json:
             schema:
               $ref: '#/components/schemas/CreateInstance'
       responses:
@@ -101,7 +107,7 @@ paths:
             text/plain:
               example: failed to create instance on storage
     get:
-      summary: Get additional informations about an instance
+      summary: Get additional information about an instance
       description: This endpoint is part of Tsuru Service API.
       operationId: GetInstance
       tags:
@@ -193,7 +199,7 @@ paths:
       description: This endpoint is part of Tsuru Service API.
       operationId: BindApp
       tags:
-        - rpaas
+      - rpaas
       requestBody:
         content:
           application/x-www-form-urlencoded:
@@ -206,24 +212,6 @@ paths:
           description: rpaas instance does not exist
         '412':
           description: rpaas instance not ready
-
-    delete:
-      summary: Unbinds the app from the rpaas instance
-      description: This endpoint is part of Tsuru Service API.
-      operationId: UnbindApp
-      tags:
-        - rpaas
-      requestBody:
-        required: true
-        content:
-          application/x-www-form-urlencoded:
-            schema:
-              $ref: '#/components/schemas/BindApp'
-      responses:
-        '200':
-          description: App successfully unbound from rpaas instance
-        '404':
-          description: rpaas instance does not exist
 
   /resources/{instance}/bind:
     parameters:
@@ -240,7 +228,7 @@ paths:
       summary: Bind Unit
       description: Not used, just to follow Tsuru Service API spec
       tags:
-        - rpaas
+      - rpaas
       responses:
         '200':
           description: Nothing happens
@@ -251,45 +239,10 @@ paths:
       summary: Unbind Unit
       description: Not used, just to follow Tsuru Service API spec
       tags:
-        - rpaas
+      - rpaas
       responses:
         '200':
           description: Nothing happens
-
-  /resources/{instance}/info:
-    get:
-      summary: Get a summary informations about an instance
-      description: This endpoint is exclusive for RPaaS v2 API.
-      operationId: GetInstanceInfo
-      tags:
-      - rpaas
-      parameters:
-      - in: path
-        name: instance
-        schema:
-          type: string
-        required: true
-        description: Instance name
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/InstanceInfo'
-        '404':
-          description: Instance not found
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/Error'
-        default:
-          description: Unknonw error
-          content:
-            text/plain:
-              schema:
-                type: string
-              example: an unknown error
 
   /resources/plans:
     get:
@@ -307,43 +260,6 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Plan'
-        default:
-          description: An unknown error
-          content:
-            text/plain:
-              example: failed to get plans from storage
-
-  /resources/{instance}/plans:
-    get:
-      summary: List supported plans by instance
-      description: This endpoint is part of legacy RPaaS API.
-      operationId: ListPlansByInstance
-      tags:
-      - rpaas
-      parameters:
-      - in: path
-        name: instance
-        schema:
-          type: string
-        required: true
-        description: Instance name
-      responses:
-        '200':
-          description: OK
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Plan'
-        '404':
-          description: Instance not found
-          content:
-            application/json:
-              schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Error'
         default:
           description: An unknown error
           content:
@@ -415,6 +331,78 @@ paths:
             text/plain:
               example: failed to get flavors from storage
 
+  /resources/{instance}/plans:
+    get:
+      summary: List supported plans by instance
+      description: This endpoint is part of legacy RPaaS API.
+      operationId: ListPlansByInstance
+      deprecated: true
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Plan'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Error'
+        default:
+          description: An unknown error
+          content:
+            text/plain:
+              example: failed to get plans from storage
+
+  /resources/{instance}/info:
+    get:
+      summary: Get a summary info about an instance
+      operationId: GetInstanceInfo
+      tags:
+      - rpaas
+      parameters:
+      - in: path
+        name: instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/InstanceInfo'
+        '404':
+          description: Instance not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        default:
+          description: Unknonw error
+          content:
+            text/plain:
+              schema:
+                type: string
+              example: an unknown error
+
   /resources/{instance}/purge:
     parameters:
       - name: instance
@@ -457,6 +445,107 @@ paths:
               schema:
                 $ref: '#/components/schemas/Error'
 
+  /resources/{instance}/autoscale:
+    parameters:
+    - name: instance
+      in: path
+      description: Instance name
+      required: true
+      schema:
+        type: string
+
+    get:
+      summary: Get reverse proxy instance autoscaling parameters
+      operationId: GetAutoscale
+      tags:
+      - rpaas
+      security:
+      - basicAuth: []
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Autoscale"
+        default:
+          description: Something wrong happened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Set reverse proxy the autoscaling parameters
+      operationId: CreateAutoscale
+      tags:
+      - rpaas
+      security:
+      - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            example:
+              minReplicas: 3
+              maxReplicas: 100
+              cpu: 75
+            schema:
+              $ref: "#/components/schemas/Autoscale"
+      responses:
+        "201":
+          description: Succesfully created
+        default:
+          description: Something wrong happened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    put:
+      summary: Update the reverse proxy instance autoscaling parameters
+      operationId: UpdateAutoscale
+      tags:
+      - rpaas
+      security:
+      - basicAuth: []
+      requestBody:
+        required: true
+        content:
+          "application/json":
+            example:
+              minReplicas: 1
+              maxReplicas: 50
+              rps: 50
+            schema:
+              $ref: "#/components/schemas/Autoscale"
+      responses:
+        "204":
+          description: Succesfully updated
+        default:
+          description: Something wrong happened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    delete:
+      summary: Remove the reverse proxy instance autoscaling capability
+      operationId: RemoveAutoscale
+      tags:
+      - rpaas
+      security:
+      - basicAuth: []
+      responses:
+        "204":
+          description: Succesfully removed
+        default:
+          description: Something wrong happened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
   /resources/{instance}/purge/bulk:
     parameters:
       - name: instance
@@ -471,7 +560,7 @@ paths:
         This endpoint is exclusive for RPaaS v2 API.
       operationId: PurgeBulkCache
       tags:
-      - rpaas
+      - rpaas-purger
       parameters:
       - in: path
         name: instance
@@ -523,21 +612,28 @@ components:
       type: object
       properties:
         minReplicas:
-          type: number
+          type: integer
           example: 3
         maxReplicas:
-          type: number
+          type: integer
           example: 100
         cpu:
-          type: number
+          type: integer
           example: 95
           minimum: 0
           maximum: 100
         memory:
-          type: number
+          type: integer
           example: 99
           minimum: 0
           maximum: 100
+        rps:
+          type: integer
+          example: 100
+          minimum: 0
+      required:
+      - minReplicas
+      - maxReplicas
 
     BindApp:
       type: object
@@ -669,6 +765,8 @@ components:
         Msg:
           type: string
           example: instance "my-instance" not found
+      required:
+      - Msg
 
     Flavor:
       type: object

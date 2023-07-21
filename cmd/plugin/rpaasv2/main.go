@@ -12,10 +12,8 @@ import (
 )
 
 func main() {
-	app := cmd.NewDefaultApp()
-
-	if err := app.Run(os.Args); err != nil {
-		fmt.Fprintln(app.ErrWriter, err)
+	if err := cmd.NewDefaultApp().Run(os.Args); err != nil {
+		fmt.Fprintln(os.Stderr, err)
 		os.Exit(1)
 	}
 }
