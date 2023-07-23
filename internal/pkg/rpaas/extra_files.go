@@ -83,7 +83,7 @@ func (m *k8sRpaasManager) DeleteExtraFiles(ctx context.Context, instanceName str
 	// we should ensure rollout of pods even for file updates
 	updatePodAnnotationOfLastUpdateOnExtraFiles(i)
 
-	return m.patchObject(ctx, original, i)
+	return m.patchInstance(ctx, original, i)
 }
 
 func (m *k8sRpaasManager) CreateExtraFiles(ctx context.Context, instanceName string, files ...File) error {
@@ -145,7 +145,7 @@ func (m *k8sRpaasManager) addOrUpdateExtraFiles(ctx context.Context, instanceNam
 	// we should ensure rollout of pods even for file updates
 	updatePodAnnotationOfLastUpdateOnExtraFiles(i)
 
-	return m.patchObject(ctx, original, i)
+	return m.patchInstance(ctx, original, i)
 }
 
 func (m *k8sRpaasManager) updateFileInConfigMap(ctx context.Context, i *v1alpha1.RpaasInstance, f File) (*corev1.ConfigMap, error) {

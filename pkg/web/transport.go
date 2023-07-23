@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -138,7 +137,6 @@ func (h *http2Transport) Run(c echo.Context) error {
 
 	buffer := &http2Writer{c.Response().Writer}
 	args := h.extractArgs(c.QueryParams())
-	fmt.Printf("result struct: %+v\n", args)
 	if args.GetInteractive() {
 		args.SetStdin(c.Request().Body)
 	}

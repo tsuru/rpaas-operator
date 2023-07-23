@@ -49,7 +49,7 @@ func (c *client) Debug(ctx context.Context, args DebugArgs) (*websocket.Conn, er
 	qs.Set("pod", args.Pod)
 	qs.Set("container", args.Container)
 	qs.Set("interactive", strconv.FormatBool(args.Interactive))
-	qs.Set("debug-image", args.Image)
+	qs.Set("image", args.Image)
 	qs.Set("tty", strconv.FormatBool(args.TTY))
 	qs.Set("width", strconv.FormatInt(int64(args.TerminalWidth), 10))
 	qs.Set("height", strconv.FormatInt(int64(args.TerminalHeight), 10))

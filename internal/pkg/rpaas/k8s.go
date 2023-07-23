@@ -38,13 +38,19 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
+	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/validation"
+	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/remotecommand"
 	"k8s.io/kubectl/pkg/scheme"
+	"k8s.io/kubectl/pkg/util/interrupt"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	osb "sigs.k8s.io/go-open-service-broker-client/v2"
@@ -55,6 +61,8 @@ import (
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/tsuru/rpaas-operator/pkg/util"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
+	watchtools "k8s.io/client-go/tools/watch"
 )
 
 const (
@@ -140,7 +148,7 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	}
 
 	if args.Pod == "" {
-		return errors.New("pod name is required or no such running pod found")
+		return k8sErrors.NewBadRequest("pod name is required")
 	}
 
 	instancePod := corev1.Pod{}
@@ -148,10 +156,10 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	if err != nil {
 		return err
 	}
-
+	debugContainerName := fmt.Sprintf("debugger-%s", utilrand.String(5))
 	debugContainer := &corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-			Name:            "debug",
+			Name:            debugContainerName,
 			Command:         args.Command,
 			Image:           args.Image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
@@ -160,11 +168,28 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 		}, TargetContainerName: args.Container,
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
-	instancePodWithDebug.Spec.EphemeralContainers = append(instancePodWithDebug.Spec.EphemeralContainers, *debugContainer)
-	err = m.patchObject(ctx, instancePod, instancePodWithDebug)
+	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
 	if err != nil {
 		return err
 	}
+	podJS, err := json.Marshal(instancePod)
+	if err != nil {
+		return err
+	}
+	podWithDebugJS, err := json.Marshal(instancePodWithDebug)
+	if err != nil {
+		return err
+	}
+	debugPatch, err := strategicpatch.CreateTwoWayMergePatch(podJS, podWithDebugJS, instancePod)
+	if err != nil {
+		return err
+	}
+	err = m.cli.SubResource("ephemeralcontainers").Patch(ctx, &instancePod, client.RawPatch(types.StrategicMergePatchType, debugPatch))
+	if err != nil {
+		return err
+	}
+	m.waitForContainer(ctx, instance.Namespace, args.Pod, debugContainerName)
+
 	req := m.kcs.
 		CoreV1().
 		RESTClient().
@@ -174,7 +199,7 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 		Namespace(instance.Namespace).
 		SubResource("attach").
 		VersionedParams(&corev1.PodAttachOptions{
-			Container: "debug",
+			Container: debugContainerName,
 			Stdin:     args.Stdin != nil,
 			Stdout:    true,
 			Stderr:    true,
@@ -187,6 +212,61 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	}
 
 	return executorStream(args.CommonTerminalArgs, executor, ctx)
+}
+
+func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, containerName string) error {
+	ctx, cancel := watchtools.ContextWithOptionalTimeout(ctx, 0*time.Second)
+	defer cancel()
+
+	fieldSelector := fields.OneTermEqualSelector("metadata.name", podName).String()
+	lw := &cache.ListWatch{
+		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
+			options.FieldSelector = fieldSelector
+			return m.kcs.CoreV1().Pods(ns).List(ctx, options)
+		},
+		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
+			options.FieldSelector = fieldSelector
+			return m.kcs.CoreV1().Pods(ns).Watch(ctx, options)
+		},
+	}
+
+	intr := interrupt.New(nil, cancel)
+	err := intr.Run(func() error {
+		_, err := watchtools.UntilWithSync(ctx, lw, &corev1.Pod{}, nil, func(ev watch.Event) (bool, error) {
+			switch ev.Type {
+			case watch.Deleted:
+				return false, k8sErrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "")
+			}
+
+			p, ok := ev.Object.(*corev1.Pod)
+			if !ok {
+				return false, fmt.Errorf("watch did not return a pod: %v", ev.Object)
+			}
+
+			s := getContainerStatusByName(p, containerName)
+			if s == nil {
+				return false, nil
+			}
+			if s.State.Running != nil || s.State.Terminated != nil {
+				return true, nil
+			}
+			return false, nil
+		})
+		return err
+	})
+	return err
+}
+
+func getContainerStatusByName(pod *corev1.Pod, containerName string) *corev1.ContainerStatus {
+	allContainerStatus := [][]corev1.ContainerStatus{pod.Status.InitContainerStatuses, pod.Status.ContainerStatuses, pod.Status.EphemeralContainerStatuses}
+	for _, statusSlice := range allContainerStatus {
+		for i := range statusSlice {
+			if statusSlice[i].Name == containerName {
+				return &statusSlice[i]
+			}
+		}
+	}
+	return nil
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
@@ -388,7 +468,7 @@ func (m *k8sRpaasManager) UpdateInstance(ctx context.Context, instanceName strin
 		return err
 	}
 
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, error) {
@@ -429,7 +509,7 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 	}
 
 	delete(instance.Spec.Blocks, blockType)
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) ([]ConfigurationBlock, error) {
@@ -474,7 +554,7 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 	blockType := v1alpha1.BlockType(block.Name)
 	instance.Spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
 
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replicas int32) error {
@@ -492,7 +572,7 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
 	}
 	instance.Spec.Replicas = &replicas
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error) {
@@ -776,7 +856,7 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 
 	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: host, Name: args.AppName})
 
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName string) error {
@@ -806,7 +886,7 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName s
 		return &NotFoundError{Msg: "app not found in instance bind list"}
 	}
 
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, args PurgeCacheArgs) (int, error) {
@@ -851,7 +931,7 @@ func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path st
 	}
 
 	instance.Spec.Locations = append(instance.Spec.Locations[:index], instance.Spec.Locations[index+1:]...)
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([]Route, error) {
@@ -915,7 +995,7 @@ func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, 
 		instance.Spec.Locations = append(instance.Spec.Locations, newLocation)
 	}
 
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found bool) {
@@ -2091,13 +2171,13 @@ func (m *k8sRpaasManager) getEvents(ctx context.Context, instance *v1alpha1.Rpaa
 	return e, nil
 }
 
-func (m *k8sRpaasManager) patchObject(ctx context.Context, originalObject any, updatedObject any) error {
-	originalData, err := json.Marshal(originalObject)
+func (m *k8sRpaasManager) patchInstance(ctx context.Context, originalInstance *v1alpha1.RpaasInstance, updatedInstance *v1alpha1.RpaasInstance) error {
+	originalData, err := json.Marshal(originalInstance)
 	if err != nil {
 		return err
 	}
 
-	updatedData, err := json.Marshal(updatedObject)
+	updatedData, err := json.Marshal(updatedInstance)
 	if err != nil {
 		return err
 	}
@@ -2107,12 +2187,7 @@ func (m *k8sRpaasManager) patchObject(ctx context.Context, originalObject any, u
 		return err
 	}
 
-	originalObjectChecked, ok := originalObject.(client.Object)
-	if !ok {
-		return errors.New("invalid object type")
-	}
-
-	return m.cli.Patch(ctx, originalObjectChecked, client.RawPatch(types.MergePatchType, data))
+	return m.cli.Patch(ctx, originalInstance, client.RawPatch(types.MergePatchType, data))
 }
 
 func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
@@ -2218,7 +2293,7 @@ func (m *k8sRpaasManager) AddUpstream(ctx context.Context, instanceName string, 
 	}
 	instance.Spec.AllowedUpstreams = append(instance.Spec.AllowedUpstreams, upstream)
 
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func (m *k8sRpaasManager) GetUpstreams(ctx context.Context, instanceName string) ([]v1alpha1.AllowedUpstream, error) {
@@ -2251,7 +2326,7 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 	}
 
 	instance.Spec.AllowedUpstreams = upstreams
-	return m.patchObject(ctx, originalInstance, instance)
+	return m.patchInstance(ctx, originalInstance, instance)
 }
 
 func hasIntersection(a []string, b []string) bool {
