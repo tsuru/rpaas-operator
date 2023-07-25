@@ -20,11 +20,18 @@ var _ MappedNullable = &Autoscale{}
 
 // Autoscale struct for Autoscale
 type Autoscale struct {
-	MinReplicas int32  `json:"minReplicas"`
-	MaxReplicas int32  `json:"maxReplicas"`
-	Cpu         *int32 `json:"cpu,omitempty"`
-	Memory      *int32 `json:"memory,omitempty"`
-	Rps         *int32 `json:"rps,omitempty"`
+	// The lower limit for the number of replicas to which the autoscaler can scale down. It cannot be greater than `maxReplicas`. It can be zero when set along with `rps` and/or `schedules` targets.
+	MinReplicas int32 `json:"minReplicas"`
+	// The upper limit for the number of replicas to which the autoscaler can scale up. It cannot be less that `minReplicas`.
+	MaxReplicas int32 `json:"maxReplicas"`
+	// Target average of CPU utilization over running replicas (e.g. 95 means 95%)
+	Cpu *int32 `json:"cpu,omitempty"`
+	// Target average of memory utilization over running replicas (e.g. 80 means 80%)
+	Memory *int32 `json:"memory,omitempty"`
+	// Target average of HTTP requests per seconds over running replicas (e.g. 100 means 100 req/s)
+	Rps *int32 `json:"rps,omitempty"`
+	// Schedules are recurring or not time-windows where the instance can scale in/out regardless of traffic or resource utilization.
+	Schedules []ScheduledWindow `json:"schedules,omitempty"`
 }
 
 // NewAutoscale instantiates a new Autoscale object
@@ -190,6 +197,38 @@ func (o *Autoscale) SetRps(v int32) {
 	o.Rps = &v
 }
 
+// GetSchedules returns the Schedules field value if set, zero value otherwise.
+func (o *Autoscale) GetSchedules() []ScheduledWindow {
+	if o == nil || IsNil(o.Schedules) {
+		var ret []ScheduledWindow
+		return ret
+	}
+	return o.Schedules
+}
+
+// GetSchedulesOk returns a tuple with the Schedules field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *Autoscale) GetSchedulesOk() ([]ScheduledWindow, bool) {
+	if o == nil || IsNil(o.Schedules) {
+		return nil, false
+	}
+	return o.Schedules, true
+}
+
+// HasSchedules returns a boolean if a field has been set.
+func (o *Autoscale) HasSchedules() bool {
+	if o != nil && !IsNil(o.Schedules) {
+		return true
+	}
+
+	return false
+}
+
+// SetSchedules gets a reference to the given []ScheduledWindow and assigns it to the Schedules field.
+func (o *Autoscale) SetSchedules(v []ScheduledWindow) {
+	o.Schedules = v
+}
+
 func (o Autoscale) MarshalJSON() ([]byte, error) {
 	toSerialize, err := o.ToMap()
 	if err != nil {
@@ -210,6 +249,9 @@ func (o Autoscale) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Rps) {
 		toSerialize["rps"] = o.Rps
+	}
+	if !IsNil(o.Schedules) {
+		toSerialize["schedules"] = o.Schedules
 	}
 	return toSerialize, nil
 }
