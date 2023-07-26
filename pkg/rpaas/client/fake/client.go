@@ -13,6 +13,8 @@ import (
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
 
+var _ client.Client = (*FakeClient)(nil)
+
 type FakeClient struct {
 	FakeGetPlans                func(instance string) ([]types.Plan, error)
 	FakeGetFlavors              func(instance string) ([]types.Flavor, error)
@@ -26,9 +28,6 @@ type FakeClient struct {
 	FakeListRoutes              func(args client.ListRoutesArgs) ([]types.Route, error)
 	FakeUpdateRoute             func(args client.UpdateRouteArgs) error
 	FakeInfo                    func(args client.InfoArgs) (*types.InstanceInfo, error)
-	FakeGetAutoscale            func(args client.GetAutoscaleArgs) (*types.Autoscale, error)
-	FakeUpdateAutoscale         func(args client.UpdateAutoscaleArgs) error
-	FakeRemoveAutoscale         func(args client.RemoveAutoscaleArgs) error
 	FakeExec                    func(ctx context.Context, args client.ExecArgs) (*websocket.Conn, error)
 	FakeAddAccessControlList    func(instance, host string, port int) error
 	FakeListAccessControlList   func(instance string) ([]types.AllowedUpstream, error)
@@ -43,32 +42,6 @@ type FakeClient struct {
 	FakeDeleteExtraFiles        func(args client.DeleteExtraFilesArgs) error
 	FakeListExtraFiles          func(args client.ListExtraFilesArgs) ([]types.RpaasFile, error)
 	FakeGetExtraFile            func(args client.GetExtraFileArgs) (types.RpaasFile, error)
-}
-
-var _ client.Client = &FakeClient{}
-
-func (f *FakeClient) RemoveAutoscale(ctx context.Context, args client.RemoveAutoscaleArgs) error {
-	if f.FakeRemoveAutoscale != nil {
-		return f.FakeRemoveAutoscale(args)
-	}
-
-	return nil
-}
-
-func (f *FakeClient) UpdateAutoscale(ctx context.Context, args client.UpdateAutoscaleArgs) error {
-	if f.FakeUpdateAutoscale != nil {
-		return f.FakeUpdateAutoscale(args)
-	}
-
-	return nil
-}
-
-func (f *FakeClient) GetAutoscale(ctx context.Context, args client.GetAutoscaleArgs) (*types.Autoscale, error) {
-	if f.FakeGetAutoscale != nil {
-		return f.FakeGetAutoscale(args)
-	}
-
-	return nil, nil
 }
 
 func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*types.InstanceInfo, error) {

@@ -343,126 +343,6 @@ func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, er
 	return nsName, nil
 }
 
-func (m *k8sRpaasManager) GetAutoscale(ctx context.Context, instanceName string) (*clientTypes.Autoscale, error) {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return nil, err
-	}
-
-	autoscale := instance.Spec.Autoscale
-	if autoscale == nil {
-		return nil, NotFoundError{Msg: "autoscale not found"}
-	}
-
-	s := clientTypes.Autoscale{
-		MinReplicas: autoscale.MinReplicas,
-		MaxReplicas: &autoscale.MaxReplicas,
-		CPU:         autoscale.TargetCPUUtilizationPercentage,
-		Memory:      autoscale.TargetMemoryUtilizationPercentage,
-		RPS:         autoscale.TargetRequestsPerSecond,
-	}
-
-	return &s, nil
-}
-
-func (m *k8sRpaasManager) CreateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-
-	err = validateAutoscale(ctx, autoscale)
-	if err != nil {
-		return err
-	}
-
-	s := instance.Spec.Autoscale
-	if s != nil {
-		return ValidationError{Msg: "Autoscale already created"}
-	}
-
-	instance.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-		MinReplicas:                       autoscale.MinReplicas,
-		MaxReplicas:                       *autoscale.MaxReplicas,
-		TargetCPUUtilizationPercentage:    autoscale.CPU,
-		TargetMemoryUtilizationPercentage: autoscale.Memory,
-		TargetRequestsPerSecond:           autoscale.RPS,
-	}
-
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
-func (m *k8sRpaasManager) UpdateAutoscale(ctx context.Context, instanceName string, autoscale *clientTypes.Autoscale) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-
-	s := instance.Spec.Autoscale
-	if s == nil {
-		// Create if empty
-		instance.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{}
-		s = instance.Spec.Autoscale
-	}
-
-	if s.MinReplicas != autoscale.MinReplicas {
-		s.MinReplicas = autoscale.MinReplicas
-	}
-
-	if &s.MaxReplicas != autoscale.MaxReplicas {
-		s.MaxReplicas = *autoscale.MaxReplicas
-	}
-
-	if s.TargetCPUUtilizationPercentage != autoscale.CPU {
-		s.TargetCPUUtilizationPercentage = autoscale.CPU
-	}
-
-	if s.TargetMemoryUtilizationPercentage != autoscale.Memory {
-		s.TargetMemoryUtilizationPercentage = autoscale.Memory
-	}
-
-	if s.TargetRequestsPerSecond != autoscale.RPS {
-		s.TargetRequestsPerSecond = autoscale.RPS
-	}
-
-	err = validateAutoscaleSpec(s)
-	if err != nil {
-		return err
-	}
-
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
-func (m *k8sRpaasManager) DeleteAutoscale(ctx context.Context, instanceName string) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-
-	instance.Spec.Autoscale = nil
-
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
-func validateAutoscale(ctx context.Context, s *clientTypes.Autoscale) error {
-	if *s.MaxReplicas == 0 {
-		return ValidationError{Msg: "max replicas is required"}
-	}
-
-	return nil
-}
-
-func validateAutoscaleSpec(s *v1alpha1.RpaasInstanceAutoscaleSpec) error {
-	if s.MaxReplicas == 0 {
-		return ValidationError{Msg: "max replicas is required"}
-	}
-
-	return nil
-}
-
 func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -1545,6 +1425,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Binds:        instance.Spec.Binds,
 		Flavors:      instance.Spec.Flavors,
 		PlanOverride: instance.Spec.PlanTemplate,
+		Autoscale:    m.getAutoscale(instance),
 	}
 
 	var acls []clientTypes.AllowedUpstream
@@ -1552,17 +1433,6 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		acls = append(acls, clientTypes.AllowedUpstream{Host: u.Host, Port: u.Port})
 	}
 	info.ACLs = acls
-
-	autoscale := instance.Spec.Autoscale
-	if autoscale != nil {
-		info.Autoscale = &clientTypes.Autoscale{
-			MinReplicas: autoscale.MinReplicas,
-			MaxReplicas: &autoscale.MaxReplicas,
-			CPU:         autoscale.TargetCPUUtilizationPercentage,
-			Memory:      autoscale.TargetMemoryUtilizationPercentage,
-			RPS:         autoscale.TargetRequestsPerSecond,
-		}
-	}
 
 	extraFiles, err := m.GetExtraFiles(ctx, instanceName)
 	if err != nil {
