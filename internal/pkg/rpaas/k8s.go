@@ -39,9 +39,9 @@ import (
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/watch"
@@ -49,6 +49,8 @@ import (
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/remotecommand"
+	watchtools "k8s.io/client-go/tools/watch"
+	"k8s.io/kubectl/pkg/cmd/logs"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util/interrupt"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -61,8 +63,6 @@ import (
 	nginxManager "github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/tsuru/rpaas-operator/pkg/util"
-	utilrand "k8s.io/apimachinery/pkg/util/rand"
-	watchtools "k8s.io/client-go/tools/watch"
 )
 
 const (
@@ -142,15 +142,16 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 }
 
 func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args DebugArgs) error {
+	if args.Image == "" && config.Get().DebugImage == "" {
+		return ValidationError{Msg: "Debug image not set and no default image configured"}
+	}
+	if args.Image == "" {
+		args.Image = config.Get().DebugImage
+	}
 	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
 	if err != nil {
 		return err
 	}
-
-	if args.Pod == "" {
-		return k8sErrors.NewBadRequest("pod name is required")
-	}
-
 	instancePod := corev1.Pod{}
 	err = m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
 	if err != nil {
@@ -188,33 +189,44 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	if err != nil {
 		return err
 	}
-	m.waitForContainer(ctx, instance.Namespace, args.Pod, debugContainerName)
-
-	req := m.kcs.
-		CoreV1().
-		RESTClient().
-		Post().
-		Resource("pods").
-		Name(args.Pod).
-		Namespace(instance.Namespace).
-		SubResource("attach").
-		VersionedParams(&corev1.PodAttachOptions{
-			Container: debugContainerName,
-			Stdin:     args.Stdin != nil,
-			Stdout:    true,
-			Stderr:    true,
-			TTY:       args.TTY,
-		}, scheme.ParameterCodec)
-
-	executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
+	pod, err := m.waitForContainer(ctx, instance.Namespace, args.Pod, debugContainerName)
 	if err != nil {
 		return err
 	}
+	status := getContainerStatusByName(pod, debugContainerName)
+	if status == nil {
+		return fmt.Errorf("error getting container status of container name %q: %+v", debugContainerName, err)
+	}
+	if status.State.Terminated != nil {
+		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: debugContainerName})
+		return logs.DefaultConsumeRequest(req, args.Stdout)
 
-	return executorStream(args.CommonTerminalArgs, executor, ctx)
+	} else {
+		req := m.kcs.
+			CoreV1().
+			RESTClient().
+			Post().
+			Resource("pods").
+			Name(args.Pod).
+			Namespace(instance.Namespace).
+			SubResource("attach").
+			VersionedParams(&corev1.PodAttachOptions{
+				Container: debugContainerName,
+				Stdin:     args.Stdin != nil,
+				Stdout:    true,
+				Stderr:    true,
+				TTY:       args.TTY,
+			}, scheme.ParameterCodec)
+
+		executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
+		if err != nil {
+			return err
+		}
+		return executorStream(args.CommonTerminalArgs, executor, ctx)
+	}
 }
 
-func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, containerName string) error {
+func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, containerName string) (*corev1.Pod, error) {
 	ctx, cancel := watchtools.ContextWithOptionalTimeout(ctx, 0*time.Second)
 	defer cancel()
 
@@ -231,11 +243,12 @@ func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, con
 	}
 
 	intr := interrupt.New(nil, cancel)
+	var result *corev1.Pod
 	err := intr.Run(func() error {
-		_, err := watchtools.UntilWithSync(ctx, lw, &corev1.Pod{}, nil, func(ev watch.Event) (bool, error) {
+		ev, err := watchtools.UntilWithSync(ctx, lw, &corev1.Pod{}, nil, func(ev watch.Event) (bool, error) {
 			switch ev.Type {
 			case watch.Deleted:
-				return false, k8sErrors.NewNotFound(schema.GroupResource{Resource: "pods"}, "")
+				return false, fmt.Errorf("pod %q was deleted", podName)
 			}
 
 			p, ok := ev.Object.(*corev1.Pod)
@@ -252,9 +265,12 @@ func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, con
 			}
 			return false, nil
 		})
+		if ev != nil {
+			result = ev.Object.(*corev1.Pod)
+		}
 		return err
 	})
-	return err
+	return result, err
 }
 
 func getContainerStatusByName(pod *corev1.Pod, containerName string) *corev1.ContainerStatus {
@@ -354,6 +370,10 @@ func (m *k8sRpaasManager) checkPodOnInstance(ctx context.Context, instanceName s
 		if !podFound {
 			return nil, fmt.Errorf("no such pod %s in instance %s", args.Pod, instanceName)
 		}
+	}
+
+	if args.Pod == "" {
+		return nil, fmt.Errorf("no pod running found in instance %s", instanceName)
 	}
 
 	if args.Container == "" {

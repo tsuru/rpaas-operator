@@ -25,7 +25,7 @@ build: build/api build/manager build/plugin/rpaasv2 build/purger
 
 .PHONY: build/api
 build/api: build-dirs
-	go build -o $(GO_BUILD_DIR)/ ./cmd/api
+	CGO_ENABLED=0 go build -o $(GO_BUILD_DIR)/ ./cmd/api
 
 .PHONY: build/manager
 build/manager: manager

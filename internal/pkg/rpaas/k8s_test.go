@@ -4728,3 +4728,163 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 		})
 	}
 }
+
+func Test_k8sRpaasManager_Debug(t *testing.T) {
+	instance1 := newEmptyRpaasInstance()
+	instance1.ObjectMeta.Name = "instance1"
+	instance2 := newEmptyRpaasInstance()
+	instance2.ObjectMeta.Name = "instance2"
+	instance3 := newEmptyRpaasInstance()
+	instance3.ObjectMeta.Name = "instance3"
+	instance4 := newEmptyRpaasInstance()
+	instance4.ObjectMeta.Name = "instance4"
+	instance5 := newEmptyRpaasInstance()
+	instance5.ObjectMeta.Name = "instance5"
+
+	nginx1 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance1.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance1",
+		},
+	}
+	nginx2 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance2.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance2",
+		},
+	}
+	nginx3 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance3.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance3",
+		},
+	}
+	nginx4 := &nginxv1alpha1.Nginx{
+		ObjectMeta: instance5.ObjectMeta,
+		Status: nginxv1alpha1.NginxStatus{
+			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance5",
+		},
+	}
+
+	pod1 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod1",
+			Namespace: instance2.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance2",
+			},
+			UID: types.UID("pod1-uid"),
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.0.0.1",
+			Phase: corev1.PodRunning,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name:  "nginx",
+					Ready: true,
+				},
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "nginx"},
+			},
+		},
+	}
+	pod2 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod2",
+			Namespace: instance2.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance2",
+			},
+			UID: types.UID("pod2-uid"),
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.0.0.2",
+			Phase: corev1.PodPending,
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Name:  "nginx",
+					Ready: false,
+				},
+			},
+		},
+		Spec: corev1.PodSpec{
+			Containers: []corev1.Container{
+				{Name: "nginx"},
+			},
+		},
+	}
+	pod4 := &corev1.Pod{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "pod4",
+			Namespace: instance5.Namespace,
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":           "nginx",
+				"nginx.tsuru.io/resource-name": "instance5",
+			},
+			UID: types.UID("pod4-uid"),
+		},
+		Status: corev1.PodStatus{
+			PodIP: "10.0.0.9",
+			ContainerStatuses: []corev1.ContainerStatus{
+				{
+					Ready: false,
+				},
+			},
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, nginx1, nginx2, nginx3, nginx4, pod1, pod2, pod4}
+
+	testCases := []struct {
+		name      string
+		instance  string
+		args      DebugArgs
+		assertion func(*testing.T, error, *k8sRpaasManager)
+	}{
+		{
+			name:     "no debug image configured",
+			instance: "instance1",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.EqualError(t, err, "Debug image not set and no default image configured")
+			},
+		},
+		{
+			name:     "no pod running for debug",
+			instance: "instance1",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.EqualError(t, err, "no pod running found in instance instance1")
+			},
+		},
+		{
+			name:     "debug on invalid pod",
+			instance: "instance1",
+			args:     DebugArgs{CommonTerminalArgs: CommonTerminalArgs{Pod: "pod1"}},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.Error(t, err)
+				assert.EqualError(t, err, "no such pod pod1 in instance instance1")
+			},
+		},
+	}
+
+	for _, tt := range testCases {
+		cfg := config.Get()
+		defer func() { config.Set(cfg) }()
+		config.Set(config.RpaasConfig{DebugImage: "tsuru/debug-image"})
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build()}
+			if tt.name == "no debug image configured" {
+				config.Set(config.RpaasConfig{})
+			}
+			err := manager.Debug(context.Background(), tt.instance, tt.args)
+			tt.assertion(t, err, manager)
+		})
+	}
+
+}

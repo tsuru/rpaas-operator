@@ -1,4 +1,4 @@
-// Copyright 2021 tsuru authors. All rights reserved.
+// Copyright 2023 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -17,10 +17,6 @@ import (
 func (args DebugArgs) Validate() error {
 	if args.Instance == "" {
 		return ErrMissingInstance
-	}
-
-	if args.Image == "" {
-		return ErrMissingDebugImage
 	}
 
 	return nil
