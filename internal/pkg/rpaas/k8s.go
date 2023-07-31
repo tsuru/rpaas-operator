@@ -170,22 +170,7 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
 	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
-	if err != nil {
-		return err
-	}
-	podJS, err := json.Marshal(instancePod)
-	if err != nil {
-		return err
-	}
-	podWithDebugJS, err := json.Marshal(instancePodWithDebug)
-	if err != nil {
-		return err
-	}
-	debugPatch, err := strategicpatch.CreateTwoWayMergePatch(podJS, podWithDebugJS, instancePod)
-	if err != nil {
-		return err
-	}
-	err = m.cli.SubResource("ephemeralcontainers").Patch(ctx, &instancePod, client.RawPatch(types.StrategicMergePatchType, debugPatch))
+	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod, debugContainer)
 	if err != nil {
 		return err
 	}
@@ -224,6 +209,26 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 		}
 		return executorStream(args.CommonTerminalArgs, executor, ctx)
 	}
+}
+
+func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *v1.Pod, instancePod v1.Pod, debugContainer *v1.EphemeralContainer) error {
+	podJS, err := json.Marshal(instancePod)
+	if err != nil {
+		return err
+	}
+	podWithDebugJS, err := json.Marshal(instancePodWithDebug)
+	if err != nil {
+		return err
+	}
+	debugPatch, err := strategicpatch.CreateTwoWayMergePatch(podJS, podWithDebugJS, instancePod)
+	if err != nil {
+		return err
+	}
+	err = m.cli.SubResource("ephemeralcontainers").Patch(ctx, &instancePod, client.RawPatch(types.StrategicMergePatchType, debugPatch))
+	if err != nil {
+		return err
+	}
+	return nil
 }
 
 func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, containerName string) (*corev1.Pod, error) {
