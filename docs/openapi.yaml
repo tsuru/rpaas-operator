@@ -612,25 +612,41 @@ components:
       type: object
       properties:
         minReplicas:
+          description: |
+            The lower limit for the number of replicas to which the autoscaler can scale down.
+            It cannot be greater than `maxReplicas`.
+            It can be zero when set along with `rps` and/or `schedules` targets.
           type: integer
           example: 3
+          minimum: 0
         maxReplicas:
+          description: |
+            The upper limit for the number of replicas to which the autoscaler can scale up.
+            It cannot be less that `minReplicas`.
           type: integer
           example: 100
         cpu:
+          description: Target average of CPU utilization over running replicas (e.g. 95 means 95%)
           type: integer
           example: 95
           minimum: 0
           maximum: 100
         memory:
+          description: Target average of memory utilization over running replicas (e.g. 80 means 80%)
           type: integer
-          example: 99
+          example: 80
           minimum: 0
           maximum: 100
         rps:
+          description: Target average of HTTP requests per seconds over running replicas (e.g. 100 means 100 req/s)
           type: integer
           example: 100
           minimum: 0
+        schedules:
+          description: Schedules are recurring or not time-windows where the instance can scale in/out regardless of traffic or resource utilization.
+          type: array
+          items:
+            $ref: "#/components/schemas/ScheduledWindow"
       required:
       - minReplicas
       - maxReplicas
@@ -964,6 +980,26 @@ components:
         content:
           type: string
           example: ""
+
+    ScheduledWindow:
+      type: object
+      properties:
+        minReplicas:
+          type: integer
+          description: Min number of running pods while this window is active.
+          example: 10
+        start:
+          type: string
+          description: An Cron expression defining the start of the scheduled window.
+          example: "00 20 * * * 1-5"
+        end:
+          type: string
+          description: An Cron expression defining the end of the scheduled window.
+          example: "00 00 * * * 1-5"
+      required:
+      - minReplicas
+      - start
+      - end
 
     UpdateInstance:
       type: object

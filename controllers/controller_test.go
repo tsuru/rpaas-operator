@@ -771,6 +771,24 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 		},
 
+		"(native HPA controller) with scheduled windows": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas: func(n int32) *int32 { return &n }(0),
+					MaxReplicas: 10,
+					Schedules: []v1alpha1.ScheduledWindow{
+						{MinReplicas: 1, Start: "00 8 * * 1-5", End: "00 20 * * 1-5"},
+					},
+				}
+				return ri
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				rec, ok := r.EventRecorder.(*record.FakeRecorder)
+				require.True(t, ok, "event recorder must be FakeRecorder")
+				return assert.Equal(t, "Warning RpaasInstanceAutoscaleFailed native HPA controller doesn't support scheduled windows", <-rec.Events)
+			},
+		},
+
 		"(KEDA controller) with RPS enabled": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
@@ -940,6 +958,49 @@ func Test_reconcileHPA(t *testing.T) {
 				var so kedav1alpha1.ScaledObject
 				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
 				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
+			},
+		},
+
+		"(KEDA controller) with scheduled windows": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas: func(n int32) *int32 { return &n }(0),
+					MaxReplicas: 50,
+					Schedules: []v1alpha1.ScheduledWindow{
+						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
+						{MinReplicas: 10, Start: "00 22 * * 0", End: "00 01 * * 1", Timezone: "America/Sao_Paulo"},
+					},
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:  true,
+						Timezone: "Etc/UTC",
+					},
+				}
+				return ri
+			},
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(0)
+				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "5",
+							"start":           "00 20 * * 2",
+							"end":             "00 01 * * 3",
+							"timezone":        "Etc/UTC",
+						},
+					},
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "10",
+							"start":           "00 22 * * 0",
+							"end":             "00 01 * * 1",
+							"timezone":        "America/Sao_Paulo",
+						},
+					},
+				}
+				return so
 			},
 		},
 	}

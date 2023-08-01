@@ -93,7 +93,7 @@ generate-cli: controller-gen
 	$(CONTROLLER_GEN) object:headerFile="hack/boilerplate.go.txt" paths="./..."
 
 .PHONY: generate
-generate: generate-cli manifests openapi/generate-http-client
+generate: generate-cli manifests
 
 # find or download controller-gen
 # download controller-gen if necessary

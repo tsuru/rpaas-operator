@@ -544,6 +544,10 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 		r.EventRecorder.Event(instance, corev1.EventTypeWarning, "RpaasInstanceAutoscaleFailed", "native HPA controller doesn't support RPS metric target yet")
 	}
 
+	if a := instance.Spec.Autoscale; a != nil && len(a.Schedules) > 0 {
+		r.EventRecorder.Event(instance, corev1.EventTypeWarning, "RpaasInstanceAutoscaleFailed", "native HPA controller doesn't support scheduled windows")
+	}
+
 	desired := newHPA(instance, nginx)
 
 	var observed autoscalingv2.HorizontalPodAutoscaler
@@ -609,7 +613,10 @@ func (r *RpaasInstanceReconciler) cleanUpKEDAScaledObject(ctx context.Context, i
 }
 
 func isKEDAHandlingHPA(instance *v1alpha1.RpaasInstance) bool {
-	return instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetRequestsPerSecond != nil && instance.Spec.Autoscale.KEDAOptions != nil && instance.Spec.Autoscale.KEDAOptions.Enabled
+	return instance.Spec.Autoscale != nil &&
+		(instance.Spec.Autoscale.TargetRequestsPerSecond != nil || len(instance.Spec.Autoscale.Schedules) > 0) &&
+		instance.Spec.Autoscale.KEDAOptions != nil &&
+		instance.Spec.Autoscale.KEDAOptions.Enabled
 }
 
 func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
@@ -647,7 +654,7 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 func isAutoscaleEnabled(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
 	return a != nil &&
 		(a.MinReplicas != nil && a.MaxReplicas > 0) &&
-		(a.TargetCPUUtilizationPercentage != nil || a.TargetMemoryUtilizationPercentage != nil || a.TargetRequestsPerSecond != nil)
+		(a.TargetCPUUtilizationPercentage != nil || a.TargetMemoryUtilizationPercentage != nil || a.TargetRequestsPerSecond != nil || len(a.Schedules) > 0)
 }
 
 func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*kedav1alpha1.ScaledObject, error) {
@@ -697,6 +704,25 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 			},
 			AuthenticationRef: kopts.RPSAuthenticationRef,
 		})
+	}
+
+	if instance.Spec.Autoscale != nil {
+		for _, s := range instance.Spec.Autoscale.Schedules {
+			timezone := s.Timezone
+			if timezone == "" && instance.Spec.Autoscale.KEDAOptions != nil {
+				timezone = instance.Spec.Autoscale.KEDAOptions.Timezone
+			}
+
+			triggers = append(triggers, kedav1alpha1.ScaleTriggers{
+				Type: "cron",
+				Metadata: map[string]string{
+					"desiredReplicas": strconv.Itoa(int(s.MinReplicas)),
+					"start":           s.Start,
+					"end":             s.End,
+					"timezone":        timezone,
+				},
+			})
+		}
 	}
 
 	deployName := instance.Name

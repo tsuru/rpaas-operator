@@ -148,9 +148,6 @@ type Client interface {
 	DeleteRoute(ctx context.Context, args DeleteRouteArgs) error
 	ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.Route, error)
 	UpdateRoute(ctx context.Context, args UpdateRouteArgs) error
-	GetAutoscale(ctx context.Context, args GetAutoscaleArgs) (*types.Autoscale, error)
-	UpdateAutoscale(ctx context.Context, args UpdateAutoscaleArgs) error
-	RemoveAutoscale(ctx context.Context, args RemoveAutoscaleArgs) error
 	Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error)
 	Log(ctx context.Context, args LogArgs) error
 	AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error

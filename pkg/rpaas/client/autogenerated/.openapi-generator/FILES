@@ -22,5 +22,6 @@ model_pod_port_info.go
 model_purge.go
 model_purge_bulk_response.go
 model_route.go
+model_scheduled_window.go
 response.go
 utils.go
