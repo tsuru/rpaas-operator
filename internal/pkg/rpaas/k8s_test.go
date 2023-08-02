@@ -4910,6 +4910,27 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
 			},
 		},
+		{
+			name:     "run debug on random pod with running status",
+			instance: "instance2",
+			args:     DebugArgs{CommonTerminalArgs: CommonTerminalArgs{Stdin: &bytes.Buffer{}, Stdout: io.Discard, Stderr: io.Discard}},
+			pods: func() []corev1.Pod {
+				pod1Debug := pod1.DeepCopy()
+				pod1Debug.Spec.EphemeralContainers = append(pod1Debug.Spec.EphemeralContainers, corev1.EphemeralContainer{EphemeralContainerCommon: corev1.EphemeralContainerCommon{Name: "debugger-2"}, TargetContainerName: "nginx"})
+				pod1Debug.Status.ContainerStatuses = append(pod1Debug.Status.EphemeralContainerStatuses, corev1.ContainerStatus{Name: "debugger-2", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: staticTimeNow}}})
+				return []corev1.Pod{*pod1Debug}
+			},
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager, instance *v1alpha1.RpaasInstance, debugContainerName string, debugContainerStatus *corev1.ContainerStatus) {
+				assert.NoError(t, err)
+				assert.Equal(t, "debugger-2", debugContainerName)
+				assert.Equal(t, corev1.ContainerStatus{Name: "debugger-2", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: staticTimeNow}}}, *debugContainerStatus)
+				instancePod := corev1.Pod{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "pod1", Namespace: instance2.Namespace}, &instancePod)
+				require.NoError(t, err)
+				expectedEphemerals := []corev1.EphemeralContainer{{EphemeralContainerCommon: corev1.EphemeralContainerCommon{Name: "debugger-2", Image: "tsuru/debug-image", ImagePullPolicy: corev1.PullIfNotPresent, Stdin: true}, TargetContainerName: "nginx"}}
+				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
+			},
+		},
 	}
 
 	for _, tt := range testCases {
@@ -4937,12 +4958,13 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 					time.Sleep(1000 * time.Millisecond)
 				}
 			}()
-			rpaasInstance, debugContainerName, debugContainerStatus, err := manager.debugPodWithContainerStatus(ctx, tt.args, tt.instance)
+			rpaasInstance, debugContainerName, debugContainerStatus, err := manager.debugPodWithContainerStatus(ctx, &tt.args, tt.instance)
 			wg.Wait()
 			if err != nil {
 				tt.assertion(t, err, manager, nil, "", nil)
+			} else {
+				tt.assertion(t, err, manager, rpaasInstance, debugContainerName, debugContainerStatus)
 			}
-			tt.assertion(t, err, manager, rpaasInstance, debugContainerName, debugContainerStatus)
 		})
 	}
 

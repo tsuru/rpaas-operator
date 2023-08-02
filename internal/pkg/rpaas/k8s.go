@@ -143,7 +143,7 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 }
 
 func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args DebugArgs) error {
-	instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, args, instanceName)
+	instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, &args, instanceName)
 	if err != nil {
 		return err
 	}
@@ -176,7 +176,7 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	}
 }
 
-func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *v1.ContainerStatus, error) {
+func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *v1.ContainerStatus, error) {
 	if args.Image == "" && config.Get().DebugImage == "" {
 		return nil, "", nil, ValidationError{Msg: "Debug image not set and no default image configured"}
 	}
@@ -187,7 +187,7 @@ func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args 
 	if err != nil {
 		return nil, "", nil, err
 	}
-	debugContainerName, err := m.generateDebugContainer(ctx, &args, instance)
+	debugContainerName, err := m.generateDebugContainer(ctx, args, instance)
 	if err != nil {
 		return nil, "", nil, err
 	}
