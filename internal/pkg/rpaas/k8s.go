@@ -76,6 +76,7 @@ const (
 )
 
 var _ RpaasManager = &k8sRpaasManager{}
+var nameSuffixFunc = utilrand.String
 
 var podAllowedReasonsToFail = map[string]bool{
 	"shutdown":     true,
@@ -142,45 +143,9 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 }
 
 func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args DebugArgs) error {
-	if args.Image == "" && config.Get().DebugImage == "" {
-		return ValidationError{Msg: "Debug image not set and no default image configured"}
-	}
-	if args.Image == "" {
-		args.Image = config.Get().DebugImage
-	}
-	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+	instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, args, instanceName)
 	if err != nil {
 		return err
-	}
-	instancePod := corev1.Pod{}
-	err = m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
-	if err != nil {
-		return err
-	}
-	debugContainerName := fmt.Sprintf("debugger-%s", utilrand.String(5))
-	debugContainer := &corev1.EphemeralContainer{
-		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-			Name:            debugContainerName,
-			Command:         args.Command,
-			Image:           args.Image,
-			ImagePullPolicy: corev1.PullIfNotPresent,
-			Stdin:           args.Stdin != nil,
-			TTY:             args.TTY,
-		}, TargetContainerName: args.Container,
-	}
-	instancePodWithDebug := instancePod.DeepCopy()
-	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
-	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod, debugContainer)
-	if err != nil {
-		return err
-	}
-	pod, err := m.waitForContainer(ctx, instance.Namespace, args.Pod, debugContainerName)
-	if err != nil {
-		return err
-	}
-	status := getContainerStatusByName(pod, debugContainerName)
-	if status == nil {
-		return fmt.Errorf("error getting container status of container name %q: %+v", debugContainerName, err)
 	}
 	if status.State.Terminated != nil {
 		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: debugContainerName})
@@ -209,6 +174,55 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 		}
 		return executorStream(args.CommonTerminalArgs, executor, ctx)
 	}
+}
+
+func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *v1.ContainerStatus, error) {
+	if args.Image == "" && config.Get().DebugImage == "" {
+		return nil, "", nil, ValidationError{Msg: "Debug image not set and no default image configured"}
+	}
+	if args.Image == "" {
+		args.Image = config.Get().DebugImage
+	}
+	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	debugContainerName, err := m.generateDebugContainer(ctx, &args, instance)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	pod, err := m.waitForContainer(ctx, instance.Namespace, args.Pod, debugContainerName)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	status := getContainerStatusByName(pod, debugContainerName)
+	if status == nil {
+		return nil, "", nil, fmt.Errorf("error getting container status of container name %q: %+v", debugContainerName, err)
+	}
+	return instance, debugContainerName, status, nil
+}
+
+func (m *k8sRpaasManager) generateDebugContainer(ctx context.Context, args *DebugArgs, instance *v1alpha1.RpaasInstance) (string, error) {
+	instancePod := corev1.Pod{}
+	err := m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
+	if err != nil {
+		return "", err
+	}
+	debugContainerName := fmt.Sprintf("debugger-%s", nameSuffixFunc(5))
+	debugContainer := &corev1.EphemeralContainer{
+		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+			Name:            debugContainerName,
+			Command:         args.Command,
+			Image:           args.Image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Stdin:           args.Stdin != nil,
+			TTY:             args.TTY,
+		}, TargetContainerName: args.Container,
+	}
+	instancePodWithDebug := instancePod.DeepCopy()
+	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
+	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod, debugContainer)
+	return debugContainerName, err
 }
 
 func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *v1.Pod, instancePod v1.Pod, debugContainer *v1.EphemeralContainer) error {
@@ -246,7 +260,6 @@ func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, con
 			return m.kcs.CoreV1().Pods(ns).Watch(ctx, options)
 		},
 	}
-
 	intr := interrupt.New(nil, cancel)
 	var result *corev1.Pod
 	err := intr.Run(func() error {
