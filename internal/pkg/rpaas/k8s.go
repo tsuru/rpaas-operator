@@ -151,29 +151,28 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: debugContainerName})
 		return logs.DefaultConsumeRequest(req, args.Stdout)
 
-	} else {
-		req := m.kcs.
-			CoreV1().
-			RESTClient().
-			Post().
-			Resource("pods").
-			Name(args.Pod).
-			Namespace(instance.Namespace).
-			SubResource("attach").
-			VersionedParams(&corev1.PodAttachOptions{
-				Container: debugContainerName,
-				Stdin:     args.Stdin != nil,
-				Stdout:    true,
-				Stderr:    true,
-				TTY:       args.TTY,
-			}, scheme.ParameterCodec)
-
-		executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
-		if err != nil {
-			return err
-		}
-		return executorStream(args.CommonTerminalArgs, executor, ctx)
 	}
+	req := m.kcs.
+		CoreV1().
+		RESTClient().
+		Post().
+		Resource("pods").
+		Name(args.Pod).
+		Namespace(instance.Namespace).
+		SubResource("attach").
+		VersionedParams(&corev1.PodAttachOptions{
+			Container: debugContainerName,
+			Stdin:     args.Stdin != nil,
+			Stdout:    true,
+			Stderr:    true,
+			TTY:       args.TTY,
+		}, scheme.ParameterCodec)
+
+	executor, err := keepAliveSpdyExecutor(m.restConfig, "POST", req.URL())
+	if err != nil {
+		return err
+	}
+	return executorStream(args.CommonTerminalArgs, executor, ctx)
 }
 
 func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *v1.ContainerStatus, error) {
