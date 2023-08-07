@@ -237,11 +237,7 @@ func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instance
 	if err != nil {
 		return err
 	}
-	err = m.cli.SubResource("ephemeralcontainers").Patch(ctx, &instancePod, client.RawPatch(types.StrategicMergePatchType, debugPatch))
-	if err != nil {
-		return err
-	}
-	return nil
+	return m.cli.SubResource("ephemeralcontainers").Patch(ctx, &instancePod, client.RawPatch(types.StrategicMergePatchType, debugPatch))
 }
 
 func (m *k8sRpaasManager) waitForContainer(ctx context.Context, ns, podName, containerName string) (*corev1.Pod, error) {
