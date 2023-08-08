@@ -110,7 +110,7 @@ func runDebug(c *cli.Context) error {
 				if nerr != nil {
 					closeErr, ok := nerr.(*websocket.CloseError)
 					if !ok {
-						done <- fmt.Errorf("ERROR: receveid an unexpected error while reading messages: %w", err)
+						done <- fmt.Errorf("ERROR: received an unexpected error while reading messages: %w", err)
 						return
 					}
 
