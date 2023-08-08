@@ -196,6 +196,51 @@ func Test_RpaasApi(t *testing.T) {
 		assert.Contains(t, string(logOut), "--WORKING--", logCmd.String())
 	})
 
+	t.Run("run debug container and get output", func(t *testing.T) {
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
+		planName := "basic"
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
+		require.NoError(t, err)
+
+		debugArgs := []string{"--rpaas-url", apiAddress, "debug", "-i", instanceName, "-d", "nicolaka/netshoot", "--", "/bin/bash", "-c", "whoami && echo -n \"--WORKING--\""}
+		debugCmd := exec.CommandContext(context.Background(), rpaasv2Bin, debugArgs...)
+		debugOut, err := debugCmd.CombinedOutput()
+		require.NoError(t, err)
+		assert.Contains(t, string(debugOut), "\nroot\n--WORKING--", debugCmd.String())
+	})
+
+	t.Run("interact with debug shell", func(t *testing.T) {
+		instanceName := generateRandomName("my-instance")
+		teamName := generateRandomName("team-one")
+		planName := "basic"
+
+		cleanFunc, err := api.createInstance(instanceName, planName, teamName)
+		require.NoError(t, err)
+		defer cleanFunc()
+
+		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
+		require.NoError(t, err)
+
+		debugArgs := []string{"--rpaas-url", apiAddress, "debug", "-t", "-I", "-i", instanceName, "-d", "nicolaka/netshoot"}
+		debugCmd := exec.CommandContext(context.Background(), rpaasv2Bin, debugArgs...)
+		stdin, err := debugCmd.StdinPipe()
+		require.NoError(t, err)
+		go func() {
+			defer stdin.Close()
+			io.WriteString(stdin, "echo \"i am $(whoami)\"\n")
+			io.WriteString(stdin, "exit\n")
+		}()
+		stdout, err := debugCmd.CombinedOutput()
+		require.NoError(t, err)
+		assert.Contains(t, string(stdout), "i am root", debugCmd.String())
+	})
+
 	t.Run("creating and deleting an instance", func(t *testing.T) {
 		instanceName := generateRandomName("my-instance")
 		teamName := generateRandomName("team-one")

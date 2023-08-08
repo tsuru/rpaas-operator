@@ -1,4 +1,4 @@
-// Copyright 2020 tsuru authors. All rights reserved.
+// Copyright 2023 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -15,7 +15,7 @@ import (
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
 
-func exec(c echo.Context) error {
+func debug(c echo.Context) error {
 	var wsUpgrader websocket.Upgrader = websocket.Upgrader{
 		HandshakeTimeout: config.Get().WebSocketHandshakeTimeout,
 		ReadBufferSize:   config.Get().WebSocketReadBufferSize,
@@ -24,29 +24,30 @@ func exec(c echo.Context) error {
 	}
 	useWebSocket, _ := strconv.ParseBool(c.QueryParam("ws"))
 	if useWebSocket {
-		ws := &wsTransport{extractArgs: extractExecArgs, command: execCommandOnInstance}
+		ws := &wsTransport{extractArgs: extractDebugArgs, command: debugCommandOnInstance}
 		return ws.Run(c, &wsUpgrader)
 	}
-	http := &http2Transport{extractArgs: extractExecArgs, command: execCommandOnInstance}
+	http := &http2Transport{extractArgs: extractDebugArgs, command: debugCommandOnInstance}
 	return http.Run(c)
 }
 
-func execCommandOnInstance(c echo.Context, args commonArgs) error {
+func debugCommandOnInstance(c echo.Context, args commonArgs) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)
 	if err != nil {
 		return err
 	}
-	execArgs := args.(*rpaas.ExecArgs)
-	return manager.Exec(ctx, c.Param("instance"), *execArgs)
+	debugArgs := args.(*rpaas.DebugArgs)
+	return manager.Debug(ctx, c.Param("instance"), *debugArgs)
 }
 
-func extractExecArgs(r url.Values) commonArgs {
+func extractDebugArgs(r url.Values) commonArgs {
 	tty, _ := strconv.ParseBool(r.Get("tty"))
 	interactive, _ := strconv.ParseBool(r.Get("interactive"))
 	width, _ := strconv.ParseUint(r.Get("width"), 10, 16)
 	height, _ := strconv.ParseUint(r.Get("height"), 10, 16)
-	return &rpaas.ExecArgs{
+	return &rpaas.DebugArgs{
+		Image:   r.Get("image"),
 		Command: r["command"],
 		CommonTerminalArgs: rpaas.CommonTerminalArgs{
 			Pod:            r.Get("pod"),

@@ -54,6 +54,7 @@ type RpaasConfig struct {
 	EnableCertManager                    bool                       `json:"enable-cert-manager"`
 	NewInstanceReplicas                  int                        `json:"new-instance-replicas"`
 	ForbiddenAnnotationsPrefixes         []string                   `json:"forbidden-annotations-prefixes"`
+	DebugImage                           string                     `json:"debug-image"`
 }
 
 type ClusterConfig struct {
@@ -112,6 +113,7 @@ func Init() error {
 	viper.SetDefault("enable-cert-manager", false)
 	viper.SetDefault("new-instance-replicas", 1)
 	viper.SetDefault("forbidden-annotations-prefixes", []string{"rpaas.extensions.tsuru.io", "afh.tsuru.io"})
+	viper.SetDefault("debug-image", "")
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {

@@ -1,4 +1,4 @@
-// Copyright 2020 tsuru authors. All rights reserved.
+// Copyright 2023 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -15,11 +15,11 @@ import (
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
 
-func NewCmdExec() *cli.Command {
+func NewCmdDebug() *cli.Command {
 	return &cli.Command{
-		Name:      "exec",
-		Usage:     "Run a command in an instance",
-		ArgsUsage: "[-p POD] [-c CONTAINER] [--] COMMAND [args...]",
+		Name:      "debug",
+		Usage:     "Run debug in an pod from instance",
+		ArgsUsage: "[-p POD] [-c CONTAINER] [--debug-image image] [--] COMMAND [args...]",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -42,6 +42,11 @@ func NewCmdExec() *cli.Command {
 				Aliases: []string{"c"},
 				Usage:   "container name - if omitted, the \"nginx\" container will be chosen",
 			},
+			&cli.StringFlag{
+				Name:    "debug-image",
+				Aliases: []string{"d"},
+				Usage:   "debug image name - if omitted, service default defined debug image will be chosen",
+			},
 			&cli.BoolFlag{
 				Name:    "interactive",
 				Aliases: []string{"I", "stdin"},
@@ -54,11 +59,11 @@ func NewCmdExec() *cli.Command {
 			},
 		},
 		Before: setupClient,
-		Action: runExec,
+		Action: runDebug,
 	}
 }
 
-func runExec(c *cli.Context) error {
+func runDebug(c *cli.Context) error {
 	client, err := getClient(c)
 	if err != nil {
 		return err
@@ -69,12 +74,13 @@ func runExec(c *cli.Context) error {
 		width, height = ts.Width, ts.Height
 	}
 
-	args := rpaasclient.ExecArgs{
+	args := rpaasclient.DebugArgs{
 		Command:        c.Args().Slice(),
 		Instance:       c.String("instance"),
 		Pod:            c.String("pod"),
 		Container:      c.String("container"),
 		Interactive:    c.Bool("interactive"),
+		Image:          c.String("debug-image"),
 		TTY:            c.Bool("tty"),
 		TerminalWidth:  width,
 		TerminalHeight: height,
@@ -90,7 +96,7 @@ func runExec(c *cli.Context) error {
 		Raw: args.TTY,
 	}
 	return tty.Safe(func() error {
-		conn, err := client.Exec(c.Context, args)
+		conn, err := client.Debug(c.Context, args)
 		if err != nil {
 			return err
 		}

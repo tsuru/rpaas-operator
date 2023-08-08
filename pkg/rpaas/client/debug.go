@@ -1,4 +1,4 @@
-// Copyright 2021 tsuru authors. All rights reserved.
+// Copyright 2023 tsuru authors. All rights reserved.
 // Use of this source code is governed by a BSD-style
 // license that can be found in the LICENSE file.
 
@@ -14,24 +14,20 @@ import (
 	"github.com/gorilla/websocket"
 )
 
-func (args ExecArgs) Validate() error {
+func (args DebugArgs) Validate() error {
 	if args.Instance == "" {
 		return ErrMissingInstance
-	}
-
-	if len(args.Command) == 0 {
-		return ErrMissingExecCommand
 	}
 
 	return nil
 }
 
-func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, error) {
+func (c *client) Debug(ctx context.Context, args DebugArgs) (*websocket.Conn, error) {
 	if err := args.Validate(); err != nil {
 		return nil, err
 	}
 
-	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/exec", args.Instance), args.Instance)
+	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/debug", args.Instance), args.Instance)
 	u, err := url.Parse(serverAddress)
 	if err != nil {
 		return nil, err
@@ -49,6 +45,7 @@ func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, erro
 	qs.Set("pod", args.Pod)
 	qs.Set("container", args.Container)
 	qs.Set("interactive", strconv.FormatBool(args.Interactive))
+	qs.Set("image", args.Image)
 	qs.Set("tty", strconv.FormatBool(args.TTY))
 	qs.Set("width", strconv.FormatInt(int64(args.TerminalWidth), 10))
 	qs.Set("height", strconv.FormatInt(int64(args.TerminalHeight), 10))
