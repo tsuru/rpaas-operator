@@ -213,6 +213,59 @@ func TestUpdateAutoscale(t *testing.T) {
 		"when autoscale is successufully updated": {
 			args: []string{"autoscale", "update", "-s", "my-service", "-i", "my-instance", "--min", "0", "--max", "10", "--cpu", "75"},
 			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+				var data map[string]any
+				err := json.NewDecoder(r.Body).Decode(&data)
+				require.NoError(t, err)
+				assert.Equal(t, map[string]any{"minReplicas": float64(0), "maxReplicas": float64(10), "cpu": float64(75)}, data)
+
+				w.WriteHeader(http.StatusNoContent)
+			}),
+			expected: "Autoscale of my-service/my-instance successfully updated!\n",
+		},
+
+		"with CPU + RPS scalers": {
+			args: []string{"autoscale", "update", "-s", "my-service", "-i", "my-instance", "--min", "0", "--max", "10", "--cpu", "80", "--rps", "100"},
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+				var data map[string]any
+				err := json.NewDecoder(r.Body).Decode(&data)
+				require.NoError(t, err)
+
+				expected := map[string]any{
+					"minReplicas": float64(0),
+					"maxReplicas": float64(10),
+					"cpu":         float64(80),
+					"rps":         float64(100),
+				}
+				assert.Equal(t, expected, data)
+
+				w.WriteHeader(http.StatusNoContent)
+			}),
+			expected: "Autoscale of my-service/my-instance successfully updated!\n",
+		},
+
+		"with schedules": {
+			args: []string{"autoscale", "update", "-s", "my-service", "-i", "my-instance", "--min", "0", "--max", "10", "--schedule", `{"minReplicas": 1, "start": "00 08 * * 1-5", "end": "00 20 * * 1-5"}`, "--schedule", `{"minReplicas": 3, "start": "00 12 * * 1-5", "end": "00 13 * * 1-5"}`},
+			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				require.Equal(t, "application/json", r.Header.Get("Content-Type"))
+
+				var data map[string]any
+				err := json.NewDecoder(r.Body).Decode(&data)
+				require.NoError(t, err)
+
+				expected := map[string]any{
+					"minReplicas": float64(0),
+					"maxReplicas": float64(10),
+					"schedules": []any{
+						map[string]any{"minReplicas": float64(1), "start": "00 08 * * 1-5", "end": "00 20 * * 1-5"},
+						map[string]any{"minReplicas": float64(3), "start": "00 12 * * 1-5", "end": "00 13 * * 1-5"},
+					},
+				}
+				assert.Equal(t, expected, data)
+
 				w.WriteHeader(http.StatusNoContent)
 			}),
 			expected: "Autoscale of my-service/my-instance successfully updated!\n",
