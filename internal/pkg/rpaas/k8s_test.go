@@ -4906,7 +4906,13 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 				instancePod := corev1.Pod{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "pod1", Namespace: instance2.Namespace}, &instancePod)
 				require.NoError(t, err)
-				expectedEphemerals := []corev1.EphemeralContainer{{EphemeralContainerCommon: corev1.EphemeralContainerCommon{Name: "debugger-1", Image: "tsuru/debug-image", ImagePullPolicy: corev1.PullIfNotPresent, Stdin: true}, TargetContainerName: "nginx"}}
+				expectedEphemerals := []corev1.EphemeralContainer{{EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+					Name:            "debugger-1",
+					Image:           "tsuru/debug-image",
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Stdin:           true,
+					VolumeMounts:    []corev1.VolumeMount{{Name: "nginx-config", MountPath: "/etc/nginx", ReadOnly: true}},
+				}, TargetContainerName: "nginx"}}
 				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
 			},
 		},
@@ -4927,7 +4933,13 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 				instancePod := corev1.Pod{}
 				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "pod1", Namespace: instance2.Namespace}, &instancePod)
 				require.NoError(t, err)
-				expectedEphemerals := []corev1.EphemeralContainer{{EphemeralContainerCommon: corev1.EphemeralContainerCommon{Name: "debugger-2", Image: "tsuru/debug-image", ImagePullPolicy: corev1.PullIfNotPresent, Stdin: true}, TargetContainerName: "nginx"}}
+				expectedEphemerals := []corev1.EphemeralContainer{{EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+					Name:            "debugger-2",
+					Image:           "tsuru/debug-image",
+					ImagePullPolicy: corev1.PullIfNotPresent,
+					Stdin:           true,
+					VolumeMounts:    []corev1.VolumeMount{{Name: "nginx-config", MountPath: "/etc/nginx", ReadOnly: true}},
+				}, TargetContainerName: "nginx"}}
 				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
 			},
 		},

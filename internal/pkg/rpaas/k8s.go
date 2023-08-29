@@ -216,6 +216,13 @@ func (m *k8sRpaasManager) generateDebugContainer(ctx context.Context, args *Debu
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Stdin:           args.Stdin != nil,
 			TTY:             args.TTY,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "nginx-config",
+					MountPath: "/etc/nginx",
+					ReadOnly:  true,
+				},
+			},
 		}, TargetContainerName: args.Container,
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
