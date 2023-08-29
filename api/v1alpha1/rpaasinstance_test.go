@@ -14,13 +14,13 @@ import (
 func Test_SetTeamOwner(t *testing.T) {
 	instance := &RpaasInstance{}
 	instance.SetTeamOwner("team-one")
-	expected := map[string]string{teamOwnerLabel: "team-one"}
+	expected := map[string]string{RpaasOperatorTeamOwnerLabelKey: "team-one"}
 	assert.Equal(t, expected, instance.Labels)
 	assert.Equal(t, expected, instance.Annotations)
 	assert.Equal(t, expected, instance.Spec.PodTemplate.Labels)
 
 	instance.SetTeamOwner("team-two")
-	expected = map[string]string{teamOwnerLabel: "team-two"}
+	expected = map[string]string{RpaasOperatorTeamOwnerLabelKey: "team-two"}
 	assert.Equal(t, expected, instance.Labels)
 	assert.Equal(t, expected, instance.Annotations)
 	assert.Equal(t, expected, instance.Spec.PodTemplate.Labels)
@@ -28,11 +28,9 @@ func Test_SetTeamOwner(t *testing.T) {
 
 func Test_GetTeamOwner(t *testing.T) {
 	instance := &RpaasInstance{}
-	owner := instance.TeamOwner()
-	assert.Equal(t, "", owner)
+	assert.Equal(t, "", instance.TeamOwner())
 	instance.SetTeamOwner("team-one")
-	owner = instance.TeamOwner()
-	assert.Equal(t, "team-one", owner)
+	assert.Equal(t, "team-one", instance.TeamOwner())
 }
 
 func Test_BelongsToCluster(t *testing.T) {
@@ -43,7 +41,7 @@ func Test_BelongsToCluster(t *testing.T) {
 	instance = &RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				clusterNameLabel: "cluster01",
+				RpaasOperatorClusterNameLabelKey: "cluster01",
 			},
 		},
 	}
@@ -104,5 +102,4 @@ func TestCertManagerRequests(t *testing.T) {
 			DNSNamesDefault: true,
 		},
 	}, instance.CertManagerRequests())
-
 }

@@ -358,7 +358,7 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.Cron
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: labelsForRpaasInstance(instance),
+			Labels: instance.GetBaseLabels(nil),
 		},
 		Spec: batchv1.CronJobSpec{
 			Schedule:                   minutesIntervalToSchedule(rotationInterval),
@@ -366,8 +366,7 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.Cron
 			FailedJobsHistoryLimit:     &jobsHistoryLimit,
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
-					Annotations: map[string]string{},
-					Labels:      labelsForRpaasInstance(instance),
+					Labels: instance.GetBaseLabels(nil),
 				},
 				Spec: batchv1.JobSpec{
 					Template: corev1.PodTemplateSpec{
@@ -468,7 +467,7 @@ func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Se
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      secretNameForTLSSessionTickets(instance),
 			Namespace: instance.Namespace,
-			Labels:    labelsForRpaasInstance(instance),
+			Labels:    instance.GetBaseLabels(nil),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
@@ -756,7 +755,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: labelsForRpaasInstance(instance),
+			Labels: instance.GetBaseLabels(nil),
 			Annotations: map[string]string{
 				// NOTE: allows the KEDA controller to take over the ownership of HPA resources.
 				"scaledobject.keda.sh/transfer-hpa-ownership": strconv.FormatBool(true),
@@ -841,7 +840,7 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: labelsForRpaasInstance(instance),
+			Labels: instance.GetBaseLabels(nil),
 		},
 		Spec: policyv1.PodDisruptionBudgetSpec{
 			MaxUnavailable: &maxUnavailable,
@@ -1020,15 +1019,16 @@ func (r *RpaasInstanceReconciler) deleteOldConfig(ctx context.Context, instance 
 
 func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *corev1.ConfigMap {
 	hash := fmt.Sprintf("%x", sha256.Sum256([]byte(renderedTemplate)))
-	labels := labelsForRpaasInstance(instance)
-	labels["type"] = "config"
-	labels["instance"] = instance.Name
 
 	return &corev1.ConfigMap{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "ConfigMap",
+			APIVersion: "v1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-config-%s", instance.Name, hash[:10]),
 			Namespace: instance.Namespace,
-			Labels:    labels,
+			Labels:    instance.GetBaseLabels(map[string]string{"type": "config", "instance": instance.Name}),
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
@@ -1036,10 +1036,6 @@ func newConfigMap(instance *v1alpha1.RpaasInstance, renderedTemplate string) *co
 					Kind:    "RpaasInstance",
 				}),
 			},
-		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "ConfigMap",
-			APIVersion: "v1",
 		},
 		Data: map[string]string{
 			"nginx.conf": renderedTemplate,
@@ -1091,6 +1087,14 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 
 	instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(instanceMergedWithFlavors)
 
+	if s := instanceMergedWithFlavors.Spec.Service; s != nil {
+		s.Labels = instanceMergedWithFlavors.GetBaseLabels(s.Labels)
+	}
+
+	if ing := instanceMergedWithFlavors.Spec.Ingress; ing != nil {
+		ing.Labels = instanceMergedWithFlavors.GetBaseLabels(ing.Labels)
+	}
+
 	replicas := instanceMergedWithFlavors.Spec.Replicas
 	if isAutoscaleEnabled(instanceMergedWithFlavors.Spec.Autoscale) {
 		// NOTE: we should avoid changing the number of replicas as it's managed by HPA.
@@ -1098,6 +1102,10 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 	}
 
 	n := &nginxv1alpha1.Nginx{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Nginx",
+			APIVersion: "nginx.tsuru.io/v1alpha1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      instanceMergedWithFlavors.Name,
 			Namespace: instanceMergedWithFlavors.Namespace,
@@ -1108,11 +1116,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: labelsForRpaasInstance(instanceMergedWithFlavors),
-		},
-		TypeMeta: metav1.TypeMeta{
-			Kind:       "Nginx",
-			APIVersion: "nginx.tsuru.io/v1alpha1",
+			Labels: instanceMergedWithFlavors.GetBaseLabels(nil),
 		},
 		Spec: nginxv1alpha1.NginxSpec{
 			Image:    plan.Spec.Image,
@@ -1251,7 +1255,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: labelsForRpaasInstance(instance),
+			Labels: instance.GetBaseLabels(nil),
 		},
 		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
 			ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
@@ -1380,13 +1384,6 @@ func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, 
 	}
 
 	return nil
-}
-
-func labelsForRpaasInstance(instance *extensionsv1alpha1.RpaasInstance) map[string]string {
-	return map[string]string{
-		"rpaas.extensions.tsuru.io/instance-name": instance.Name,
-		"rpaas.extensions.tsuru.io/plan-name":     instance.Spec.PlanName,
-	}
 }
 
 func nameForCronJob(name string) string {

@@ -95,6 +95,7 @@ func Test_newNginx(t *testing.T) {
 				return n
 			},
 		},
+
 		"with KEDA configs set but autoscale disabled": {
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				i.Spec.Replicas = func(n int32) *int32 { return &n }(15)
@@ -112,6 +113,58 @@ func Test_newNginx(t *testing.T) {
 				return n
 			},
 		},
+
+		"with load balancer": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Service = &nginxv1alpha1.NginxService{
+					Type: corev1.ServiceTypeLoadBalancer,
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				}
+				return i
+			},
+			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
+				n.Spec.Service = &nginxv1alpha1.NginxService{
+					Type: corev1.ServiceTypeLoadBalancer,
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/team-owner":    "my-team",
+						"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+						"foo":                                     "bar",
+					},
+				}
+				return n
+			},
+		},
+
+		"with ingress provided": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Ingress = &nginxv1alpha1.NginxIngress{
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+				}
+				return i
+			},
+			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
+				n.Spec.Ingress = &nginxv1alpha1.NginxIngress{
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/team-owner":    "my-team",
+						"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+						"foo":                                     "bar",
+					},
+				}
+				return n
+			},
+		},
 	}
 
 	for name, tt := range tests {
@@ -120,6 +173,16 @@ func Test_newNginx(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/team-owner":    "my-team",
+					},
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/team-owner": "my-team",
+					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					PlanName: "my-plan",
@@ -155,8 +218,12 @@ func Test_newNginx(t *testing.T) {
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
 					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "rpaasv2",
 						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
 						"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+						"rpaas.extensions.tsuru.io/team-owner":    "my-team",
 					},
 					OwnerReferences: []metav1.OwnerReference{{
 						APIVersion:         "extensions.tsuru.io/v1alpha1",
@@ -177,9 +244,7 @@ func Test_newNginx(t *testing.T) {
 			if tt.expected != nil {
 				nginx = tt.expected(nginx)
 			}
-
-			got := newNginx(instance, plan, cm)
-			assert.Equal(t, nginx, got)
+			assert.Equal(t, nginx, newNginx(instance, plan, cm))
 		})
 	}
 }
@@ -580,8 +645,12 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			ResourceVersion: "1",
 			Labels: map[string]string{
+				"rpaas_instance": "my-instance",
+				"rpaas_service":  "",
 				"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+				"rpaas.extensions.tsuru.io/service-name":  "",
 				"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+				"rpaas.extensions.tsuru.io/team-owner":    "",
 			},
 		},
 	}
@@ -605,8 +674,12 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			ResourceVersion: "1",
 			Labels: map[string]string{
+				"rpaas_instance": "my-instance",
+				"rpaas_service":  "",
 				"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+				"rpaas.extensions.tsuru.io/service-name":  "",
 				"rpaas.extensions.tsuru.io/plan-name":     "my-plan",
+				"rpaas.extensions.tsuru.io/team-owner":    "",
 			},
 			Annotations: map[string]string{
 				"scaledobject.keda.sh/transfer-hpa-ownership": "true",
@@ -1131,6 +1204,14 @@ func Test_reconcilePDB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
 				},
 				Status: nginxv1alpha1.NginxStatus{
 					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
@@ -1149,8 +1230,12 @@ func Test_reconcilePDB(t *testing.T) {
 						Name:      "my-instance",
 						Namespace: "rpaasv2",
 						Labels: map[string]string{
+							"rpaas_instance": "my-instance",
+							"rpaas_service":  "",
 							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/service-name":  "",
 							"rpaas.extensions.tsuru.io/plan-name":     "",
+							"rpaas.extensions.tsuru.io/team-owner":    "",
 						},
 						ResourceVersion: "1",
 						OwnerReferences: []metav1.OwnerReference{
@@ -1188,6 +1273,14 @@ func Test_reconcilePDB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
 				},
 				Status: nginxv1alpha1.NginxStatus{
 					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
@@ -1206,8 +1299,12 @@ func Test_reconcilePDB(t *testing.T) {
 						Name:      "my-instance",
 						Namespace: "rpaasv2",
 						Labels: map[string]string{
+							"rpaas_instance": "my-instance",
+							"rpaas_service":  "",
 							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/service-name":  "",
 							"rpaas.extensions.tsuru.io/plan-name":     "",
+							"rpaas.extensions.tsuru.io/team-owner":    "",
 						},
 						ResourceVersion: "1",
 						OwnerReferences: []metav1.OwnerReference{
@@ -1249,6 +1346,14 @@ func Test_reconcilePDB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "another-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "another-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "another-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
 				},
 				Status: nginxv1alpha1.NginxStatus{
 					PodSelector: "nginx.tsuru.io/resource-name=another-instance",
@@ -1267,8 +1372,12 @@ func Test_reconcilePDB(t *testing.T) {
 						Name:      "another-instance",
 						Namespace: "rpaasv2",
 						Labels: map[string]string{
+							"rpaas_instance": "another-instance",
+							"rpaas_service":  "",
 							"rpaas.extensions.tsuru.io/instance-name": "another-instance",
+							"rpaas.extensions.tsuru.io/service-name":  "",
 							"rpaas.extensions.tsuru.io/plan-name":     "",
+							"rpaas.extensions.tsuru.io/team-owner":    "",
 						},
 						ResourceVersion: "1000",
 						OwnerReferences: []metav1.OwnerReference{
@@ -1309,6 +1418,14 @@ func Test_reconcilePDB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "another-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "another-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "another-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
 				},
 				Status: nginxv1alpha1.NginxStatus{
 					PodSelector: "nginx.tsuru.io/resource-name=another-instance",
@@ -1337,6 +1454,14 @@ func Test_reconcilePDB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
 				},
 				Status: nginxv1alpha1.NginxStatus{
 					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
@@ -1355,8 +1480,12 @@ func Test_reconcilePDB(t *testing.T) {
 						Name:      "my-instance",
 						Namespace: "rpaasv2",
 						Labels: map[string]string{
+							"rpaas_instance": "my-instance",
+							"rpaas_service":  "",
 							"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+							"rpaas.extensions.tsuru.io/service-name":  "",
 							"rpaas.extensions.tsuru.io/plan-name":     "",
+							"rpaas.extensions.tsuru.io/team-owner":    "",
 						},
 						ResourceVersion: "1",
 						OwnerReferences: []metav1.OwnerReference{
@@ -1394,6 +1523,14 @@ func Test_reconcilePDB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "another-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
 				},
 				Status: nginxv1alpha1.NginxStatus{
 					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
@@ -1422,6 +1559,14 @@ func Test_reconcilePDB(t *testing.T) {
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "my-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
 				},
 			},
 			assert: func(t *testing.T, c client.Client) {

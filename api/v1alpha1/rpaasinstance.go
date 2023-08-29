@@ -10,9 +10,55 @@ import (
 )
 
 const (
-	teamOwnerLabel   = "rpaas.extensions.tsuru.io/team-owner"
-	clusterNameLabel = "rpaas.extensions.tsuru.io/cluster-name"
+	DefaultLabelKeyPrefix             = "rpaas.extensions.tsuru.io"
+	RpaasOperatorInstanceNameLabelKey = DefaultLabelKeyPrefix + "/instance-name"
+	RpaasOperatorServiceNameLabelKey  = DefaultLabelKeyPrefix + "/service-name"
+	RpaasOperatorPlanNameLabelKey     = DefaultLabelKeyPrefix + "/plan-name"
+	RpaasOperatorTeamOwnerLabelKey    = DefaultLabelKeyPrefix + "/team-owner"
+	RpaasOperatorClusterNameLabelKey  = DefaultLabelKeyPrefix + "/cluster-name"
+
+	LegacyRpaasOperatorInstanceNameLabelKey = "rpaas_instance"
+	LegacyRpaasOperatorServiceNameLabelKey  = "rpaas_service"
 )
+
+func (i *RpaasInstance) GetBaseLabels(labels map[string]string) map[string]string {
+	return mergeMap(map[string]string{
+		LegacyRpaasOperatorInstanceNameLabelKey: i.Name,
+		LegacyRpaasOperatorServiceNameLabelKey:  i.Labels[RpaasOperatorServiceNameLabelKey],
+		RpaasOperatorInstanceNameLabelKey:       i.Name,
+		RpaasOperatorServiceNameLabelKey:        i.Labels[RpaasOperatorServiceNameLabelKey],
+		RpaasOperatorPlanNameLabelKey:           i.Spec.PlanName,
+		RpaasOperatorTeamOwnerLabelKey:          i.Labels[RpaasOperatorTeamOwnerLabelKey],
+	}, labels)
+}
+
+func (i *RpaasInstance) TeamOwner() string {
+	return i.Labels[RpaasOperatorTeamOwnerLabelKey]
+}
+
+func (i *RpaasInstance) ClusterName() string {
+	return i.Labels[RpaasOperatorClusterNameLabelKey]
+}
+
+func (i *RpaasInstance) SetTeamOwner(team string) {
+	newLabels := map[string]string{RpaasOperatorTeamOwnerLabelKey: team}
+	i.appendNewLabels(newLabels)
+}
+
+func (i *RpaasInstance) SetClusterName(clusterName string) {
+	newLabels := map[string]string{RpaasOperatorClusterNameLabelKey: clusterName}
+	i.appendNewLabels(newLabels)
+}
+
+func (i *RpaasInstance) BelongsToCluster(clusterName string) bool {
+	instanceCluster := i.Labels[RpaasOperatorClusterNameLabelKey]
+
+	if instanceCluster == "" {
+		return false
+	}
+
+	return clusterName == instanceCluster
+}
 
 func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
 	if i == nil || i.Spec.DynamicCertificates == nil {
@@ -59,34 +105,10 @@ func (c *CertManager) dnsNames(i *RpaasInstance) (names []string) {
 	return
 }
 
-func (i *RpaasInstance) SetTeamOwner(team string) {
-	newLabels := map[string]string{teamOwnerLabel: team}
-	i.appendNewLabels(newLabels)
-}
-
-func (i *RpaasInstance) SetClusterName(clusterName string) {
-	newLabels := map[string]string{clusterNameLabel: clusterName}
-	i.appendNewLabels(newLabels)
-}
-
-func (i *RpaasInstance) BelongsToCluster(clusterName string) bool {
-	instanceCluster := i.Labels[clusterNameLabel]
-
-	if instanceCluster == "" {
-		return false
-	}
-
-	return clusterName == instanceCluster
-}
-
 func (i *RpaasInstance) appendNewLabels(newLabels map[string]string) {
 	i.Labels = mergeMap(i.Labels, newLabels)
 	i.Annotations = mergeMap(i.Annotations, newLabels)
 	i.Spec.PodTemplate.Labels = mergeMap(i.Spec.PodTemplate.Labels, newLabels)
-}
-
-func (i *RpaasInstance) TeamOwner() string {
-	return i.Labels[teamOwnerLabel]
 }
 
 func mergeMap(a, b map[string]string) map[string]string {
