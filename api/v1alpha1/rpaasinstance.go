@@ -109,6 +109,9 @@ func (i *RpaasInstance) appendNewLabels(newLabels map[string]string) {
 	i.Labels = mergeMap(i.Labels, newLabels)
 	i.Annotations = mergeMap(i.Annotations, newLabels)
 	i.Spec.PodTemplate.Labels = mergeMap(i.Spec.PodTemplate.Labels, newLabels)
+	if i.Spec.Service != nil {
+		i.Spec.Service.Labels = mergeMap(i.Spec.Service.Labels, newLabels)
+	}
 }
 
 func mergeMap(a, b map[string]string) map[string]string {

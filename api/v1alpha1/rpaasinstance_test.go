@@ -8,22 +8,26 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/tsuru/nginx-operator/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func Test_SetTeamOwner(t *testing.T) {
 	instance := &RpaasInstance{}
+	instance.Spec.Service = &v1alpha1.NginxService{}
 	instance.SetTeamOwner("team-one")
 	expected := map[string]string{RpaasOperatorTeamOwnerLabelKey: "team-one"}
 	assert.Equal(t, expected, instance.Labels)
 	assert.Equal(t, expected, instance.Annotations)
 	assert.Equal(t, expected, instance.Spec.PodTemplate.Labels)
+	assert.Equal(t, expected, instance.Spec.Service.Labels)
 
 	instance.SetTeamOwner("team-two")
 	expected = map[string]string{RpaasOperatorTeamOwnerLabelKey: "team-two"}
 	assert.Equal(t, expected, instance.Labels)
 	assert.Equal(t, expected, instance.Annotations)
 	assert.Equal(t, expected, instance.Spec.PodTemplate.Labels)
+	assert.Equal(t, expected, instance.Spec.Service.Labels)
 }
 
 func Test_GetTeamOwner(t *testing.T) {
