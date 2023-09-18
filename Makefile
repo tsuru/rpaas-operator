@@ -36,7 +36,7 @@ build/plugin/rpaasv2: build-dirs
 
 .PHONY: build/purger
 build/purger: build-dirs
-	go build -o $(GO_BUILD_DIR)/ ./cmd/purger
+	CGO_ENABLED=0 go build -o $(GO_BUILD_DIR)/ ./cmd/purger
 
 .PHONY: build-dirs
 build-dirs:
