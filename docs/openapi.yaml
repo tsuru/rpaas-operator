@@ -632,12 +632,12 @@ paths:
       responses:
         '200':
           description: OK
+        '400':
+          description: Validation error
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/CertificateData'
+                $ref: '#/components/schemas/Error'
 
   /resources/{instance}/certificate/{name}:
     parameters:
