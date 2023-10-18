@@ -590,6 +590,86 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/Error'
+                
+  /resources/{instance}/certificate:
+    parameters:
+      - in: path
+        name: instance
+        example: my-instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+    get:
+      summary: Get instance certificates
+      description: This endpoint is exclusive for RPaaS v2 API.
+      operationId: GetCertificates
+      tags:
+        - rpaas
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CertificateData'
+    post:
+      summary: Create instance certificate
+      description: This endpoint is exclusive for RPaaS v2 API.
+      operationId: CreateCertificate
+      tags:
+        - rpaas
+      requestBody:
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/CertificateData'     
+          application/x-www-form-urlencoded:
+            schema:
+              $ref: '#/components/schemas/CertificateData'  
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/CertificateData'
+
+  /resources/{instance}/certificate/{name}:
+    parameters:
+      - in: path
+        name: instance
+        example: my-instance
+        schema:
+          type: string
+        required: true
+        description: Instance name
+      - in: path
+        name: name
+        example: my-instance.example.com
+        schema:
+          type: string
+        required: true
+        description: Certificate name
+    delete:
+      summary: Delete instance certificate
+      description: This endpoint is exclusive for RPaaS v2 API.
+      operationId: DeleteCertificate
+      tags:
+        - rpaas
+      responses:
+        '200':
+          description: Succesfully removed
+        default:
+          description: Something wrong happened
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
 
 components:
   securitySchemes:
@@ -1037,3 +1117,24 @@ components:
             lb-name:
               type: string
               example: my-instance.custom.example.com
+
+    CertificateData:
+      type: object
+      properties:
+        name:
+          type: string
+          example: my-instance.example.com
+        certificate:
+          type: string
+          example: |-
+            -----BEGIN CERTIFICATE-----
+            MIIBhTCCASugAwIBAgIQIRi6zePL6mKjOipnWf86aX6PepsntZv2GYlA5UpabfT2EZICICpJ5h/iI+i341gBmLiAFQOyTDT+/wQc
+            -----END CERTIFICATE-----
+        key:
+          type: string
+          example: |-
+            -----BEGIN EC PRIVATE KEY-----
+            MHcCAQEEIIrYSSNQFaA2Hwf1duRSxKtLYX5CB04fSeQ6tF1aY/PuoAoGCCqGSM49
+            AwEHoUQDQgAEPR3tU2Fta9ktY+6P9G0cWO+0kETA6SFs38GecTyudlHz6xvCdz8q
+            EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
+            -----END EC PRIVATE KEY-----
