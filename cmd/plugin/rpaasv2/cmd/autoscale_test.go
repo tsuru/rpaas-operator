@@ -76,24 +76,24 @@ max replicas: 5
 			}),
 			expected: `min replicas: 0
 max replicas: 100
-+-------------+--------------------------+
-|  Triggers   |     trigger details      |
-+-------------+--------------------------+
-| Schedule(s) | Window 1:                |
-|             |   Min replicas: 1        |
-|             |   Start: "00 08 * * 1-5" |
-|             |   End:   "00 20 * * 1-5" |
-|             |                          |
-|             | Window 2:                |
-|             |   Min replicas: 5        |
-|             |   Start: "00 20 * * 2"   |
-|             |   End:   "00 01 * * 3"   |
-|             |                          |
-|             | Window 3:                |
-|             |   Min replicas: 5        |
-|             |   Start: "00 22 * * 0"   |
-|             |   End:   "00 02 * * 1"   |
-+-------------+--------------------------+
++-------------+-------------------------------------------------------------+
+|  Triggers   |                       trigger details                       |
++-------------+-------------------------------------------------------------+
+| Schedule(s) | Window 1:                                                   |
+|             |   Min replicas: 1                                           |
+|             |   Start: At 08:00 AM, Monday through Friday (00 08 * * 1-5) |
+|             |   End: At 08:00 AM, Monday through Friday (00 20 * * 1-5)   |
+|             |                                                             |
+|             | Window 2:                                                   |
+|             |   Min replicas: 5                                           |
+|             |   Start: At 08:00 PM, only on Tuesday (00 20 * * 2)         |
+|             |   End: At 08:00 PM, only on Tuesday (00 01 * * 3)           |
+|             |                                                             |
+|             | Window 3:                                                   |
+|             |   Min replicas: 5                                           |
+|             |   Start: At 10:00 PM, only on Sunday (00 22 * * 0)          |
+|             |   End: At 10:00 PM, only on Sunday (00 02 * * 1)            |
++-------------+-------------------------------------------------------------+
 `,
 		},
 
