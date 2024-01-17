@@ -540,6 +540,10 @@ spec:
                             type: string
                           syslogTag:
                             type: string
+                          templateExtraVars:
+                            additionalProperties:
+                              type: string
+                            type: object
                           upstreamKeepalive:
                             type: integer
                           user:

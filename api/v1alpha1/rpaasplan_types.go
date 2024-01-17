@@ -91,6 +91,8 @@ type NginxConfig struct {
 
 	WorkerProcesses   int `json:"workerProcesses,omitempty"`
 	WorkerConnections int `json:"workerConnections,omitempty"`
+
+	TemplateExtraVars map[string]string `json:"templateExtraVars,omitempty"`
 }
 
 type CacheSnapshotSyncSpec struct {
