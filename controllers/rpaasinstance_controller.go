@@ -180,17 +180,12 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v
 		return err
 	}
 
-	externalAddresses, err := r.getNginxExternalAddressses(ctx, existingNginx)
-	if err != nil {
-		return err
-	}
-
 	newStatus := v1alpha1.RpaasInstanceStatus{
 		ObservedGeneration:        instance.Generation,
 		WantedNginxRevisionHash:   newHash,
 		ObservedNginxRevisionHash: existingHash,
 		NginxUpdated:              newHash == existingHash,
-		ExternalAddresses:         externalAddresses,
+		ExternalAddresses:         externalAddresssesFromNginx(existingNginx),
 	}
 
 	if existingNginx != nil {
