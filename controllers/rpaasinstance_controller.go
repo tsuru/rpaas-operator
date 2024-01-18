@@ -15,7 +15,6 @@ import (
 	batchv1 "k8s.io/api/batch/v1"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -23,7 +22,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 )
@@ -56,7 +54,7 @@ type RpaasInstanceReconciler struct {
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
-	if k8serrors.IsNotFound(err) {
+	if k8sErrors.IsNotFound(err) {
 		return reconcile.Result{}, nil
 	}
 
@@ -77,7 +75,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		planName.Namespace = instance.Spec.PlanNamespace
 	}
 
-	plan := &extensionsv1alpha1.RpaasPlan{}
+	plan := &v1alpha1.RpaasPlan{}
 	err = r.Client.Get(ctx, planName, plan)
 	if err != nil {
 		return reconcile.Result{}, err
@@ -167,7 +165,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance, newNginx *nginxv1alpha1.Nginx) error {
+func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v1alpha1.RpaasInstance, newNginx *nginxv1alpha1.Nginx) error {
 	existingNginx, err := r.getNginx(ctx, instance)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
@@ -182,11 +180,17 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *e
 		return err
 	}
 
+	externalAddresses, err := r.getNginxExternalAddressses(ctx, existingNginx)
+	if err != nil {
+		return err
+	}
+
 	newStatus := v1alpha1.RpaasInstanceStatus{
 		ObservedGeneration:        instance.Generation,
 		WantedNginxRevisionHash:   newHash,
 		ObservedNginxRevisionHash: existingHash,
 		NginxUpdated:              newHash == existingHash,
+		ExternalAddresses:         externalAddresses,
 	}
 
 	if existingNginx != nil {
@@ -209,7 +213,7 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *e
 
 func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&extensionsv1alpha1.RpaasInstance{}).
+		For(&v1alpha1.RpaasInstance{}).
 		Owns(&corev1.ConfigMap{}).
 		Owns(&corev1.Secret{}).
 		Owns(&batchv1.CronJob{}).
