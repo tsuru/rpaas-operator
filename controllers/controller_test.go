@@ -2122,6 +2122,47 @@ func TestRpaasInstanceController_Reconcile_Suspended(t *testing.T) {
 	assert.Equal(t, "Warning RpaasInstanceSuspended no modifications will be done by RPaaS controller", <-fr.Events)
 }
 
+func TestExternalAddresssesFromNginx(t *testing.T) {
+	externalAddresses := externalAddresssesFromNginx(&nginxv1alpha1.Nginx{
+		Status: nginxv1alpha1.NginxStatus{
+			Ingresses: []nginxv1alpha1.IngressStatus{
+				{
+					Name: "ing1",
+					IPs:  []string{"1.1.1.3", "1.1.1.1"},
+				},
+				{
+					Name: "ing2",
+					IPs:  []string{"1.1.1.2", "1.1.1.4"},
+				},
+				{
+					Name:      "ing3",
+					Hostnames: []string{"host2", "host1"},
+				},
+			},
+			Services: []nginxv1alpha1.ServiceStatus{
+				{
+					Name: "svc",
+					IPs:  []string{"8.1.1.3", "8.1.1.1"},
+				},
+				{
+					Name: "svc2",
+					IPs:  []string{"8.1.1.2", "8.1.1.4"},
+				},
+				{
+					Name:      "svc3",
+					Hostnames: []string{"host9", "host8"},
+				},
+			},
+		},
+	})
+
+	assert.Equal(t, v1alpha1.RpaasInstanceExternalAddressesStatus{
+		IPs:       []string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4", "8.1.1.1", "8.1.1.2", "8.1.1.3", "8.1.1.4"},
+		Hostnames: []string{"host1", "host2", "host8", "host9"},
+	}, externalAddresses)
+
+}
+
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
 	return &RpaasInstanceReconciler{
 		Client:        fake.NewClientBuilder().WithScheme(extensionsruntime.NewScheme()).WithRuntimeObjects(objs...).Build(),

@@ -14,6 +14,7 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -881,20 +882,23 @@ func (r *RpaasInstanceReconciler) getNginx(ctx context.Context, instance *v1alph
 	return found, err
 }
 
-func (r *RpaasInstanceReconciler) getNginxExternalAddressses(ctx context.Context, nginx *nginxv1alpha1.Nginx) (v1alpha1.RpaasInstanceExternalAddressesStatus, error) {
+func externalAddresssesFromNginx(nginx *nginxv1alpha1.Nginx) v1alpha1.RpaasInstanceExternalAddressesStatus {
 	ingressesStatus := v1alpha1.RpaasInstanceExternalAddressesStatus{}
 
 	for _, service := range nginx.Status.Services {
-		ingressesStatus.IPs = append(ingressesStatus.IPs, service.Hostnames...)
+		ingressesStatus.IPs = append(ingressesStatus.IPs, service.IPs...)
 		ingressesStatus.Hostnames = append(ingressesStatus.Hostnames, service.Hostnames...)
 	}
 
 	for _, ingress := range nginx.Status.Ingresses {
-		ingressesStatus.IPs = append(ingressesStatus.IPs, ingress.Hostnames...)
+		ingressesStatus.IPs = append(ingressesStatus.IPs, ingress.IPs...)
 		ingressesStatus.Hostnames = append(ingressesStatus.Hostnames, ingress.Hostnames...)
 	}
 
-	return ingressesStatus, nil
+	slices.Sort(ingressesStatus.IPs)
+	slices.Sort(ingressesStatus.Hostnames)
+
+	return ingressesStatus
 }
 
 func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
