@@ -1,6 +1,8 @@
 module github.com/tsuru/rpaas-operator
 
-go 1.20
+go 1.21
+
+toolchain go1.21.0
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2
@@ -18,6 +20,7 @@ require (
 	github.com/imdario/mergo v0.3.13
 	github.com/kedacore/keda/v2 v2.10.1
 	github.com/labstack/echo/v4 v4.10.2
+	github.com/lnquy/cron v1.1.1
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/opentracing-contrib/go-stdlib v1.0.1-0.20201028152118-adbfc141dfc2
@@ -30,7 +33,7 @@ require (
 	github.com/stern/stern v1.20.1
 	github.com/stretchr/testify v1.8.4
 	github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d
-	github.com/tsuru/nginx-operator v0.13.2
+	github.com/tsuru/nginx-operator v0.14.0
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
@@ -93,7 +96,6 @@ require (
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/labstack/gommon v0.4.0 // indirect
 	github.com/liggitt/tabwriter v0.0.0-20181228230101-89fcab3d43de // indirect
-	github.com/lnquy/cron v1.1.1 // indirect
 	github.com/magiconair/properties v1.8.5 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-colorable v0.1.13 // indirect

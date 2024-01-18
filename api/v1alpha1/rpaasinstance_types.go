@@ -358,6 +358,14 @@ type RpaasInstanceStatus struct {
 	// NginxUpdated is true if the wanted nginx revision hash equals the
 	// observed nginx revision hash.
 	NginxUpdated bool `json:"nginxUpdated"`
+
+	// External IP addreses of Nginx
+	ExternalAddresses RpaasInstanceExternalAddressesStatus `json:"externalAddresses,omitempty"`
+}
+
+type RpaasInstanceExternalAddressesStatus struct {
+	IPs       []string `json:"ips,omitempty"`
+	Hostnames []string `json:"hostnames,omitempty"`
 }
 
 // +kubebuilder:object:root=true
@@ -366,6 +374,8 @@ type RpaasInstanceStatus struct {
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.currentReplicas,selectorpath=.status.podSelector
 // +kubebuilder:printcolumn:name="Suspended",type=boolean,JSONPath=`.spec.suspend`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
+// +kubebuilder:printcolumn:name="IPs",type=string,JSONPath=`.status.externalAddresses.ips[*]`
+// +kubebuilder:printcolumn:name="Hostnames",type=string,JSONPath=`.status.externalAddresses.hostnames[*]`
 
 // RpaasInstance is the Schema for the rpaasinstances API
 type RpaasInstance struct {

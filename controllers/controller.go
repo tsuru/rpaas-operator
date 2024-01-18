@@ -31,10 +31,8 @@ import (
 	policyv1 "k8s.io/api/policy/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	k8slabels "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
@@ -42,7 +40,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	extensionsv1alpha1 "github.com/tsuru/rpaas-operator/api/v1alpha1"
 	controllerUtil "github.com/tsuru/rpaas-operator/internal/controllers/util"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/util"
@@ -145,8 +142,8 @@ main $@
 `
 )
 
-func (r *RpaasInstanceReconciler) getRpaasInstance(ctx context.Context, objKey types.NamespacedName) (*extensionsv1alpha1.RpaasInstance, error) {
-	var instance extensionsv1alpha1.RpaasInstance
+func (r *RpaasInstanceReconciler) getRpaasInstance(ctx context.Context, objKey types.NamespacedName) (*v1alpha1.RpaasInstance, error) {
+	var instance v1alpha1.RpaasInstance
 	if err := r.Client.Get(ctx, objKey, &instance); err != nil {
 		return nil, err
 	}
@@ -154,7 +151,7 @@ func (r *RpaasInstanceReconciler) getRpaasInstance(ctx context.Context, objKey t
 	return &instance, nil
 }
 
-func (r *RpaasInstanceReconciler) mergeWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) (*extensionsv1alpha1.RpaasInstance, error) {
+func (r *RpaasInstanceReconciler) mergeWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasInstance, error) {
 	mergedInstance, err := r.mergeInstanceWithFlavors(ctx, instance)
 	if err != nil {
 		return nil, err
@@ -170,7 +167,7 @@ func (r *RpaasInstanceReconciler) mergeWithFlavors(ctx context.Context, instance
 	return mergedInstance, nil
 }
 
-func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance) (*extensionsv1alpha1.RpaasInstance, error) {
+func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) (*v1alpha1.RpaasInstance, error) {
 	defaultFlavors, err := r.listDefaultFlavors(ctx, instance)
 	if err != nil {
 		return nil, err
@@ -186,7 +183,7 @@ func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, 
 			flavorObjectKey.Namespace = instance.Spec.PlanNamespace
 		}
 
-		var flavor extensionsv1alpha1.RpaasFlavor
+		var flavor v1alpha1.RpaasFlavor
 		if err := r.Client.Get(ctx, flavorObjectKey, &flavor); err != nil {
 			return nil, err
 		}
@@ -209,7 +206,7 @@ func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, 
 	return instance, nil
 }
 
-func mergeInstanceWithFlavor(instance *extensionsv1alpha1.RpaasInstance, flavor extensionsv1alpha1.RpaasFlavor) error {
+func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.RpaasFlavor) error {
 	if flavor.Spec.InstanceTemplate == nil {
 		return nil
 	}
@@ -222,7 +219,7 @@ func mergeInstanceWithFlavor(instance *extensionsv1alpha1.RpaasInstance, flavor 
 	return nil
 }
 
-func (r *RpaasInstanceReconciler) listDefaultFlavors(ctx context.Context, instance *extensionsv1alpha1.RpaasInstance) ([]extensionsv1alpha1.RpaasFlavor, error) {
+func (r *RpaasInstanceReconciler) listDefaultFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
 	flavorList := &v1alpha1.RpaasFlavorList{}
 	flavorNamespace := instance.Namespace
 	if instance.Spec.PlanNamespace != "" {
@@ -600,7 +597,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 func (r *RpaasInstanceReconciler) cleanUpKEDAScaledObject(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
 	var so kedav1alpha1.ScaledObject
 	err := r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &so)
-	if k8serrors.IsNotFound(err) {
+	if k8sErrors.IsNotFound(err) {
 		return nil
 	}
 
@@ -792,7 +789,7 @@ func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1
 	var existingPDB policyv1.PodDisruptionBudget
 	err = r.Get(ctx, client.ObjectKey{Name: pdb.Name, Namespace: pdb.Namespace}, &existingPDB)
 	if err != nil {
-		if !k8serrors.IsNotFound(err) {
+		if !k8sErrors.IsNotFound(err) {
 			return err
 		}
 
@@ -816,7 +813,7 @@ func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1
 }
 
 func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*policyv1.PodDisruptionBudget, error) {
-	set, err := labels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
+	set, err := k8slabels.ConvertSelectorToLabelsMap(nginx.Status.PodSelector)
 	if err != nil {
 		return nil, err
 	}
@@ -882,6 +879,22 @@ func (r *RpaasInstanceReconciler) getNginx(ctx context.Context, instance *v1alph
 		return nil, err
 	}
 	return found, err
+}
+
+func (r *RpaasInstanceReconciler) getNginxExternalAddressses(ctx context.Context, nginx *nginxv1alpha1.Nginx) (v1alpha1.RpaasInstanceExternalAddressesStatus, error) {
+	ingressesStatus := v1alpha1.RpaasInstanceExternalAddressesStatus{}
+
+	for _, service := range nginx.Status.Services {
+		ingressesStatus.IPs = append(ingressesStatus.IPs, service.Hostnames...)
+		ingressesStatus.Hostnames = append(ingressesStatus.Hostnames, service.Hostnames...)
+	}
+
+	for _, ingress := range nginx.Status.Ingresses {
+		ingressesStatus.IPs = append(ingressesStatus.IPs, ingress.Hostnames...)
+		ingressesStatus.Hostnames = append(ingressesStatus.Hostnames, ingress.Hostnames...)
+	}
+
+	return ingressesStatus, nil
 }
 
 func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
