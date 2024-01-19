@@ -2563,6 +2563,16 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				Description: "aaaaa",
 			},
 		},
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "feature-create-only",
+				Namespace: getServiceName(),
+			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				CreationOnly: true,
+				Description:  "aaaaa",
+			},
+		},
 	}
 	one := int32(1)
 	tests := []struct {
@@ -2968,6 +2978,56 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Replicas: &one,
 					PlanName: "plan1",
 					Flavors:  []string{"strawberry"},
+					Service: &nginxv1alpha1.NginxService{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+							"rpaas.extensions.tsuru.io/instance-name": "r1",
+							"rpaas.extensions.tsuru.io/team-owner":    "t1",
+							"rpaas_service":                           "rpaasv2",
+							"rpaas_instance":                          "r1",
+						},
+					},
+				},
+			},
+		},
+		{
+			name: "with flavor allowed just in creation",
+			args: CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "feature-create-only"}}},
+			expected: v1alpha1.RpaasInstance{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "RpaasInstance",
+					APIVersion: "extensions.tsuru.io/v1alpha1",
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name:            "r1",
+					Namespace:       "rpaasv2",
+					ResourceVersion: "1",
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/tags":        "",
+						"rpaas.extensions.tsuru.io/description": "",
+						"rpaas.extensions.tsuru.io/team-owner":  "t1",
+					},
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+						"rpaas.extensions.tsuru.io/instance-name": "r1",
+						"rpaas.extensions.tsuru.io/team-owner":    "t1",
+						"rpaas_service":                           "rpaasv2",
+						"rpaas_instance":                          "r1",
+					},
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Replicas: &one,
+					PlanName: "plan1",
+					Flavors:  []string{"feature-create-only"},
 					Service: &nginxv1alpha1.NginxService{
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",

@@ -1259,6 +1259,7 @@ func (m *k8sRpaasManager) validatePlan(ctx context.Context, updatedPlan string) 
 }
 
 func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, flavors []string) error {
+	isCreation := instance == nil
 	encountered := map[string]struct{}{}
 	for _, f := range flavors {
 		if _, duplicated := encountered[f]; duplicated {
@@ -1285,7 +1286,7 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha
 			return &ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
 		}
 
-		if flavorObj.Spec.CreationOnly {
+		if flavorObj.Spec.CreationOnly && !isCreation {
 			return &ValidationError{Msg: fmt.Sprintf("flavor %q can used only in the creation of instance", f)}
 		}
 	}
