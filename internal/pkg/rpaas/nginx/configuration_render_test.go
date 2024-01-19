@@ -21,10 +21,11 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 	size300MB := resource.MustParse("300Mi")
 
 	tests := []struct {
-		name      string
-		blocks    ConfigurationBlocks
-		data      ConfigurationData
-		assertion func(*testing.T, string)
+		name          string
+		blocks        ConfigurationBlocks
+		data          ConfigurationData
+		assertion     func(*testing.T, string)
+		expectedError string
 	}{
 		{
 			name: "with false values",
@@ -270,6 +271,21 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `\s# some custom conf at init_by_lua_block context`, result)
 				assert.Regexp(t, `\s# some custom conf at init_worker_by_lua_block context`, result)
 			},
+		},
+		{
+			name: "with invalid recursive renderInnnerTemplate inside config blocks",
+			blocks: ConfigurationBlocks{
+				RootBlock:      `# some custom conf at {{ "root" }} context`,
+				HttpBlock:      "# some custom conf at {{ $var := renderInnerTemplate \"http\" .}} context",
+				ServerBlock:    "# some custom conf at server context",
+				LuaServerBlock: "# some custom conf at init_by_lua_block context",
+				LuaWorkerBlock: "# some custom conf at init_worker_by_lua_block context",
+			},
+			data: ConfigurationData{
+				Config:   &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			expectedError: errRenderInnerTemplate.Error(),
 		},
 		{
 			name: "with app bound",
@@ -602,6 +618,10 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			cr, err := NewConfigurationRenderer(tt.blocks)
 			require.NoError(t, err)
 			result, err := cr.Render(tt.data)
+			if tt.expectedError != "" {
+				assert.ErrorContains(t, err, tt.expectedError)
+				return
+			}
 			require.NoError(t, err)
 			tt.assertion(t, result)
 		})

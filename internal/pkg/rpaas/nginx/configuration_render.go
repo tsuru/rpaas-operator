@@ -22,6 +22,7 @@ import (
 
 var trimTrailingSpacesRegex = regexp.MustCompile(`[ \t]+?\n`)
 var nginxTemplate = &template.Template{}
+var errRenderInnerTemplate = fmt.Errorf("template contains renderInnerTemplate")
 
 type ConfigurationRenderer interface {
 	Render(ConfigurationData) (string, error)
@@ -97,6 +98,10 @@ func NewConfigurationRenderer(cb ConfigurationBlocks) (ConfigurationRenderer, er
 
 func renderInnerTemplate(name string, nginx ConfigurationData) (string, error) {
 	tpl := nginxTemplate.Lookup(name)
+	parsedTemplate := tpl.Tree.Root.String()
+	if strings.Contains(parsedTemplate, "renderInnerTemplate") {
+		return "", errRenderInnerTemplate
+	}
 	r := &rpaasConfigurationRenderer{t: tpl}
 	return r.Render(nginx)
 }
