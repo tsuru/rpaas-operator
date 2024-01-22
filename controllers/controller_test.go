@@ -590,6 +590,65 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				return i
 			},
 		},
+
+		"when there are multiple flavors and last on overrides ingress annotations": {
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-a",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							Service: &nginxv1alpha1.NginxService{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation-svc": "custom svc annotation",
+								},
+							},
+							Ingress: &nginxv1alpha1.NginxIngress{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation-ingress": "foo",
+								},
+							},
+						},
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-b",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							Ingress: &nginxv1alpha1.NginxIngress{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation-ingress": "bar",
+									"another.example.com/blah":                            "bleh",
+								},
+							},
+						},
+					},
+				},
+			},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Flavors = []string{"flavor-a", "flavor-b"}
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Service = &nginxv1alpha1.NginxService{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/custom-annotation-svc": "custom svc annotation",
+					},
+				}
+				i.Spec.Ingress = &nginxv1alpha1.NginxIngress{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/custom-annotation-ingress": "bar",
+						"another.example.com/blah":                            "bleh",
+					},
+				}
+				return i
+			},
+		},
 	}
 
 	for name, tt := range tests {

@@ -212,7 +212,7 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 		return nil
 	}
 
-	mergedInstanceSpec, err := mergeInstance(*flavor.Spec.InstanceTemplate, instance.Spec)
+	mergedInstanceSpec, err := mergeInstance(instance.Spec, *flavor.Spec.InstanceTemplate)
 	if err != nil {
 		return err
 	}
