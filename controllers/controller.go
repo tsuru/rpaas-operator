@@ -207,6 +207,52 @@ func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, 
 	return instance, nil
 }
 
+func (r *RpaasInstanceReconciler) mergePlanWithFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (*v1alpha1.RpaasPlan, error) {
+	defaultFlavors, err := r.listDefaultFlavors(ctx, instance)
+	if err != nil {
+		return nil, err
+	}
+
+	for _, defaultFlavor := range defaultFlavors {
+		if defaultFlavor.Spec.Config == nil {
+			continue
+		}
+		if err := mergePlanWithFlavor(plan, defaultFlavor); err != nil {
+			return nil, err
+		}
+	}
+
+	for _, flavorName := range instance.Spec.Flavors {
+		flavorObjectKey := types.NamespacedName{
+			Name:      flavorName,
+			Namespace: instance.Namespace,
+		}
+
+		if instance.Spec.PlanNamespace != "" {
+			flavorObjectKey.Namespace = instance.Spec.PlanNamespace
+		}
+
+		var flavor v1alpha1.RpaasFlavor
+		if err := r.Client.Get(ctx, flavorObjectKey, &flavor); err != nil {
+			return nil, err
+		}
+
+		if flavor.Spec.Default {
+			continue
+		}
+
+		if flavor.Spec.Config == nil {
+			continue
+		}
+
+		if err := mergePlanWithFlavor(plan, flavor); err != nil {
+			return nil, err
+		}
+	}
+
+	return plan, nil
+}
+
 func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.RpaasFlavor) error {
 	if flavor.Spec.InstanceTemplate == nil {
 		return nil
@@ -217,6 +263,21 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 		return err
 	}
 	instance.Spec = mergedInstanceSpec
+	return nil
+}
+
+func mergePlanWithFlavor(plan *v1alpha1.RpaasPlan, flavor v1alpha1.RpaasFlavor) error {
+	if flavor.Spec.Config == nil {
+		return nil
+	}
+
+	mergedPlanSpec, err := mergePlans(plan.Spec, v1alpha1.RpaasPlanSpec{
+		Config: *flavor.Spec.Config,
+	})
+	if err != nil {
+		return err
+	}
+	plan.Spec = mergedPlanSpec
 	return nil
 }
 

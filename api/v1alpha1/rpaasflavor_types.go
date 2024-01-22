@@ -19,6 +19,11 @@ type RpaasFlavorSpec struct {
 	// +optional
 	InstanceTemplate *RpaasInstanceSpec `json:"instanceTemplate,omitempty"`
 
+	// Config defines some NGINX configurations values that can be used in the
+	// configuration template.
+	// +optional
+	Config *NginxConfig `json:"config,omitempty"`
+
 	// Default defines if the flavor should be applied by default on
 	// every service instance. Default flavors cannot be listed on RpaasFlavorList.
 	// +optional

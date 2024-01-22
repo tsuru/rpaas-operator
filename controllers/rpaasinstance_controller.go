@@ -88,6 +88,11 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	plan, err = r.mergePlanWithFlavors(ctx, instance.DeepCopy(), plan)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	instanceMergedWithFlavors, err := r.mergeWithFlavors(ctx, instance.DeepCopy())
 	if err != nil {
 		return reconcile.Result{}, nil

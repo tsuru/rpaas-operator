@@ -36,6 +36,83 @@ spec:
           spec:
             description: RpaasFlavorSpec defines the desired state of RpaasFlavor
             properties:
+              config:
+                description: Config defines some NGINX configurations values that
+                  can be used in the configuration template.
+                properties:
+                  cacheEnabled:
+                    type: boolean
+                  cacheInactive:
+                    type: string
+                  cacheLoaderFiles:
+                    type: integer
+                  cachePath:
+                    type: string
+                  cacheSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  cacheZoneSize:
+                    anyOf:
+                    - type: integer
+                    - type: string
+                    pattern: ^(\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))(([KMGTPE]i)|[numkMGTPE]|([eE](\+|-)?(([0-9]+(\.[0-9]*)?)|(\.[0-9]+))))?$
+                    x-kubernetes-int-or-string: true
+                  httpListenOptions:
+                    type: string
+                  httpsListenOptions:
+                    type: string
+                  logAdditionalFields:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  logAdditionalHeaders:
+                    items:
+                      type: string
+                    type: array
+                  logFormat:
+                    type: string
+                  logFormatEscape:
+                    type: string
+                  logFormatName:
+                    type: string
+                  mapHashBucketSize:
+                    type: integer
+                  mapHashMaxSize:
+                    type: integer
+                  resolverAddresses:
+                    items:
+                      type: string
+                    type: array
+                  resolverTTL:
+                    type: string
+                  syslogEnabled:
+                    type: boolean
+                  syslogFacility:
+                    type: string
+                  syslogServerAddress:
+                    type: string
+                  syslogTag:
+                    type: string
+                  templateExtraVars:
+                    additionalProperties:
+                      type: string
+                    type: object
+                  upstreamKeepalive:
+                    type: integer
+                  user:
+                    type: string
+                  vtsEnabled:
+                    type: boolean
+                  vtsStatusHistogramBuckets:
+                    type: string
+                  workerConnections:
+                    type: integer
+                  workerProcesses:
+                    type: integer
+                type: object
               creationOnly:
                 description: CreationOnly defines if the flavor could be used only
                   in the moment of creation of instance
