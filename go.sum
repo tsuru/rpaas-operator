@@ -798,8 +798,8 @@ github.com/tsuru/gnuflag v0.0.0-20151217162021-86b8c1b864aa h1:JlLQP1xa13a994p/A
 github.com/tsuru/gnuflag v0.0.0-20151217162021-86b8c1b864aa/go.mod h1:UibOSvkMFKRe/eiwktAPAvQG8L+p8nYsECJvu3Dgw7I=
 github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d h1:LAT4TbCfjK2CTjA0yM1Tv0RMd/GoN4Qjanx9IiL5NpU=
 github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d/go.mod h1:UNUsKvpma/GzkOmD7J3dNe/1KahJPFpVJ/SHh3RfycM=
-github.com/tsuru/nginx-operator v0.14.0 h1:VCTwt0XV1uri/1XyH3mRbygm8wLNMPvHxbORHoSS1/g=
-github.com/tsuru/nginx-operator v0.14.0/go.mod h1:SJQFeMLCkuFdwgsH8lxRgTU49DGwRixIZzPqqUqzQ7I=
+github.com/tsuru/nginx-operator v0.15.0 h1:x/r5ZsXaAzBqpY3HAZDl6zVztOrc89oyykH7QsfWK+Q=
+github.com/tsuru/nginx-operator v0.15.0/go.mod h1:SJQFeMLCkuFdwgsH8lxRgTU49DGwRixIZzPqqUqzQ7I=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f h1:9dTZI6bQUVkKAsCnqaDl4V7fKAc5ErVpmX+bzevz3Cg=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f/go.mod h1:SUQKJ3CLsVARBwkz5z9IIL8Pj008JNj4U8eF50kkm2c=
 github.com/tsuru/tablecli v0.0.0-20190131152944-7ded8a3383c6 h1:1XDdWFAjIbCSG1OjN9v9KdWhuM8UtYlFcfHe/Ldkchk=

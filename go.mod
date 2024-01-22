@@ -33,7 +33,7 @@ require (
 	github.com/stern/stern v1.20.1
 	github.com/stretchr/testify v1.8.4
 	github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d
-	github.com/tsuru/nginx-operator v0.14.0
+	github.com/tsuru/nginx-operator v0.15.0
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
