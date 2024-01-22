@@ -498,10 +498,16 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: v1alpha1.RpaasFlavorSpec{
+						Default: true,
 						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
 							DNS: &v1alpha1.DNSConfig{
 								Zone: "apps.example.com",
 								TTL:  func(n int32) *int32 { return &n }(300),
+							},
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/is-default-pod-annotation": "true",
+								},
 							},
 						},
 					},
@@ -529,6 +535,11 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				i.Spec.DNS = &v1alpha1.DNSConfig{
 					Zone: "apps.test",
 					TTL:  func(n int32) *int32 { return &n }(30),
+				}
+				i.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/is-default-pod-annotation": "true",
+					},
 				}
 				return i
 			},
@@ -717,6 +728,21 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
 							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 								ServiceAccountName: "flavor-c-service-account",
+							},
+						},
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-d",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								Annotations: map[string]string{
+									"donotuse.tsuru.io": "flavor-d",
+								},
 							},
 						},
 					},
