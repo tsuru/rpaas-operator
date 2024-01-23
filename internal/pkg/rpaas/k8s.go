@@ -1289,6 +1289,11 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha
 		if flavorObj.Spec.CreationOnly && !isCreation {
 			return &ValidationError{Msg: fmt.Sprintf("flavor %q can used only in the creation of instance", f)}
 		}
+
+		incompatibleFlavor := checkIncompatibleFlavors(flavorObj.Spec.IncompatibleFlavors, flavors)
+		if incompatibleFlavor != "" {
+			return &ValidationError{Msg: fmt.Sprintf("flavor %q is incompatible with %q flavor", f, incompatibleFlavor)}
+		}
 	}
 
 	for _, f := range removed {
@@ -1319,6 +1324,18 @@ func diffFlavors(existing, updated []string) (added, removed []string) {
 	}
 
 	return
+}
+
+func checkIncompatibleFlavors(incompatibleFlavors, allFlavors []string) string {
+	if len(incompatibleFlavors) > 0 {
+		for _, incompatibleFlavor := range incompatibleFlavors {
+			if contains(allFlavors, incompatibleFlavor) {
+				return incompatibleFlavor
+			}
+		}
+	}
+
+	return ""
 }
 
 func isBlockTypeAllowed(bt v1alpha1.BlockType) bool {

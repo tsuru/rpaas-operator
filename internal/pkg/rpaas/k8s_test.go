@@ -2573,6 +2573,26 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				Description:  "aaaaa",
 			},
 		},
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "vanilla",
+				Namespace: getServiceName(),
+			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				Description:         "aaaaa",
+				IncompatibleFlavors: []string{"strawberry", "chocolate"},
+			},
+		},
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "chocolate",
+				Namespace: getServiceName(),
+			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				Description:         "aaaaa",
+				IncompatibleFlavors: []string{"mint-chocolate", "pecan"},
+			},
+		},
 	}
 	one := int32(1)
 	tests := []struct {
@@ -2617,6 +2637,11 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 			name:          "duplicated flavor",
 			args:          CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "strawberry", "1": "strawberry"}}},
 			expectedError: `flavor "strawberry" only can be set once`,
+		},
+		{
+			name:          "incompatible flavors",
+			args:          CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "strawberry", "1": "vanilla"}}},
+			expectedError: `flavor "vanilla" is incompatible with "strawberry" flavor`,
 		},
 		{
 			name:          "instance already exists",
@@ -2951,7 +2976,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name: "with flavor",
-			args: CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "strawberry"}}},
+			args: CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"flavors": map[string]interface{}{"0": "strawberry", "1": "chocolate"}}},
 			expected: v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
 					Kind:       "RpaasInstance",
@@ -2977,7 +3002,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 				Spec: v1alpha1.RpaasInstanceSpec{
 					Replicas: &one,
 					PlanName: "plan1",
-					Flavors:  []string{"strawberry"},
+					Flavors:  []string{"strawberry", "chocolate"},
 					Service: &nginxv1alpha1.NginxService{
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -3334,7 +3359,39 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, plan1, plan2, creationOnlyFlavor}
+	flavor1 := &v1alpha1.RpaasFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "flavor1",
+			Namespace: getServiceName(),
+		},
+		Spec: v1alpha1.RpaasFlavorSpec{
+			Description: "aaaaa",
+		},
+	}
+
+	flavor2 := &v1alpha1.RpaasFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "flavor2",
+			Namespace: getServiceName(),
+		},
+		Spec: v1alpha1.RpaasFlavorSpec{
+			Description:         "aaaaa",
+			IncompatibleFlavors: []string{"flavor1", "flavor3"},
+		},
+	}
+
+	flavor3 := &v1alpha1.RpaasFlavor{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "flavor3",
+			Namespace: getServiceName(),
+		},
+		Spec: v1alpha1.RpaasFlavorSpec{
+			Description:         "aaaaa",
+			IncompatibleFlavors: []string{"flavor2", "flavor-non-existent"},
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, plan1, plan2, creationOnlyFlavor, flavor1, flavor2, flavor3}
 
 	tests := []struct {
 		name      string
@@ -3388,6 +3445,39 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			},
 		},
 		{
+			name:     "when added flavors are compatible",
+			instance: "instance1",
+			args: UpdateInstanceArgs{
+				Description: "Another description",
+				Plan:        "plan1",
+				Team:        "team-one",
+				Parameters: map[string]interface{}{
+					"lb-name": "my-instance.example",
+					"flavors": "flavor1,flavor3",
+				},
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name:     "when tries to add incompatible flavors",
+			instance: "instance1",
+			args: UpdateInstanceArgs{
+				Description: "Another description",
+				Plan:        "plan1",
+				Team:        "team-one",
+				Parameters: map[string]interface{}{
+					"lb-name": "my-instance.example",
+					"flavors": "flavor1,flavor2",
+				},
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Equal(t, `flavor "flavor2" is incompatible with "flavor1" flavor`, err.Error())
+			},
+		},
+		{
 			name:     "when tries to set an invalid annotation format",
 			instance: "instance1",
 			args: UpdateInstanceArgs{
@@ -3415,6 +3505,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				Parameters: map[string]interface{}{
 					"lb-name":     "my-instance.example",
 					"annotations": "{\"my-custom-annotation\": \"my-value\"}",
+					"flavors":     "flavor3",
 				},
 			},
 			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
