@@ -27,6 +27,10 @@ type RpaasFlavorSpec struct {
 	// CreationOnly defines if the flavor could be used only in the moment of creation of instance
 	// +optional
 	CreationOnly bool `json:"creationOnly,omitempty"`
+
+	// IncompatibleFlavors defines which other flavors cannot be used with this flavor
+	// +optional
+	IncompatibleFlavors []string `json:"incompatibleFlavors,omitempty"`
 }
 
 // +kubebuilder:object:root=true
