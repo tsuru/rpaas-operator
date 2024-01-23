@@ -174,6 +174,12 @@ func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, 
 		return nil, err
 	}
 
+	for _, defaultFlavor := range defaultFlavors {
+		if err := mergeInstanceWithFlavor(instance, defaultFlavor); err != nil {
+			return nil, err
+		}
+	}
+
 	for _, flavorName := range instance.Spec.Flavors {
 		flavorObjectKey := types.NamespacedName{
 			Name:      flavorName,
@@ -198,12 +204,6 @@ func (r *RpaasInstanceReconciler) mergeInstanceWithFlavors(ctx context.Context, 
 		}
 	}
 
-	for _, defaultFlavor := range defaultFlavors {
-		if err := mergeInstanceWithFlavor(instance, defaultFlavor); err != nil {
-			return nil, err
-		}
-	}
-
 	return instance, nil
 }
 
@@ -212,7 +212,7 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 		return nil
 	}
 
-	mergedInstanceSpec, err := mergeInstance(*flavor.Spec.InstanceTemplate, instance.Spec)
+	mergedInstanceSpec, err := mergeInstance(instance.Spec, *flavor.Spec.InstanceTemplate)
 	if err != nil {
 		return err
 	}

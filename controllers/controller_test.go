@@ -498,10 +498,16 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						Namespace: "default",
 					},
 					Spec: v1alpha1.RpaasFlavorSpec{
+						Default: true,
 						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
 							DNS: &v1alpha1.DNSConfig{
 								Zone: "apps.example.com",
 								TTL:  func(n int32) *int32 { return &n }(300),
+							},
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/is-default-pod-annotation": "true",
+								},
 							},
 						},
 					},
@@ -529,6 +535,11 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				i.Spec.DNS = &v1alpha1.DNSConfig{
 					Zone: "apps.test",
 					TTL:  func(n int32) *int32 { return &n }(30),
+				}
+				i.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/is-default-pod-annotation": "true",
+					},
 				}
 				return i
 			},
@@ -585,6 +596,178 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 				i.Spec.Service = &nginxv1alpha1.NginxService{
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/custom-annotation": "Custom annotation value: rpaasv2/my-instance/my-instance",
+					},
+				}
+				return i
+			},
+		},
+
+		"when there are multiple flavors and last on overrides ingress annotations": {
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-a",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							Service: &nginxv1alpha1.NginxService{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation-svc": "custom svc annotation",
+								},
+							},
+							Ingress: &nginxv1alpha1.NginxIngress{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation-ingress": "foo",
+								},
+							},
+						},
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-b",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							Ingress: &nginxv1alpha1.NginxIngress{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation-ingress": "bar",
+									"another.example.com/blah":                            "bleh",
+								},
+							},
+						},
+					},
+				},
+			},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Flavors = []string{"flavor-a", "flavor-b"}
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Service = &nginxv1alpha1.NginxService{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/custom-annotation-svc": "custom svc annotation",
+					},
+				}
+				i.Spec.Ingress = &nginxv1alpha1.NginxIngress{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/custom-annotation-ingress": "bar",
+						"another.example.com/blah":                            "bleh",
+					},
+				}
+				return i
+			},
+		},
+
+		"when there are multiple flavors and one of them is default": {
+			resources: []runtime.Object{
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "default",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						Default: true,
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							Service: &nginxv1alpha1.NginxService{
+								Annotations: map[string]string{
+									"rpaas.extensions.tsuru.io/custom-annotation-svc": "custom svc annotation",
+								},
+							},
+
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								ServiceAccountName: "my-service-account",
+								Annotations: map[string]string{
+									"prometheus.io/path": "/status",
+								},
+							},
+						},
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-a",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								Annotations: map[string]string{
+									"logging.tsuru.io/sample": "0.5",
+								},
+							},
+						},
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-b",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								ServiceAccountName: "flavor-b-service-account",
+							},
+							Ingress: &nginxv1alpha1.NginxIngress{
+								Annotations: map[string]string{
+									"ingress.tsuru.io": "flavor-b",
+								},
+							},
+						},
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-c",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								ServiceAccountName: "flavor-c-service-account",
+							},
+						},
+					},
+				},
+				&v1alpha1.RpaasFlavor{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "flavor-d",
+						Namespace: "default",
+					},
+					Spec: v1alpha1.RpaasFlavorSpec{
+						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+								Annotations: map[string]string{
+									"donotuse.tsuru.io": "flavor-d",
+								},
+							},
+						},
+					},
+				},
+			},
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Flavors = []string{"flavor-a", "flavor-b", "flavor-c"}
+				return i
+			},
+			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Service = &nginxv1alpha1.NginxService{
+					Annotations: map[string]string{
+						"rpaas.extensions.tsuru.io/custom-annotation-svc": "custom svc annotation",
+					},
+				}
+				i.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					ServiceAccountName: "flavor-c-service-account",
+					Annotations: map[string]string{
+						"prometheus.io/path":      "/status",
+						"logging.tsuru.io/sample": "0.5",
+					},
+				}
+				i.Spec.Ingress = &nginxv1alpha1.NginxIngress{
+					Annotations: map[string]string{
+						"ingress.tsuru.io": "flavor-b",
 					},
 				}
 				return i
