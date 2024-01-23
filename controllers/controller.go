@@ -1336,6 +1336,10 @@ func mergeInstanceWithConfig(instance *v1alpha1.RpaasInstance, config *v1alpha1.
 		instanceConfig = instance.Spec.PlanTemplate.Config
 	}
 
+	if config == nil {
+		config = &v1alpha1.NginxConfig{}
+	}
+
 	mergedConfig, err := mergeConfig(*config, instanceConfig)
 	if err != nil {
 		return nil, err
