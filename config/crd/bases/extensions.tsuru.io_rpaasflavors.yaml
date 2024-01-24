@@ -48,6 +48,12 @@ spec:
                 description: Description provides a human readable description about
                   this flavor.
                 type: string
+              incompatibleFlavors:
+                description: IncompatibleFlavors defines which other flavors cannot
+                  be used with this flavor
+                items:
+                  type: string
+                type: array
               instanceTemplate:
                 description: InstanceTemplate defines a template which allows to override
                   the associated RpaasInstance.
