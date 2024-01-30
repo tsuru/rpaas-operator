@@ -26,6 +26,8 @@ type ScheduledWindow struct {
 	Start string `json:"start"`
 	// An Cron expression defining the end of the scheduled window.
 	End string `json:"end"`
+	// Timezone is a zone name registered on IANA time zone database, default is UTC.
+	Timezone *string `json:"timezone,omitempty"`
 }
 
 // NewScheduledWindow instantiates a new ScheduledWindow object
@@ -120,6 +122,38 @@ func (o *ScheduledWindow) SetEnd(v string) {
 	o.End = v
 }
 
+// GetTimezone returns the Timezone field value if set, zero value otherwise.
+func (o *ScheduledWindow) GetTimezone() string {
+	if o == nil || IsNil(o.Timezone) {
+		var ret string
+		return ret
+	}
+	return *o.Timezone
+}
+
+// GetTimezoneOk returns a tuple with the Timezone field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *ScheduledWindow) GetTimezoneOk() (*string, bool) {
+	if o == nil || IsNil(o.Timezone) {
+		return nil, false
+	}
+	return o.Timezone, true
+}
+
+// HasTimezone returns a boolean if a field has been set.
+func (o *ScheduledWindow) HasTimezone() bool {
+	if o != nil && !IsNil(o.Timezone) {
+		return true
+	}
+
+	return false
+}
+
+// SetTimezone gets a reference to the given string and assigns it to the Timezone field.
+func (o *ScheduledWindow) SetTimezone(v string) {
+	o.Timezone = &v
+}
+
 func (o ScheduledWindow) MarshalJSON() ([]byte, error) {
 	toSerialize, err := o.ToMap()
 	if err != nil {
@@ -133,6 +167,9 @@ func (o ScheduledWindow) ToMap() (map[string]interface{}, error) {
 	toSerialize["minReplicas"] = o.MinReplicas
 	toSerialize["start"] = o.Start
 	toSerialize["end"] = o.End
+	if !IsNil(o.Timezone) {
+		toSerialize["timezone"] = o.Timezone
+	}
 	return toSerialize, nil
 }
 

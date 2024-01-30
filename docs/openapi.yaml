@@ -996,6 +996,10 @@ components:
           type: string
           description: An Cron expression defining the end of the scheduled window.
           example: "00 00 * * * 1-5"
+        timezone:
+          type: string
+          description: Timezone is a zone name registered on IANA time zone database, default is UTC.
+          example: "America/Sao_Paulo"
       required:
       - minReplicas
       - start
