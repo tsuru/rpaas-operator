@@ -9,7 +9,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"github.com/tsuru/nginx-operator/api/v1alpha1"
-	coreV1 "k8s.io/api/core/v1"
 	metaV1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 
@@ -23,6 +22,12 @@ func TestPrometheusDiscover(t *testing.T) {
 		ObjectMeta: metaV1.ObjectMeta{
 			Name:      "test",
 			Namespace: "default",
+			Labels: map[string]string{
+				"nginx.tsuru.io/app":                      "nginx",
+				"rpaas.extensions.tsuru.io/instance-name": "test",
+				"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
+				"rpaas.extensions.tsuru.io/team-owner":    "team01",
+			},
 		},
 		Spec: v1alpha1.NginxSpec{
 			TLS: []v1alpha1.NginxTLS{
@@ -38,35 +43,14 @@ func TestPrometheusDiscover(t *testing.T) {
 			Services: []v1alpha1.ServiceStatus{
 				{
 					Name: "test",
-				},
-			},
-		},
-	}
-
-	svc1 := &coreV1.Service{
-		ObjectMeta: metaV1.ObjectMeta{
-			Name:      "test",
-			Namespace: "default",
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":                      "nginx",
-				"rpaas.extensions.tsuru.io/instance-name": "test",
-				"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
-				"rpaas.extensions.tsuru.io/team-owner":    "team01",
-			},
-		},
-		Status: coreV1.ServiceStatus{
-			LoadBalancer: coreV1.LoadBalancerStatus{
-				Ingress: []coreV1.LoadBalancerIngress{
-					{
-						IP: "1.1.1.1",
-					},
+					IPs:  []string{"1.1.1.1"},
 				},
 			},
 		},
 	}
 
 	scheme := extensionsruntime.NewScheme()
-	client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(nginx1, svc1).Build()
+	client := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(nginx1).Build()
 	api := controllerapi.New(client)
 
 	w := httptest.NewRecorder()

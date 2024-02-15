@@ -1,13 +1,10 @@
 package controllerapi
 
 import (
-	"context"
 	"encoding/json"
 	"net/http"
 
 	"github.com/tsuru/nginx-operator/api/v1alpha1"
-	coreV1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -17,54 +14,27 @@ type prometheusDiscoverHandler struct {
 	client sigsk8sclient.Client
 }
 
-func (h *prometheusDiscoverHandler) svcMap(ctx context.Context) (map[sigsk8sclient.ObjectKey]*coreV1.Service, error) {
-	svcMap := map[sigsk8sclient.ObjectKey]*coreV1.Service{}
-	allNginxServices := &coreV1.ServiceList{}
-	err := h.client.List(ctx, allNginxServices, &sigsk8sclient.ListOptions{
-		LabelSelector: labels.SelectorFromSet(labels.Set{
-			"nginx.tsuru.io/app": "nginx",
-		}),
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	for i, svc := range allNginxServices.Items {
-		svcMap[sigsk8sclient.ObjectKeyFromObject(&svc)] = &allNginxServices.Items[i]
-	}
-
-	return svcMap, nil
-}
-
-func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginxInstance *v1alpha1.Nginx) []TargetGroup {
+func rpaasTargetGroups(nginxInstance *v1alpha1.Nginx) []TargetGroup {
 	targetGroups := []TargetGroup{}
+	ips := []string{}
 
 	for _, service := range nginxInstance.Status.Services {
+		ips = append(ips, service.IPs...)
+	}
 
-		svc := svcMap[sigsk8sclient.ObjectKey{
-			Namespace: nginxInstance.Namespace,
-			Name:      service.Name,
-		}]
+	for _, ingress := range nginxInstance.Status.Ingresses {
+		ips = append(ips, ingress.IPs...)
+	}
 
-		if svc == nil {
-			continue
-		}
-
-		if len(svc.Status.LoadBalancer.Ingress) == 0 {
-			continue
-		}
-
-		svcIP := svc.Status.LoadBalancer.Ingress[0].IP
-
-		namespace := svc.ObjectMeta.Namespace
-		serviceInstance := svc.Labels["rpaas.extensions.tsuru.io/instance-name"]
-		service := svc.Labels["rpaas.extensions.tsuru.io/service-name"]
-		teamOwner := svc.Labels["rpaas.extensions.tsuru.io/team-owner"]
+	for _, ip := range ips {
+		namespace := nginxInstance.ObjectMeta.Namespace
+		serviceInstance := nginxInstance.Labels["rpaas.extensions.tsuru.io/instance-name"]
+		service := nginxInstance.Labels["rpaas.extensions.tsuru.io/service-name"]
+		teamOwner := nginxInstance.Labels["rpaas.extensions.tsuru.io/team-owner"]
 
 		targetGroups = append(targetGroups, TargetGroup{
 			Targets: []string{
-				"http://" + svcIP + healthcheckPath,
+				"http://" + ip + healthcheckPath,
 			},
 			Labels: map[string]string{
 				"namespace":        namespace,
@@ -78,7 +48,7 @@ func rpaasTargetGroups(svcMap map[sigsk8sclient.ObjectKey]*coreV1.Service, nginx
 			for _, host := range tls.Hosts {
 				targetGroups = append(targetGroups, TargetGroup{
 					Targets: []string{
-						"https://" + svcIP + healthcheckPath,
+						"https://" + ip + healthcheckPath,
 					},
 					Labels: map[string]string{
 						"namespace":        namespace,
@@ -103,14 +73,10 @@ type TargetGroup struct {
 
 func (h *prometheusDiscoverHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	svcMap, err := h.svcMap(ctx)
-	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+
 	allNginx := &v1alpha1.NginxList{}
 
-	err = h.client.List(ctx, allNginx, &sigsk8sclient.ListOptions{})
+	err := h.client.List(ctx, allNginx, &sigsk8sclient.ListOptions{})
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -118,7 +84,7 @@ func (h *prometheusDiscoverHandler) ServeHTTP(w http.ResponseWriter, r *http.Req
 
 	targetGroups := []TargetGroup{}
 	for _, nginxInstance := range allNginx.Items {
-		targetGroups = append(targetGroups, rpaasTargetGroups(svcMap, &nginxInstance)...)
+		targetGroups = append(targetGroups, rpaasTargetGroups(&nginxInstance)...)
 	}
 
 	w.Header().Set("Content-Type", "application/json")
