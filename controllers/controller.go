@@ -941,14 +941,9 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
-	instanceWithMergedConfig, err := mergeInstanceWithConfig(instance, &plan.Spec.Config)
-	if err != nil {
-		return "", err
-	}
-
 	config := nginx.ConfigurationData{
-		Instance: instanceWithMergedConfig,
-		Config:   &instanceWithMergedConfig.Spec.PlanTemplate.Config,
+		Instance: instance,
+		Config:   &plan.Spec.Config,
 	}
 
 	return cr.Render(config)
@@ -1323,34 +1318,6 @@ func mergeInstance(base v1alpha1.RpaasInstanceSpec, override v1alpha1.RpaasInsta
 func mergePlans(base v1alpha1.RpaasPlanSpec, override v1alpha1.RpaasPlanSpec) (merged v1alpha1.RpaasPlanSpec, err error) {
 	err = genericMerge(&merged, base, override)
 	return
-}
-
-func mergeConfig(base v1alpha1.NginxConfig, override v1alpha1.NginxConfig) (merged v1alpha1.NginxConfig, err error) {
-	err = genericMerge(&merged, base, override)
-	return
-}
-
-func mergeInstanceWithConfig(instance *v1alpha1.RpaasInstance, config *v1alpha1.NginxConfig) (*v1alpha1.RpaasInstance, error) {
-	instanceConfig := v1alpha1.NginxConfig{}
-	if instance.Spec.PlanTemplate != nil {
-		instanceConfig = instance.Spec.PlanTemplate.Config
-	}
-
-	if config == nil {
-		config = &v1alpha1.NginxConfig{}
-	}
-
-	mergedConfig, err := mergeConfig(*config, instanceConfig)
-	if err != nil {
-		return nil, err
-	}
-	instanceWithMergedConfig := instance.DeepCopy()
-	if instanceWithMergedConfig.Spec.PlanTemplate == nil {
-		instanceWithMergedConfig.Spec.PlanTemplate = &v1alpha1.RpaasPlanSpec{}
-	}
-	instanceWithMergedConfig.Spec.PlanTemplate.Config = mergedConfig
-
-	return instanceWithMergedConfig, nil
 }
 
 func genericMerge(dst interface{}, overrides ...interface{}) error {

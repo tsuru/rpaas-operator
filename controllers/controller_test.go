@@ -25,7 +25,6 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -394,105 +393,6 @@ func Test_mergePlans(t *testing.T) {
 	for _, tt := range tests {
 		t.Run("", func(t *testing.T) {
 			result, err := mergePlans(tt.base, tt.override)
-			require.NoError(t, err)
-			assert.Equal(t, tt.expected, result)
-		})
-	}
-}
-
-func Test_mergeInstanceWithConfig(t *testing.T) {
-	t.Parallel()
-	tests := []struct {
-		instance *v1alpha1.RpaasInstance
-		config   *v1alpha1.NginxConfig
-		expected *v1alpha1.RpaasInstance
-	}{
-		{
-			// case 0: nil config
-			instance: &v1alpha1.RpaasInstance{},
-			config:   nil,
-			expected: &v1alpha1.RpaasInstance{
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanTemplate: &v1alpha1.RpaasPlanSpec{
-						Config: v1alpha1.NginxConfig{},
-					},
-				},
-			},
-		},
-		{
-			// case 1: empty config
-			instance: &v1alpha1.RpaasInstance{},
-			config:   &v1alpha1.NginxConfig{},
-			expected: &v1alpha1.RpaasInstance{
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanTemplate: &v1alpha1.RpaasPlanSpec{
-						Config: v1alpha1.NginxConfig{},
-					},
-				},
-			},
-		},
-
-		{
-			// case 2: merge without conflits
-			instance: &v1alpha1.RpaasInstance{
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanTemplate: &v1alpha1.RpaasPlanSpec{
-						Config: v1alpha1.NginxConfig{
-							User: "nobody",
-						},
-					},
-				},
-			},
-			config: &v1alpha1.NginxConfig{
-				CachePath: "/tmp/cache",
-			},
-			expected: &v1alpha1.RpaasInstance{
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanTemplate: &v1alpha1.RpaasPlanSpec{
-						Config: v1alpha1.NginxConfig{
-							User:      "nobody",
-							CachePath: "/tmp/cache",
-						},
-					},
-				},
-			},
-		},
-		{
-			// case 3: merge with conflicts, instance have precedence
-			instance: &v1alpha1.RpaasInstance{
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanTemplate: &v1alpha1.RpaasPlanSpec{
-						Config: v1alpha1.NginxConfig{
-							User:         "nobody",
-							CacheEnabled: pointer.Bool(false),
-						},
-					},
-				},
-			},
-			config: &v1alpha1.NginxConfig{
-				User:         "root",
-				CachePath:    "/tmp/cache",
-				CacheEnabled: pointer.Bool(true),
-				VTSEnabled:   pointer.Bool(true),
-			},
-			expected: &v1alpha1.RpaasInstance{
-				Spec: v1alpha1.RpaasInstanceSpec{
-					PlanTemplate: &v1alpha1.RpaasPlanSpec{
-						Config: v1alpha1.NginxConfig{
-							User:         "nobody",
-							CachePath:    "/tmp/cache",
-							VTSEnabled:   pointer.Bool(true),
-							CacheEnabled: pointer.Bool(false),
-						},
-					},
-				},
-			},
-		},
-	}
-
-	for i, tt := range tests {
-		t.Run(fmt.Sprintf("case_%d", i), func(t *testing.T) {
-			result, err := mergeInstanceWithConfig(tt.instance, tt.config)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expected, result)
 		})
