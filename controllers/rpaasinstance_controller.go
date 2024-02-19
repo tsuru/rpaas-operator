@@ -81,16 +81,16 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 
-	if instance.Spec.PlanTemplate != nil {
-		plan.Spec, err = mergePlans(plan.Spec, *instance.Spec.PlanTemplate)
-		if err != nil {
-			return reconcile.Result{}, err
-		}
-	}
-
 	instanceMergedWithFlavors, err := r.mergeWithFlavors(ctx, instance.DeepCopy())
 	if err != nil {
 		return reconcile.Result{}, nil
+	}
+
+	if instanceMergedWithFlavors.Spec.PlanTemplate != nil {
+		plan.Spec, err = mergePlans(plan.Spec, *instanceMergedWithFlavors.Spec.PlanTemplate)
+		if err != nil {
+			return reconcile.Result{}, err
+		}
 	}
 
 	if err = certificates.ReconcileDynamicCertificates(ctx, r.Client, instance, instanceMergedWithFlavors); err != nil {
