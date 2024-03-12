@@ -6476,8 +6476,15 @@ spec:
               podSelector:
                 description: PodSelector is the NGINX's pod label selector.
                 type: string
+              reconcileDelayed:
+                description: NginxUpdated is true if the wanted nginx revision hash
+                  equals the observed nginx revision hash.
+                type: boolean
+              revisionHash:
+                description: Revision hash calculated for the current spec of rpaasinstance
+                type: string
               wantedNginxRevisionHash:
-                description: Revision hash calculated for the current spec.
+                description: Revision hash calculated for the current spec of nginx.
                 type: string
             required:
             - nginxUpdated
