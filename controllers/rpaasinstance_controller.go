@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
 	"time"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -82,14 +83,11 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 		if !rolloutAllowed {
 			logger.Info("modifications of rpaas instance is delayed")
-			r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceRolloutDelayed", "modifications of rpaas instance is delayed")
 
-			if err = r.setStatusDelayed(ctx, instance); err != nil {
-				return ctrl.Result{
-					Requeue:      true,
-					RequeueAfter: time.Minute * 10,
-				}, err
-			}
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute,
+			}, nil
 		}
 	} else {
 		reservation = NoopReservation()
@@ -157,8 +155,10 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 
+	changes := map[string]bool{}
+
 	configMap := newConfigMap(instanceMergedWithFlavors, rendered)
-	configMapChanged, err := r.reconcileConfigMap(ctx, configMap)
+	changes["configMap"], err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -176,31 +176,34 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Nginx CRD
 	nginx := newNginx(instanceMergedWithFlavors, plan, configMap)
-	nginxChanged, err := r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx)
+	changes["nginx"], err = r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// Session Resumption
-	sessionResumptionChanged, err := r.reconcileTLSSessionResumption(ctx, instanceMergedWithFlavors)
+	changes["sessionResumption"], err = r.reconcileTLSSessionResumption(ctx, instanceMergedWithFlavors)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// HPA
-	hpaChanged, err := r.reconcileHPA(ctx, instanceMergedWithFlavors, nginx)
+	changes["hpa"], err = r.reconcileHPA(ctx, instanceMergedWithFlavors, nginx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
 	// PDB
-	pdbChanged, err := r.reconcilePDB(ctx, instanceMergedWithFlavors, nginx)
+	changes["pdb"], err = r.reconcilePDB(ctx, instanceMergedWithFlavors, nginx)
 	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if !configMapChanged && !nginxChanged && !sessionResumptionChanged && !hpaChanged && !pdbChanged {
-		logger.Info("no changes")
+	if listOfChanges := listChanges(changes); len(listOfChanges) > 0 {
+		if systemRollout {
+			r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceSystemRolloutApplied", "RPaaS controller has updated these resources: %s to ensure system consistency", strings.Join(listOfChanges, ", "))
+		}
+	} else {
 		reservation.Cancel()
 	}
 
@@ -209,6 +212,18 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	return ctrl.Result{}, nil
+}
+
+func listChanges(changes map[string]bool) []string {
+	changed := []string{}
+
+	for k, v := range changes {
+		if v {
+			changed = append(changed, k)
+		}
+	}
+
+	return changed
 }
 
 func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v1alpha1.RpaasInstance, instanceHash string, newNginx *nginxv1alpha1.Nginx) error {
@@ -227,7 +242,6 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v
 	}
 
 	newStatus := v1alpha1.RpaasInstanceStatus{
-		ReconcileDelayed:          false,
 		RevisionHash:              instanceHash,
 		ObservedGeneration:        instance.Generation,
 		WantedNginxRevisionHash:   newHash,
@@ -247,16 +261,6 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v
 
 	instance.Status = newStatus
 	err = r.Client.Status().Update(ctx, instance)
-	if err != nil {
-		return fmt.Errorf("failed to update rpaas instance status: %v", err)
-	}
-
-	return nil
-}
-
-func (r *RpaasInstanceReconciler) setStatusDelayed(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	instance.Status.ReconcileDelayed = true
-	err := r.Client.Status().Update(ctx, instance)
 	if err != nil {
 		return fmt.Errorf("failed to update rpaas instance status: %v", err)
 	}

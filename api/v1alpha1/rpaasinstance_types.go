@@ -343,9 +343,6 @@ type RpaasInstanceStatus struct {
 	//Revision hash calculated for the current spec of rpaasinstance
 	RevisionHash string `json:"revisionHash,omitempty"`
 
-	// ReconcileDelayed is true if the instance will be update soon
-	ReconcileDelayed bool `json:"reconcileDelayed,omitempty"`
-
 	// Revision hash calculated for the current spec of nginx.
 	WantedNginxRevisionHash string `json:"wantedNginxRevisionHash,omitempty"`
 
