@@ -18,13 +18,13 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	policyv1 "k8s.io/api/policy/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
+	"k8s.io/utils/pointer"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -890,7 +890,8 @@ func Test_reconcileHPA(t *testing.T) {
 		expectedScaledObject func(*kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject
 		customAssert         func(t *testing.T, r *RpaasInstanceReconciler) bool
 
-		expectedError func(t *testing.T)
+		expectedError   func(t *testing.T)
+		expectedChanged bool
 	}{
 		"(native HPA controller) setting autoscaling params first time": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
@@ -925,6 +926,7 @@ func Test_reconcileHPA(t *testing.T) {
 				}
 				return hpa
 			},
+			expectedChanged: true,
 		},
 
 		"(native HPA controller) updating autoscaling params": {
@@ -963,6 +965,7 @@ func Test_reconcileHPA(t *testing.T) {
 				}
 				return ri
 			},
+			expectedChanged: true,
 			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
 				hpa.ResourceVersion = "2" // second change
 				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
@@ -1000,6 +1003,69 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 		},
 
+		"(native HPA controller) there is nothing to update": {
+			resources: []runtime.Object{
+				func(hpa *autoscalingv2.HorizontalPodAutoscaler) runtime.Object {
+					hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+						ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicas: pointer.Int32(1),
+						MaxReplicas: 10,
+						Metrics: []autoscalingv2.MetricSpec{
+							{
+								Type: autoscalingv2.ResourceMetricSourceType,
+								Resource: &autoscalingv2.ResourceMetricSource{
+									Name: "cpu",
+									Target: autoscalingv2.MetricTarget{
+										Type:               autoscalingv2.UtilizationMetricType,
+										AverageUtilization: pointer.Int32(50),
+									},
+								},
+							},
+						},
+					}
+					return hpa
+				}(baseExpectedHPA.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    pointer.Int32(1),
+					MaxReplicas:                    10,
+					TargetCPUUtilizationPercentage: pointer.Int32(50),
+				}
+				return ri
+			},
+			expectedChanged: false,
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.ResourceVersion = "1" // second change
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: pointer.Int32(1),
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: "cpu",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: pointer.Int32(50),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+		},
+
 		"(native HPA controller) removing autoscale params": {
 			resources: []runtime.Object{
 				baseExpectedHPA.DeepCopy(),
@@ -1009,6 +1075,7 @@ func Test_reconcileHPA(t *testing.T) {
 				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &hpa)
 				return assert.True(t, k8sErrors.IsNotFound(err))
 			},
+			expectedChanged: true,
 		},
 
 		"(native HPA controller) with RPS enabled": {
@@ -1025,6 +1092,7 @@ func Test_reconcileHPA(t *testing.T) {
 				require.True(t, ok, "event recorder must be FakeRecorder")
 				return assert.Equal(t, "Warning RpaasInstanceAutoscaleFailed native HPA controller doesn't support RPS metric target yet", <-rec.Events)
 			},
+			expectedChanged: true,
 		},
 
 		"(native HPA controller) with scheduled windows": {
@@ -1043,6 +1111,7 @@ func Test_reconcileHPA(t *testing.T) {
 				require.True(t, ok, "event recorder must be FakeRecorder")
 				return assert.Equal(t, "Warning RpaasInstanceAutoscaleFailed native HPA controller doesn't support scheduled windows", <-rec.Events)
 			},
+			expectedChanged: true,
 		},
 
 		"(KEDA controller) with RPS enabled": {
@@ -1074,6 +1143,7 @@ func Test_reconcileHPA(t *testing.T) {
 				}
 				return so
 			},
+			expectedChanged: true,
 		},
 
 		"(KEDA controller) updating autoscaling params": {
@@ -1101,6 +1171,7 @@ func Test_reconcileHPA(t *testing.T) {
 					return so
 				}(baseExpectedScaledObject.DeepCopy()),
 			},
+			expectedChanged: true,
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MinReplicas:                    func(n int32) *int32 { return &n }(5),
@@ -1150,6 +1221,82 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 		},
 
+		"(KEDA controller) there is nothing to update": {
+			resources: []runtime.Object{
+				func(so *kedav1alpha1.ScaledObject) runtime.Object {
+					so.Spec = kedav1alpha1.ScaledObjectSpec{
+						ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicaCount: pointer.Int32(2),
+						MaxReplicaCount: pointer.Int32(500),
+						PollingInterval: pointer.Int32(5),
+						Advanced: &kedav1alpha1.AdvancedConfig{
+							HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+								Name: "my-instance",
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type: "prometheus",
+								Metadata: map[string]string{
+									"serverAddress": "https://prometheus.example.com",
+									"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+									"threshold":     "50",
+								},
+								AuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+									Name: "prometheus-auth",
+									Kind: "ClusterTriggerAuthentication",
+								},
+							},
+						},
+					}
+					return so
+				}(baseExpectedScaledObject.DeepCopy()),
+			},
+			expectedChanged: false,
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:             pointer.Int32(2),
+					MaxReplicas:             500,
+					TargetRequestsPerSecond: pointer.Int32(50),
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:                 true,
+						PrometheusServerAddress: "https://prometheus.example.com",
+						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
+						RPSAuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+							Kind: "ClusterTriggerAuthentication",
+							Name: "prometheus-auth",
+						},
+						PollingInterval: pointer.Int32(5),
+					},
+				}
+				return ri
+			},
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.Spec.MinReplicaCount = pointer.Int32(2)
+				so.Spec.MaxReplicaCount = pointer.Int32(500)
+				so.Spec.PollingInterval = pointer.Int32(5)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type: "prometheus",
+						Metadata: map[string]string{
+							"serverAddress": "https://prometheus.example.com",
+							"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+							"threshold":     "50",
+						},
+						AuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+							Kind: "ClusterTriggerAuthentication",
+							Name: "prometheus-auth",
+						},
+					},
+				}
+				return so
+			},
+		},
+
 		"(KEDA controller) removing autoscaling params": {
 			resources: []runtime.Object{
 				baseExpectedScaledObject.DeepCopy(),
@@ -1169,6 +1316,7 @@ func Test_reconcileHPA(t *testing.T) {
 				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
 				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
 			},
+			expectedChanged: true,
 		},
 
 		"(KEDA controller) KEDA controller enabled, but instance does not have RPS trigger": {
@@ -1215,6 +1363,8 @@ func Test_reconcileHPA(t *testing.T) {
 				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
 				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
 			},
+
+			expectedChanged: true,
 		},
 
 		"(KEDA controller) with scheduled windows": {
@@ -1233,6 +1383,7 @@ func Test_reconcileHPA(t *testing.T) {
 				}
 				return ri
 			},
+			expectedChanged: true,
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
 				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(0)
 				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
@@ -1295,7 +1446,7 @@ func Test_reconcileHPA(t *testing.T) {
 
 			r := newRpaasInstanceReconciler(resources...)
 
-			err := r.reconcileHPA(context.TODO(), instance, nginx)
+			changed, err := r.reconcileHPA(context.TODO(), instance, nginx)
 			require.NoError(t, err)
 
 			if tt.expectedHPA == nil && tt.expectedScaledObject == nil && tt.customAssert == nil {
@@ -1319,11 +1470,14 @@ func Test_reconcileHPA(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, tt.expectedScaledObject(baseExpectedScaledObject.DeepCopy()), got.DeepCopy())
 			}
+
+			assert.Equal(t, tt.expectedChanged, changed)
 		})
 	}
 }
 
 func Test_reconcilePDB(t *testing.T) {
+	defaultMaxAvailable := intstr.FromString("10%")
 	resources := []runtime.Object{
 		&v1alpha1.RpaasInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -1365,12 +1519,48 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 			},
 		},
+
+		&policyv1.PodDisruptionBudget{
+			TypeMeta: metav1.TypeMeta{
+				APIVersion: "policy/v1",
+				Kind:       "PodDisruptionBudget",
+			},
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "unchanged-instance",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/instance-name": "unchanged-instance",
+					"rpaas.extensions.tsuru.io/plan-name":     "",
+					"rpaas.extensions.tsuru.io/service-name":  "",
+					"rpaas.extensions.tsuru.io/team-owner":    "",
+					"rpaas_instance":                          "unchanged-instance",
+					"rpaas_service":                           "",
+				},
+				OwnerReferences: []metav1.OwnerReference{
+					{
+						APIVersion:         "extensions.tsuru.io/v1alpha1",
+						Kind:               "RpaasInstance",
+						Name:               "unchanged-instance",
+						Controller:         func(b bool) *bool { return &b }(true),
+						BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+					},
+				},
+			},
+			Spec: policyv1.PodDisruptionBudgetSpec{
+				MaxUnavailable: &defaultMaxAvailable,
+				Selector: &metav1.LabelSelector{
+					MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "unchanged-instance"},
+				},
+			},
+		},
 	}
 
 	tests := map[string]struct {
 		instance *v1alpha1.RpaasInstance
 		nginx    *nginxv1alpha1.Nginx
 		assert   func(t *testing.T, c client.Client)
+
+		expectedChanged bool
 	}{
 		"creating PDB, instance with 1 replicas": {
 			instance: &v1alpha1.RpaasInstance{
@@ -1379,10 +1569,11 @@ func Test_reconcilePDB(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
-					Replicas:                  func(n int32) *int32 { return &n }(1),
+					EnablePodDisruptionBudget: pointer.Bool(true),
+					Replicas:                  pointer.Int32(1),
 				},
 			},
+			expectedChanged: true,
 			nginx: &nginxv1alpha1.Nginx{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -1432,7 +1623,7 @@ func Test_reconcilePDB(t *testing.T) {
 						},
 					},
 					Spec: policyv1.PodDisruptionBudgetSpec{
-						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
+						MaxUnavailable: &defaultMaxAvailable,
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
 						},
@@ -1452,6 +1643,7 @@ func Test_reconcilePDB(t *testing.T) {
 					Replicas:                  func(n int32) *int32 { return &n }(10),
 				},
 			},
+			expectedChanged: true,
 			nginx: &nginxv1alpha1.Nginx{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -1501,7 +1693,7 @@ func Test_reconcilePDB(t *testing.T) {
 						},
 					},
 					Spec: policyv1.PodDisruptionBudgetSpec{
-						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
+						MaxUnavailable: &defaultMaxAvailable,
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
 						},
@@ -1542,6 +1734,7 @@ func Test_reconcilePDB(t *testing.T) {
 					PodSelector: "nginx.tsuru.io/resource-name=another-instance",
 				},
 			},
+			expectedChanged: true,
 			assert: func(t *testing.T, c client.Client) {
 				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "another-instance", Namespace: "rpaasv2"}, &pdb)
@@ -1574,9 +1767,83 @@ func Test_reconcilePDB(t *testing.T) {
 						},
 					},
 					Spec: policyv1.PodDisruptionBudgetSpec{
-						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
+						MaxUnavailable: &defaultMaxAvailable,
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "another-instance"},
+						},
+					},
+				}, pdb)
+			},
+		},
+
+		"ignore updating PDB, cause there is nothing to change": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unchanged-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
+					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+						MaxReplicas: int32(100),
+						MinReplicas: func(n int32) *int32 { return &n }(int32(50)),
+					},
+				},
+			},
+			nginx: &nginxv1alpha1.Nginx{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "unchanged-instance",
+					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"rpaas_instance": "unchanged-instance",
+						"rpaas_service":  "",
+						"rpaas.extensions.tsuru.io/instance-name": "unchanged-instance",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+					},
+				},
+				Status: nginxv1alpha1.NginxStatus{
+					PodSelector: "nginx.tsuru.io/resource-name=unchanged-instance",
+				},
+			},
+			expectedChanged: false,
+			assert: func(t *testing.T, c client.Client) {
+				var pdb policyv1.PodDisruptionBudget
+				err := c.Get(context.TODO(), client.ObjectKey{Name: "unchanged-instance", Namespace: "rpaasv2"}, &pdb)
+				require.NoError(t, err)
+				assert.Equal(t, policyv1.PodDisruptionBudget{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "policy/v1",
+						Kind:       "PodDisruptionBudget",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "unchanged-instance",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/instance-name": "unchanged-instance",
+							"rpaas.extensions.tsuru.io/plan-name":     "",
+							"rpaas.extensions.tsuru.io/service-name":  "",
+							"rpaas.extensions.tsuru.io/team-owner":    "",
+							"rpaas_instance":                          "unchanged-instance",
+							"rpaas_service":                           "",
+						},
+						ResourceVersion: "999",
+						OwnerReferences: []metav1.OwnerReference{
+							{
+								APIVersion:         "extensions.tsuru.io/v1alpha1",
+								Kind:               "RpaasInstance",
+								Name:               "unchanged-instance",
+								Controller:         func(b bool) *bool { return &b }(true),
+								BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+							},
+						},
+					},
+					Spec: policyv1.PodDisruptionBudgetSpec{
+						MaxUnavailable: &defaultMaxAvailable,
+						Selector: &metav1.LabelSelector{
+							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "unchanged-instance"},
 						},
 					},
 				}, pdb)
@@ -1597,6 +1864,7 @@ func Test_reconcilePDB(t *testing.T) {
 					},
 				},
 			},
+			expectedChanged: true,
 			nginx: &nginxv1alpha1.Nginx{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "another-instance",
@@ -1618,7 +1886,7 @@ func Test_reconcilePDB(t *testing.T) {
 				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "another-instance", Namespace: "rpaasv2"}, &pdb)
 				require.Error(t, err)
-				assert.True(t, k8serrors.IsNotFound(err))
+				assert.True(t, k8sErrors.IsNotFound(err))
 			},
 		},
 
@@ -1650,6 +1918,7 @@ func Test_reconcilePDB(t *testing.T) {
 					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
 				},
 			},
+			expectedChanged: true,
 			assert: func(t *testing.T, c client.Client) {
 				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
@@ -1682,7 +1951,7 @@ func Test_reconcilePDB(t *testing.T) {
 						},
 					},
 					Spec: policyv1.PodDisruptionBudgetSpec{
-						MaxUnavailable: func(n intstr.IntOrString) *intstr.IntOrString { return &n }(intstr.FromString("10%")),
+						MaxUnavailable: &defaultMaxAvailable,
 						Selector: &metav1.LabelSelector{
 							MatchLabels: map[string]string{"nginx.tsuru.io/resource-name": "my-instance"},
 						},
@@ -1719,11 +1988,12 @@ func Test_reconcilePDB(t *testing.T) {
 					PodSelector: "nginx.tsuru.io/resource-name=my-instance",
 				},
 			},
+			expectedChanged: false,
 			assert: func(t *testing.T, c client.Client) {
 				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
 				require.Error(t, err)
-				assert.True(t, k8serrors.IsNotFound(err))
+				assert.True(t, k8sErrors.IsNotFound(err))
 			},
 		},
 
@@ -1738,6 +2008,7 @@ func Test_reconcilePDB(t *testing.T) {
 					Replicas:                  func(n int32) *int32 { return &n }(10),
 				},
 			},
+			expectedChanged: false,
 			nginx: &nginxv1alpha1.Nginx{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -1756,7 +2027,7 @@ func Test_reconcilePDB(t *testing.T) {
 				var pdb policyv1.PodDisruptionBudget
 				err := c.Get(context.TODO(), client.ObjectKey{Name: "my-instance", Namespace: "rpaasv2"}, &pdb)
 				require.Error(t, err)
-				assert.True(t, k8serrors.IsNotFound(err))
+				assert.True(t, k8sErrors.IsNotFound(err))
 			},
 		},
 	}
@@ -1766,9 +2037,10 @@ func Test_reconcilePDB(t *testing.T) {
 			require.NotNil(t, tt.assert)
 
 			r := newRpaasInstanceReconciler(resources...)
-			err := r.reconcilePDB(context.TODO(), tt.instance, tt.nginx)
+			changed, err := r.reconcilePDB(context.TODO(), tt.instance, tt.nginx)
 			require.NoError(t, err)
 			tt.assert(t, r.Client)
+			assert.Equal(t, tt.expectedChanged, changed)
 		})
 	}
 }
@@ -1880,6 +2152,44 @@ func TestReconcilePoolNamespaced(t *testing.T) {
 	assert.Equal(t, "foobar", nginx.Spec.Service.Labels["tsuru.io/custom-flavor-label"])
 }
 
+func TestReconcilePopulateHash(t *testing.T) {
+	rpaas := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2-my-pool",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PlanName:      "my-plan",
+			PlanNamespace: "default",
+		},
+	}
+	plan := &v1alpha1.RpaasPlan{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-plan",
+			Namespace: "default",
+		},
+		Spec: v1alpha1.RpaasPlanSpec{
+			Image: "tsuru:pool-namespaces-image:test",
+		},
+	}
+
+	reconciler := newRpaasInstanceReconciler(rpaas, plan)
+	result, err := reconciler.Reconcile(context.TODO(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "rpaasv2-my-pool", Name: "my-instance"}})
+	require.NoError(t, err)
+
+	assert.Equal(t, result, reconcile.Result{})
+
+	nginx := &nginxv1alpha1.Nginx{}
+	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, nginx)
+	require.NoError(t, err)
+
+	foundRpaas := &v1alpha1.RpaasInstance{}
+	err = reconciler.Client.Get(context.TODO(), types.NamespacedName{Name: rpaas.Name, Namespace: rpaas.Namespace}, foundRpaas)
+	require.NoError(t, err)
+
+	assert.Equal(t, "y3ildbchrsps4icpwoer62wky2a65c33cz72sa4bp35fuibegwqa", foundRpaas.Status.RevisionHash)
+}
+
 func resourceMustParsePtr(fmt string) *resource.Quantity {
 	qty := resource.MustParse(fmt)
 	return &qty
@@ -1912,11 +2222,118 @@ func TestMinutesIntervalToSchedule(t *testing.T) {
 }
 
 func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
+	cronjob1 := &batchv1.CronJob{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance" + sessionTicketsCronJobSuffix,
+			Namespace: "default",
+		},
+		Spec: batchv1.CronJobSpec{
+			Schedule:                   "*/60 * * * *",
+			SuccessfulJobsHistoryLimit: pointer.Int32(1),
+			FailedJobsHistoryLimit:     pointer.Int32(1),
+			JobTemplate: batchv1.JobTemplateSpec{
+				ObjectMeta: metav1.ObjectMeta{
+					Labels: map[string]string{
+						"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+						"rpaas.extensions.tsuru.io/plan-name":     "",
+						"rpaas.extensions.tsuru.io/service-name":  "",
+						"rpaas.extensions.tsuru.io/team-owner":    "",
+						"rpaas_instance":                          "my-instance",
+						"rpaas_service":                           "",
+					},
+				},
+				Spec: batchv1.JobSpec{
+					Template: corev1.PodTemplateSpec{
+						ObjectMeta: metav1.ObjectMeta{
+							Annotations: map[string]string{
+								rotateTLSSessionTicketsScriptFilename: rotateTLSSessionTicketsScript,
+							},
+							Labels: map[string]string{
+								"rpaas.extensions.tsuru.io/component": "session-tickets",
+							},
+						},
+						Spec: corev1.PodSpec{
+							ServiceAccountName: "rpaas-session-tickets-rotator",
+							RestartPolicy:      "Never",
+							Containers: []corev1.Container{
+								{
+									Name:    "session-ticket-rotator",
+									Image:   defaultRotateTLSSessionTicketsImage,
+									Command: []string{"/bin/bash"},
+									Args:    []string{rotateTLSSessionTicketsScriptPath},
+									Env: []corev1.EnvVar{
+										{
+											Name:  "SECRET_NAME",
+											Value: "my-instance-session-tickets",
+										},
+										{
+											Name:  "SECRET_NAMESPACE",
+											Value: "default",
+										},
+										{
+											Name:  "SESSION_TICKET_KEY_LENGTH",
+											Value: "48",
+										},
+										{
+											Name:  "SESSION_TICKET_KEYS",
+											Value: "2",
+										},
+										{
+											Name:  "NGINX_LABEL_SELECTOR",
+											Value: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance",
+										},
+									},
+									VolumeMounts: []corev1.VolumeMount{
+										{
+											Name:      rotateTLSSessionTicketsVolumeName,
+											MountPath: rotateTLSSessionTicketsScriptPath,
+											SubPath:   rotateTLSSessionTicketsScriptFilename,
+										},
+									},
+								},
+							},
+							Volumes: []corev1.Volume{
+								{
+									Name: rotateTLSSessionTicketsVolumeName,
+									VolumeSource: corev1.VolumeSource{
+										DownwardAPI: &corev1.DownwardAPIVolumeSource{
+											Items: []corev1.DownwardAPIVolumeFile{
+												{
+													Path: rotateTLSSessionTicketsScriptFilename,
+													FieldRef: &corev1.ObjectFieldSelector{
+														FieldPath: fmt.Sprintf("metadata.annotations['%s']", rotateTLSSessionTicketsScriptFilename),
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
+	}
+
+	secret1 := &corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-session-tickets",
+			Namespace: "default",
+		},
+		Data: map[string][]byte{
+			"ticket.0.key": {'h', 'e', 'l', 'l', 'o'},
+			"ticket.1.key": {'w', 'o', 'r', 'd', '!'},
+		},
+	}
+
 	tests := []struct {
 		name     string
 		instance *v1alpha1.RpaasInstance
 		objects  []runtime.Object
 		assert   func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob)
+
+		expectedChanged bool
 	}{
 		{
 			name: "when no TLS session resumption is enabled",
@@ -2022,6 +2439,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 					},
 				}, gotCronJob.Spec.JobTemplate.Spec.Template)
 			},
+			expectedChanged: true,
 		},
 		{
 			name: "Session Ticket: update key length and rotatation interval",
@@ -2072,6 +2490,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "SESSION_TICKET_KEYS", Value: "4"})
 				assert.Contains(t, gotCronJob.Spec.JobTemplate.Spec.Template.Spec.Containers[0].Env, corev1.EnvVar{Name: "NGINX_LABEL_SELECTOR", Value: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=my-instance"})
 			},
+			expectedChanged: true,
 		},
 		{
 			name: "when session ticket is disabled, should remove Secret and CronJob objects",
@@ -2103,6 +2522,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				assert.Empty(t, gotSecret.Name)
 				assert.Empty(t, gotCronJob.Name)
 			},
+			expectedChanged: true,
 		},
 		{
 			name: "when decreasing the number of keys",
@@ -2141,6 +2561,35 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 				assert.Equal(t, gotSecret.Data["ticket.0.key"], []byte{'h', 'e', 'l', 'l', 'o'})
 				assert.Equal(t, gotSecret.Data["ticket.1.key"], []byte{'w', 'o', 'r', 'd', '!'})
 			},
+			expectedChanged: true,
+		},
+
+		{
+			name: "when there is nothing to update",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "default",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					TLSSessionResumption: &v1alpha1.TLSSessionResumption{
+						SessionTicket: &v1alpha1.TLSSessionTicket{
+							KeepLastKeys: uint32(1),
+						},
+					},
+				},
+			},
+			objects: []runtime.Object{
+				cronjob1,
+				secret1,
+			},
+			assert: func(t *testing.T, err error, gotSecret *corev1.Secret, gotCronJob *batchv1.CronJob) {
+				require.NoError(t, err)
+
+				assert.Equal(t, cronjob1.Spec, gotCronJob.Spec)
+				assert.Equal(t, secret1.Data, gotSecret.Data)
+			},
+			expectedChanged: false,
 		},
 	}
 
@@ -2153,7 +2602,7 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 
 			r := newRpaasInstanceReconciler(resources...)
 
-			err := r.reconcileTLSSessionResumption(context.TODO(), tt.instance)
+			changed, err := r.reconcileTLSSessionResumption(context.TODO(), tt.instance)
 			if tt.assert == nil {
 				require.NoError(t, err)
 				return
@@ -2174,6 +2623,8 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 			r.Client.Get(context.TODO(), cronJobName, &cronJob)
 
 			tt.assert(t, err, &secret, &cronJob)
+
+			assert.Equal(t, tt.expectedChanged, changed)
 		})
 	}
 }

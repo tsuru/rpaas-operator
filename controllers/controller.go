@@ -240,20 +240,26 @@ func (r *RpaasInstanceReconciler) listDefaultFlavors(ctx context.Context, instan
 	return result, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	if err := r.reconcileSecretForSessionTickets(ctx, instance); err != nil {
-		return err
+func (r *RpaasInstanceReconciler) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
+	secretChanged, err := r.reconcileSecretForSessionTickets(ctx, instance)
+	if err != nil {
+		return false, err
 	}
 
-	return r.reconcileCronJobForSessionTickets(ctx, instance)
+	cronJobChanged, err := r.reconcileCronJobForSessionTickets(ctx, instance)
+	if err != nil {
+		return false, err
+	}
+
+	return cronJobChanged || secretChanged, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	newSecret, err := newSecretForTLSSessionTickets(instance)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	var secret corev1.Secret
@@ -264,30 +270,44 @@ func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.C
 	err = r.Client.Get(ctx, secretName, &secret)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		if !enabled {
-			return nil
+			return false, nil
 		}
 
-		return r.Client.Create(ctx, newSecret)
-	}
+		err = r.Client.Create(ctx, newSecret)
+		if err != nil {
+			return false, err
+		}
 
-	if err != nil {
-		return err
+		return true, nil
+	} else if err != nil {
+		return false, err
 	}
 
 	if !enabled {
-		return r.Client.Delete(ctx, &secret)
+		err = r.Client.Delete(ctx, &secret)
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
 	}
 
 	newData := newSessionTicketData(secret.Data, newSecret.Data)
 	if !reflect.DeepEqual(newData, secret.Data) {
 		secret.Data = newData
-		return r.Client.Update(ctx, &secret)
+		err = r.Client.Update(ctx, &secret)
+
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
 	}
 
-	return nil
+	return false, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	newCronJob := newCronJobForSessionTickets(instance)
@@ -297,29 +317,41 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 		Name:      newCronJob.Name,
 		Namespace: newCronJob.Namespace,
 	}
-	err := r.Client.Get(ctx, cjName, &cj)
+	err = r.Client.Get(ctx, cjName, &cj)
 	if err != nil && k8sErrors.IsNotFound(err) {
 		if !enabled {
-			return nil
+			return false, nil
 		}
 
-		return r.Client.Create(ctx, newCronJob)
-	}
+		err = r.Client.Create(ctx, newCronJob)
+		if err != nil {
+			return false, err
+		}
 
-	if err != nil {
-		return err
+		return true, nil
+	} else if err != nil {
+		return false, err
 	}
 
 	if !enabled {
-		return r.Client.Delete(ctx, &cj)
+		err = r.Client.Delete(ctx, &cj)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
 	if equality.Semantic.DeepDerivative(newCronJob.Spec, cj.Spec) {
-		return nil
+		return false, nil
 	}
 
 	newCronJob.ResourceVersion = cj.ResourceVersion
-	return r.Client.Update(ctx, newCronJob)
+	err = r.Client.Update(ctx, newCronJob)
+	if err != nil {
+		return false, err
+	}
+
+	return true, nil
 }
 
 func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.CronJob {
@@ -522,13 +554,14 @@ func newSessionTicketData(old, new map[string][]byte) map[string][]byte {
 	return newest
 }
 
-func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	if isKEDAHandlingHPA(instance) {
 		return r.reconcileKEDA(ctx, instance, nginx)
 	}
 
-	if err := r.cleanUpKEDAScaledObject(ctx, instance); err != nil {
-		return err
+	cleanedKeda, err := r.cleanUpKEDAScaledObject(ctx, instance)
+	if err != nil {
+		return false, err
 	}
 
 	logger := r.Log.WithName("reconcileHPA").
@@ -548,26 +581,26 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	desired := newHPA(instance, nginx)
 
 	var observed autoscalingv2.HorizontalPodAutoscaler
-	err := r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
 	if k8sErrors.IsNotFound(err) {
 		if !isAutoscaleEnabled(instance.Spec.Autoscale) {
 			logger.V(4).Info("Skipping HorizontalPodAutoscaler reconciliation: both HPA resource and desired RpaasAutoscaleSpec not found")
-			return nil
+			return cleanedKeda, nil
 		}
 
 		logger.V(4).Info("Creating HorizontalPodAutoscaler resource")
 
 		if err = r.Client.Create(ctx, desired); err != nil {
 			logger.Error(err, "Unable to create the HorizontalPodAutoscaler resource")
-			return err
+			return false, err
 		}
 
-		return nil
+		return true, nil
 	}
 
 	if err != nil {
 		logger.Error(err, "Unable to get the HorizontalPodAutoscaler resource")
-		return err
+		return false, err
 	}
 
 	logger = logger.WithValues("HorizontalPodAutoscaler", types.NamespacedName{Name: observed.Name, Namespace: observed.Namespace})
@@ -576,10 +609,10 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 		logger.V(4).Info("Deleting HorizontalPodAutoscaler resource")
 		if err = r.Client.Delete(ctx, &observed); err != nil {
 			logger.Error(err, "Unable to delete the HorizontalPodAutoscaler resource")
-			return err
+			return false, err
 		}
 
-		return nil
+		return true, nil
 	}
 
 	if !reflect.DeepEqual(desired.Spec, observed.Spec) {
@@ -588,25 +621,31 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 		observed.Spec = desired.Spec
 		if err = r.Client.Update(ctx, &observed); err != nil {
 			logger.Error(err, "Unable to update the HorizontalPodAustoscaler resource")
-			return err
+			return false, err
 		}
+
+		return true, nil
 	}
 
-	return nil
+	return cleanedKeda, nil
 }
 
-func (r *RpaasInstanceReconciler) cleanUpKEDAScaledObject(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
+func (r *RpaasInstanceReconciler) cleanUpKEDAScaledObject(ctx context.Context, instance *v1alpha1.RpaasInstance) (cleaned bool, err error) {
 	var so kedav1alpha1.ScaledObject
-	err := r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &so)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace}, &so)
 	if k8sErrors.IsNotFound(err) {
-		return nil
+		return false, nil
 	}
 
 	if err != nil {
-		return nil // custom resource does likely not exist in the cluster, so we should ignore it
+		return false, nil // custom resource does likely not exist in the cluster, so we should ignore it
 	}
 
-	return r.Client.Delete(ctx, &so)
+	err = r.Client.Delete(ctx, &so)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func isKEDAHandlingHPA(instance *v1alpha1.RpaasInstance) bool {
@@ -616,36 +655,48 @@ func isKEDAHandlingHPA(instance *v1alpha1.RpaasInstance) bool {
 		instance.Spec.Autoscale.KEDAOptions.Enabled
 }
 
-func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	desired, err := newKEDAScaledObject(instance, nginx)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	var observed kedav1alpha1.ScaledObject
 	err = r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
 	if k8sErrors.IsNotFound(err) {
 		if !isAutoscaleEnabled(instance.Spec.Autoscale) {
-			return nil // nothing to do
+			return false, nil // nothing to do
 		}
 
-		return r.Client.Create(ctx, desired)
+		err = r.Client.Create(ctx, desired)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	if !isAutoscaleEnabled(instance.Spec.Autoscale) {
-		return r.Client.Delete(ctx, &observed)
+		err = r.Client.Delete(ctx, &observed)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
-	if !reflect.DeepEqual(desired.Spec, observed.Spec) {
-		desired.ResourceVersion = observed.ResourceVersion
-		return r.Client.Update(ctx, desired)
+	if reflect.DeepEqual(desired.Spec, observed.Spec) {
+		return false, nil
 	}
 
-	return nil
+	desired.ResourceVersion = observed.ResourceVersion
+	err = r.Client.Update(ctx, desired)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func isAutoscaleEnabled(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
@@ -778,39 +829,51 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 	}, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	if nginx.Status.PodSelector == "" {
-		return nil
+		return false, nil
 	}
 	pdb, err := newPDB(instance, nginx)
 	if err != nil {
-		return err
+		return false, err
 	}
 
 	var existingPDB policyv1.PodDisruptionBudget
 	err = r.Get(ctx, client.ObjectKey{Name: pdb.Name, Namespace: pdb.Namespace}, &existingPDB)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
-			return err
+			return false, err
 		}
 
 		if instance.Spec.EnablePodDisruptionBudget != nil && *instance.Spec.EnablePodDisruptionBudget {
-			return r.Create(ctx, pdb)
+			err = r.Create(ctx, pdb)
+			if err != nil {
+				return false, err
+			}
+			return true, nil
 		}
 
-		return nil
+		return false, nil
 	}
 
 	if instance.Spec.EnablePodDisruptionBudget == nil || (instance.Spec.EnablePodDisruptionBudget != nil && !*instance.Spec.EnablePodDisruptionBudget) {
-		return r.Delete(ctx, &existingPDB)
+		err = r.Delete(ctx, &existingPDB)
+		if err != nil {
+			return false, err
+		}
+		return true, nil
 	}
 
-	if equality.Semantic.DeepDerivative(existingPDB.Spec, pdb.Spec) {
-		return nil
+	if equality.Semantic.DeepDerivative(existingPDB.Spec, pdb.Spec) && reflect.DeepEqual(existingPDB.Labels, pdb.Labels) {
+		return false, nil
 	}
 
 	pdb.ResourceVersion = existingPDB.ResourceVersion
-	return r.Update(ctx, pdb)
+	err = r.Update(ctx, pdb)
+	if err != nil {
+		return false, err
+	}
+	return true, nil
 }
 
 func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*policyv1.PodDisruptionBudget, error) {
@@ -849,28 +912,34 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 	}, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) error {
+func (r *RpaasInstanceReconciler) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) (hasChanged bool, err error) {
 	found := &corev1.ConfigMap{}
-	err := r.Client.Get(ctx, types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
+	err = r.Client.Get(ctx, types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get configMap: %v", err)
-			return err
+			return false, err
 		}
 		err = r.Client.Create(ctx, configMap)
 		if err != nil {
 			logrus.Errorf("Failed to create configMap: %v", err)
-			return err
+			return false, err
 		}
-		return nil
+		return true, nil
 	}
 
 	configMap.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
+
+	if reflect.DeepEqual(found.Data, configMap.Data) && reflect.DeepEqual(found.BinaryData, configMap.BinaryData) && reflect.DeepEqual(found.Labels, configMap.Labels) {
+		return false, nil
+	}
+
 	err = r.Client.Update(ctx, configMap)
 	if err != nil {
 		logrus.Errorf("Failed to update configMap: %v", err)
+		return false, err
 	}
-	return err
+	return true, nil
 }
 
 func (r *RpaasInstanceReconciler) getNginx(ctx context.Context, instance *v1alpha1.RpaasInstance) (*nginxv1alpha1.Nginx, error) {
@@ -901,29 +970,33 @@ func externalAddresssesFromNginx(nginx *nginxv1alpha1.Nginx) v1alpha1.RpaasInsta
 	return ingressesStatus
 }
 
-func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) error {
+func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	found, err := r.getNginx(ctx, instance)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get nginx CR: %v", err)
-			return err
+			return false, err
 		}
 
 		err = r.Client.Create(ctx, nginx)
 		if err != nil {
 			logrus.Errorf("Failed to create nginx CR: %v", err)
-			return err
+			return false, err
 		}
-		return nil
+		return true, nil
 	}
 
+	if equality.Semantic.DeepEqual(nginx.Spec, found.Spec) {
+		return false, nil
+	}
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
 	err = r.Client.Update(ctx, nginx)
 	if err != nil {
 		logrus.Errorf("Failed to update nginx CR: %v", err)
+		return false, err
 	}
 
-	return err
+	return true, nil
 }
 
 func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
@@ -1204,6 +1277,18 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	nginx = nginx.DeepCopy()
 	nginx.Spec.Replicas = nil
 	data, err := json.Marshal(nginx.Spec)
+	if err != nil {
+		return "", err
+	}
+	hash := sha256.Sum256(data)
+	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
+}
+
+func generateSpecHash(spec *v1alpha1.RpaasInstanceSpec) (string, error) {
+	if spec == nil {
+		return "", nil
+	}
+	data, err := json.Marshal(spec)
 	if err != nil {
 		return "", err
 	}

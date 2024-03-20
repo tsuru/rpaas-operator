@@ -340,7 +340,10 @@ type TLSSessionTicket struct {
 
 // RpaasInstanceStatus defines the observed state of RpaasInstance
 type RpaasInstanceStatus struct {
-	// Revision hash calculated for the current spec.
+	//Revision hash calculated for the current spec of rpaasinstance
+	RevisionHash string `json:"revisionHash,omitempty"`
+
+	// Revision hash calculated for the current spec of nginx.
 	WantedNginxRevisionHash string `json:"wantedNginxRevisionHash,omitempty"`
 
 	// The revision hash observed by the controller in the nginx object.

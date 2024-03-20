@@ -30,6 +30,9 @@ type configOpts struct {
 	leaderElectionResourceName string
 	namespace                  string
 	syncPeriod                 time.Duration
+
+	systemRateLimitInterval   time.Duration
+	systemRateLimitOperations int
 }
 
 func (o *configOpts) bindFlags(fs *flag.FlagSet) {
@@ -45,6 +48,9 @@ func (o *configOpts) bindFlags(fs *flag.FlagSet) {
 
 	fs.DurationVar(&o.syncPeriod, "sync-period", 10*time.Hour, "The resync period for reconciling manager resources.")
 	fs.StringVar(&o.namespace, "namespace", "", "Limit the observed RpaasInstance resources from specific namespace (empty means all namespaces)")
+
+	fs.DurationVar(&o.systemRateLimitInterval, "system-rate-limit-interval", time.Minute, "interval of rate limit for periodic system reconciles, it is useful to apply new settings on the cluster gradual")
+	fs.IntVar(&o.systemRateLimitOperations, "system-rate-limit-operations", 1, "number of operations during a interval to perform a rate limit for system reconciles, it is useful to apply new settings on the cluster gradual")
 }
 
 func main() {
@@ -73,9 +79,10 @@ func main() {
 	}
 
 	if err = (&controllers.RpaasInstanceReconciler{
-		Client:        mgr.GetClient(),
-		Log:           mgr.GetLogger().WithName("controllers").WithName("RpaasInstance"),
-		EventRecorder: mgr.GetEventRecorderFor("rpaas-operator"),
+		Client:            mgr.GetClient(),
+		SystemRateLimiter: controllers.NewSystemRolloutRateLimiter(opts.systemRateLimitOperations, opts.systemRateLimitInterval),
+		Log:               mgr.GetLogger().WithName("controllers").WithName("RpaasInstance"),
+		EventRecorder:     mgr.GetEventRecorderFor("rpaas-operator"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "RpaasInstance")
 		os.Exit(1)

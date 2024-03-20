@@ -6476,8 +6476,11 @@ spec:
               podSelector:
                 description: PodSelector is the NGINX's pod label selector.
                 type: string
+              revisionHash:
+                description: Revision hash calculated for the current spec of rpaasinstance
+                type: string
               wantedNginxRevisionHash:
-                description: Revision hash calculated for the current spec.
+                description: Revision hash calculated for the current spec of nginx.
                 type: string
             required:
             - nginxUpdated

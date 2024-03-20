@@ -8,6 +8,8 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"strings"
+	"time"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/go-logr/logr"
@@ -29,8 +31,9 @@ import (
 // RpaasInstanceReconciler reconciles a RpaasInstance object
 type RpaasInstanceReconciler struct {
 	client.Client
-	Log           logr.Logger
-	EventRecorder record.EventRecorder
+	Log               logr.Logger
+	SystemRateLimiter SystemRolloutRateLimiter
+	EventRecorder     record.EventRecorder
 }
 
 // +kubebuilder:rbac:groups="",resources=configmaps;secrets;services,verbs=get;list;watch;create;update;delete
@@ -53,13 +56,41 @@ type RpaasInstanceReconciler struct {
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
 	if k8sErrors.IsNotFound(err) {
 		return reconcile.Result{}, nil
 	}
 
+	logger := r.Log.WithName("Reconcile").
+		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
+
 	if err != nil {
 		return reconcile.Result{}, err
+	}
+
+	instanceHash, err := generateSpecHash(&instance.Spec)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	systemRollout := isSystemRollout(instanceHash, instance)
+
+	var rolloutAllowed bool
+	var reservation SystemRolloutReservation
+	if systemRollout {
+		rolloutAllowed, reservation = r.SystemRateLimiter.Reserve()
+
+		if !rolloutAllowed {
+			logger.Info("modifications of rpaas instance is delayed")
+
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute,
+			}, nil
+		}
+	} else {
+		reservation = NoopReservation()
 	}
 
 	if s := instance.Spec.Suspend; s != nil && *s {
@@ -124,8 +155,10 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 
+	changes := map[string]bool{}
+
 	configMap := newConfigMap(instanceMergedWithFlavors, rendered)
-	err = r.reconcileConfigMap(ctx, configMap)
+	changes["configMap"], err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -141,31 +174,59 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	// Nginx CRD
 	nginx := newNginx(instanceMergedWithFlavors, plan, configMap)
-	if err = r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx); err != nil {
+	changes["nginx"], err = r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcileTLSSessionResumption(ctx, instanceMergedWithFlavors); err != nil {
+	// Session Resumption
+	changes["sessionResumption"], err = r.reconcileTLSSessionResumption(ctx, instanceMergedWithFlavors)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcileHPA(ctx, instanceMergedWithFlavors, nginx); err != nil {
+	// HPA
+	changes["hpa"], err = r.reconcileHPA(ctx, instanceMergedWithFlavors, nginx)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.reconcilePDB(ctx, instanceMergedWithFlavors, nginx); err != nil {
+	// PDB
+	changes["pdb"], err = r.reconcilePDB(ctx, instanceMergedWithFlavors, nginx)
+	if err != nil {
 		return ctrl.Result{}, err
 	}
 
-	if err = r.refreshStatus(ctx, instance, nginx); err != nil {
+	if listOfChanges := getChangesList(changes); len(listOfChanges) > 0 {
+		if systemRollout {
+			r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceSystemRolloutApplied", "RPaaS controller has updated these resources: %s to ensure system consistency", strings.Join(listOfChanges, ", "))
+		}
+	} else {
+		reservation.Cancel()
+	}
+
+	if err = r.refreshStatus(ctx, instance, instanceHash, nginx); err != nil {
 		return ctrl.Result{}, err
 	}
 
 	return ctrl.Result{}, nil
 }
 
-func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v1alpha1.RpaasInstance, newNginx *nginxv1alpha1.Nginx) error {
+func getChangesList(changes map[string]bool) []string {
+	changed := []string{}
+
+	for k, v := range changes {
+		if v {
+			changed = append(changed, k)
+		}
+	}
+
+	return changed
+}
+
+func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v1alpha1.RpaasInstance, instanceHash string, newNginx *nginxv1alpha1.Nginx) error {
 	existingNginx, err := r.getNginx(ctx, instance)
 	if err != nil && !k8sErrors.IsNotFound(err) {
 		return err
@@ -181,6 +242,7 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v
 	}
 
 	newStatus := v1alpha1.RpaasInstanceStatus{
+		RevisionHash:              instanceHash,
 		ObservedGeneration:        instance.Generation,
 		WantedNginxRevisionHash:   newHash,
 		ObservedNginxRevisionHash: existingHash,
@@ -204,6 +266,10 @@ func (r *RpaasInstanceReconciler) refreshStatus(ctx context.Context, instance *v
 	}
 
 	return nil
+}
+
+func isSystemRollout(currentHash string, instance *v1alpha1.RpaasInstance) bool {
+	return instance.Status.RevisionHash != "" && currentHash == instance.Status.RevisionHash
 }
 
 func (r *RpaasInstanceReconciler) SetupWithManager(mgr ctrl.Manager) error {
