@@ -199,7 +199,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return ctrl.Result{}, err
 	}
 
-	if listOfChanges := listChanges(changes); len(listOfChanges) > 0 {
+	if listOfChanges := getChangesList(changes); len(listOfChanges) > 0 {
 		if systemRollout {
 			r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceSystemRolloutApplied", "RPaaS controller has updated these resources: %s to ensure system consistency", strings.Join(listOfChanges, ", "))
 		}
@@ -214,7 +214,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	return ctrl.Result{}, nil
 }
 
-func listChanges(changes map[string]bool) []string {
+func getChangesList(changes map[string]bool) []string {
 	changed := []string{}
 
 	for k, v := range changes {

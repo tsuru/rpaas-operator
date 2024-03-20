@@ -240,7 +240,7 @@ func (r *RpaasInstanceReconciler) listDefaultFlavors(ctx context.Context, instan
 	return result, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
 	secretChanged, err := r.reconcileSecretForSessionTickets(ctx, instance)
 	if err != nil {
 		return false, err
@@ -254,7 +254,7 @@ func (r *RpaasInstanceReconciler) reconcileTLSSessionResumption(ctx context.Cont
 	return cronJobChanged || secretChanged, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	newSecret, err := newSecretForTLSSessionTickets(instance)
@@ -307,7 +307,7 @@ func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.C
 	return false, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
 	enabled := isTLSSessionTicketEnabled(instance)
 
 	newCronJob := newCronJobForSessionTickets(instance)
@@ -554,7 +554,7 @@ func newSessionTicketData(old, new map[string][]byte) map[string][]byte {
 	return newest
 }
 
-func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	if isKEDAHandlingHPA(instance) {
 		return r.reconcileKEDA(ctx, instance, nginx)
 	}
@@ -655,7 +655,7 @@ func isKEDAHandlingHPA(instance *v1alpha1.RpaasInstance) bool {
 		instance.Spec.Autoscale.KEDAOptions.Enabled
 }
 
-func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	desired, err := newKEDAScaledObject(instance, nginx)
 	if err != nil {
 		return false, err
@@ -829,7 +829,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 	}, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcilePDB(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	if nginx.Status.PodSelector == "" {
 		return false, nil
 	}
@@ -912,7 +912,7 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 	}, nil
 }
 
-func (r *RpaasInstanceReconciler) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) (hasChanged bool, err error) {
 	found := &corev1.ConfigMap{}
 	err = r.Client.Get(ctx, types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
 	if err != nil {
@@ -970,7 +970,7 @@ func externalAddresssesFromNginx(nginx *nginxv1alpha1.Nginx) v1alpha1.RpaasInsta
 	return ingressesStatus
 }
 
-func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (changed bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
 	found, err := r.getNginx(ctx, instance)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
