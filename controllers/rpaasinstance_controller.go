@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"sort"
 	"strings"
 	"time"
 
@@ -82,8 +83,6 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		rolloutAllowed, reservation = r.SystemRateLimiter.Reserve()
 
 		if !rolloutAllowed {
-			logger.Info("modifications of rpaas instance is delayed")
-
 			return ctrl.Result{
 				Requeue:      true,
 				RequeueAfter: time.Minute,
@@ -201,7 +200,9 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	if listOfChanges := getChangesList(changes); len(listOfChanges) > 0 {
 		if systemRollout {
-			r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceSystemRolloutApplied", "RPaaS controller has updated these resources: %s to ensure system consistency", strings.Join(listOfChanges, ", "))
+			msg := fmt.Sprintf("RPaaS controller has updated these resources: %s to ensure system consistency", strings.Join(listOfChanges, ", "))
+			logger.Info(msg)
+			r.EventRecorder.Event(instance, corev1.EventTypeWarning, "RpaasInstanceSystemRolloutApplied", msg)
 		}
 	} else {
 		reservation.Cancel()
@@ -222,7 +223,7 @@ func getChangesList(changes map[string]bool) []string {
 			changed = append(changed, k)
 		}
 	}
-
+	sort.Strings(changed)
 	return changed
 }
 
