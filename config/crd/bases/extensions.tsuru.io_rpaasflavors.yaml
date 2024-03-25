@@ -6633,6 +6633,12 @@ spec:
                           Defaults to true.
                         type: boolean
                     type: object
+                  shutdown:
+                    default: false
+                    description: Shutdown flag tells whether controller should scale
+                      down Nginx instances. And any assosciated HorizontalPodAutoscaler
+                      is remove/created when this flag is toggled.
+                    type: boolean
                   suspend:
                     default: false
                     description: Suspend flag tells whether controller should suspend

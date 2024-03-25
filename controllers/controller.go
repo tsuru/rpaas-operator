@@ -583,7 +583,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 	var observed autoscalingv2.HorizontalPodAutoscaler
 	err = r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
 	if k8sErrors.IsNotFound(err) {
-		if !isAutoscaleEnabled(instance.Spec.Autoscale) {
+		if !isAutoscaleEnabled(instance) {
 			logger.V(4).Info("Skipping HorizontalPodAutoscaler reconciliation: both HPA resource and desired RpaasAutoscaleSpec not found")
 			return cleanedKeda, nil
 		}
@@ -605,7 +605,7 @@ func (r *RpaasInstanceReconciler) reconcileHPA(ctx context.Context, instance *v1
 
 	logger = logger.WithValues("HorizontalPodAutoscaler", types.NamespacedName{Name: observed.Name, Namespace: observed.Namespace})
 
-	if !isAutoscaleEnabled(instance.Spec.Autoscale) {
+	if !isAutoscaleEnabled(instance) {
 		logger.V(4).Info("Deleting HorizontalPodAutoscaler resource")
 		if err = r.Client.Delete(ctx, &observed); err != nil {
 			logger.Error(err, "Unable to delete the HorizontalPodAutoscaler resource")
@@ -664,7 +664,7 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 	var observed kedav1alpha1.ScaledObject
 	err = r.Client.Get(ctx, types.NamespacedName{Name: desired.Name, Namespace: desired.Namespace}, &observed)
 	if k8sErrors.IsNotFound(err) {
-		if !isAutoscaleEnabled(instance.Spec.Autoscale) {
+		if !isAutoscaleEnabled(instance) {
 			return false, nil // nothing to do
 		}
 
@@ -679,7 +679,7 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 		return false, err
 	}
 
-	if !isAutoscaleEnabled(instance.Spec.Autoscale) {
+	if !isAutoscaleEnabled(instance) {
 		err = r.Client.Delete(ctx, &observed)
 		if err != nil {
 			return false, err
@@ -699,10 +699,18 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 	return true, nil
 }
 
-func isAutoscaleEnabled(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
+func shouldShutdownInstance(instance *v1alpha1.RpaasInstance) bool {
+	return instance.Spec.Shutdown != nil && *instance.Spec.Shutdown
+}
+
+func isAutoscaleValid(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
 	return a != nil &&
 		(a.MinReplicas != nil && a.MaxReplicas > 0) &&
 		(a.TargetCPUUtilizationPercentage != nil || a.TargetMemoryUtilizationPercentage != nil || a.TargetRequestsPerSecond != nil || len(a.Schedules) > 0)
+}
+
+func isAutoscaleEnabled(instance *v1alpha1.RpaasInstance) bool {
+	return !shouldShutdownInstance(instance) && isAutoscaleValid(instance.Spec.Autoscale)
 }
 
 func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*kedav1alpha1.ScaledObject, error) {
@@ -1186,7 +1194,12 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 	}
 
 	replicas := instanceMergedWithFlavors.Spec.Replicas
-	if isAutoscaleEnabled(instanceMergedWithFlavors.Spec.Autoscale) {
+	shouldShutdown := shouldShutdownInstance(instanceMergedWithFlavors)
+	if shouldShutdown {
+		*replicas = 0
+	}
+
+	if isAutoscaleEnabled(instanceMergedWithFlavors) {
 		// NOTE: we should avoid changing the number of replicas as it's managed by HPA.
 		replicas = nil
 	}
