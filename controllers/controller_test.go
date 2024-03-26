@@ -114,6 +114,18 @@ func Test_newNginx(t *testing.T) {
 			},
 		},
 
+		"with Shutdown enabled": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Replicas = func(n int32) *int32 { return &n }(8)
+				i.Spec.Shutdown = true
+				return i
+			},
+			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
+				n.Spec.Replicas = func(n int32) *int32 { return &n }(0)
+				return n
+			},
+		},
+
 		"with load balancer": {
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				i.Spec.Service = &nginxv1alpha1.NginxService{
@@ -245,6 +257,88 @@ func Test_newNginx(t *testing.T) {
 				nginx = tt.expected(nginx)
 			}
 			assert.Equal(t, nginx, newNginx(instance, plan, cm))
+		})
+	}
+}
+
+func Test_isAutoscaleValid(t *testing.T) {
+	tests := map[string]struct {
+		isValid   bool
+		autoscale v1alpha1.RpaasInstanceAutoscaleSpec
+	}{
+		"Invalid null autoscale": {
+			isValid:   false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{},
+		},
+
+		"Invalid minReplicas is greater than maxReplicas": {
+			isValid: false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MinReplicas: func(n int32) *int32 { return &n }(5),
+				MaxReplicas: 1,
+			},
+		},
+
+		"Valid autoscale": {
+			isValid: true,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MaxReplicas:                    8,
+				MinReplicas:                    func(n int32) *int32 { return &n }(2),
+				TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := isAutoscaleValid(&tt.autoscale)
+			assert.Equal(t, tt.isValid, got)
+		})
+	}
+}
+
+func Test_isAutoscaleEnabled(t *testing.T) {
+	tests := map[string]struct {
+		isEnabled    bool
+		instanceSpec v1alpha1.RpaasInstanceSpec
+	}{
+		"Disabled autoscale by invalid spec": {
+			isEnabled: false,
+			instanceSpec: v1alpha1.RpaasInstanceSpec{
+				Shutdown:  false,
+				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{},
+			},
+		},
+
+		"Disabled autoscale by shutdown": {
+			isEnabled: false,
+			instanceSpec: v1alpha1.RpaasInstanceSpec{
+				Shutdown: true,
+				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas:                    8,
+					MinReplicas:                    func(n int32) *int32 { return &n }(2),
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+				},
+			},
+		},
+
+		"Enabled autoscale": {
+			isEnabled: true,
+			instanceSpec: v1alpha1.RpaasInstanceSpec{
+				Shutdown: false,
+				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas:                    4,
+					MinReplicas:                    func(n int32) *int32 { return &n }(2),
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(70),
+				},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := isAutoscaleEnabled(&tt.instanceSpec)
+			assert.Equal(t, tt.isEnabled, got)
 		})
 	}
 }
