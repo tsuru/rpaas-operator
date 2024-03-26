@@ -6384,8 +6384,8 @@ spec:
               shutdown:
                 default: false
                 description: Shutdown flag tells whether controller should scale down
-                  Nginx instances. And any assosciated HorizontalPodAutoscaler is
-                  remove/created when this flag is toggled.
+                  Nginx instances. Any assosciated HorizontalPodAutoscaler is remove/created
+                  when this flag is toggled.
                 type: boolean
               suspend:
                 default: false
