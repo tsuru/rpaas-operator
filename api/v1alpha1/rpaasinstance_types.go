@@ -139,7 +139,7 @@ type RpaasInstanceSpec struct {
 	// Any assosciated HorizontalPodAutoscaler is remove/created when this flag is toggled.
 	// +optional
 	// +kubebuilder:default:=false
-	Shutdown *bool `json:"shutdown,omitempty"`
+	Shutdown bool `json:"shutdown,omitempty"`
 }
 
 type DynamicCertificates struct {

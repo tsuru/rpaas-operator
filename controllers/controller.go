@@ -699,10 +699,6 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 	return true, nil
 }
 
-func shouldShutdownInstance(instance *v1alpha1.RpaasInstance) bool {
-	return instance.Spec.Shutdown != nil && *instance.Spec.Shutdown
-}
-
 func isAutoscaleValid(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
 	return a != nil &&
 		(a.MinReplicas != nil && a.MaxReplicas > 0) &&
@@ -710,7 +706,7 @@ func isAutoscaleValid(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
 }
 
 func isAutoscaleEnabled(instance *v1alpha1.RpaasInstance) bool {
-	return !shouldShutdownInstance(instance) && isAutoscaleValid(instance.Spec.Autoscale)
+	return !instance.Spec.Shutdown && isAutoscaleValid(instance.Spec.Autoscale)
 }
 
 func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*kedav1alpha1.ScaledObject, error) {
@@ -1194,8 +1190,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 	}
 
 	replicas := instanceMergedWithFlavors.Spec.Replicas
-	shouldShutdown := shouldShutdownInstance(instanceMergedWithFlavors)
-	if shouldShutdown {
+	if shutdown := instanceMergedWithFlavors.Spec.Shutdown; shutdown {
 		*replicas = 0
 	}
 
