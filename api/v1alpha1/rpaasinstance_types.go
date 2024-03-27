@@ -134,6 +134,12 @@ type RpaasInstanceSpec struct {
 	// +optional
 	// +kubebuilder:default:=false
 	Suspend *bool `json:"suspend,omitempty"`
+
+	// Shutdown flag tells whether controller should scale down Nginx instances.
+	// Any assosciated HorizontalPodAutoscaler is remove/created when this flag is toggled.
+	// +optional
+	// +kubebuilder:default:=false
+	Shutdown bool `json:"shutdown,omitempty"`
 }
 
 type DynamicCertificates struct {

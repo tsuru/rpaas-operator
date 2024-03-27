@@ -114,6 +114,18 @@ func Test_newNginx(t *testing.T) {
 			},
 		},
 
+		"with Shutdown enabled": {
+			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				i.Spec.Replicas = func(n int32) *int32 { return &n }(8)
+				i.Spec.Shutdown = true
+				return i
+			},
+			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
+				n.Spec.Replicas = func(n int32) *int32 { return &n }(0)
+				return n
+			},
+		},
+
 		"with load balancer": {
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				i.Spec.Service = &nginxv1alpha1.NginxService{
@@ -245,6 +257,88 @@ func Test_newNginx(t *testing.T) {
 				nginx = tt.expected(nginx)
 			}
 			assert.Equal(t, nginx, newNginx(instance, plan, cm))
+		})
+	}
+}
+
+func Test_isAutoscaleValid(t *testing.T) {
+	tests := map[string]struct {
+		isValid   bool
+		autoscale v1alpha1.RpaasInstanceAutoscaleSpec
+	}{
+		"Invalid null autoscale": {
+			isValid:   false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{},
+		},
+
+		"Invalid minReplicas is greater than maxReplicas": {
+			isValid: false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MinReplicas: func(n int32) *int32 { return &n }(5),
+				MaxReplicas: 1,
+			},
+		},
+
+		"Valid autoscale": {
+			isValid: true,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MaxReplicas:                    8,
+				MinReplicas:                    func(n int32) *int32 { return &n }(2),
+				TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := isAutoscaleValid(&tt.autoscale)
+			assert.Equal(t, tt.isValid, got)
+		})
+	}
+}
+
+func Test_isAutoscaleEnabled(t *testing.T) {
+	tests := map[string]struct {
+		isEnabled    bool
+		instanceSpec v1alpha1.RpaasInstanceSpec
+	}{
+		"Disabled autoscale by invalid spec": {
+			isEnabled: false,
+			instanceSpec: v1alpha1.RpaasInstanceSpec{
+				Shutdown:  false,
+				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{},
+			},
+		},
+
+		"Disabled autoscale by shutdown": {
+			isEnabled: false,
+			instanceSpec: v1alpha1.RpaasInstanceSpec{
+				Shutdown: true,
+				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas:                    8,
+					MinReplicas:                    func(n int32) *int32 { return &n }(2),
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+				},
+			},
+		},
+
+		"Enabled autoscale": {
+			isEnabled: true,
+			instanceSpec: v1alpha1.RpaasInstanceSpec{
+				Shutdown: false,
+				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MaxReplicas:                    4,
+					MinReplicas:                    func(n int32) *int32 { return &n }(2),
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(70),
+				},
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := isAutoscaleEnabled(&tt.instanceSpec)
+			assert.Equal(t, tt.isEnabled, got)
 		})
 	}
 }
@@ -1078,6 +1172,22 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 		},
 
+		"(native HPA controller) removing autoscale with shutdown flag": {
+			resources: []runtime.Object{
+				baseExpectedHPA.DeepCopy(),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Shutdown = true
+				return ri
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				var hpa autoscalingv2.HorizontalPodAutoscaler
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &hpa)
+				return assert.True(t, k8sErrors.IsNotFound(err))
+			},
+			expectedChanged: true,
+		},
+
 		"(native HPA controller) with RPS enabled": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
@@ -1309,6 +1419,22 @@ func Test_reconcileHPA(t *testing.T) {
 						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
 					},
 				}
+				return ri
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				var so kedav1alpha1.ScaledObject
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
+				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
+			},
+			expectedChanged: true,
+		},
+
+		"(KEDA controller) removing autoscaling with shutdown flag": {
+			resources: []runtime.Object{
+				baseExpectedScaledObject.DeepCopy(),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Shutdown = true
 				return ri
 			},
 			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
