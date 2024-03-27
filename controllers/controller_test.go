@@ -1172,6 +1172,22 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 		},
 
+		"(native HPA controller) removing autoscale with shutdown flag": {
+			resources: []runtime.Object{
+				baseExpectedHPA.DeepCopy(),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Shutdown = true
+				return ri
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				var hpa autoscalingv2.HorizontalPodAutoscaler
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "default"}, &hpa)
+				return assert.True(t, k8sErrors.IsNotFound(err))
+			},
+			expectedChanged: true,
+		},
+
 		"(native HPA controller) with RPS enabled": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
@@ -1403,6 +1419,22 @@ func Test_reconcileHPA(t *testing.T) {
 						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
 					},
 				}
+				return ri
+			},
+			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {
+				var so kedav1alpha1.ScaledObject
+				err := r.Client.Get(context.TODO(), types.NamespacedName{Name: baseExpectedScaledObject.Name, Namespace: baseExpectedScaledObject.Namespace}, &so)
+				return assert.True(t, k8sErrors.IsNotFound(err), "ScaledObject resource should not exist")
+			},
+			expectedChanged: true,
+		},
+
+		"(KEDA controller) removing autoscaling with shutdown flag": {
+			resources: []runtime.Object{
+				baseExpectedScaledObject.DeepCopy(),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Shutdown = true
 				return ri
 			},
 			customAssert: func(t *testing.T, r *RpaasInstanceReconciler) bool {

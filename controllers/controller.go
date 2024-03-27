@@ -38,6 +38,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
+	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -1191,7 +1192,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 
 	replicas := instanceMergedWithFlavors.Spec.Replicas
 	if shutdown := instanceMergedWithFlavors.Spec.Shutdown; shutdown {
-		*replicas = 0
+		replicas = pointer.Int32(0)
 	}
 
 	if isAutoscaleEnabled(&instanceMergedWithFlavors.Spec) {
