@@ -36,8 +36,125 @@ spec:
           metadata:
             type: object
           spec:
-            description: RpaasValidationSpec defines the desired state of RpaasInstance
+            description: Spec reuse the same properties of RpaasInstance, just to
+              avoid duplication of code
             properties:
+              allowedUpstreams:
+                description: AllowedUpstreams holds the endpoints to which the RpaasInstance
+                  should be able to access
+                items:
+                  properties:
+                    host:
+                      type: string
+                    port:
+                      type: integer
+                  type: object
+                type: array
+              autoscale:
+                description: Autoscale holds the infos used to configure the HorizontalPodAutoscaler
+                  for this instance.
+                properties:
+                  kedaOptions:
+                    description: KEDAOptions defines the options used when creating
+                      autoscaling resources via KEDA's API.
+                    properties:
+                      enabled:
+                        description: Enabled whether should use KEDA as the autoscaling
+                          controller.
+                        type: boolean
+                      pollingInterval:
+                        description: PollingInterval is the interval in seconds to
+                          check each trigger on.
+                        format: int32
+                        type: integer
+                      prometheusServerAddress:
+                        description: PrometheusServerAddress is the Prometheus server
+                          (URL) address. Mandatory if Enabled field is true.
+                        type: string
+                      rpsAuthenticationRef:
+                        description: RPSAuthenticationRef is the reference to KEDA's
+                          authentication resource regarding the request per second
+                          trigger.
+                        properties:
+                          kind:
+                            description: Kind of the resource being referred to. Defaults
+                              to TriggerAuthentication.
+                            type: string
+                          name:
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      rpsQueryTemplate:
+                        description: RPSQueryTemplate is a gotemplate used to define
+                          the requests per second Prometheus query. Mandatory if Enabled
+                          field is true.
+                        type: string
+                      timezone:
+                        description: Timezone is a zone name registered on IANA time
+                          zone database, e.g. "America/Sao_Paulo".
+                        type: string
+                    type: object
+                  maxReplicas:
+                    description: MaxReplicas is the upper limit for the number of
+                      replicas that can be set by the HorizontalPodAutoscaler.
+                    format: int32
+                    type: integer
+                  minReplicas:
+                    description: MinReplicas is the lower limit for the number of
+                      replicas that can be set by the HorizontalPodAutoscaler. Defaults
+                      to the RpaasInstance replicas value.
+                    format: int32
+                    type: integer
+                  schedules:
+                    description: Schedules are the time windows where the minimum
+                      replica count should change.
+                    items:
+                      properties:
+                        end:
+                          description: End is a Cron expression indicating the end
+                            of the scheduled window.
+                          type: string
+                        minReplicas:
+                          description: MinReplicas is the minimum replica count set
+                            while the scheduled window is active.
+                          format: int32
+                          type: integer
+                        start:
+                          description: Start is a Cron expression indicating the start
+                            of the shedule window.
+                          type: string
+                        timezone:
+                          description: Timezone is a zone name registered on IANA
+                            time zone database, e.g. "America/Sao_Paulo".
+                          type: string
+                      required:
+                      - end
+                      - minReplicas
+                      - start
+                      type: object
+                    type: array
+                  targetCPUUtilizationPercentage:
+                    description: TargetCPUUtilizationPercentage is the target average
+                      CPU utilization over all the pods. Represented as a percentage
+                      of requested CPU, e.g. int32(80) equals to 80%.
+                    format: int32
+                    type: integer
+                  targetMemoryUtilizationPercentage:
+                    description: TargetMemoryUtilizationPercentage is the target average
+                      memory utilization over all the pods. Represented as a percentage
+                      of requested memory, e.g. int32(80) equals to 80%.
+                    format: int32
+                    type: integer
+                  targetRequestsPerSecond:
+                    description: TargetRequestsPerSecond is the target rate of HTTP
+                      requests (in a second) pods should keep before scaling up/down
+                      pods.
+                    format: int32
+                    type: integer
+                required:
+                - maxReplicas
+                type: object
               binds:
                 description: Binds is the list of apps bounded to the instance
                 items:
@@ -81,6 +198,24 @@ spec:
                   type: object
                 description: Blocks are configuration file fragments added to the
                   generated nginx config.
+                type: object
+              configHistoryLimit:
+                description: The number of old Configs to retain to allow rollback.
+                type: integer
+              dns:
+                description: DNS Configuration for the current flavor
+                properties:
+                  ttl:
+                    description: TTL is the DNS entry time to live in seconds (default
+                      is 60s)
+                    format: int32
+                    type: integer
+                  zone:
+                    description: Zone is the suffix which all DNS entries will be
+                      formed with using the rule `instance_name.zone`
+                    type: string
+                required:
+                - zone
                 type: object
               dynamicCertificates:
                 description: DynamicCertificates enables automatic issuing and renewal
@@ -141,6 +276,33 @@ spec:
                       type: object
                     type: array
                 type: object
+              enablePodDisruptionBudget:
+                description: "EnablePodDisruptionBudget defines whether a PodDisruptionBudget
+                  should be attached to Nginx or not. Defaults to disabled. \n If
+                  enabled, PDB's min available is calculated as:  minAvailable = floor(N
+                  * 90%), where  N:   - rpaasinstance.spec.autoscale.minReplicas (if
+                  set and less than maxReplicas);   - rpaasinstance.spec.autoscale.maxReplicas
+                  (if set);   - rpaasinstance.spec.replicas (if set);   - zero, otherwise."
+                type: boolean
+              extraFiles:
+                description: "ExtraFiles points to a ConfigMap where the files are
+                  stored. \n Deprecated: ExtraFiles stores all files in a single ConfigMap.
+                  In other words, they share the limit of 1MiB due to etcd limitations.
+                  In order to get around it, use the Field field."
+                properties:
+                  files:
+                    additionalProperties:
+                      type: string
+                    description: Files maps each key entry from the ConfigMap to its
+                      relative location on the nginx filesystem.
+                    type: object
+                  name:
+                    description: Name points to a ConfigMap resource (in the same
+                      namespace) which holds the files.
+                    type: string
+                required:
+                - name
+                type: object
               files:
                 description: Files is a list of regular files of general purpose to
                   be mounted on Nginx pods. As ConfigMap stores the file content,
@@ -179,6 +341,68 @@ spec:
                 items:
                   type: string
                 type: array
+              ingress:
+                description: Ingress defines a minimal set of configurations to expose
+                  the instance over an Ingress.
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations are extra annotations for the Ingress
+                      resource.
+                    type: object
+                  ingressClassName:
+                    description: IngressClassName is the class to be set on Ingress.
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels are extra labels for the Ingress resource.
+                    type: object
+                type: object
+              lifecycle:
+                description: Lifecycle describes actions that should be executed when
+                  some event happens to nginx container.
+                properties:
+                  postStart:
+                    properties:
+                      exec:
+                        description: ExecAction describes a "run in container" action.
+                        properties:
+                          command:
+                            description: Command is the command line to execute inside
+                              the container, the working directory for the command  is
+                              root ('/') in the container's filesystem. The command
+                              is simply exec'd, it is not run inside a shell, so traditional
+                              shell instructions ('|', etc) won't work. To use a shell,
+                              you need to explicitly call out to that shell. Exit
+                              status of 0 is treated as live/healthy and non-zero
+                              is unhealthy.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                    type: object
+                  preStop:
+                    properties:
+                      exec:
+                        description: ExecAction describes a "run in container" action.
+                        properties:
+                          command:
+                            description: Command is the command line to execute inside
+                              the container, the working directory for the command  is
+                              root ('/') in the container's filesystem. The command
+                              is simply exec'd, it is not run inside a shell, so traditional
+                              shell instructions ('|', etc) won't work. To use a shell,
+                              you need to explicitly call out to that shell. Exit
+                              status of 0 is treated as live/healthy and non-zero
+                              is unhealthy.
+                            items:
+                              type: string
+                            type: array
+                        type: object
+                    type: object
+                type: object
               locations:
                 description: Locations hold paths that can be configured to forward
                   resquests to one destination app or include raw NGINX configurations
@@ -223,6 +447,13 @@ spec:
                   - path
                   type: object
                 type: array
+              planName:
+                description: PlanName is the name of the rpaasplan instance.
+                type: string
+              planNamespace:
+                description: PlanNamespace is the namespace of target plan and their
+                  flavors, when empty uses the same namespace of instance.
+                type: string
               planTemplate:
                 description: PlanTemplate allow overriding fields in the specified
                   plan.
@@ -6097,6 +6328,52 @@ spec:
                       type: object
                     type: array
                 type: object
+              proxyProtocol:
+                description: ProxyProtocol defines whether allocate additional ports
+                  to expose via proxy protocol
+                type: boolean
+              replicas:
+                description: Number of desired pods. This is a pointer to distinguish
+                  between explicit zero and not specified. Defaults to 1.
+                format: int32
+                type: integer
+              service:
+                description: Service to expose the nginx instance
+                properties:
+                  annotations:
+                    additionalProperties:
+                      type: string
+                    description: Annotations are extra annotations for the service.
+                    type: object
+                  externalTrafficPolicy:
+                    description: ExternalTrafficPolicy defines whether external traffic
+                      will be routed to node-local or cluster-wide endpoints. Defaults
+                      to the default Service externalTrafficPolicy value.
+                    type: string
+                  labels:
+                    additionalProperties:
+                      type: string
+                    description: Labels are extra labels for the service.
+                    type: object
+                  loadBalancerIP:
+                    description: LoadBalancerIP is an optional load balancer IP for
+                      the service.
+                    type: string
+                  type:
+                    description: Type is the type of the service. Defaults to the
+                      default service type value.
+                    type: string
+                  usePodSelector:
+                    description: UsePodSelector defines whether Service should automatically
+                      map the endpoints using the pod's label selector. Defaults to
+                      true.
+                    type: boolean
+                type: object
+              suspend:
+                default: false
+                description: Suspend flag tells whether controller should suspend
+                  any further modifications on this resource. Defaults to false.
+                type: boolean
               tls:
                 description: TLS configuration.
                 items:
@@ -6117,6 +6394,40 @@ spec:
                   - secretName
                   type: object
                 type: array
+              tlsSessionResumption:
+                description: TLSSessionResumption configures the instance to support
+                  session resumption using either session tickets or session ID (in
+                  the future). Defaults to disabled.
+                properties:
+                  sessionTicket:
+                    description: SessionTicket defines the parameters to set the TLS
+                      session tickets.
+                    properties:
+                      image:
+                        description: Image is the container image name used to execute
+                          the session ticket rotation job. It requires either "bash",
+                          "base64", "openssl" and "kubectl" programs be installed
+                          into. Defaults to "bitnami/kubectl:latest".
+                        type: string
+                      keepLastKeys:
+                        description: KeepLastKeys defines how many session ticket
+                          encryption keys should be kept in addition to the current
+                          one. Zero means no old encryption keys. Defaults to zero.
+                        format: int32
+                        type: integer
+                      keyLength:
+                        description: KeyLength defines the length of bytes for a session
+                          tickets. Should be either 48 or 80 bytes. Defaults to 48
+                          bytes.
+                        type: integer
+                      keyRotationInterval:
+                        description: KeyRotationInterval defines the time interval,
+                          in minutes, that a key rotation job should occurs. Defaults
+                          to 60 minutes (an hour).
+                        format: int32
+                        type: integer
+                    type: object
+                type: object
             type: object
           status:
             description: RpaasValidationStatus defines the observed state of RpaasValidation
@@ -6135,9 +6446,6 @@ spec:
               valid:
                 description: Valid determines whether validation is valid
                 type: boolean
-            required:
-            - error
-            - valid
             type: object
         type: object
     served: true

@@ -222,23 +222,12 @@ func mergeInstanceWithFlavor(instance *v1alpha1.RpaasInstance, flavor v1alpha1.R
 }
 
 func (r *RpaasInstanceReconciler) listDefaultFlavors(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]v1alpha1.RpaasFlavor, error) {
-	flavorList := &v1alpha1.RpaasFlavorList{}
 	flavorNamespace := instance.Namespace
 	if instance.Spec.PlanNamespace != "" {
 		flavorNamespace = instance.Spec.PlanNamespace
 	}
-	if err := r.Client.List(ctx, flavorList, client.InNamespace(flavorNamespace)); err != nil {
-		return nil, err
-	}
 
-	var result []v1alpha1.RpaasFlavor
-	for _, flavor := range flavorList.Items {
-		if flavor.Spec.Default {
-			result = append(result, flavor)
-		}
-	}
-	sort.SliceStable(result, func(i, j int) bool { return result[i].Name < result[j].Name })
-	return result, nil
+	return listDefaultFlavors(ctx, r.Client, flavorNamespace)
 }
 
 func (r *RpaasInstanceReconciler) reconcileTLSSessionResumption(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
@@ -918,33 +907,7 @@ func newPDB(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*poli
 }
 
 func (r *RpaasInstanceReconciler) reconcileConfigMap(ctx context.Context, configMap *corev1.ConfigMap) (hasChanged bool, err error) {
-	found := &corev1.ConfigMap{}
-	err = r.Client.Get(ctx, types.NamespacedName{Name: configMap.ObjectMeta.Name, Namespace: configMap.ObjectMeta.Namespace}, found)
-	if err != nil {
-		if !k8sErrors.IsNotFound(err) {
-			logrus.Errorf("Failed to get configMap: %v", err)
-			return false, err
-		}
-		err = r.Client.Create(ctx, configMap)
-		if err != nil {
-			logrus.Errorf("Failed to create configMap: %v", err)
-			return false, err
-		}
-		return true, nil
-	}
-
-	configMap.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
-
-	if reflect.DeepEqual(found.Data, configMap.Data) && reflect.DeepEqual(found.BinaryData, configMap.BinaryData) && reflect.DeepEqual(found.Labels, configMap.Labels) {
-		return false, nil
-	}
-
-	err = r.Client.Update(ctx, configMap)
-	if err != nil {
-		logrus.Errorf("Failed to update configMap: %v", err)
-		return false, err
-	}
-	return true, nil
+	return reconcileConfigMap(ctx, r.Client, configMap)
 }
 
 func (r *RpaasInstanceReconciler) getNginx(ctx context.Context, instance *v1alpha1.RpaasInstance) (*nginxv1alpha1.Nginx, error) {
@@ -1005,12 +968,18 @@ func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *
 }
 
 func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
-	blocks, err := r.getConfigurationBlocks(ctx, instance, plan)
+	rf := &referenceFinder{
+		spec:      &instance.Spec,
+		client:    r.Client,
+		namespace: instance.Namespace,
+	}
+
+	blocks, err := rf.getConfigurationBlocks(ctx, plan)
 	if err != nil {
 		return "", err
 	}
 
-	if err = r.updateLocationValues(ctx, instance); err != nil {
+	if err = rf.updateLocationValues(ctx); err != nil {
 		return "", err
 	}
 
@@ -1025,57 +994,6 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 	}
 
 	return cr.Render(config)
-}
-
-func (r *RpaasInstanceReconciler) getConfigurationBlocks(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (nginx.ConfigurationBlocks, error) {
-	var blocks nginx.ConfigurationBlocks
-
-	if plan.Spec.Template != nil {
-		mainBlock, err := util.GetValue(ctx, r.Client, "", plan.Spec.Template)
-		if err != nil {
-			return blocks, err
-		}
-
-		blocks.MainBlock = mainBlock
-	}
-
-	for blockType, blockValue := range instance.Spec.Blocks {
-		content, err := util.GetValue(ctx, r.Client, instance.Namespace, &blockValue)
-		if err != nil {
-			return blocks, err
-		}
-
-		switch blockType {
-		case v1alpha1.BlockTypeRoot:
-			blocks.RootBlock = content
-		case v1alpha1.BlockTypeHTTP:
-			blocks.HttpBlock = content
-		case v1alpha1.BlockTypeServer:
-			blocks.ServerBlock = content
-		case v1alpha1.BlockTypeLuaServer:
-			blocks.LuaServerBlock = content
-		case v1alpha1.BlockTypeLuaWorker:
-			blocks.LuaWorkerBlock = content
-		}
-	}
-
-	return blocks, nil
-}
-
-func (r *RpaasInstanceReconciler) updateLocationValues(ctx context.Context, instance *v1alpha1.RpaasInstance) error {
-	for _, location := range instance.Spec.Locations {
-		if location.Content == nil {
-			continue
-		}
-
-		content, err := util.GetValue(ctx, r.Client, instance.Namespace, location.Content)
-		if err != nil {
-			return err
-		}
-
-		location.Content.Value = content
-	}
-	return nil
 }
 
 func (r *RpaasInstanceReconciler) listConfigs(ctx context.Context, instance *v1alpha1.RpaasInstance) (*corev1.ConfigMapList, error) {
@@ -1293,7 +1211,7 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
 }
 
-func generateSpecHash(spec *v1alpha1.RpaasInstanceSpec) (string, error) {
+func generateSpecHash(spec any) (string, error) {
 	if spec == nil {
 		return "", nil
 	}
