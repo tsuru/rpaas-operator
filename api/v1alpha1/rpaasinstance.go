@@ -10,13 +10,16 @@ import (
 )
 
 const (
-	DefaultLabelKeyPrefix               = "rpaas.extensions.tsuru.io"
-	RpaasOperatorValidationNameLabelKey = DefaultLabelKeyPrefix + "/validation-name"
-	RpaasOperatorInstanceNameLabelKey   = DefaultLabelKeyPrefix + "/instance-name"
-	RpaasOperatorServiceNameLabelKey    = DefaultLabelKeyPrefix + "/service-name"
-	RpaasOperatorPlanNameLabelKey       = DefaultLabelKeyPrefix + "/plan-name"
-	RpaasOperatorTeamOwnerLabelKey      = DefaultLabelKeyPrefix + "/team-owner"
-	RpaasOperatorClusterNameLabelKey    = DefaultLabelKeyPrefix + "/cluster-name"
+	DefaultLabelKeyPrefix = "rpaas.extensions.tsuru.io"
+
+	RpaasOperatorValidationNameLabelKey      = DefaultLabelKeyPrefix + "/validation-name"
+	RpaasOperatorValidationHashAnnotationKey = DefaultLabelKeyPrefix + "/validation-hash"
+
+	RpaasOperatorInstanceNameLabelKey = DefaultLabelKeyPrefix + "/instance-name"
+	RpaasOperatorServiceNameLabelKey  = DefaultLabelKeyPrefix + "/service-name"
+	RpaasOperatorPlanNameLabelKey     = DefaultLabelKeyPrefix + "/plan-name"
+	RpaasOperatorTeamOwnerLabelKey    = DefaultLabelKeyPrefix + "/team-owner"
+	RpaasOperatorClusterNameLabelKey  = DefaultLabelKeyPrefix + "/cluster-name"
 
 	LegacyRpaasOperatorInstanceNameLabelKey = "rpaas_instance"
 	LegacyRpaasOperatorServiceNameLabelKey  = "rpaas_service"
