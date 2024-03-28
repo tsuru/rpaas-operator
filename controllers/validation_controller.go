@@ -31,9 +31,6 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, nil
 	}
 
-	logger := r.Log.WithName("Reconcile").
-		WithValues("RpaasValidation", types.NamespacedName{Name: validation.Name, Namespace: validation.Namespace})
-
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -85,9 +82,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	// TODO delete old config
-
-	pod := newValidationPod(validationMergedWithFlavors, plan, configMap)
+	pod := newValidationPod(validationMergedWithFlavors, validationHash, plan, configMap)
 
 	existingPod, err := r.getPod(ctx, pod.Namespace, pod.Name)
 	if err != nil && !k8sErrors.IsNotFound(err) {
@@ -95,61 +90,15 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if existingPod != nil {
+		finished, err := r.finishValidation(ctx, existingPod, validation, validationHash)
 
-		if existingPod.Status.Phase == corev1.PodSucceeded && len(existingPod.Status.ContainerStatuses) > 0 {
-			containerStatus := existingPod.Status.ContainerStatuses[0]
-
-			if containerStatus.State.Terminated != nil {
-				if containerStatus.State.Terminated.ExitCode == 0 {
-					validation.Status.RevisionHash = validationHash
-					validation.Status.ObservedGeneration = validation.ObjectMeta.Generation
-					validation.Status.Valid = pointer.Bool(true)
-					validation.Status.Error = ""
-
-					err = r.Client.Status().Update(ctx, validation)
-					if err != nil {
-						return ctrl.Result{}, err
-					}
-
-					err = r.Client.Delete(ctx, existingPod)
-					if err != nil {
-						return ctrl.Result{}, err
-					}
-
-					// TODO: delete config-map
-					return ctrl.Result{}, nil
-				}
-			}
-
+		if err != nil {
+			return ctrl.Result{}, err
 		}
 
-		if existingPod.Status.Phase == corev1.PodFailed && len(existingPod.Status.ContainerStatuses) > 0 {
-			containerStatus := existingPod.Status.ContainerStatuses[0]
-
-			if containerStatus.State.Terminated != nil {
-				if containerStatus.State.Terminated.ExitCode != 0 {
-					validation.Status.RevisionHash = validationHash
-					validation.Status.ObservedGeneration = validation.ObjectMeta.Generation
-					validation.Status.Valid = pointer.Bool(false)
-					validation.Status.Error = containerStatus.State.Terminated.Message
-
-					err = r.Client.Status().Update(ctx, validation)
-					if err != nil {
-						return ctrl.Result{}, err
-					}
-
-					err = r.Client.Delete(ctx, existingPod)
-					if err != nil {
-						return ctrl.Result{}, err
-					}
-
-					// TODO: delete config-map
-					return ctrl.Result{}, nil
-				}
-			}
-
+		if finished {
+			return ctrl.Result{}, nil
 		}
-
 	}
 
 	_, err = r.reconcilePod(ctx, pod)
@@ -157,9 +106,69 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return ctrl.Result{}, err
 	}
 
-	logger.Info("TODO? reconcile the job")
-
 	return ctrl.Result{}, nil
+}
+
+func (r *RpaasValidationReconciler) finishValidation(ctx context.Context, existingPod *corev1.Pod, validation *v1alpha1.RpaasValidation, validationHash string) (finished bool, err error) {
+	if existingPod.Annotations[v1alpha1.RpaasOperatorValidationHashAnnotationKey] != validationHash {
+		return false, nil
+	}
+
+	logger := r.Log.WithName("finishValidation").
+		WithValues("RpaasValidation", types.NamespacedName{Name: validation.Name, Namespace: validation.Namespace})
+
+	var valid *bool = nil
+	terminatedMessage := ""
+
+	if existingPod.Status.Phase == corev1.PodSucceeded && len(existingPod.Status.ContainerStatuses) > 0 {
+		containerStatus := existingPod.Status.ContainerStatuses[0]
+
+		if containerStatus.State.Terminated != nil {
+			if containerStatus.State.Terminated.ExitCode == 0 {
+				valid = pointer.Bool(true)
+				terminatedMessage = containerStatus.State.Terminated.Message
+			}
+		}
+	}
+
+	if existingPod.Status.Phase == corev1.PodFailed && len(existingPod.Status.ContainerStatuses) > 0 {
+		containerStatus := existingPod.Status.ContainerStatuses[0]
+
+		if containerStatus.State.Terminated != nil {
+			if containerStatus.State.Terminated.ExitCode != 0 {
+				valid = pointer.Bool(false)
+				terminatedMessage = containerStatus.State.Terminated.Message
+			}
+		}
+	}
+
+	if valid != nil {
+		logger.Info("validation finished", "valid", *valid, "terminatedMessage", terminatedMessage)
+
+		validation.Status.RevisionHash = validationHash
+		validation.Status.ObservedGeneration = validation.ObjectMeta.Generation
+		validation.Status.Valid = valid
+
+		if *valid {
+			validation.Status.Error = ""
+		} else {
+			validation.Status.Error = terminatedMessage
+		}
+
+		err = r.Client.Status().Update(ctx, validation)
+		if err != nil {
+			return false, err
+		}
+
+		err = r.Client.Delete(ctx, existingPod)
+		if err != nil {
+			return false, err
+		}
+
+		return true, nil
+	}
+
+	return false, nil
 }
 
 func (r *RpaasValidationReconciler) getRpaasValidation(ctx context.Context, objKey types.NamespacedName) (*v1alpha1.RpaasValidation, error) {
@@ -347,7 +356,7 @@ func (r *RpaasValidationReconciler) reconcilePod(ctx context.Context, pod *corev
 	return true, nil
 }
 
-func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *corev1.Pod {
+func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, validationHash string, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *corev1.Pod {
 	n := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configMap.Name,
@@ -358,6 +367,9 @@ func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, pla
 					Version: v1alpha1.GroupVersion.Version,
 					Kind:    "RpaasValidation",
 				}),
+			},
+			Annotations: map[string]string{
+				v1alpha1.RpaasOperatorValidationHashAnnotationKey: validationHash,
 			},
 		},
 		Spec: corev1.PodSpec{
