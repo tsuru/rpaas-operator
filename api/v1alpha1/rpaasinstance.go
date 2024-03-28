@@ -10,7 +10,11 @@ import (
 )
 
 const (
-	DefaultLabelKeyPrefix             = "rpaas.extensions.tsuru.io"
+	DefaultLabelKeyPrefix = "rpaas.extensions.tsuru.io"
+
+	RpaasOperatorValidationNameLabelKey      = DefaultLabelKeyPrefix + "/validation-name"
+	RpaasOperatorValidationHashAnnotationKey = DefaultLabelKeyPrefix + "/validation-hash"
+
 	RpaasOperatorInstanceNameLabelKey = DefaultLabelKeyPrefix + "/instance-name"
 	RpaasOperatorServiceNameLabelKey  = DefaultLabelKeyPrefix + "/service-name"
 	RpaasOperatorPlanNameLabelKey     = DefaultLabelKeyPrefix + "/plan-name"
