@@ -127,3 +127,13 @@ func mergeMap(a, b map[string]string) map[string]string {
 	}
 	return a
 }
+
+func (i *RpaasValidation) BelongsToCluster(clusterName string) bool {
+	instanceCluster := i.Labels[RpaasOperatorClusterNameLabelKey]
+
+	if instanceCluster == "" {
+		return false
+	}
+
+	return clusterName == instanceCluster
+}
