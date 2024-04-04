@@ -32,6 +32,8 @@ type RpaasManager struct {
 	FakeInstanceAddress          func(name string) (string, error)
 	FakeInstanceStatus           func(name string) (*nginxv1alpha1.Nginx, rpaas.PodStatusMap, error)
 	FakeScale                    func(instanceName string, replicas int32) error
+	FakeStart                    func(instanceName string) error
+	FakeStop                     func(instanceName string) error
 	FakeGetPlans                 func() ([]rpaas.Plan, error)
 	FakeGetFlavors               func() ([]rpaas.Flavor, error)
 	FakeCreateExtraFiles         func(instanceName string, files ...rpaas.File) error
@@ -162,6 +164,20 @@ func (m *RpaasManager) GetInstanceStatus(ctx context.Context, name string) (*ngi
 func (m *RpaasManager) Scale(ctx context.Context, instanceName string, replicas int32) error {
 	if m.FakeScale != nil {
 		return m.FakeScale(instanceName, replicas)
+	}
+	return nil
+}
+
+func (m *RpaasManager) Start(ctx context.Context, instanceName string) error {
+	if m.FakeScale != nil {
+		return m.FakeStart(instanceName)
+	}
+	return nil
+}
+
+func (m *RpaasManager) Stop(ctx context.Context, instanceName string) error {
+	if m.FakeScale != nil {
+		return m.FakeStop(instanceName)
 	}
 	return nil
 }

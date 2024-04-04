@@ -19,6 +19,8 @@ type FakeClient struct {
 	FakeGetPlans                func(instance string) ([]types.Plan, error)
 	FakeGetFlavors              func(instance string) ([]types.Flavor, error)
 	FakeScale                   func(args client.ScaleArgs) error
+	FakeStart                   func(instance string) error
+	FakeStop                    func(instance string) error
 	FakeUpdateCertificate       func(args client.UpdateCertificateArgs) error
 	FakeDeleteCertificate       func(args client.DeleteCertificateArgs) error
 	FakeUpdateBlock             func(args client.UpdateBlockArgs) error
@@ -72,6 +74,22 @@ func (f *FakeClient) GetFlavors(ctx context.Context, instance string) ([]types.F
 func (f *FakeClient) Scale(ctx context.Context, args client.ScaleArgs) error {
 	if f.FakeScale != nil {
 		return f.FakeScale(args)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) Start(ctx context.Context, instance string) error {
+	if f.FakeScale != nil {
+		return f.FakeStart(instance)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) Stop(ctx context.Context, instance string) error {
+	if f.FakeScale != nil {
+		return f.FakeStop(instance)
 	}
 
 	return nil

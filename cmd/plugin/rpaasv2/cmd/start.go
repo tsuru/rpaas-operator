@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
+
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
 
 func NewCmdStart() *cli.Command {
@@ -38,7 +40,7 @@ func runStart(c *cli.Context) error {
 		return err
 	}
 
-	err = client.Start(c.Context)
+	err = client.Start(c.Context, c.String("instance"))
 	if err != nil {
 		return err
 	}

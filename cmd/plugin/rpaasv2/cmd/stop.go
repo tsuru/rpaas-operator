@@ -8,6 +8,8 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
+
+	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
 
 func NewCmdStop() *cli.Command {
@@ -38,7 +40,7 @@ func runStop(c *cli.Context) error {
 		return err
 	}
 
-	err = client.Stop(c.Context)
+	err = client.Stop(c.Context, c.String("instance"))
 	if err != nil {
 		return err
 	}

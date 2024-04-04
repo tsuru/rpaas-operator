@@ -612,7 +612,8 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
 	}
 
-	if replicas > 0 && *originalInstance.Spec.Replicas == 0 {
+	oldReplicas := originalInstance.Spec.Replicas
+	if replicas > 0 && oldReplicas != nil && *oldReplicas == 0 {
 		// When scaling out from zero, disable shutdown automatically
 		instance.Spec.Shutdown = false
 	}
