@@ -611,7 +611,35 @@ func (m *k8sRpaasManager) Scale(ctx context.Context, instanceName string, replic
 	if replicas < 0 {
 		return ValidationError{Msg: fmt.Sprintf("invalid replicas number: %d", replicas)}
 	}
+
+	if replicas > 0 && *originalInstance.Spec.Replicas == 0 {
+		// When scaling out from zero, disable shutdown automatically
+		instance.Spec.Shutdown = false
+	}
+
 	instance.Spec.Replicas = &replicas
+	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) Start(ctx context.Context, instanceName string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	originalInstance := instance.DeepCopy()
+	instance.Spec.Shutdown = false
+	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) Stop(ctx context.Context, instanceName string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	originalInstance := instance.DeepCopy()
+	instance.Spec.Shutdown = true
 	return m.patchInstance(ctx, originalInstance, instance)
 }
 
@@ -1631,6 +1659,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Plan:         instance.Spec.PlanName,
 		Binds:        instance.Spec.Binds,
 		Flavors:      instance.Spec.Flavors,
+		Shutdown:     instance.Spec.Shutdown,
 		PlanOverride: instance.Spec.PlanTemplate,
 		Autoscale:    m.getAutoscale(instance),
 	}
