@@ -8,8 +8,6 @@ import (
 	"fmt"
 
 	"github.com/urfave/cli/v2"
-
-	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
 
 func NewCmdStart() *cli.Command {
