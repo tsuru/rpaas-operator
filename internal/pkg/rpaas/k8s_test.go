@@ -3645,7 +3645,13 @@ func Test_k8sRpaasManager_Scale(t *testing.T) {
 	instance2.Name = "another-instance"
 	instance2.Spec.Autoscale = nil
 
-	resources := []runtime.Object{instance1, instance2}
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "instance-scale-from-zero"
+	instance3.Spec.Shutdown = true
+	instance3.Spec.Autoscale = nil
+	instance3.Spec.Replicas = pointerToInt32(0)
+
+	resources := []runtime.Object{instance1, instance2, instance3}
 
 	testCases := []struct {
 		instance  string
@@ -3684,6 +3690,19 @@ func Test_k8sRpaasManager_Scale(t *testing.T) {
 				assert.Equal(t, int32(30), *instance.Spec.Replicas)
 			},
 		},
+		{
+			instance: "instance-scale-from-zero",
+			assertion: func(t *testing.T, err error, m *k8sRpaasManager) {
+				assert.NoError(t, err)
+
+				instance := v1alpha1.RpaasInstance{}
+				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "instance-scale-from-zero", Namespace: getServiceName()}, &instance)
+				require.NoError(t, err)
+
+				assert.Equal(t, int32(30), *instance.Spec.Replicas)
+				assert.False(t, instance.Spec.Shutdown)
+			},
+		},
 	}
 
 	for _, tt := range testCases {
@@ -3693,6 +3712,32 @@ func Test_k8sRpaasManager_Scale(t *testing.T) {
 			tt.assertion(t, err, manager)
 		})
 	}
+}
+
+func Test_k8sRpaasManager_Start(t *testing.T) {
+	scheme := newScheme()
+	instance := newEmptyRpaasInstance()
+	instance.Name = "ronaldo-instance"
+	instance.Spec.Shutdown = true
+
+	manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).Build()}
+	err := manager.Start(context.Background(), "ronaldo-instance")
+
+	require.NoError(t, err)
+	// assert.False(t, instance.Spec.Shutdown)
+}
+
+func Test_k8sRpaasManager_Stop(t *testing.T) {
+	scheme := newScheme()
+	instance := newEmptyRpaasInstance()
+	instance.Name = "my-instance"
+	instance.Spec.Shutdown = false
+
+	manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).Build()}
+	err := manager.Stop(context.Background(), "my-instance")
+
+	require.NoError(t, err)
+	// assert.True(t, instance.Spec.Shutdown)
 }
 
 func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {

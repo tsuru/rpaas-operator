@@ -169,14 +169,14 @@ func (m *RpaasManager) Scale(ctx context.Context, instanceName string, replicas 
 }
 
 func (m *RpaasManager) Start(ctx context.Context, instanceName string) error {
-	if m.FakeScale != nil {
+	if m.FakeStart != nil {
 		return m.FakeStart(instanceName)
 	}
 	return nil
 }
 
 func (m *RpaasManager) Stop(ctx context.Context, instanceName string) error {
-	if m.FakeScale != nil {
+	if m.FakeStop != nil {
 		return m.FakeStop(instanceName)
 	}
 	return nil

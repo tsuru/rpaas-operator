@@ -48,7 +48,7 @@ func stop(c echo.Context) error {
 	if err != nil {
 		return err
 	}
-	if err = manager.Start(ctx, c.Param("instance")); err != nil {
+	if err = manager.Stop(ctx, c.Param("instance")); err != nil {
 		return err
 	}
 	return c.NoContent(http.StatusOK)
