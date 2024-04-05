@@ -139,7 +139,22 @@ func (v *validationManager) BindApp(ctx context.Context, instanceName string, ar
 }
 
 func (v *validationManager) UnbindApp(ctx context.Context, instanceName, appName string) error {
-	return errNotImplementedYet
+	validation, err := v.validationCRD(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	err = rpaas.NewMutation(&validation.Spec).UnbindApp(appName)
+	if err != nil {
+		return err
+	}
+
+	err = v.waitController(ctx, validation)
+	if err != nil {
+		return err
+	}
+
+	return v.RpaasManager.UnbindApp(ctx, instanceName, appName)
 }
 
 func (v *validationManager) validationCRD(ctx context.Context, instanceName string) (*v1alpha1.RpaasValidation, error) {

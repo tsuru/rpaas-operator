@@ -14,6 +14,7 @@ import (
 
 	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/validation"
 	"github.com/tsuru/rpaas-operator/pkg/observability"
 	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
@@ -63,6 +64,7 @@ func NewMultiClustersFactory(clusters []config.ClusterConfig) Factory {
 func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) (rpaas.RpaasManager, error) {
 	clusterName := headers.Get("X-Tsuru-Cluster-Name")
 	address := headers.Get("X-Tsuru-Cluster-Addresses")
+	disableValidation := headers.Get("X-RPaaS-Disable-Validation") != ""
 
 	if address == "" {
 		return nil, ErrNoClusterProvided
@@ -99,6 +101,10 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 	manager, err = rpaas.NewK8S(kubernetesRestConfig, k8sClient, clusterName, poolName)
 	if err != nil {
 		return nil, err
+	}
+
+	if !disableValidation {
+		manager = validation.New(manager, k8sClient)
 	}
 
 	m.managersMutex.Lock()

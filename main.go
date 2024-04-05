@@ -78,6 +78,14 @@ func main() {
 		os.Exit(1)
 	}
 
+	if err = (&controllers.RpaasValidationReconciler{
+		Client: mgr.GetClient(),
+		Log:    mgr.GetLogger().WithName("controllers").WithName("RpaasValidation"),
+	}).SetupWithManager(mgr); err != nil {
+		setupLog.Error(err, "unable to create controller", "controller", "RpaasValidation")
+		os.Exit(1)
+	}
+
 	if err = (&controllers.RpaasInstanceReconciler{
 		Client:            mgr.GetClient(),
 		SystemRateLimiter: controllers.NewSystemRolloutRateLimiter(opts.systemRateLimitOperations, opts.systemRateLimitInterval),
