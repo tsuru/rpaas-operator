@@ -80,7 +80,7 @@ func (f *FakeClient) Scale(ctx context.Context, args client.ScaleArgs) error {
 }
 
 func (f *FakeClient) Start(ctx context.Context, instance string) error {
-	if f.FakeScale != nil {
+	if f.FakeStart != nil {
 		return f.FakeStart(instance)
 	}
 
@@ -88,7 +88,7 @@ func (f *FakeClient) Start(ctx context.Context, instance string) error {
 }
 
 func (f *FakeClient) Stop(ctx context.Context, instance string) error {
-	if f.FakeScale != nil {
+	if f.FakeStop != nil {
 		return f.FakeStop(instance)
 	}
 
