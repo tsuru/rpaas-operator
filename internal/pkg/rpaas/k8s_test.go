@@ -3717,14 +3717,17 @@ func Test_k8sRpaasManager_Scale(t *testing.T) {
 func Test_k8sRpaasManager_Start(t *testing.T) {
 	scheme := newScheme()
 	instance := newEmptyRpaasInstance()
-	instance.Name = "ronaldo-instance"
+	instance.Name = "my-instance"
 	instance.Spec.Shutdown = true
 
 	manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).Build()}
-	err := manager.Start(context.Background(), "ronaldo-instance")
-
+	err := manager.Start(context.Background(), "my-instance")
 	require.NoError(t, err)
-	// assert.False(t, instance.Spec.Shutdown)
+
+	err = manager.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, instance)
+	require.NoError(t, err)
+
+	assert.False(t, instance.Spec.Shutdown)
 }
 
 func Test_k8sRpaasManager_Stop(t *testing.T) {
@@ -3735,9 +3738,11 @@ func Test_k8sRpaasManager_Stop(t *testing.T) {
 
 	manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).Build()}
 	err := manager.Stop(context.Background(), "my-instance")
-
 	require.NoError(t, err)
-	// assert.True(t, instance.Spec.Shutdown)
+
+	err = manager.cli.Get(context.Background(), types.NamespacedName{Name: "my-instance", Namespace: getServiceName()}, instance)
+	require.NoError(t, err)
+	assert.True(t, instance.Spec.Shutdown)
 }
 
 func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
