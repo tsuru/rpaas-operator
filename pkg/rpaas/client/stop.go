@@ -20,7 +20,6 @@ func (c *client) Stop(ctx context.Context, instance string) error {
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
 
 	response, err := c.do(ctx, req)
 	if err != nil {
