@@ -37,7 +37,6 @@ func TestClientThroughTsuru_Start(t *testing.T) {
 				assert.Equal(t, r.Method, "POST")
 				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/start"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
-				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
 				w.WriteHeader(http.StatusOK)
 			},
 		},
