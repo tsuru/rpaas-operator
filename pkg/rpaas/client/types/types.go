@@ -149,6 +149,7 @@ type InstanceInfo struct {
 	Events       []Event                  `json:"events,omitempty"`
 	PlanOverride *v1alpha1.RpaasPlanSpec  `json:"planOverride,omitempty"`
 	ExtraFiles   []RpaasFile              `json:"extraFiles,omitempty"`
+	Shutdown     bool                     `json:"shutdown"`
 }
 
 type AllowedUpstream struct {

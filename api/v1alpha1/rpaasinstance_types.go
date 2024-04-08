@@ -382,6 +382,7 @@ type RpaasInstanceExternalAddressesStatus struct {
 // +kubebuilder:subresource:status
 // +kubebuilder:subresource:scale:specpath=.spec.replicas,statuspath=.status.currentReplicas,selectorpath=.status.podSelector
 // +kubebuilder:printcolumn:name="Suspended",type=boolean,JSONPath=`.spec.suspend`
+// +kubebuilder:printcolumn:name="Shutdown",type=boolean,JSONPath=`.spec.shutdown`
 // +kubebuilder:printcolumn:name="Age",type="date",JSONPath=".metadata.creationTimestamp"
 // +kubebuilder:printcolumn:name="IPs",type=string,JSONPath=`.status.externalAddresses.ips[*]`
 // +kubebuilder:printcolumn:name="Hostnames",type=string,JSONPath=`.status.externalAddresses.hostnames[*]`

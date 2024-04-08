@@ -328,6 +328,7 @@ Tags: tag1, tag2, tag3
 Team owner: some-team
 Plan: basic
 Flavors: flavor1, flavor2, flavor-N
+Shutdown: false
 Cluster: my-dedicated-cluster
 Pool: my-pool
 
@@ -585,6 +586,7 @@ Tags: tag1, tag2, tag3
 Team owner: some-team
 Plan: basic
 Flavors: flavor1, flavor2, flavor-N
+Shutdown: false
 Cluster: my-dedicated-cluster
 
 Pods: (current: 2 / desired: 3)
@@ -680,6 +682,7 @@ Tags: tag1, tag2, tag3
 Team owner: some-team
 Plan: basic
 Flavors: flavor1, flavor2, flavor-N
+Shutdown: false
 Cluster: my-dedicated-cluster
 
 Pods: (current: 2 / desired: 3)
@@ -737,10 +740,11 @@ Pods: (current: 2 / desired: 3)
 						Team:        "some team",
 						Description: "some description",
 						Tags:        []string{"tag1", "tag2", "tag3"},
+						Shutdown:    true,
 					}, nil
 				},
 			},
-			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\",\n\t\t\t\"status\": \"ready\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\",\n\t\t\t\"status\": \"ready\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t]\n}\n",
+			expected: "{\n\t\"addresses\": [\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"hostname\": \"some-host\",\n\t\t\t\"ip\": \"0.0.0.0\",\n\t\t\t\"status\": \"ready\"\n\t\t},\n\t\t{\n\t\t\t\"type\": \"cluster-external\",\n\t\t\t\"hostname\": \"some-host2\",\n\t\t\t\"ip\": \"0.0.0.1\",\n\t\t\t\"status\": \"ready\"\n\t\t}\n\t],\n\t\"replicas\": 5,\n\t\"plan\": \"basic\",\n\t\"routes\": [\n\t\t{\n\t\t\t\"path\": \"some-path\",\n\t\t\t\"destination\": \"some-destination\"\n\t\t}\n\t],\n\t\"binds\": [\n\t\t{\n\t\t\t\"name\": \"some-name\",\n\t\t\t\"host\": \"some-host\"\n\t\t},\n\t\t{\n\t\t\t\"name\": \"some-name2\",\n\t\t\t\"host\": \"some-host2\"\n\t\t}\n\t],\n\t\"team\": \"some team\",\n\t\"name\": \"my-instance\",\n\t\"description\": \"some description\",\n\t\"tags\": [\n\t\t\"tag1\",\n\t\t\"tag2\",\n\t\t\"tag3\"\n\t],\n\t\"shutdown\": true\n}\n",
 		},
 	}
 

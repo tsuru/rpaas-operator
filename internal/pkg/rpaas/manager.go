@@ -264,6 +264,8 @@ type RpaasManager interface {
 	GetInstanceAddress(ctx context.Context, name string) (string, error)
 	GetInstanceStatus(ctx context.Context, name string) (*nginxv1alpha1.Nginx, PodStatusMap, error)
 	Scale(ctx context.Context, name string, replicas int32) error
+	Start(ctx context.Context, name string) error
+	Stop(ctx context.Context, name string) error
 	GetPlans(ctx context.Context) ([]Plan, error)
 	GetFlavors(ctx context.Context) ([]Flavor, error)
 	BindApp(ctx context.Context, instanceName string, args BindAppArgs) error

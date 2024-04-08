@@ -88,6 +88,7 @@ Tags: {{ join ", " .Tags }}
 Team owner: {{ .Team }}
 Plan: {{ .Plan }}
 Flavors: {{ join ", " .Flavors }}
+Shutdown: {{ .Shutdown }}
 {{- with .Cluster}}
 Cluster: {{ . }}
 {{- end }}
