@@ -25,6 +25,14 @@ type RpaasValidationReconciler struct {
 	Log logr.Logger
 }
 
+// +kubebuilder:rbac:groups="",resources=configmaps;secrets;services;pods,verbs=get;list;watch;create;update;delete
+// +kubebuilder:rbac:groups="",resources=events,verbs=create;update;patch
+
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasflavors,verbs=get;list;watch
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasplans,verbs=get;list;watch
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasvalidations,verbs=get;list;watch;update;patch
+// +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasvalidations/status,verbs=get;update;patch
+
 func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
 	validation, err := r.getRpaasValidation(ctx, req.NamespacedName)
 	if k8sErrors.IsNotFound(err) {
