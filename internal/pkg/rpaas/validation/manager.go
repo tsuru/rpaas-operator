@@ -11,6 +11,7 @@ import (
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -164,8 +165,13 @@ func (v *validationManager) validationCRD(ctx context.Context, instanceName stri
 	}
 
 	return &v1alpha1.RpaasValidation{
-		ObjectMeta: instance.ObjectMeta,
-		Spec:       instance.Spec,
+		ObjectMeta: v1.ObjectMeta{
+			Name:        instance.Name,
+			Namespace:   instance.Namespace,
+			Labels:      instance.Labels,
+			Annotations: instance.Annotations,
+		},
+		Spec: instance.Spec,
 	}, nil
 }
 
@@ -197,7 +203,9 @@ func (v *validationManager) waitController(ctx context.Context, validation *v1al
 			return err
 		}
 
-		if existingValidation.Status.Valid != nil {
+		isLastStatus := existingValidation.Generation == existingValidation.Status.ObservedGeneration
+
+		if isLastStatus && existingValidation.Status.Valid != nil {
 			if *existingValidation.Status.Valid {
 				return nil
 			}
