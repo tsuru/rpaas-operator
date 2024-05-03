@@ -38,7 +38,7 @@ func TestClientThroughTsuru_AddAccessControlList(t *testing.T) {
 			port:     80,
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/acl"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/acl", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.WriteHeader(http.StatusCreated)
 			},
@@ -81,7 +81,7 @@ func TestClientThroughTsuru_RemoveAccessControlList(t *testing.T) {
 			port:     80,
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "DELETE")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/acl"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/acl", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.WriteHeader(http.StatusNoContent)
 			},
@@ -129,7 +129,7 @@ func TestClientThroughTsuru_ListAccessControlList(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/acl"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/acl", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				fmt.Fprintf(w, `[{"host": "some-host.com", "port": 443}, {"host": "some-host2.com", "port": 80}]}`)
 				w.WriteHeader(http.StatusOK)

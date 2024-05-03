@@ -31,7 +31,7 @@ func (c *client) AddAccessControlList(ctx context.Context, instance, host string
 	body := bytes.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/acl", instance)
-	req, err := c.newRequest("POST", pathName, body, instance)
+	req, err := c.newRequest("POST", pathName, body)
 	if err != nil {
 		return err
 	}
@@ -66,7 +66,7 @@ func (c *client) RemoveAccessControlList(ctx context.Context, instance, host str
 	body := bytes.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/acl", instance)
-	req, err := c.newRequest("DELETE", pathName, body, instance)
+	req, err := c.newRequest("DELETE", pathName, body)
 	if err != nil {
 		return err
 	}
@@ -90,7 +90,7 @@ func (c *client) ListAccessControlList(ctx context.Context, instance string) ([]
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/acl", instance)
-	req, err := c.newRequest("GET", pathName, nil, instance)
+	req, err := c.newRequest("GET", pathName, nil)
 	if err != nil {
 		return nil, err
 	}

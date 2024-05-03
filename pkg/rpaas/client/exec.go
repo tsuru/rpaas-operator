@@ -31,7 +31,7 @@ func (c *client) Exec(ctx context.Context, args ExecArgs) (*websocket.Conn, erro
 		return nil, err
 	}
 
-	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/exec", args.Instance), args.Instance)
+	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/exec", args.Instance))
 	u, err := url.Parse(serverAddress)
 	if err != nil {
 		return nil, err

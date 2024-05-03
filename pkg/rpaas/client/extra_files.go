@@ -81,7 +81,7 @@ func (c *client) AddExtraFiles(ctx context.Context, args ExtraFilesArgs) error {
 
 	body := strings.NewReader(buffer.String())
 	pathName := fmt.Sprintf("/resources/%s/files", args.Instance)
-	req, err := c.newRequest(http.MethodPost, pathName, body, args.Instance)
+	req, err := c.newRequest(http.MethodPost, pathName, body)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
 	if err != nil {
 		return err
@@ -111,7 +111,7 @@ func (c *client) UpdateExtraFiles(ctx context.Context, args ExtraFilesArgs) erro
 
 	body := strings.NewReader(buffer.String())
 	pathName := fmt.Sprintf("/resources/%s/files", args.Instance)
-	req, err := c.newRequest(http.MethodPut, pathName, body, args.Instance)
+	req, err := c.newRequest(http.MethodPut, pathName, body)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
 	if err != nil {
 		return err
@@ -141,7 +141,7 @@ func (c *client) DeleteExtraFiles(ctx context.Context, args DeleteExtraFilesArgs
 	body := bytes.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/files", args.Instance)
-	req, err := c.newRequest(http.MethodDelete, pathName, body, args.Instance)
+	req, err := c.newRequest(http.MethodDelete, pathName, body)
 	if err != nil {
 		return err
 	}
@@ -165,7 +165,7 @@ func (c *client) ListExtraFiles(ctx context.Context, args ListExtraFilesArgs) ([
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/files?show-content=%s", args.Instance, strconv.FormatBool(args.ShowContent))
-	req, err := c.newRequest(http.MethodGet, pathName, nil, args.Instance)
+	req, err := c.newRequest(http.MethodGet, pathName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -193,7 +193,7 @@ func (c *client) GetExtraFile(ctx context.Context, args GetExtraFileArgs) (types
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/files/%s", args.Instance, args.FileName)
-	req, err := c.newRequest(http.MethodGet, pathName, nil, args.Instance)
+	req, err := c.newRequest(http.MethodGet, pathName, nil)
 	if err != nil {
 		return types.RpaasFile{}, err
 	}
