@@ -15,6 +15,7 @@ import (
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -83,7 +84,7 @@ func (v *validationManager) CreateExtraFiles(ctx context.Context, instanceName s
 		for _, configMap := range tempConfigMaps {
 			deleteErr := v.cli.Delete(ctx, configMap)
 			if deleteErr != nil {
-				// TODO: print err
+				klog.Error("could not delete temporary configmap", deleteErr)
 			}
 		}
 
@@ -126,7 +127,23 @@ func (v *validationManager) CreateExtraFiles(ctx context.Context, instanceName s
 }
 
 func (v *validationManager) DeleteExtraFiles(ctx context.Context, instanceName string, filenames ...string) error {
-	return errNotImplementedYet
+	validation, err := v.validationCRD(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	for _, name := range filenames {
+		if index, found := findFileByName(validation.Spec.Files, name); found {
+			validation.Spec.Files = append(validation.Spec.Files[:index], validation.Spec.Files[index+1:]...)
+		}
+	}
+
+	err = v.waitController(ctx, validation)
+	if err != nil {
+		return err
+	}
+
+	return v.RpaasManager.DeleteExtraFiles(ctx, instanceName, filenames...)
 }
 
 func (v *validationManager) UpdateExtraFiles(ctx context.Context, instanceName string, files ...rpaas.File) error {
@@ -140,10 +157,9 @@ func (v *validationManager) UpdateExtraFiles(ctx context.Context, instanceName s
 		for _, configMap := range tempConfigMaps {
 			deleteErr := v.cli.Delete(ctx, configMap)
 			if deleteErr != nil {
-				// TODO: print err
+				klog.Error("could not delete temporary configmap", deleteErr)
 			}
 		}
-
 	}()
 
 	for _, f := range files {
