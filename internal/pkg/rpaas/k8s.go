@@ -32,7 +32,6 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -176,7 +175,7 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	return executorStream(args.CommonTerminalArgs, executor, ctx)
 }
 
-func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *v1.ContainerStatus, error) {
+func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {
 	if args.Image == "" && config.Get().DebugImage == "" {
 		return nil, "", nil, ValidationError{Msg: "Debug image not set and no default image configured"}
 	}
@@ -228,11 +227,11 @@ func (m *k8sRpaasManager) generateDebugContainer(ctx context.Context, args *Debu
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
 	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
-	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod, debugContainer)
+	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod)
 	return debugContainerName, err
 }
 
-func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *v1.Pod, instancePod v1.Pod, debugContainer *v1.EphemeralContainer) error {
+func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *corev1.Pod, instancePod corev1.Pod) error {
 	podJS, err := json.Marshal(instancePod)
 	if err != nil {
 		return err
@@ -856,7 +855,7 @@ func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavo
 	return flavorList.Items, nil
 }
 
-func (m *k8sRpaasManager) selectFlavor(ctx context.Context, flavors []v1alpha1.RpaasFlavor, name string) *v1alpha1.RpaasFlavor {
+func (m *k8sRpaasManager) selectFlavor(flavors []v1alpha1.RpaasFlavor, name string) *v1alpha1.RpaasFlavor {
 	for i := range flavors {
 		if flavors[i].Name == name {
 			return &flavors[i]
@@ -1176,7 +1175,7 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha
 	added, removed := diffFlavors(existingFlavors, flavors)
 
 	for _, f := range added {
-		flavorObj := m.selectFlavor(ctx, allFlavors, f)
+		flavorObj := m.selectFlavor(allFlavors, f)
 		if flavorObj == nil {
 			return &ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
 		}
@@ -1191,7 +1190,7 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha
 	}
 
 	for _, f := range removed {
-		flavorObj := m.selectFlavor(ctx, allFlavors, f)
+		flavorObj := m.selectFlavor(allFlavors, f)
 		if flavorObj == nil {
 			continue
 		}
@@ -1826,7 +1825,7 @@ func sortAddresses(addresses []clientTypes.InstanceAddress) {
 	})
 }
 
-func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc *v1.Service) ([]clientTypes.InstanceAddress, error) {
+func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc *corev1.Service) ([]clientTypes.InstanceAddress, error) {
 	var addresses []clientTypes.InstanceAddress
 
 	if isLoadBalancerReady(svc.Status.LoadBalancer.Ingress) {
@@ -1903,7 +1902,7 @@ func (m *k8sRpaasManager) ingressAddresses(ctx context.Context, ing *networkingv
 	return addresses, nil
 }
 
-func formatEventsToString(events []v1.Event) string {
+func formatEventsToString(events []corev1.Event) string {
 	var buf bytes.Buffer
 	reasonMap := map[string]bool{}
 
@@ -1919,7 +1918,7 @@ func formatEventsToString(events []v1.Event) string {
 	return buf.String()
 }
 
-func isLoadBalancerReady(ings []v1.LoadBalancerIngress) bool {
+func isLoadBalancerReady(ings []corev1.LoadBalancerIngress) bool {
 	if len(ings) == 0 {
 		return false
 	}

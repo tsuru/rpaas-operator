@@ -5,7 +5,6 @@ package validation
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -14,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/klog/v2"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
@@ -32,8 +30,6 @@ func New(manager rpaas.RpaasManager, cli client.Client) rpaas.RpaasManager {
 		cli:          cli,
 	}
 }
-
-var errNotImplementedYet = errors.New("not implemented yet")
 
 func (v *validationManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
 	validation, err := v.validationCRD(ctx, instanceName)
@@ -314,7 +310,7 @@ func (v *validationManager) validationCRD(ctx context.Context, instanceName stri
 	}
 
 	return &v1alpha1.RpaasValidation{
-		ObjectMeta: v1.ObjectMeta{
+		ObjectMeta: metav1.ObjectMeta{
 			Name:        instance.Name,
 			Namespace:   instance.Namespace,
 			Labels:      instance.Labels,
