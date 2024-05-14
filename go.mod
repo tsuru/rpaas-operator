@@ -45,7 +45,7 @@ require (
 	k8s.io/client-go v0.26.2
 	k8s.io/kubectl v0.26.2
 	k8s.io/metrics v0.26.2
-	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5
+	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/go-open-service-broker-client/v2 v2.0.0-20200925085050-ae25e62aaf10
 )

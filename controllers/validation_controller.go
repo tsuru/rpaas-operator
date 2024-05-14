@@ -3,6 +3,7 @@ package controllers
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 
 	"github.com/go-logr/logr"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -14,6 +15,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
@@ -406,6 +408,7 @@ func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, val
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: f.ConfigMap.LocalObjectReference,
+					Optional:             pointer.Bool(false),
 				},
 			},
 		})
@@ -454,6 +457,44 @@ func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, val
 					Medium: corev1.StorageMediumMemory,
 				},
 			},
+		})
+	}
+
+	for index, t := range validationMergedWithFlavors.Spec.TLS {
+		volumeName := fmt.Sprintf("nginx-certs-%d", index)
+
+		n.Spec.Volumes = append(n.Spec.Volumes, corev1.Volume{
+			Name: volumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: t.SecretName,
+					Optional:   ptr.To(false),
+				},
+			},
+		})
+
+		n.Spec.Containers[0].VolumeMounts = append(n.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      volumeName,
+			MountPath: filepath.Join(configMountPath, "certs", t.SecretName),
+			ReadOnly:  true,
+		})
+	}
+
+	if isTLSSessionTicketEnabled(&validationMergedWithFlavors.Spec) {
+		n.Spec.Volumes = append(n.Spec.Volumes, corev1.Volume{
+			Name: sessionTicketsVolumeName,
+			VolumeSource: corev1.VolumeSource{
+				Secret: &corev1.SecretVolumeSource{
+					SecretName: secretNameForTLSSessionTickets(validationMergedWithFlavors.Name),
+					Optional:   ptr.To(false),
+				},
+			},
+		})
+
+		n.Spec.Containers[0].VolumeMounts = append(n.Spec.Containers[0].VolumeMounts, corev1.VolumeMount{
+			Name:      sessionTicketsVolumeName,
+			MountPath: sessionTicketsVolumeMountPath,
+			ReadOnly:  true,
 		})
 	}
 

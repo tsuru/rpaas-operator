@@ -245,7 +245,7 @@ func (r *RpaasInstanceReconciler) reconcileTLSSessionResumption(ctx context.Cont
 }
 
 func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
-	enabled := isTLSSessionTicketEnabled(instance)
+	enabled := isTLSSessionTicketEnabled(&instance.Spec)
 
 	newSecret, err := newSecretForTLSSessionTickets(instance)
 	if err != nil {
@@ -298,7 +298,7 @@ func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.C
 }
 
 func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.Context, instance *v1alpha1.RpaasInstance) (hasChanged bool, err error) {
-	enabled := isTLSSessionTicketEnabled(instance)
+	enabled := isTLSSessionTicketEnabled(&instance.Spec)
 
 	newCronJob := newCronJobForSessionTickets(instance)
 
@@ -345,7 +345,7 @@ func (r *RpaasInstanceReconciler) reconcileCronJobForSessionTickets(ctx context.
 }
 
 func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.CronJob {
-	enabled := isTLSSessionTicketEnabled(instance)
+	enabled := isTLSSessionTicketEnabled(&instance.Spec)
 
 	keyLength := v1alpha1.DefaultSessionTicketKeyLength
 	if enabled && instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
@@ -410,7 +410,7 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.Cron
 									Env: []corev1.EnvVar{
 										{
 											Name:  "SECRET_NAME",
-											Value: secretNameForTLSSessionTickets(instance),
+											Value: secretNameForTLSSessionTickets(instance.Name),
 										},
 										{
 											Name:  "SECRET_NAMESPACE",
@@ -465,7 +465,7 @@ func newCronJobForSessionTickets(instance *v1alpha1.RpaasInstance) *batchv1.Cron
 
 func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Secret, error) {
 	keyLength := v1alpha1.DefaultSessionTicketKeyLength
-	if isTLSSessionTicketEnabled(instance) && instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
+	if isTLSSessionTicketEnabled(&instance.Spec) && instance.Spec.TLSSessionResumption.SessionTicket.KeyLength != 0 {
 		keyLength = instance.Spec.TLSSessionResumption.SessionTicket.KeyLength
 	}
 
@@ -485,7 +485,7 @@ func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Se
 			Kind:       "Secret",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      secretNameForTLSSessionTickets(instance),
+			Name:      secretNameForTLSSessionTickets(instance.Name),
 			Namespace: instance.Namespace,
 			Labels:    instance.GetBaseLabels(nil),
 			OwnerReferences: []metav1.OwnerReference{
@@ -500,20 +500,20 @@ func newSecretForTLSSessionTickets(instance *v1alpha1.RpaasInstance) (*corev1.Se
 	}, nil
 }
 
-func isTLSSessionTicketEnabled(instance *v1alpha1.RpaasInstance) bool {
-	return instance.Spec.TLSSessionResumption != nil && instance.Spec.TLSSessionResumption.SessionTicket != nil
+func isTLSSessionTicketEnabled(spec *v1alpha1.RpaasInstanceSpec) bool {
+	return spec.TLSSessionResumption != nil && spec.TLSSessionResumption.SessionTicket != nil
 }
 
 func tlsSessionTicketKeys(instance *v1alpha1.RpaasInstance) int {
 	var nkeys int
-	if isTLSSessionTicketEnabled(instance) {
+	if isTLSSessionTicketEnabled(&instance.Spec) {
 		nkeys = int(instance.Spec.TLSSessionResumption.SessionTicket.KeepLastKeys)
 	}
 	return nkeys + 1
 }
 
-func secretNameForTLSSessionTickets(instance *v1alpha1.RpaasInstance) string {
-	return fmt.Sprintf("%s%s", instance.Name, sessionTicketsSecretSuffix)
+func secretNameForTLSSessionTickets(instanceName string) string {
+	return fmt.Sprintf("%s%s", instanceName, sessionTicketsSecretSuffix)
 }
 
 func generateSessionTicket(keyLength v1alpha1.SessionTicketKeyLength) ([]byte, error) {
@@ -1177,12 +1177,12 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		})
 	}
 
-	if isTLSSessionTicketEnabled(instanceMergedWithFlavors) {
+	if isTLSSessionTicketEnabled(&instanceMergedWithFlavors.Spec) {
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
 			Name: sessionTicketsVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretNameForTLSSessionTickets(instanceMergedWithFlavors),
+					SecretName: secretNameForTLSSessionTickets(instanceMergedWithFlavors.Name),
 				},
 			},
 		})
