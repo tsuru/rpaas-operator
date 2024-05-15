@@ -93,6 +93,8 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 		return nil, err
 	}
 
+	clusterValidationDisabled := m.validationDisabled(clusterName)
+
 	k8sClient, err := sigsk8sclient.New(kubernetesRestConfig, sigsk8sclient.Options{Scheme: extensionsruntime.NewScheme()})
 	if err != nil {
 		return nil, err
@@ -103,7 +105,7 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 		return nil, err
 	}
 
-	if !disableValidation {
+	if !disableValidation && !clusterValidationDisabled {
 		manager = validation.New(manager, k8sClient)
 	}
 
@@ -112,6 +114,17 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 
 	m.managers[cacheKey] = manager
 	return manager, nil
+}
+
+func (m *multiClusterFactory) validationDisabled(name string) bool {
+
+	for _, cluster := range m.clusters {
+		if cluster.Name == name {
+			return cluster.DisableValidation
+		}
+	}
+
+	return false
 }
 
 func (m *multiClusterFactory) getKubeConfig(name, address string) (*rest.Config, error) {
