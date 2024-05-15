@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"sync/atomic"
 	"testing"
 	"time"
 
@@ -370,9 +371,9 @@ func TestDeleteExtraFiles(t *testing.T) {
 }
 
 func fakeValidationController(cli client.Client, valid bool, errorMesssage string, preUpdate func()) (stop func()) {
-	running := true
+	var stopped int32
 	stop = func() {
-		running = false
+		atomic.StoreInt32(&stopped, 1)
 	}
 
 	go func() {
@@ -402,7 +403,7 @@ func fakeValidationController(cli client.Client, valid bool, errorMesssage strin
 				}
 			}
 
-			if !running {
+			if atomic.LoadInt32(&stopped) == 1 {
 				break
 			}
 
