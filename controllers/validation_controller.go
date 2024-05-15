@@ -14,7 +14,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/utils/pointer"
 	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -51,7 +50,6 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if validation.Status.RevisionHash == validationHash && validation.Status.Valid != nil {
-		fmt.Println("job solved")
 		return reconcile.Result{}, nil
 	}
 
@@ -135,7 +133,7 @@ func (r *RpaasValidationReconciler) finishValidation(ctx context.Context, existi
 
 		if containerStatus.State.Terminated != nil {
 			if containerStatus.State.Terminated.ExitCode == 0 {
-				valid = pointer.Bool(true)
+				valid = ptr.To(true)
 				terminatedMessage = containerStatus.State.Terminated.Message
 			}
 		}
@@ -146,7 +144,7 @@ func (r *RpaasValidationReconciler) finishValidation(ctx context.Context, existi
 
 		if containerStatus.State.Terminated != nil {
 			if containerStatus.State.Terminated.ExitCode != 0 {
-				valid = pointer.Bool(false)
+				valid = ptr.To(false)
 				terminatedMessage = containerStatus.State.Terminated.Message
 			}
 		}
@@ -408,7 +406,7 @@ func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, val
 			VolumeSource: corev1.VolumeSource{
 				ConfigMap: &corev1.ConfigMapVolumeSource{
 					LocalObjectReference: f.ConfigMap.LocalObjectReference,
-					Optional:             pointer.Bool(false),
+					Optional:             ptr.To(false),
 				},
 			},
 		})
@@ -439,7 +437,7 @@ func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, val
 				LocalObjectReference: corev1.LocalObjectReference{
 					Name: configMap.Name,
 				},
-				Optional: pointer.Bool(false),
+				Optional: ptr.To(false),
 			},
 		},
 	})

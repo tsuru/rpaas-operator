@@ -5,15 +5,23 @@
 package controllers
 
 import (
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/utils/ptr"
+	ctrl "sigs.k8s.io/controller-runtime"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/client/fake"
+	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func TestNewValidationPod(t *testing.T) {
@@ -250,4 +258,311 @@ func TestNewValidationPodFullFeatured(t *testing.T) {
 			RestartPolicy: "Never",
 		},
 	}, pod)
+}
+
+func TestValidationControllerReconcicleSucceeded(t *testing.T) {
+	ctx := context.Background()
+	r := newRpaasValidationReconciler(
+		&v1alpha1.RpaasValidation{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "punk",
+				Namespace:  "default",
+				Generation: 10,
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				PlanName: "default",
+			},
+		},
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.RpaasPlanSpec{},
+		},
+	)
+
+	result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "punk"}})
+	require.NoError(t, err)
+	assert.Equal(t, reconcile.Result{}, result)
+
+	existingPod := &corev1.Pod{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "validation-punk"}, existingPod)
+	require.NoError(t, err)
+
+	assert.Equal(t, corev1.PodSpec{
+		Volumes: []corev1.Volume{
+			{
+				Name: "nginx-config",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "validation-punk",
+						},
+						Optional: ptr.To(false),
+					},
+				},
+			},
+		},
+		Containers: []corev1.Container{
+			{
+				Name: "validation",
+				Command: []string{
+					"/bin/sh",
+					"-c",
+					"nginx -t 2> /dev/termination-log",
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "nginx-config",
+						MountPath: "/etc/nginx/nginx.conf",
+						SubPath:   "nginx.conf",
+						ReadOnly:  true,
+					},
+				},
+			},
+		},
+
+		RestartPolicy: "Never",
+	}, existingPod.Spec)
+
+	existingPod.Status.Phase = corev1.PodSucceeded
+	existingPod.Status.ContainerStatuses = []corev1.ContainerStatus{
+		{
+			State: corev1.ContainerState{
+				Terminated: &corev1.ContainerStateTerminated{
+					ExitCode: 0,
+				},
+			},
+		},
+	}
+
+	err = r.Client.Update(ctx, existingPod)
+	require.NoError(t, err)
+
+	_, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "punk"}})
+	require.NoError(t, err)
+
+	existing := &v1alpha1.RpaasValidation{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "punk"}, existing)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1alpha1.RpaasValidationStatus{
+		RevisionHash:       "areskmeswpny2vmiz7sm2rrxvtlyhigbozfbkvqprcnnob57svha",
+		ObservedGeneration: 10,
+		Valid:              ptr.To(true),
+	}, existing.Status)
+}
+
+func TestValidationControllerReconcicleFailed(t *testing.T) {
+	ctx := context.Background()
+	r := newRpaasValidationReconciler(
+		&v1alpha1.RpaasValidation{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "punk",
+				Namespace:  "default",
+				Generation: 10,
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				PlanName: "default",
+			},
+		},
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.RpaasPlanSpec{},
+		},
+	)
+
+	result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "punk"}})
+	require.NoError(t, err)
+	assert.Equal(t, reconcile.Result{}, result)
+
+	existingPod := &corev1.Pod{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "validation-punk"}, existingPod)
+	require.NoError(t, err)
+
+	assert.Equal(t, corev1.PodSpec{
+		Volumes: []corev1.Volume{
+			{
+				Name: "nginx-config",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "validation-punk",
+						},
+						Optional: ptr.To(false),
+					},
+				},
+			},
+		},
+		Containers: []corev1.Container{
+			{
+				Name: "validation",
+				Command: []string{
+					"/bin/sh",
+					"-c",
+					"nginx -t 2> /dev/termination-log",
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "nginx-config",
+						MountPath: "/etc/nginx/nginx.conf",
+						SubPath:   "nginx.conf",
+						ReadOnly:  true,
+					},
+				},
+			},
+		},
+
+		RestartPolicy: "Never",
+	}, existingPod.Spec)
+
+	existingPod.Status.Phase = corev1.PodFailed
+	existingPod.Status.ContainerStatuses = []corev1.ContainerStatus{
+		{
+			State: corev1.ContainerState{
+				Terminated: &corev1.ContainerStateTerminated{
+					ExitCode: 1,
+					Message:  "some nginx error",
+				},
+			},
+		},
+	}
+
+	err = r.Client.Update(ctx, existingPod)
+	require.NoError(t, err)
+
+	_, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "punk"}})
+	require.NoError(t, err)
+
+	existing := &v1alpha1.RpaasValidation{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "punk"}, existing)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1alpha1.RpaasValidationStatus{
+		RevisionHash:       "areskmeswpny2vmiz7sm2rrxvtlyhigbozfbkvqprcnnob57svha",
+		ObservedGeneration: 10,
+		Valid:              ptr.To(false),
+		Error:              "some nginx error",
+	}, existing.Status)
+
+}
+
+func TestValidationControllerReconcicleManyFlavors(t *testing.T) {
+	ctx := context.Background()
+	r := newRpaasValidationReconciler(
+		&v1alpha1.RpaasValidation{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:       "punk",
+				Namespace:  "default",
+				Generation: 10,
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				PlanName: "default",
+				Flavors:  []string{"banana", "chocolate"},
+			},
+		},
+		&v1alpha1.RpaasPlan{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "default",
+				Namespace: "default",
+			},
+			Spec: v1alpha1.RpaasPlanSpec{},
+		},
+
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "banana",
+				Namespace: "default",
+			},
+		},
+
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "chocolate",
+				Namespace: "default",
+			},
+		},
+	)
+
+	result, err := r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "punk"}})
+	require.NoError(t, err)
+	assert.Equal(t, reconcile.Result{}, result)
+
+	existingPod := &corev1.Pod{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "validation-punk"}, existingPod)
+	require.NoError(t, err)
+
+	assert.Equal(t, corev1.PodSpec{
+		Volumes: []corev1.Volume{
+			{
+				Name: "nginx-config",
+				VolumeSource: corev1.VolumeSource{
+					ConfigMap: &corev1.ConfigMapVolumeSource{
+						LocalObjectReference: corev1.LocalObjectReference{
+							Name: "validation-punk",
+						},
+						Optional: ptr.To(false),
+					},
+				},
+			},
+		},
+		Containers: []corev1.Container{
+			{
+				Name: "validation",
+				Command: []string{
+					"/bin/sh",
+					"-c",
+					"nginx -t 2> /dev/termination-log",
+				},
+				VolumeMounts: []corev1.VolumeMount{
+					{
+						Name:      "nginx-config",
+						MountPath: "/etc/nginx/nginx.conf",
+						SubPath:   "nginx.conf",
+						ReadOnly:  true,
+					},
+				},
+			},
+		},
+
+		RestartPolicy: "Never",
+	}, existingPod.Spec)
+
+	existingPod.Status.Phase = corev1.PodSucceeded
+	existingPod.Status.ContainerStatuses = []corev1.ContainerStatus{
+		{
+			State: corev1.ContainerState{
+				Terminated: &corev1.ContainerStateTerminated{
+					ExitCode: 0,
+				},
+			},
+		},
+	}
+
+	err = r.Client.Update(ctx, existingPod)
+	require.NoError(t, err)
+
+	_, err = r.Reconcile(ctx, ctrl.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "punk"}})
+	require.NoError(t, err)
+
+	existing := &v1alpha1.RpaasValidation{}
+	err = r.Client.Get(ctx, client.ObjectKey{Namespace: "default", Name: "punk"}, existing)
+	require.NoError(t, err)
+
+	assert.Equal(t, v1alpha1.RpaasValidationStatus{
+		RevisionHash:       "53m2qsvzz6k4hqbabl2xngvpz52t3llgo2nnqwdcowceiay7f44a",
+		ObservedGeneration: 10,
+		Valid:              ptr.To(true),
+	}, existing.Status)
+}
+
+func newRpaasValidationReconciler(objs ...runtime.Object) *RpaasValidationReconciler {
+	return &RpaasValidationReconciler{
+		Client: fake.NewClientBuilder().WithScheme(extensionsruntime.NewScheme()).WithRuntimeObjects(objs...).Build(),
+		Log:    ctrl.Log,
+	}
 }
