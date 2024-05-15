@@ -10,13 +10,14 @@ import (
 	"sort"
 
 	"github.com/sirupsen/logrus"
-	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
-	"github.com/tsuru/rpaas-operator/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
 func listDefaultFlavors(ctx context.Context, c client.Client, namespace string) ([]v1alpha1.RpaasFlavor, error) {

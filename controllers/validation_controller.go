@@ -6,8 +6,6 @@ import (
 	"path/filepath"
 
 	"github.com/go-logr/logr"
-	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -18,6 +16,9 @@ import (
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 )
 
 // RpaasValidationReconciler reconciles a RpaasValidation object
@@ -98,10 +99,10 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	}
 
 	if existingPod != nil {
-		finished, err := r.finishValidation(ctx, existingPod, validation, validationHash)
+		finished, finishErr := r.finishValidation(ctx, existingPod, validation, validationHash)
 
-		if err != nil {
-			return ctrl.Result{}, err
+		if finishErr != nil {
+			return ctrl.Result{}, finishErr
 		}
 
 		if finished {

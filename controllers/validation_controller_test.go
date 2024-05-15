@@ -11,8 +11,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
@@ -22,6 +20,9 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	extensionsruntime "github.com/tsuru/rpaas-operator/pkg/runtime"
 )
 
 func TestNewValidationPod(t *testing.T) {
