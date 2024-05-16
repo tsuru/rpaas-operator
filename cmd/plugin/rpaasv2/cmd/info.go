@@ -85,6 +85,7 @@ Dashboard: {{ .Dashboard }}
 {{- end }}
 Description: {{ .Description }}
 Tags: {{ join ", " .Tags }}
+Annotations: {{ join ", " .Annotations }}
 Team owner: {{ .Team }}
 Plan: {{ .Plan }}
 Flavors: {{ join ", " .Flavors }}
