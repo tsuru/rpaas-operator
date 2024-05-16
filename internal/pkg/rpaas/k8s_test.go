@@ -2663,7 +2663,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        "",
-						"rpaas.extensions.tsuru.io/annotations": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{
@@ -2714,7 +2713,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        "",
-						"rpaas.extensions.tsuru.io/annotations": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{
@@ -2765,7 +2763,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description":  "",
 						"rpaas.extensions.tsuru.io/tags":         "",
-						"rpaas.extensions.tsuru.io/annotations":  "",
 						"rpaas.extensions.tsuru.io/team-owner":   "t1",
 						"rpaas.extensions.tsuru.io/cluster-name": "cluster-01",
 					},
@@ -2824,7 +2821,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description":  "",
 						"rpaas.extensions.tsuru.io/tags":         "",
-						"rpaas.extensions.tsuru.io/annotations":  "",
 						"rpaas.extensions.tsuru.io/team-owner":   "t1",
 						"rpaas.extensions.tsuru.io/cluster-name": "cluster-01",
 					},
@@ -2885,7 +2881,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description":  "",
 						"rpaas.extensions.tsuru.io/tags":         "",
-						"rpaas.extensions.tsuru.io/annotations":  "",
 						"rpaas.extensions.tsuru.io/team-owner":   "t1",
 						"rpaas.extensions.tsuru.io/cluster-name": "cluster-01",
 					},
@@ -2940,7 +2935,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        `plan-override={"config": {"cacheEnabled": false}}`,
-						"rpaas.extensions.tsuru.io/annotations": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{
@@ -2994,7 +2988,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/tags":        "",
-						"rpaas.extensions.tsuru.io/annotations": "",
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
@@ -3045,7 +3038,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/tags":        "",
-						"rpaas.extensions.tsuru.io/annotations": "",
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
@@ -3097,7 +3089,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        "",
-						"rpaas.extensions.tsuru.io/annotations": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "team-one",
 					},
 					Labels: map[string]string{
@@ -3164,7 +3155,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/tags":        "",
-						"rpaas.extensions.tsuru.io/annotations": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 					},
 					Labels: map[string]string{
@@ -3217,7 +3207,6 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 					ResourceVersion: "1",
 					Annotations: map[string]string{
 						"rpaas.extensions.tsuru.io/tags":        "",
-						"rpaas.extensions.tsuru.io/annotations": "my-custom-annotation=my-value,my-custom-annotation2=my-value2",
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 						"my-custom-annotation":                  "my-value",
@@ -4573,9 +4562,11 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					Namespace: "rpaasv2",
 					UID:       types.UID("my-instance"),
 					Annotations: map[string]string{
+						"key1":                                  "val1",
+						"key2":                                  "val2",
+						"key3":                                  "val3",
 						"rpaas.extensions.tsuru.io/description": "Some description about this instance",
 						"rpaas.extensions.tsuru.io/tags":        "tag1,tag2,tag3",
-						"rpaas.extensions.tsuru.io/annotations": "key1=val1,key2=val2,key3=val3",
 						"rpaas.extensions.tsuru.io/team-owner":  "tsuru",
 					},
 					Labels: map[string]string{

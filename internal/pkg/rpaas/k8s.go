@@ -19,6 +19,7 @@ import (
 	"net"
 	"net/url"
 	"regexp"
+	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -1570,14 +1571,6 @@ func setAnnotations(instance *v1alpha1.RpaasInstance, annotations map[string]str
 	}
 
 	instance.Annotations = mergeMap(instance.Annotations, annotations)
-
-	var annotationPairs []string
-	for key, val := range annotations {
-		annotationPairs = append(annotationPairs, fmt.Sprintf("%s=%s", key, val))
-	}
-	instance.Annotations = mergeMap(instance.Annotations, map[string]string{
-		labelKey("annotations"): strings.Join(annotationPairs, ","),
-	})
 }
 
 func setDescription(instance *v1alpha1.RpaasInstance, description string) {
@@ -1650,6 +1643,17 @@ func setLoadBalancerName(instance *v1alpha1.RpaasInstance, lbName string) {
 	instance.Spec.Service.Annotations[lbNameLabelKey] = lbName
 }
 
+func filterAnnotations(annotations map[string]string) []string {
+	var filterAnnotations []string
+	for key, val := range annotations {
+		if !strings.HasPrefix(key, defaultKeyLabelPrefix) {
+			filterAnnotations = append(filterAnnotations, fmt.Sprintf("%s=%s", key, val))
+		}
+	}
+	slices.Sort(filterAnnotations)
+	return filterAnnotations
+}
+
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
@@ -1664,7 +1668,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Description:  instance.Annotations[labelKey("description")],
 		Team:         instance.Annotations[labelKey("team-owner")],
 		Tags:         strings.Split(instance.Annotations[labelKey("tags")], ","),
-		Annotations:  strings.Split(instance.Annotations[labelKey("annotations")], ","),
+		Annotations:  filterAnnotations(instance.Annotations),
 		Replicas:     instance.Spec.Replicas,
 		Plan:         instance.Spec.PlanName,
 		Binds:        instance.Spec.Binds,
