@@ -3194,7 +3194,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 		},
 		{
 			name:        "with custom annotations only set allowed ones",
-			args:        CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"annotations": "{\"my-custom-annotation\": \"my-value\"}"}},
+			args:        CreateArgs{Name: "r1", Team: "t1", Parameters: map[string]interface{}{"annotations": "{\"my-custom-annotation\": \"my-value\",\"my-custom-annotation2\": \"my-value2\"}"}},
 			extraConfig: config.RpaasConfig{ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io"}},
 			expected: v1alpha1.RpaasInstance{
 				TypeMeta: metav1.TypeMeta{
@@ -3210,6 +3210,7 @@ func Test_k8sRpaasManager_CreateInstance(t *testing.T) {
 						"rpaas.extensions.tsuru.io/description": "",
 						"rpaas.extensions.tsuru.io/team-owner":  "t1",
 						"my-custom-annotation":                  "my-value",
+						"my-custom-annotation2":                 "my-value2",
 					},
 					Labels: map[string]string{
 						"rpaas.extensions.tsuru.io/service-name":  "rpaasv2",
@@ -4561,6 +4562,9 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					Namespace: "rpaasv2",
 					UID:       types.UID("my-instance"),
 					Annotations: map[string]string{
+						"key1":                                  "val1",
+						"key2":                                  "val2",
+						"key3":                                  "val3",
 						"rpaas.extensions.tsuru.io/description": "Some description about this instance",
 						"rpaas.extensions.tsuru.io/tags":        "tag1,tag2,tag3",
 						"rpaas.extensions.tsuru.io/team-owner":  "tsuru",
@@ -4600,6 +4604,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				Description: "Some description about this instance",
 				Team:        "tsuru",
 				Tags:        []string{"tag1", "tag2", "tag3"},
+				Annotations: []string{"key1=val1", "key2=val2", "key3=val3"},
 				Plan:        "huge",
 				Flavors:     []string{"mango", "milk"},
 			})
