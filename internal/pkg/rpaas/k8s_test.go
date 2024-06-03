@@ -5187,3 +5187,39 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 	}
 
 }
+
+func Test_k8sRpaasManager_GetMetadata(t *testing.T) {
+	scheme := newScheme()
+
+	instance := newEmptyRpaasInstance()
+	instance.ObjectMeta = metav1.ObjectMeta{
+		Name:      "my-instance",
+		Namespace: "rpaasv2",
+		Labels: map[string]string{
+			"rpaas.extensions.tsuru.io/cluster-name":  "my-cluster",
+			"rpaas.extensions.tsuru.io/instance-name": "my-instance",
+			"rpaas.extensions.tsuru.io/service-name":  "my-service",
+			"rpaas.extensions.tsuru.io/team-owner":    "my-team",
+			"rpaas_instance":                          "my-instance",
+			"rpaas_service":                           "my-service",
+		},
+		Annotations: map[string]string{
+			"rpaas.extensions.tsuru.io/cluster-name": "my-cluster",
+			"rpaas.extensions.tsuru.io/description":  "my-description",
+			"rpaas.extensions.tsuru.io/tags":         "my-tag=my-value",
+			"rpaas.extensions.tsuru.io/team-owner":   "my-team",
+			"custom-annotation":                      "custom-value",
+		},
+	}
+
+	manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(instance).Build()}
+	meta, err := manager.GetMetadata(context.Background(), "my-instance")
+	require.NoError(t, err)
+
+	assert.Equal(t, len(meta.Labels), 2)
+	assert.Contains(t, meta.Labels, clientTypes.MetadataItem{Name: "rpaas_instance", Value: "my-instance"})
+	assert.Contains(t, meta.Labels, clientTypes.MetadataItem{Name: "rpaas_service", Value: "my-service"})
+
+	assert.Equal(t, len(meta.Annotations), 1)
+	assert.Contains(t, meta.Annotations, clientTypes.MetadataItem{Name: "custom-annotation", Value: "custom-value"})
+}

@@ -1643,15 +1643,23 @@ func setLoadBalancerName(instance *v1alpha1.RpaasInstance, lbName string) {
 	instance.Spec.Service.Annotations[lbNameLabelKey] = lbName
 }
 
-func filterAnnotations(annotations map[string]string) []string {
-	var filterAnnotations []string
-	for key, val := range annotations {
+func filterMetadata(meta map[string]string) map[string]string {
+	filterAnnotations := make(map[string]string)
+	for key, val := range meta {
 		if !strings.HasPrefix(key, defaultKeyLabelPrefix) {
-			filterAnnotations = append(filterAnnotations, fmt.Sprintf("%s=%s", key, val))
+			filterAnnotations[key] = val
 		}
 	}
-	slices.Sort(filterAnnotations)
 	return filterAnnotations
+}
+
+func flattenMetadata(meta map[string]string) []string {
+	var result []string
+	for k, v := range meta {
+		result = append(result, fmt.Sprintf("%s=%s", k, v))
+	}
+	slices.Sort(result)
+	return result
 }
 
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
@@ -1659,6 +1667,9 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 	if err != nil {
 		return nil, err
 	}
+
+	filteredAnnotations := filterMetadata(instance.Annotations)
+	flatAnnotations := flattenMetadata(filteredAnnotations)
 
 	info := &clientTypes.InstanceInfo{
 		Name:         instance.Name,
@@ -1668,7 +1679,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Description:  instance.Annotations[labelKey("description")],
 		Team:         instance.Annotations[labelKey("team-owner")],
 		Tags:         strings.Split(instance.Annotations[labelKey("tags")], ","),
-		Annotations:  filterAnnotations(instance.Annotations),
+		Annotations:  flatAnnotations,
 		Replicas:     instance.Spec.Replicas,
 		Plan:         instance.Spec.PlanName,
 		Binds:        instance.Spec.Binds,
@@ -2456,4 +2467,28 @@ func contains(ss []string, s string) bool {
 	}
 
 	return false
+}
+
+func (m *k8sRpaasManager) GetMetadata(ctx context.Context, instanceName string) (*clientTypes.Metadata, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	filteredLabels := filterMetadata(instance.Labels)
+	filteredAnnotations := filterMetadata(instance.Annotations)
+
+	metadata := &clientTypes.Metadata{}
+
+	for k, v := range filteredLabels {
+		item := clientTypes.MetadataItem{Name: k, Value: v}
+		metadata.Labels = append(metadata.Labels, item)
+	}
+
+	for k, v := range filteredAnnotations {
+		item := clientTypes.MetadataItem{Name: k, Value: v}
+		metadata.Annotations = append(metadata.Annotations, item)
+	}
+
+	return metadata, nil
 }

@@ -122,10 +122,7 @@ func isValidMetadataType(metaType string) bool {
 }
 
 func createMetadata(meta []string, metaType string, isSet bool) (*types.Metadata, error) {
-	metadata := &types.Metadata{
-		Labels:      []types.MetadataItem{},
-		Annotations: []types.MetadataItem{},
-	}
+	metadata := &types.Metadata{}
 
 	for _, kv := range meta {
 		var item types.MetadataItem

@@ -47,6 +47,7 @@ type FakeClient struct {
 	FakeGetExtraFile            func(args client.GetExtraFileArgs) (types.RpaasFile, error)
 	FakeGetMetadata             func(instance string) (*types.Metadata, error)
 	FakeSetMetadata             func(instance string, metadata *types.Metadata) error
+	FakeUnsetMetadata           func(instance string, metadata *types.Metadata) error
 }
 
 func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*types.InstanceInfo, error) {
@@ -286,6 +287,14 @@ func (f *FakeClient) GetMetadata(ctx context.Context, instance string) (*types.M
 
 func (f *FakeClient) SetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error {
 	if f.FakeSetMetadata != nil {
+		return f.FakeSetMetadata(instance, metadata)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) UnsetMetadata(tx context.Context, instance string, metadata *types.Metadata) error {
+	if f.FakeUnsetMetadata != nil {
 		return f.FakeSetMetadata(instance, metadata)
 	}
 

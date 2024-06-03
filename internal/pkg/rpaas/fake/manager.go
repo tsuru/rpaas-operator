@@ -60,6 +60,7 @@ type RpaasManager struct {
 	FakeGetCertManagerRequests   func(instanceName string) ([]clientTypes.CertManager, error)
 	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
 	FakeDeleteCertManagerRequest func(instanceName, issuer string) error
+	FakeGetMetadata              func(instanceName string) (*clientTypes.Metadata, error)
 }
 
 func (m *RpaasManager) Log(ctx context.Context, instanceName string, args rpaas.LogArgs) error {
@@ -348,4 +349,11 @@ func (m *RpaasManager) DeleteCertManagerRequest(ctx context.Context, instance, i
 		return m.FakeDeleteCertManagerRequest(instance, issuer)
 	}
 	return nil
+}
+
+func (m *RpaasManager) GetMetadata(ctx context.Context, instance string) (*clientTypes.Metadata, error) {
+	if m.FakeGetMetadata != nil {
+		return m.FakeGetMetadata(instance)
+	}
+	return nil, nil
 }
