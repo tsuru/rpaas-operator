@@ -184,6 +184,7 @@ type Client interface {
 
 	GetMetadata(ctx context.Context, instance string) (*types.Metadata, error)
 	SetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error
+	UnsetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error
 }
 
 type wsWriter struct {

@@ -32,11 +32,11 @@ func (c *client) GetMetadata(ctx context.Context, instance string) (*types.Metad
 
 	metadata := &types.Metadata{
 		Labels: []types.MetadataItem{
-			{ Name: "label1", Value: "value1" },
+			{Name: "label1", Value: "value1"},
 		},
 		Annotations: []types.MetadataItem{
-			{ Name: "annotation1", Value: "value1" },
-			{ Name: "annotation2", Value: "value2" },
+			{Name: "annotation1", Value: "value1"},
+			{Name: "annotation2", Value: "value2"},
 		},
 	}
 
@@ -44,6 +44,29 @@ func (c *client) GetMetadata(ctx context.Context, instance string) (*types.Metad
 }
 
 func (c *client) SetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error {
+	if instance == "" {
+		return ErrMissingInstance
+	}
+
+	// pathName := fmt.Sprintf("/resources/%s/metadata", instance)
+	// req, err := c.newRequest("POST", pathName, metadata, instance)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// response, err := c.do(ctx, req)
+	// if err != nil {
+	// 	return err
+	// }
+	//
+	// if response.StatusCode != http.StatusOK {
+	// 	return newErrUnexpectedStatusCodeFromResponse(response)
+	// }
+
+	return nil
+}
+
+func (c *client) UnsetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error {
 	if instance == "" {
 		return ErrMissingInstance
 	}
