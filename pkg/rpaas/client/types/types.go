@@ -170,7 +170,6 @@ type Metadata struct {
 }
 
 type MetadataItem struct {
-	Name   string `json:"name"`
-	Value  string `json:"value,omitempty"`
-	Delete bool   `json:"delete,omitempty" bson:"-"`
+	Name  string `json:"name"`
+	Value string `json:"value,omitempty"`
 }

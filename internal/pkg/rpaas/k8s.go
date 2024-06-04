@@ -2492,3 +2492,71 @@ func (m *k8sRpaasManager) GetMetadata(ctx context.Context, instanceName string) 
 
 	return metadata, nil
 }
+
+func validateMetadata(items []clientTypes.MetadataItem) error {
+	for _, item := range items {
+		if strings.HasPrefix(item.Name, defaultKeyLabelPrefix) {
+			return &ValidationError{Msg: fmt.Sprintf("metadata key %q is reserved", item.Name)}
+		}
+	}
+	return nil
+}
+
+func (m *k8sRpaasManager) SetMetadata(ctx context.Context, instanceName string, metadata *clientTypes.Metadata) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if err = validateMetadata(metadata.Labels); err != nil {
+		return err
+	}
+
+	if err = validateMetadata(metadata.Annotations); err != nil {
+		return err
+	}
+
+	originalInstance := instance.DeepCopy()
+
+	if metadata.Labels != nil {
+		for _, item := range metadata.Labels {
+			instance.Labels[item.Name] = item.Value
+		}
+	}
+
+	if metadata.Annotations != nil {
+		for _, item := range metadata.Annotations {
+			instance.Annotations[item.Name] = item.Value
+		}
+	}
+
+	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) UnsetMetadata(ctx context.Context, instanceName string, metadata *clientTypes.Metadata) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	originalInstance := instance.DeepCopy()
+
+	if metadata.Labels != nil {
+		for _, item := range metadata.Labels {
+			if _, ok := instance.Labels[item.Name]; !ok {
+				return &NotFoundError{Msg: fmt.Sprintf("label %q not found in instance %q", item.Name, instanceName)}
+			}
+			delete(instance.Labels, item.Name)
+		}
+	}
+
+	if metadata.Annotations != nil {
+		for _, item := range metadata.Annotations {
+			if _, ok := instance.Annotations[item.Name]; !ok {
+				return &NotFoundError{Msg: fmt.Sprintf("annotation %q not found in instance %q", item.Name, instanceName)}
+			}
+			delete(instance.Annotations, item.Name)
+		}
+	}
+
+	return m.patchInstance(ctx, originalInstance, instance)
+}

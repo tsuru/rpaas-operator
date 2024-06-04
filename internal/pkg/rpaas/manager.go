@@ -285,6 +285,8 @@ type RpaasManager interface {
 	DeleteCertManagerRequest(ctx context.Context, instanceName, issuer string) error
 
 	GetMetadata(ctx context.Context, instanceName string) (*clientTypes.Metadata, error)
+	SetMetadata(ctx context.Context, instanceName string, metadata *clientTypes.Metadata) error
+	UnsetMetadata(ctx context.Context, instanceName string, metadata *clientTypes.Metadata) error
 }
 
 type CertificateData struct {

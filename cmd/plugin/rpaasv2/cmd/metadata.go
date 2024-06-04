@@ -134,7 +134,6 @@ func createMetadata(meta []string, metaType string, isSet bool) (*types.Metadata
 			item.Value = strings.Split(kv, "=")[1]
 		} else {
 			item.Name = kv
-			item.Delete = true
 		}
 
 		if metaType == "label" {
