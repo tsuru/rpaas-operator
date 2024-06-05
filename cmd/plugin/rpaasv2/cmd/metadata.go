@@ -128,7 +128,7 @@ func createMetadata(meta []string, metaType string, isSet bool) (*types.Metadata
 		var item types.MetadataItem
 		if isSet {
 			if !strings.Contains(kv, "=") {
-				return nil, fmt.Errorf("invalid NAME=value pair: %v", kv)
+				return nil, fmt.Errorf("invalid NAME=value pair: %q", kv)
 			}
 			item.Name = strings.Split(kv, "=")[0]
 			item.Value = strings.Split(kv, "=")[1]
@@ -155,7 +155,7 @@ func runSetMetadata(c *cli.Context) error {
 	}
 
 	if !isValidMetadataType(metaType) {
-		return fmt.Errorf("invalid metadata type: %v", metaType)
+		return fmt.Errorf("invalid metadata type: %q", metaType)
 	}
 
 	metadata, err := createMetadata(keyValues, metaType, true)
@@ -216,7 +216,7 @@ func runUnsetMetadata(c *cli.Context) error {
 	}
 
 	if !isValidMetadataType(metaType) {
-		return fmt.Errorf("invalid metadata type: %v", metaType)
+		return fmt.Errorf("invalid metadata type: %q", metaType)
 	}
 
 	metadata, _ := createMetadata(keys, metaType, false)

@@ -99,12 +99,12 @@ func TestSetMetadata(t *testing.T) {
 		{
 			name:        "invalid metadata type",
 			args:        []string{"-i", "my-instance", "-t", "invalid", "key=value"},
-			expectedErr: "invalid metadata type: invalid",
+			expectedErr: "invalid metadata type: \"invalid\"",
 		},
 		{
 			name:        "invalid key value pair",
 			args:        []string{"-i", "my-instance", "-t", "annotation", "key"},
-			expectedErr: "invalid NAME=value pair: key",
+			expectedErr: "invalid NAME=value pair: \"key\"",
 		},
 		{
 			name: "valid metadata",
@@ -161,7 +161,7 @@ func TestUnsetMetadata(t *testing.T) {
 		{
 			name:        "invalid metadata type",
 			args:        []string{"-i", "my-instance", "-t", "invalid", "key=value"},
-			expectedErr: "invalid metadata type: invalid",
+			expectedErr: "invalid metadata type: \"invalid\"",
 		},
 		{
 			name: "valid metadata",

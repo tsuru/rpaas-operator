@@ -5,7 +5,9 @@
 package client
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 	"fmt"
 	"net/http"
 
@@ -46,20 +48,28 @@ func (c *client) SetMetadata(ctx context.Context, instance string, metadata *typ
 		return ErrMissingInstance
 	}
 
-	// pathName := fmt.Sprintf("/resources/%s/metadata", instance)
-	// req, err := c.newRequest("POST", pathName, metadata, instance)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// response, err := c.do(ctx, req)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// if response.StatusCode != http.StatusOK {
-	// 	return newErrUnexpectedStatusCodeFromResponse(response)
-	// }
+	b, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	body := bytes.NewReader(b)
+
+	pathName := fmt.Sprintf("/resources/%s/metadata", instance)
+	req, err := c.newRequest("POST", pathName, body, instance)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return newErrUnexpectedStatusCodeFromResponse(response)
+	}
 
 	return nil
 }
@@ -69,20 +79,28 @@ func (c *client) UnsetMetadata(ctx context.Context, instance string, metadata *t
 		return ErrMissingInstance
 	}
 
-	// pathName := fmt.Sprintf("/resources/%s/metadata", instance)
-	// req, err := c.newRequest("POST", pathName, metadata, instance)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// response, err := c.do(ctx, req)
-	// if err != nil {
-	// 	return err
-	// }
-	//
-	// if response.StatusCode != http.StatusOK {
-	// 	return newErrUnexpectedStatusCodeFromResponse(response)
-	// }
+	b, err := json.Marshal(metadata)
+	if err != nil {
+		return err
+	}
+	body := bytes.NewReader(b)
+
+	pathName := fmt.Sprintf("/resources/%s/metadata", instance)
+	req, err := c.newRequest("DELETE", pathName, body, instance)
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+	defer response.Body.Close()
+
+	if response.StatusCode != http.StatusOK {
+		return newErrUnexpectedStatusCodeFromResponse(response)
+	}
 
 	return nil
 }
