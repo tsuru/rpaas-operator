@@ -295,7 +295,7 @@ func (f *FakeClient) SetMetadata(ctx context.Context, instance string, metadata 
 
 func (f *FakeClient) UnsetMetadata(tx context.Context, instance string, metadata *types.Metadata) error {
 	if f.FakeUnsetMetadata != nil {
-		return f.FakeSetMetadata(instance, metadata)
+		return f.FakeUnsetMetadata(instance, metadata)
 	}
 
 	return nil

@@ -128,7 +128,7 @@ func createMetadata(meta []string, metaType string, isSet bool) (*types.Metadata
 		var item types.MetadataItem
 		if isSet {
 			if !strings.Contains(kv, "=") {
-				return nil, fmt.Errorf("invalid NAME=value pair: %q", kv)
+				return nil, fmt.Errorf("invalid NAME=value pair: %v", kv)
 			}
 			item.Name = strings.Split(kv, "=")[0]
 			item.Value = strings.Split(kv, "=")[1]
@@ -155,7 +155,7 @@ func runSetMetadata(c *cli.Context) error {
 	}
 
 	if !isValidMetadataType(metaType) {
-		return fmt.Errorf("invalid metadata type: %q", metaType)
+		return fmt.Errorf("invalid metadata type: %v", metaType)
 	}
 
 	metadata, err := createMetadata(keyValues, metaType, true)
@@ -173,7 +173,6 @@ func runSetMetadata(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(c.App.Writer, metadata)
 	fmt.Fprintln(c.App.Writer, "Metadata updated successfully")
 
 	return nil
@@ -217,13 +216,10 @@ func runUnsetMetadata(c *cli.Context) error {
 	}
 
 	if !isValidMetadataType(metaType) {
-		return fmt.Errorf("invalid metadata type: %q", metaType)
+		return fmt.Errorf("invalid metadata type: %v", metaType)
 	}
 
-	metadata, err := createMetadata(keys, metaType, false)
-	if err != nil {
-		return err
-	}
+	metadata, _ := createMetadata(keys, metaType, false)
 
 	client, err := getClient(c)
 	if err != nil {
