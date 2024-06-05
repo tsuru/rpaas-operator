@@ -70,7 +70,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	validationMergedWithFlavors, err := r.mergeWithFlavors(ctx, validation.DeepCopy())
 	if err != nil {
-		return reconcile.Result{}, nil
+		return reconcile.Result{}, err
 	}
 
 	if validationMergedWithFlavors.Spec.PlanTemplate != nil {
@@ -95,7 +95,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	existingPod, err := r.getPod(ctx, pod.Namespace, pod.Name)
 	if err != nil && !k8sErrors.IsNotFound(err) {
-		return ctrl.Result{}, nil
+		return ctrl.Result{}, err
 	}
 
 	if existingPod != nil {
@@ -294,8 +294,6 @@ func (r *RpaasValidationReconciler) renderTemplate(ctx context.Context, validati
 }
 
 func newValidationConfigMap(validation *v1alpha1.RpaasValidation, renderedTemplate string) *corev1.ConfigMap {
-	//hash := fmt.Sprintf("%x", sha256.Sum256([]byte(renderedTemplate)))
-
 	return &corev1.ConfigMap{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "ConfigMap",
