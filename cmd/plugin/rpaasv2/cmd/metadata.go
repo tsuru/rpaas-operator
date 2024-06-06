@@ -231,7 +231,6 @@ func runUnsetMetadata(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintln(c.App.Writer, metadata)
 	fmt.Fprintln(c.App.Writer, "Metadata removed successfully")
 
 	return nil

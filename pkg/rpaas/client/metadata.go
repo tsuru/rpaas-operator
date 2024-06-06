@@ -90,7 +90,7 @@ func (c *client) UnsetMetadata(ctx context.Context, instance string, metadata *t
 	if err != nil {
 		return err
 	}
-	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("Content-Type", "application/json")
 
 	response, err := c.do(ctx, req)
 	if err != nil {
