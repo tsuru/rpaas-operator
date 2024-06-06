@@ -798,8 +798,8 @@ github.com/tsuru/gnuflag v0.0.0-20151217162021-86b8c1b864aa h1:JlLQP1xa13a994p/A
 github.com/tsuru/gnuflag v0.0.0-20151217162021-86b8c1b864aa/go.mod h1:UibOSvkMFKRe/eiwktAPAvQG8L+p8nYsECJvu3Dgw7I=
 github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d h1:LAT4TbCfjK2CTjA0yM1Tv0RMd/GoN4Qjanx9IiL5NpU=
 github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d/go.mod h1:UNUsKvpma/GzkOmD7J3dNe/1KahJPFpVJ/SHh3RfycM=
-github.com/tsuru/nginx-operator v0.15.0 h1:x/r5ZsXaAzBqpY3HAZDl6zVztOrc89oyykH7QsfWK+Q=
-github.com/tsuru/nginx-operator v0.15.0/go.mod h1:SJQFeMLCkuFdwgsH8lxRgTU49DGwRixIZzPqqUqzQ7I=
+github.com/tsuru/nginx-operator v0.15.2-0.20240515194244-a38b4b58e866 h1:aCoSpcfQuMztS/7xFrQ2ml02NxqipXYLMgJonyux6fk=
+github.com/tsuru/nginx-operator v0.15.2-0.20240515194244-a38b4b58e866/go.mod h1:qdJQVY4buUQymyhcpYO99ZCfLMPRvcB/1ywK3PAh/+Q=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f h1:9dTZI6bQUVkKAsCnqaDl4V7fKAc5ErVpmX+bzevz3Cg=
 github.com/tsuru/stern v1.20.2-0.20210928180051-1157b938dc3f/go.mod h1:SUQKJ3CLsVARBwkz5z9IIL8Pj008JNj4U8eF50kkm2c=
 github.com/tsuru/tablecli v0.0.0-20190131152944-7ded8a3383c6 h1:1XDdWFAjIbCSG1OjN9v9KdWhuM8UtYlFcfHe/Ldkchk=
@@ -1452,8 +1452,8 @@ k8s.io/utils v0.0.0-20210722164352-7f3ee0f31471/go.mod h1:jPW/WVKK9YHAvNhRxK0md/
 k8s.io/utils v0.0.0-20210802155522-efc7438f0176/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20210820185131-d34e5cb4466e/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
 k8s.io/utils v0.0.0-20220210201930-3a6ce19ff2f9/go.mod h1:jPW/WVKK9YHAvNhRxK0md/EJ228hCsBRufyofKtW8HA=
-k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5 h1:kmDqav+P+/5e1i9tFfHq1qcF3sOrDp+YEkVDAHu7Jwk=
-k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
+k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0 h1:jgGTlFYnhF1PM1Ax/lAlxUPE+KfCIXHaathvJg1C3ak=
+k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0/go.mod h1:OLgZIPagt7ERELqWJFomSt595RzquPNLL48iOWgYOg0=
 knative.dev/pkg v0.0.0-20230306194819-b77a78c6c0ad h1:cYCDdgSMOKiCGm6v1vvR2v4l/naGorbwoJKE/e39BJI=
 knative.dev/pkg v0.0.0-20230306194819-b77a78c6c0ad/go.mod h1:S+KfTInuwEkZSTwvWqrWZV/TEw6ps51GUGaSC1Fnbe0=
 mvdan.cc/gofumpt v0.0.0-20200709182408-4fd085cb6d5f/go.mod h1:9VQ397fNXEnF84t90W4r4TRCQK+pg9f8ugVfyj+S26w=

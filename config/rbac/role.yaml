@@ -10,6 +10,20 @@ rules:
   - ""
   resources:
   - configmaps
+  - pods
+  - secrets
+  - services
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
   - secrets
   - services
   verbs:
@@ -103,6 +117,24 @@ rules:
   - get
   - list
   - watch
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasvalidations
+  verbs:
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - extensions.tsuru.io
+  resources:
+  - rpaasvalidations/status
+  verbs:
+  - get
+  - patch
+  - update
 - apiGroups:
   - keda.sh
   resources:

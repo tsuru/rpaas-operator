@@ -3,6 +3,7 @@
 # It should be run by config/default
 resources:
 - bases/extensions.tsuru.io_rpaasinstances.yaml
+- bases/extensions.tsuru.io_rpaasvalidations.yaml
 - bases/extensions.tsuru.io_rpaasplans.yaml
 - bases/extensions.tsuru.io_rpaasflavors.yaml
 # +kubebuilder:scaffold:crdkustomizeresource

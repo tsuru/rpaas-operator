@@ -58,12 +58,13 @@ type RpaasConfig struct {
 }
 
 type ClusterConfig struct {
-	Name      string `json:"name"`
-	Default   bool   `json:"default"`
-	Address   string `json:"address"`
-	Token     string `json:"token"`
-	TokenFile string `json:"tokenFile"`
-	CA        string `json:"ca"`
+	Name              string `json:"name"`
+	Default           bool   `json:"default"`
+	DisableValidation bool   `json:"disableValidation"`
+	Address           string `json:"address"`
+	Token             string `json:"token"`
+	TokenFile         string `json:"tokenFile"`
+	CA                string `json:"ca"`
 
 	AuthProvider *clientcmdapi.AuthProviderConfig `json:"authProvider"`
 	ExecProvider *clientcmdapi.ExecConfig         `json:"execProvider"`

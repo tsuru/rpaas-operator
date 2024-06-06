@@ -33,7 +33,7 @@ require (
 	github.com/stern/stern v1.20.1
 	github.com/stretchr/testify v1.8.4
 	github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d
-	github.com/tsuru/nginx-operator v0.15.0
+	github.com/tsuru/nginx-operator v0.15.2-0.20240515194244-a38b4b58e866
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
@@ -43,9 +43,10 @@ require (
 	k8s.io/api v0.26.2
 	k8s.io/apimachinery v0.26.2
 	k8s.io/client-go v0.26.2
+	k8s.io/klog/v2 v2.90.1
 	k8s.io/kubectl v0.26.2
 	k8s.io/metrics v0.26.2
-	k8s.io/utils v0.0.0-20230220204549-a5ecb0141aa5
+	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/go-open-service-broker-client/v2 v2.0.0-20200925085050-ae25e62aaf10
 )
@@ -156,7 +157,6 @@ require (
 	k8s.io/apiextensions-apiserver v0.26.2 // indirect
 	k8s.io/cli-runtime v0.26.2 // indirect
 	k8s.io/component-base v0.26.2 // indirect
-	k8s.io/klog/v2 v2.90.1 // indirect
 	k8s.io/kube-aggregator v0.24.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d // indirect
 	knative.dev/pkg v0.0.0-20230306194819-b77a78c6c0ad // indirect

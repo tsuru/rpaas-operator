@@ -10,9 +10,10 @@ jobs:
     - uses: actions/setup-go@v3
       with:
         go-version: "1.21"
-    - uses: golangci/golangci-lint-action@v3
+    - uses: golangci/golangci-lint-action@v6
       with:
-        version: v1.56
+        version: v1.59
+        args: --timeout=10m
     - run: make test
 
   integration:
@@ -21,8 +22,8 @@ jobs:
       fail-fast: true
       matrix:
         k8s_version:
-        - 1.24.13 # current version at GKE stable channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
-        - 1.25.8  # current version at GKE regular channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
+        - 1.27.11 # current version at GKE stable channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
+        - 1.28.7  # current version at GKE regular channel (https://cloud.google.com/kubernetes-engine/docs/release-notes#current_versions)
     steps:
       - uses: actions/checkout@master
       - name: Running up Kubernetes (using Minikube)
