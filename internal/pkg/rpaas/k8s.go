@@ -65,8 +65,10 @@ import (
 )
 
 const (
-	defaultNamespace      = "rpaasv2"
-	defaultKeyLabelPrefix = "rpaas.extensions.tsuru.io"
+	defaultNamespace        = "rpaasv2"
+	defaultKeyLabelPrefix   = "rpaas.extensions.tsuru.io"
+	defaultKeyRpaasInstance = "rpaas_instance"
+	defaultKeyRpaasService  = "rpaas_service"
 
 	externalDNSHostnameLabel  = "external-dns.alpha.kubernetes.io/hostname"
 	allowedDNSZonesAnnotation = "rpaas.extensions.tsuru.io/allowed-dns-zones"
@@ -1364,8 +1366,8 @@ func labelsForRpaasInstance(name string) map[string]string {
 	return map[string]string{
 		labelKey("service-name"):  getServiceName(),
 		labelKey("instance-name"): name,
-		"rpaas_service":           getServiceName(),
-		"rpaas_instance":          name,
+		defaultKeyRpaasService:    getServiceName(),
+		defaultKeyRpaasInstance:   name,
 	}
 }
 

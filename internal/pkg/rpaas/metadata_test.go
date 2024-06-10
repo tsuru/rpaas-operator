@@ -64,8 +64,8 @@ func Test_k8sRpaasManager_SetMetadata(t *testing.T) {
 			name: "set metadata",
 			meta: &clientTypes.Metadata{
 				Labels: []clientTypes.MetadataItem{
-					{Name: "rpaas_instance", Value: "my-instance"},
-					{Name: "rpaas_service", Value: "my-service"},
+					{Name: "custom_label1", Value: "custom-value1"},
+					{Name: "custom_label2", Value: "custom-value2"},
 				},
 				Annotations: []clientTypes.MetadataItem{
 					{Name: "custom-annotation", Value: "custom-value"},
@@ -85,10 +85,11 @@ func Test_k8sRpaasManager_SetMetadata(t *testing.T) {
 			name: "set reserved metadata for annotations",
 			meta: &clientTypes.Metadata{
 				Annotations: []clientTypes.MetadataItem{
-					{Name: "rpaas.extensions.tsuru.io/custom-key", Value: "custom-value"},
+					{Name: "rpaas_instance", Value: "my-instance"},
+					{Name: "rpaas_service", Value: "my-instance"},
 				},
 			},
-			expectedErr: "metadata key \"rpaas.extensions.tsuru.io/custom-key\" is reserved",
+			expectedErr: "metadata key \"rpaas_instance\" is reserved",
 		},
 	}
 

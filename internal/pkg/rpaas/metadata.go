@@ -56,9 +56,14 @@ func (m *k8sRpaasManager) GetMetadata(ctx context.Context, instanceName string) 
 	return metadata, nil
 }
 
+func isValidMetadataKey(key string) bool {
+	return !strings.HasPrefix(key, defaultKeyLabelPrefix) &&
+		key != defaultKeyRpaasInstance && key != defaultKeyRpaasService
+}
+
 func validateMetadata(items []clientTypes.MetadataItem) error {
 	for _, item := range items {
-		if strings.HasPrefix(item.Name, defaultKeyLabelPrefix) {
+		if !isValidMetadataKey(item.Name) {
 			return &ValidationError{Msg: fmt.Sprintf("metadata key %q is reserved", item.Name)}
 		}
 	}
