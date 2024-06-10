@@ -37,7 +37,7 @@ func (c *client) DeleteRoute(ctx context.Context, args DeleteRouteArgs) error {
 	values := url.Values{}
 	values.Set("path", args.Path)
 	body := strings.NewReader(values.Encode())
-	req, err := c.newRequest("DELETE", pathName, body, args.Instance)
+	req, err := c.newRequest("DELETE", pathName, body)
 	if err != nil {
 		return err
 	}
@@ -70,7 +70,7 @@ func (c *client) ListRoutes(ctx context.Context, args ListRoutesArgs) ([]types.R
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
-	req, err := c.newRequest("GET", pathName, nil, args.Instance)
+	req, err := c.newRequest("GET", pathName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +126,7 @@ func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) error {
 	body := strings.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
-	req, err := c.newRequest("POST", pathName, body, args.Instance)
+	req, err := c.newRequest("POST", pathName, body)
 	if err != nil {
 		return err
 	}

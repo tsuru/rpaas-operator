@@ -45,7 +45,6 @@ func TestClientThroughTsuru_Debug(t *testing.T) {
 				assert.True(t, websocket.IsWebSocketUpgrade(r))
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				expectedQS := url.Values{}
-				expectedQS.Set("callback", "/resources/my-instance/debug")
 				expectedQS.Set("ws", "true")
 				expectedQS.Set("command", "bash")
 				expectedQS.Set("pod", "pod-1")
@@ -56,6 +55,8 @@ func TestClientThroughTsuru_Debug(t *testing.T) {
 				expectedQS.Set("interactive", "true")
 				expectedQS.Set("image", "my-image/test")
 				assert.Equal(t, expectedQS, r.URL.Query())
+				assert.Equal(t, "/1.20/services/rpaasv2/resources/my-instance/debug", r.URL.Path)
+
 				w.WriteHeader(http.StatusBadRequest)
 			},
 			expectedCalled: true,

@@ -35,7 +35,7 @@ func TestClientThroughTsuru_Stop(t *testing.T) {
 			instance: "my-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/stop"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/stop", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.WriteHeader(http.StatusOK)
 			},

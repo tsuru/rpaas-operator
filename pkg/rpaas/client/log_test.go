@@ -27,7 +27,7 @@ func TestClientThroughTsuru_Log(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "%2Fresources%2Fmy-instance%2Flog&color=false&follow=false"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/log?%s", FakeTsuruService, "my-instance", "color=false&follow=false"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.WriteHeader(http.StatusOK)
 			},
@@ -43,7 +43,7 @@ func TestClientThroughTsuru_Log(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "%2Fresources%2Fmy-instance%2Flog&color=false&container=some-container&follow=true&lines=10&pod=some-pod"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/log?color=false&container=some-container&follow=true&lines=10&pod=some-pod", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.WriteHeader(http.StatusOK)
 			},

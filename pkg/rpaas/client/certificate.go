@@ -77,7 +77,7 @@ func (c *client) UpdateCertificate(ctx context.Context, args UpdateCertificateAr
 
 	body := strings.NewReader(buffer.String())
 	pathName := fmt.Sprintf("/resources/%s/certificate", args.Instance)
-	req, err := c.newRequest("POST", pathName, body, args.Instance)
+	req, err := c.newRequest("POST", pathName, body)
 	req.Header.Set("Content-Type", fmt.Sprintf("multipart/form-data; boundary=%q", w.Boundary()))
 	if err != nil {
 		return err
@@ -110,7 +110,7 @@ func (c *client) DeleteCertificate(ctx context.Context, args DeleteCertificateAr
 
 	args.Name = url.QueryEscape(args.Name)
 	pathName := fmt.Sprintf("/resources/%s/certificate/%s", args.Instance, args.Name)
-	req, err := c.newRequest("DELETE", pathName, nil, args.Instance)
+	req, err := c.newRequest("DELETE", pathName, nil)
 	if err != nil {
 		return err
 	}
@@ -132,7 +132,7 @@ func (c *client) ListCertManagerRequests(ctx context.Context, instance string) (
 		return nil, ErrMissingInstance
 	}
 
-	req, err := c.newRequest("GET", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, instance)
+	req, err := c.newRequest("GET", fmt.Sprintf("/resources/%s/cert-manager", instance), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -174,7 +174,7 @@ func (c *client) UpdateCertManager(ctx context.Context, args UpdateCertManagerAr
 		return err
 	}
 
-	req, err := c.newRequest("POST", fmt.Sprintf("/resources/%s/cert-manager", args.Instance), &body, args.Instance)
+	req, err := c.newRequest("POST", fmt.Sprintf("/resources/%s/cert-manager", args.Instance), &body)
 	if err != nil {
 		return err
 	}
@@ -203,7 +203,7 @@ func (c *client) DeleteCertManager(ctx context.Context, instance, issuer string)
 		data.Set("issuer", issuer)
 	}
 
-	req, err := c.newRequestWithQueryString("DELETE", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, instance, data)
+	req, err := c.newRequestWithQueryString("DELETE", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, data)
 	if err != nil {
 		return err
 	}

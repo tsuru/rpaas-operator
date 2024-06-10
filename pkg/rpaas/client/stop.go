@@ -16,7 +16,7 @@ func (c *client) Stop(ctx context.Context, instance string) error {
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/stop", instance)
-	req, err := c.newRequest("POST", pathName, nil, instance)
+	req, err := c.newRequest("POST", pathName, nil)
 	if err != nil {
 		return err
 	}

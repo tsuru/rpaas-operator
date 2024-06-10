@@ -33,7 +33,7 @@ func (c *client) Scale(ctx context.Context, args ScaleArgs) error {
 	values := url.Values{}
 	values.Set("quantity", fmt.Sprint(args.Replicas))
 	body := strings.NewReader(values.Encode())
-	req, err := c.newRequest("POST", pathName, body, args.Instance)
+	req, err := c.newRequest("POST", pathName, body)
 	if err != nil {
 		return err
 	}
