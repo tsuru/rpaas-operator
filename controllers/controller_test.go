@@ -24,7 +24,7 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/tools/record"
-	"k8s.io/utils/pointer"
+	"k8s.io/utils/ptr"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/fake"
@@ -1106,7 +1106,7 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicas: pointer.Int32(1),
+						MinReplicas: ptr.To(int32(1)),
 						MaxReplicas: 10,
 						Metrics: []autoscalingv2.MetricSpec{
 							{
@@ -1115,7 +1115,7 @@ func Test_reconcileHPA(t *testing.T) {
 									Name: "cpu",
 									Target: autoscalingv2.MetricTarget{
 										Type:               autoscalingv2.UtilizationMetricType,
-										AverageUtilization: pointer.Int32(50),
+										AverageUtilization: ptr.To(int32(50)),
 									},
 								},
 							},
@@ -1126,9 +1126,9 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    pointer.Int32(1),
+					MinReplicas:                    ptr.To(int32(1)),
 					MaxReplicas:                    10,
-					TargetCPUUtilizationPercentage: pointer.Int32(50),
+					TargetCPUUtilizationPercentage: ptr.To(int32(50)),
 				}
 				return ri
 			},
@@ -1141,7 +1141,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: pointer.Int32(1),
+					MinReplicas: ptr.To(int32(1)),
 					MaxReplicas: 10,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1150,7 +1150,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Name: "cpu",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: pointer.Int32(50),
+									AverageUtilization: ptr.To(int32(50)),
 								},
 							},
 						},
@@ -1340,9 +1340,9 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicaCount: pointer.Int32(2),
-						MaxReplicaCount: pointer.Int32(500),
-						PollingInterval: pointer.Int32(5),
+						MinReplicaCount: ptr.To(int32(2)),
+						MaxReplicaCount: ptr.To(int32(500)),
+						PollingInterval: ptr.To(int32(5)),
 						Advanced: &kedav1alpha1.AdvancedConfig{
 							HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
 								Name: "my-instance",
@@ -1369,9 +1369,9 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: false,
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:             pointer.Int32(2),
+					MinReplicas:             ptr.To(int32(2)),
 					MaxReplicas:             500,
-					TargetRequestsPerSecond: pointer.Int32(50),
+					TargetRequestsPerSecond: ptr.To(int32(50)),
 					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
 						Enabled:                 true,
 						PrometheusServerAddress: "https://prometheus.example.com",
@@ -1380,15 +1380,15 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind: "ClusterTriggerAuthentication",
 							Name: "prometheus-auth",
 						},
-						PollingInterval: pointer.Int32(5),
+						PollingInterval: ptr.To(int32(5)),
 					},
 				}
 				return ri
 			},
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
-				so.Spec.MinReplicaCount = pointer.Int32(2)
-				so.Spec.MaxReplicaCount = pointer.Int32(500)
-				so.Spec.PollingInterval = pointer.Int32(5)
+				so.Spec.MinReplicaCount = ptr.To(int32(2))
+				so.Spec.MaxReplicaCount = ptr.To(int32(500))
+				so.Spec.PollingInterval = ptr.To(int32(5))
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type: "prometheus",
@@ -1695,8 +1695,8 @@ func Test_reconcilePDB(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					EnablePodDisruptionBudget: pointer.Bool(true),
-					Replicas:                  pointer.Int32(1),
+					EnablePodDisruptionBudget: ptr.To(true),
+					Replicas:                  ptr.To(int32(1)),
 				},
 			},
 			expectedChanged: true,
@@ -2355,8 +2355,8 @@ func TestReconcileRpaasInstance_reconcileTLSSessionResumption(t *testing.T) {
 		},
 		Spec: batchv1.CronJobSpec{
 			Schedule:                   "*/60 * * * *",
-			SuccessfulJobsHistoryLimit: pointer.Int32(1),
-			FailedJobsHistoryLimit:     pointer.Int32(1),
+			SuccessfulJobsHistoryLimit: ptr.To(int32(1)),
+			FailedJobsHistoryLimit:     ptr.To(int32(1)),
 			JobTemplate: batchv1.JobTemplateSpec{
 				ObjectMeta: metav1.ObjectMeta{
 					Labels: map[string]string{

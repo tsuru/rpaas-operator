@@ -10,7 +10,11 @@ import (
 )
 
 const (
-	DefaultLabelKeyPrefix             = "rpaas.extensions.tsuru.io"
+	DefaultLabelKeyPrefix = "rpaas.extensions.tsuru.io"
+
+	RpaasOperatorValidationNameLabelKey      = DefaultLabelKeyPrefix + "/validation-name"
+	RpaasOperatorValidationHashAnnotationKey = DefaultLabelKeyPrefix + "/validation-hash"
+
 	RpaasOperatorInstanceNameLabelKey = DefaultLabelKeyPrefix + "/instance-name"
 	RpaasOperatorServiceNameLabelKey  = DefaultLabelKeyPrefix + "/service-name"
 	RpaasOperatorPlanNameLabelKey     = DefaultLabelKeyPrefix + "/plan-name"
@@ -122,4 +126,14 @@ func mergeMap(a, b map[string]string) map[string]string {
 		a[k] = v
 	}
 	return a
+}
+
+func (i *RpaasValidation) BelongsToCluster(clusterName string) bool {
+	instanceCluster := i.Labels[RpaasOperatorClusterNameLabelKey]
+
+	if instanceCluster == "" {
+		return false
+	}
+
+	return clusterName == instanceCluster
 }

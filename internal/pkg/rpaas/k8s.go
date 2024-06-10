@@ -31,7 +31,6 @@ import (
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	corev1 "k8s.io/api/core/v1"
-	v1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/api/resource"
@@ -175,7 +174,7 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	return executorStream(args.CommonTerminalArgs, executor, ctx)
 }
 
-func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *v1.ContainerStatus, error) {
+func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {
 	if args.Image == "" && config.Get().DebugImage == "" {
 		return nil, "", nil, ValidationError{Msg: "Debug image not set and no default image configured"}
 	}
@@ -227,11 +226,11 @@ func (m *k8sRpaasManager) generateDebugContainer(ctx context.Context, args *Debu
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
 	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
-	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod, debugContainer)
+	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod)
 	return debugContainerName, err
 }
 
-func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *v1.Pod, instancePod v1.Pod, debugContainer *v1.EphemeralContainer) error {
+func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *corev1.Pod, instancePod corev1.Pod) error {
 	podJS, err := json.Marshal(instancePod)
 	if err != nil {
 		return err
@@ -539,16 +538,11 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 
 	originalInstance := instance.DeepCopy()
 
-	if instance.Spec.Blocks == nil {
-		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
+	err = NewMutation(&instance.Spec).DeleteBlock(blockName)
+	if err != nil {
+		return err
 	}
 
-	blockType := v1alpha1.BlockType(blockName)
-	if _, ok := instance.Spec.Blocks[blockType]; !ok {
-		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
-	}
-
-	delete(instance.Spec.Blocks, blockType)
 	return m.patchInstance(ctx, originalInstance, instance)
 }
 
@@ -582,17 +576,10 @@ func (m *k8sRpaasManager) UpdateBlock(ctx context.Context, instanceName string, 
 	}
 	originalInstance := instance.DeepCopy()
 
-	err = validateBlock(block)
+	err = NewMutation(&instance.Spec).UpdateBlock(block)
 	if err != nil {
 		return err
 	}
-
-	if instance.Spec.Blocks == nil {
-		instance.Spec.Blocks = make(map[v1alpha1.BlockType]v1alpha1.Value)
-	}
-
-	blockType := v1alpha1.BlockType(block.Name)
-	instance.Spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
 
 	return m.patchInstance(ctx, originalInstance, instance)
 }
@@ -867,7 +854,7 @@ func (m *k8sRpaasManager) getFlavors(ctx context.Context) ([]v1alpha1.RpaasFlavo
 	return flavorList.Items, nil
 }
 
-func (m *k8sRpaasManager) selectFlavor(ctx context.Context, flavors []v1alpha1.RpaasFlavor, name string) *v1alpha1.RpaasFlavor {
+func (m *k8sRpaasManager) selectFlavor(flavors []v1alpha1.RpaasFlavor, name string) *v1alpha1.RpaasFlavor {
 	for i := range flavors {
 		if flavors[i].Name == name {
 			return &flavors[i]
@@ -884,46 +871,12 @@ func (m *k8sRpaasManager) BindApp(ctx context.Context, instanceName string, args
 	}
 
 	originalInstance := instance.DeepCopy()
+	internalBind := instance.BelongsToCluster(args.AppClusterName)
 
-	var host string
-	if args.AppClusterName != "" && instance.BelongsToCluster(args.AppClusterName) {
-		if len(args.AppInternalHosts) == 0 || args.AppInternalHosts[0] == "" {
-			return &ValidationError{Msg: "application internal hosts cannot be empty"}
-		}
-
-		host = args.AppInternalHosts[0]
-	} else {
-		if len(args.AppHosts) == 0 || args.AppHosts[0] == "" {
-			return &ValidationError{Msg: "application hosts cannot be empty"}
-		}
-
-		host = args.AppHosts[0]
-	}
-
-	u, err := url.Parse(host)
+	err = NewMutation(&instance.Spec).BindApp(args, internalBind)
 	if err != nil {
 		return err
 	}
-	if u.Scheme == "tcp" {
-		host = u.Host
-	}
-
-	if u.Scheme == "udp" {
-		return &ValidationError{Msg: fmt.Sprintf("Unsupported host: %q", host)}
-	}
-
-	if len(instance.Spec.Binds) > 0 {
-		for _, value := range instance.Spec.Binds {
-			if value.Host == host {
-				return &ConflictError{Msg: "instance already bound with this application"}
-			}
-		}
-	}
-	if instance.Spec.Binds == nil {
-		instance.Spec.Binds = make([]v1alpha1.Bind, 0)
-	}
-
-	instance.Spec.Binds = append(instance.Spec.Binds, v1alpha1.Bind{Host: host, Name: args.AppName})
 
 	return m.patchInstance(ctx, originalInstance, instance)
 }
@@ -936,23 +889,9 @@ func (m *k8sRpaasManager) UnbindApp(ctx context.Context, instanceName, appName s
 
 	originalInstance := instance.DeepCopy()
 
-	if appName == "" {
-		return &ValidationError{Msg: "must specify an app name"}
-	}
-
-	var found bool
-	for i, bind := range instance.Spec.Binds {
-		if bind.Name == appName {
-			found = true
-			binds := instance.Spec.Binds
-			// Remove the element at index i from instance.Spec.Binds *maintaining it's order! -> O(n)*.
-			instance.Spec.Binds = append(binds[:i], binds[i+1:]...)
-			break
-		}
-	}
-
-	if !found {
-		return &NotFoundError{Msg: "app not found in instance bind list"}
+	err = NewMutation(&instance.Spec).UnbindApp(appName)
+	if err != nil {
+		return err
 	}
 
 	return m.patchInstance(ctx, originalInstance, instance)
@@ -993,13 +932,11 @@ func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path st
 	}
 
 	originalInstance := instance.DeepCopy()
-
-	index, found := hasPath(*instance, path)
-	if !found {
-		return &NotFoundError{Msg: "path does not exist"}
+	err = NewMutation(&instance.Spec).DeleteRoute(path)
+	if err != nil {
+		return err
 	}
 
-	instance.Spec.Locations = append(instance.Spec.Locations[:index], instance.Spec.Locations[index+1:]...)
 	return m.patchInstance(ctx, originalInstance, instance)
 }
 
@@ -1042,39 +979,12 @@ func (m *k8sRpaasManager) UpdateRoute(ctx context.Context, instanceName string, 
 	}
 	originalInstance := instance.DeepCopy()
 
-	if err = validateRoute(route); err != nil {
+	err = NewMutation(&instance.Spec).UpdateRoute(route)
+	if err != nil {
 		return err
 	}
 
-	var content *v1alpha1.Value
-	if route.Content != "" {
-		content = &v1alpha1.Value{Value: route.Content}
-	}
-
-	newLocation := v1alpha1.Location{
-		Path:        route.Path,
-		Destination: route.Destination,
-		ForceHTTPS:  route.HTTPSOnly,
-		Content:     content,
-	}
-
-	if index, found := hasPath(*instance, route.Path); found {
-		instance.Spec.Locations[index] = newLocation
-	} else {
-		instance.Spec.Locations = append(instance.Spec.Locations, newLocation)
-	}
-
 	return m.patchInstance(ctx, originalInstance, instance)
-}
-
-func hasPath(instance v1alpha1.RpaasInstance, path string) (index int, found bool) {
-	for i, location := range instance.Spec.Locations {
-		if location.Path == path {
-			return i, true
-		}
-	}
-
-	return
 }
 
 func validateContent(content string) error {
@@ -1084,52 +994,6 @@ func validateContent(content string) error {
 			return &ValidationError{Msg: fmt.Sprintf("content contains the forbidden pattern %q", re.String())}
 		}
 	}
-	return nil
-}
-
-func validateBlock(block ConfigurationBlock) error {
-	blockType := v1alpha1.BlockType(block.Name)
-	if !isBlockTypeAllowed(blockType) {
-		return ValidationError{Msg: fmt.Sprintf("block %q is not allowed", block.Name)}
-	}
-	if block.Content == "" {
-		return &ValidationError{Msg: "content is required"}
-	}
-	err := validateContent(block.Content)
-	if err != nil {
-		return err
-	}
-	return nil
-}
-
-func validateRoute(r Route) error {
-	if r.Path == "" {
-		return &ValidationError{Msg: "path is required"}
-	}
-
-	if !regexp.MustCompile(`^/[^ ]*`).MatchString(r.Path) {
-		return &ValidationError{Msg: "invalid path format"}
-	}
-
-	if r.Content == "" && r.Destination == "" {
-		return &ValidationError{Msg: "either content or destination are required"}
-	}
-
-	if r.Content != "" && r.Destination != "" {
-		return &ValidationError{Msg: "cannot set both content and destination"}
-	}
-
-	if r.Content != "" && r.HTTPSOnly {
-		return &ValidationError{Msg: "cannot set both content and httpsonly"}
-	}
-
-	if r.Content != "" {
-		err := validateContent(r.Content)
-		if err != nil {
-			return err
-		}
-	}
-
 	return nil
 }
 
@@ -1310,7 +1174,7 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha
 	added, removed := diffFlavors(existingFlavors, flavors)
 
 	for _, f := range added {
-		flavorObj := m.selectFlavor(ctx, allFlavors, f)
+		flavorObj := m.selectFlavor(allFlavors, f)
 		if flavorObj == nil {
 			return &ValidationError{Msg: fmt.Sprintf("flavor %q not found", f)}
 		}
@@ -1325,7 +1189,7 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha
 	}
 
 	for _, f := range removed {
-		flavorObj := m.selectFlavor(ctx, allFlavors, f)
+		flavorObj := m.selectFlavor(allFlavors, f)
 		if flavorObj == nil {
 			continue
 		}
@@ -1952,7 +1816,7 @@ func sortAddresses(addresses []clientTypes.InstanceAddress) {
 	})
 }
 
-func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc *v1.Service) ([]clientTypes.InstanceAddress, error) {
+func (m *k8sRpaasManager) loadBalancerInstanceAddresses(ctx context.Context, svc *corev1.Service) ([]clientTypes.InstanceAddress, error) {
 	var addresses []clientTypes.InstanceAddress
 
 	if isLoadBalancerReady(svc.Status.LoadBalancer.Ingress) {
@@ -2029,7 +1893,7 @@ func (m *k8sRpaasManager) ingressAddresses(ctx context.Context, ing *networkingv
 	return addresses, nil
 }
 
-func formatEventsToString(events []v1.Event) string {
+func formatEventsToString(events []corev1.Event) string {
 	var buf bytes.Buffer
 	reasonMap := map[string]bool{}
 
@@ -2045,7 +1909,7 @@ func formatEventsToString(events []v1.Event) string {
 	return buf.String()
 }
 
-func isLoadBalancerReady(ings []v1.LoadBalancerIngress) bool {
+func isLoadBalancerReady(ings []corev1.LoadBalancerIngress) bool {
 	if len(ings) == 0 {
 		return false
 	}

@@ -11,7 +11,7 @@ import (
 )
 
 var (
-	ErrNoPoolDefined = errors.New("No pool defined")
+	ErrNoPoolDefined = errors.New("no pool defined")
 )
 
 type NotModifiedError struct {
