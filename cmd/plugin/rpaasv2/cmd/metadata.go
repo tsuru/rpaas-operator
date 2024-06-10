@@ -67,6 +67,10 @@ func writeMetadata(w io.Writer, metadata *types.Metadata) {
 			fmt.Fprintf(w, "  %s: %s\n", v.Name, v.Value)
 		}
 	}
+
+	if len(metadata.Labels) == 0 && len(metadata.Annotations) == 0 {
+		fmt.Fprintf(w, "No metadata found\n")
+	}
 }
 
 func runGetMetadata(c *cli.Context) error {

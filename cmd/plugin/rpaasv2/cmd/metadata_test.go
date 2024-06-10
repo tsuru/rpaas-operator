@@ -20,18 +20,24 @@ func TestGetMetadata(t *testing.T) {
 
 	client := &fake.FakeClient{
 		FakeGetMetadata: func(instance string) (*types.Metadata, error) {
-			if instance != "my-instance" {
+			if instance == "my-instance" {
+				return &types.Metadata{
+					Labels: []types.MetadataItem{
+						{Name: "label1", Value: "value1"},
+					},
+					Annotations: []types.MetadataItem{
+						{Name: "annotation1", Value: "value1"},
+						{Name: "annotation2", Value: "value2"},
+					},
+				}, nil
+			} else if instance == "empty-instance" {
+				return &types.Metadata{
+					Labels:      []types.MetadataItem{},
+					Annotations: []types.MetadataItem{},
+				}, nil
+			} else {
 				return nil, errors.New("could not find instance")
 			}
-			return &types.Metadata{
-				Labels: []types.MetadataItem{
-					{Name: "label1", Value: "value1"},
-				},
-				Annotations: []types.MetadataItem{
-					{Name: "annotation1", Value: "value1"},
-					{Name: "annotation2", Value: "value2"},
-				},
-			}, nil
 		},
 	}
 
@@ -55,6 +61,11 @@ Annotations:
 			name:        "get metadata with invalid instance",
 			instance:    "invalid-instance",
 			expectedErr: "could not find instance",
+		},
+		{
+			name:     "get metadata with no content",
+			instance: "empty-instance",
+			expected: "No metadata found\n",
 		},
 	}
 
