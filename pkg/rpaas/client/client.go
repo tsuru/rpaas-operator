@@ -181,6 +181,10 @@ type Client interface {
 	ListCertManagerRequests(ctx context.Context, instance string) ([]types.CertManager, error)
 	UpdateCertManager(ctx context.Context, args UpdateCertManagerArgs) error
 	DeleteCertManager(ctx context.Context, instance, issuer string) error
+
+	GetMetadata(ctx context.Context, instance string) (*types.Metadata, error)
+	SetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error
+	UnsetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error
 }
 
 type wsWriter struct {

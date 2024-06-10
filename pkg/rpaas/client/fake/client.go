@@ -45,6 +45,9 @@ type FakeClient struct {
 	FakeDeleteExtraFiles        func(args client.DeleteExtraFilesArgs) error
 	FakeListExtraFiles          func(args client.ListExtraFilesArgs) ([]types.RpaasFile, error)
 	FakeGetExtraFile            func(args client.GetExtraFileArgs) (types.RpaasFile, error)
+	FakeGetMetadata             func(instance string) (*types.Metadata, error)
+	FakeSetMetadata             func(instance string, metadata *types.Metadata) error
+	FakeUnsetMetadata           func(instance string, metadata *types.Metadata) error
 }
 
 func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*types.InstanceInfo, error) {
@@ -272,4 +275,28 @@ func (f *FakeClient) GetExtraFile(ctx context.Context, args client.GetExtraFileA
 	}
 
 	return types.RpaasFile{}, nil
+}
+
+func (f *FakeClient) GetMetadata(ctx context.Context, instance string) (*types.Metadata, error) {
+	if f.FakeGetMetadata != nil {
+		return f.FakeGetMetadata(instance)
+	}
+
+	return nil, nil
+}
+
+func (f *FakeClient) SetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error {
+	if f.FakeSetMetadata != nil {
+		return f.FakeSetMetadata(instance, metadata)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) UnsetMetadata(tx context.Context, instance string, metadata *types.Metadata) error {
+	if f.FakeUnsetMetadata != nil {
+		return f.FakeUnsetMetadata(instance, metadata)
+	}
+
+	return nil
 }

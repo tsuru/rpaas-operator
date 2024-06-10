@@ -163,3 +163,13 @@ type CertManager struct {
 	DNSNames    []string `json:"dnsNames,omitempty"`
 	IPAddresses []string `json:"ipAddresses,omitempty"`
 }
+
+type Metadata struct {
+	Labels      []MetadataItem `json:"labels"`
+	Annotations []MetadataItem `json:"annotations"`
+}
+
+type MetadataItem struct {
+	Name  string `json:"name"`
+	Value string `json:"value,omitempty"`
+}

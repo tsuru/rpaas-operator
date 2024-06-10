@@ -60,6 +60,9 @@ type RpaasManager struct {
 	FakeGetCertManagerRequests   func(instanceName string) ([]clientTypes.CertManager, error)
 	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
 	FakeDeleteCertManagerRequest func(instanceName, issuer string) error
+	FakeGetMetadata              func(instanceName string) (*clientTypes.Metadata, error)
+	FakeSetMetadata              func(instanceName string, metadata *clientTypes.Metadata) error
+	FakeUnsetMetadata            func(instanceName string, metadata *clientTypes.Metadata) error
 }
 
 func (m *RpaasManager) Log(ctx context.Context, instanceName string, args rpaas.LogArgs) error {
@@ -346,6 +349,27 @@ func (m *RpaasManager) UpdateCertManagerRequest(ctx context.Context, instance st
 func (m *RpaasManager) DeleteCertManagerRequest(ctx context.Context, instance, issuer string) error {
 	if m.FakeDeleteCertManagerRequest != nil {
 		return m.FakeDeleteCertManagerRequest(instance, issuer)
+	}
+	return nil
+}
+
+func (m *RpaasManager) GetMetadata(ctx context.Context, instance string) (*clientTypes.Metadata, error) {
+	if m.FakeGetMetadata != nil {
+		return m.FakeGetMetadata(instance)
+	}
+	return nil, nil
+}
+
+func (m *RpaasManager) SetMetadata(ctx context.Context, instance string, metadata *clientTypes.Metadata) error {
+	if m.FakeSetMetadata != nil {
+		return m.FakeSetMetadata(instance, metadata)
+	}
+	return nil
+}
+
+func (m *RpaasManager) UnsetMetadata(ctx context.Context, instance string, metadata *clientTypes.Metadata) error {
+	if m.FakeUnsetMetadata != nil {
+		return m.FakeUnsetMetadata(instance, metadata)
 	}
 	return nil
 }

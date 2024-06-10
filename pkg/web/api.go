@@ -256,6 +256,9 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 	group.POST("/:instance/acl", addUpstream)
 	group.DELETE("/:instance/acl", deleteUpstream)
 	group.GET("/:instance/log", log)
+	group.GET("/:instance/metadata", getMetadata)
+	group.POST("/:instance/metadata", setMetadata)
+	group.DELETE("/:instance/metadata", unsetMetadata)
 
 	return e
 }

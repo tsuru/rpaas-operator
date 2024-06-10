@@ -19,7 +19,6 @@ import (
 	"net"
 	"net/url"
 	"regexp"
-	"slices"
 	"sort"
 	"strings"
 	"text/template"
@@ -66,8 +65,10 @@ import (
 )
 
 const (
-	defaultNamespace      = "rpaasv2"
-	defaultKeyLabelPrefix = "rpaas.extensions.tsuru.io"
+	defaultNamespace        = "rpaasv2"
+	defaultKeyLabelPrefix   = "rpaas.extensions.tsuru.io"
+	defaultKeyRpaasInstance = "rpaas_instance"
+	defaultKeyRpaasService  = "rpaas_service"
 
 	externalDNSHostnameLabel  = "external-dns.alpha.kubernetes.io/hostname"
 	allowedDNSZonesAnnotation = "rpaas.extensions.tsuru.io/allowed-dns-zones"
@@ -1365,8 +1366,8 @@ func labelsForRpaasInstance(name string) map[string]string {
 	return map[string]string{
 		labelKey("service-name"):  getServiceName(),
 		labelKey("instance-name"): name,
-		"rpaas_service":           getServiceName(),
-		"rpaas_instance":          name,
+		defaultKeyRpaasService:    getServiceName(),
+		defaultKeyRpaasInstance:   name,
 	}
 }
 
@@ -1507,22 +1508,14 @@ func setLoadBalancerName(instance *v1alpha1.RpaasInstance, lbName string) {
 	instance.Spec.Service.Annotations[lbNameLabelKey] = lbName
 }
 
-func filterAnnotations(annotations map[string]string) []string {
-	var filterAnnotations []string
-	for key, val := range annotations {
-		if !strings.HasPrefix(key, defaultKeyLabelPrefix) {
-			filterAnnotations = append(filterAnnotations, fmt.Sprintf("%s=%s", key, val))
-		}
-	}
-	slices.Sort(filterAnnotations)
-	return filterAnnotations
-}
-
 func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName string) (*clientTypes.InstanceInfo, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return nil, err
 	}
+
+	filteredAnnotations := filterMetadata(instance.Annotations)
+	flatAnnotations := flattenMetadata(filteredAnnotations)
 
 	info := &clientTypes.InstanceInfo{
 		Name:         instance.Name,
@@ -1532,7 +1525,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Description:  instance.Annotations[labelKey("description")],
 		Team:         instance.Annotations[labelKey("team-owner")],
 		Tags:         strings.Split(instance.Annotations[labelKey("tags")], ","),
-		Annotations:  filterAnnotations(instance.Annotations),
+		Annotations:  flatAnnotations,
 		Replicas:     instance.Spec.Replicas,
 		Plan:         instance.Spec.PlanName,
 		Binds:        instance.Spec.Binds,
