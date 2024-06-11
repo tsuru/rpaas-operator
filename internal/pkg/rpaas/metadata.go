@@ -112,6 +112,15 @@ func (m *k8sRpaasManager) UnsetMetadata(ctx context.Context, instanceName string
 	if err != nil {
 		return err
 	}
+
+	if err = validateMetadata(metadata.Labels); err != nil {
+		return err
+	}
+
+	if err = validateMetadata(metadata.Annotations); err != nil {
+		return err
+	}
+
 	originalInstance := instance.DeepCopy()
 
 	if metadata.Labels != nil {

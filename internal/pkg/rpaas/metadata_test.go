@@ -155,7 +155,7 @@ func Test_k8sRpaasManager_UnsetMetadata(t *testing.T) {
 			},
 		},
 		{
-			name: "unset invalid label",
+			name: "unset label that doesn't exist",
 			objMeta: metav1.ObjectMeta{
 				Name:      "my-instance",
 				Namespace: "rpaasv2",
@@ -171,20 +171,38 @@ func Test_k8sRpaasManager_UnsetMetadata(t *testing.T) {
 			expectedErr: "label \"invalid-label\" not found in instance \"my-instance\"",
 		},
 		{
+			name: "unset invalid label",
+			objMeta: metav1.ObjectMeta{
+				Name:      "my-instance",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas_instance": "my-instance",
+					"rpaas_service":  "my-service",
+				},
+			},
+			meta: clientTypes.Metadata{
+				Labels: []clientTypes.MetadataItem{
+					{Name: "rpaas_instance"},
+				},
+			},
+			expectedErr: "metadata key \"rpaas_instance\" is reserved",
+		},
+		{
 			name: "unset invalid annotation",
 			objMeta: metav1.ObjectMeta{
 				Name:      "my-instance",
 				Namespace: "rpaasv2",
 				Annotations: map[string]string{
-					"my-annotation": "my-annotation-value",
+					"my-annotation":                  "my-annotation-value",
+					"rpaas.extensions.tsuru.io/tags": "my-tag=my-value",
 				},
 			},
 			meta: clientTypes.Metadata{
 				Annotations: []clientTypes.MetadataItem{
-					{Name: "invalid-annotation"},
+					{Name: "rpaas.extensions.tsuru.io/tags"},
 				},
 			},
-			expectedErr: "annotation \"invalid-annotation\" not found in instance \"my-instance\"",
+			expectedErr: "metadata key \"rpaas.extensions.tsuru.io/tags\" is reserved",
 		},
 	}
 
