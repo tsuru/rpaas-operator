@@ -112,7 +112,7 @@ main() {
   trap onerror ERR
 
   local_rpaas_api_port=39999
-  ${KUBECTL} -n ${NAMESPACE} port-forward svc/rpaas-api ${local_rpaas_api_port}:80 --address=127.0.0.1 &
+  DEBUG="" ${KUBECTL} -n ${NAMESPACE} port-forward svc/rpaas-api ${local_rpaas_api_port}:80 --address=127.0.0.1 &
   kubectl_port_forward_pid=${!}
 
   sleep 5
