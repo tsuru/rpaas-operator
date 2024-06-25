@@ -380,6 +380,7 @@ func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, val
 			},
 		},
 		Spec: corev1.PodSpec{
+			InitContainers: validationMergedWithFlavors.Spec.PodTemplate.InitContainers,
 			Containers: []corev1.Container{
 				{
 					Name:         "validation",

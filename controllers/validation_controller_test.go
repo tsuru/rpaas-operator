@@ -479,6 +479,19 @@ func TestValidationControllerReconcicleManyFlavors(t *testing.T) {
 				Name:      "banana",
 				Namespace: "default",
 			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						InitContainers: []corev1.Container{
+							{
+								Name:  "do-something",
+								Image: "busybox",
+								Args:  []string{"cp /tmp/blah /etc/blah"},
+							},
+						},
+					},
+				},
+			},
 		},
 
 		&v1alpha1.RpaasFlavor{
@@ -498,6 +511,15 @@ func TestValidationControllerReconcicleManyFlavors(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, corev1.PodSpec{
+		InitContainers: []corev1.Container{
+			{
+				Name:  "do-something",
+				Image: "busybox",
+				Args: []string{
+					"cp /tmp/blah /etc/blah",
+				},
+			},
+		},
 		Volumes: []corev1.Volume{
 			{
 				Name: "nginx-config",
