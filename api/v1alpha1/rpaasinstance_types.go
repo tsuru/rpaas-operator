@@ -153,6 +153,10 @@ type DynamicCertificates struct {
 }
 
 type CertManager struct {
+	// Name is recently introduced to allow multiple certificates in the same instance.
+	// +optional
+	Name string `json:"name"`
+
 	// Issuer refers either to Issuer or ClusterIssuer resource.
 	//
 	// NOTE: when there's no Issuer on this name, it tries using ClusterIssuer instead.

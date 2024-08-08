@@ -94,6 +94,24 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 		},
 
 		{
+			name: "when UpdateCertificate with default name",
+			args: []string{"./rpaasv2", "certificates", "update", "-i", "my-instance", "--cert", certFile.Name(), "--key", keyFile.Name()},
+			client: &fake.FakeClient{
+				FakeUpdateCertificate: func(args rpaasclient.UpdateCertificateArgs) error {
+					expected := rpaasclient.UpdateCertificateArgs{
+						Instance:    "my-instance",
+						Name:        "default",
+						Certificate: certPem,
+						Key:         keyPem,
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+			expected: "certificate \"default\" updated in my-instance\n",
+		},
+
+		{
 			name: "enabling cert-manager integration",
 			args: []string{"./rpaasv2", "certificates", "add", "-i", "my-instance", "--cert-manager", "--issuer", "lets-encrypt", "--dns", "my-instance.example.com", "--dns", "foo.example.com", "--ip", "169.196.100.100", "--ip", "2001:db8:dead:beef::"},
 			client: &fake.FakeClient{
@@ -104,6 +122,25 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 							Issuer:      "lets-encrypt",
 							DNSNames:    []string{"my-instance.example.com", "foo.example.com"},
 							IPAddresses: []string{"169.196.100.100", "2001:db8:dead:beef::"},
+						},
+					}, args)
+					return nil
+				},
+			},
+			expected: "cert manager certificate was updated\n",
+		},
+
+		{
+			name: "enabling cert-manager integration with name definition",
+			args: []string{"./rpaasv2", "certificates", "add", "-i", "my-instance", "--cert-manager", "--name", "cert01", "--issuer", "lets-encrypt", "--dns", "my-instance.example.com"},
+			client: &fake.FakeClient{
+				FakeUpdateCertManager: func(args rpaasclient.UpdateCertManagerArgs) error {
+					assert.Equal(t, rpaasclient.UpdateCertManagerArgs{
+						Instance: "my-instance",
+						CertManager: types.CertManager{
+							Name:     "cert01",
+							Issuer:   "lets-encrypt",
+							DNSNames: []string{"my-instance.example.com"},
 						},
 					}, args)
 					return nil
