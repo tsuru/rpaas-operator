@@ -49,7 +49,6 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 			&cli.StringFlag{
 				Name:  "name",
 				Usage: "an identifier for the current certificate and key",
-				Value: "default",
 			},
 			&cli.PathFlag{
 				Name:    "certificate",
@@ -104,9 +103,14 @@ func runUpdateCertificate(c *cli.Context) error {
 		return err
 	}
 
+	name := c.String("name")
+	if name == "" {
+		name = "default"
+	}
+
 	args := rpaasclient.UpdateCertificateArgs{
 		Instance:    c.String("instance"),
-		Name:        c.String("name"),
+		Name:        name,
 		Certificate: string(certificate),
 		Key:         string(key),
 	}
@@ -131,6 +135,7 @@ func updateCertManagerCertificate(c *cli.Context, client rpaasclient.Client) (bo
 	err := client.UpdateCertManager(c.Context, rpaasclient.UpdateCertManagerArgs{
 		Instance: c.String("instance"),
 		CertManager: clientTypes.CertManager{
+			Name:        c.String("name"),
 			Issuer:      c.String("issuer"),
 			DNSNames:    c.StringSlice("dns"),
 			IPAddresses: c.StringSlice("ip"),
