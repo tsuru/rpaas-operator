@@ -639,6 +639,16 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
+	mapCertificatesIssuers := map[string]string{}
+
+	if instance.Spec.DynamicCertificates != nil {
+		for _, certManagerRequest := range instance.Spec.DynamicCertificates.CertManagerRequests {
+			if certManagerRequest.Name != "" {
+				mapCertificatesIssuers[certManagerRequest.Name] = certManagerRequest.Issuer
+			}
+		}
+	}
+
 	var certList []CertificateData
 	for _, tls := range instance.Spec.TLS {
 		var s corev1.Secret
@@ -646,11 +656,18 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 			return nil, err
 		}
 
-		certList = append(certList, CertificateData{
+		certData := CertificateData{
 			Name:        s.Labels[certificates.CertificateNameLabel],
 			Certificate: string(s.Data[corev1.TLSCertKey]),
 			Key:         string(s.Data[corev1.TLSPrivateKeyKey]),
-		})
+		}
+
+		if issuer, ok := mapCertificatesIssuers[certData.Name]; ok {
+			certData.CertManagerIssuer = issuer
+			certData.IsManagedByCertManager = true
+		}
+
+		certList = append(certList, certData)
 	}
 
 	return certList, nil
@@ -2036,6 +2053,9 @@ func (m *k8sRpaasManager) getCertificatesInfo(ctx context.Context, instance *v1a
 			ValidUntil:         leaf.NotAfter,
 			PublicKeyAlgorithm: leaf.PublicKeyAlgorithm.String(),
 			PublicKeyBitSize:   publicKeySize(leaf.PublicKey),
+
+			IsManagedByCertManager: cert.IsManagedByCertManager,
+			CertManagerIssuer:      cert.CertManagerIssuer,
 		})
 	}
 

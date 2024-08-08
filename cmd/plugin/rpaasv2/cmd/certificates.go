@@ -216,7 +216,12 @@ func runDeleteCertificate(c *cli.Context) error {
 func writeCertificatesInfoOnTableFormat(w io.Writer, certs []clientTypes.CertificateInfo) {
 	var data [][]string
 	for _, c := range certs {
-		data = append(data, []string{c.Name, formatPublicKeyInfo(c), formatCertificateValidity(c), strings.Join(c.DNSNames, "\n")})
+		extraInfo := ""
+		if c.IsManagedByCertManager {
+			extraInfo = "\n  managed by: cert-manager\n  issuer: " + c.CertManagerIssuer
+		}
+
+		data = append(data, []string{c.Name + extraInfo, formatPublicKeyInfo(c), formatCertificateValidity(c), strings.Join(c.DNSNames, "\n")})
 	}
 
 	table := tablewriter.NewWriter(w)
