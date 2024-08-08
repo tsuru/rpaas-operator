@@ -260,5 +260,8 @@ func isCertificateReady(cert *cmv1.Certificate) bool {
 }
 
 func cmCertificateName(r v1alpha1.CertManager) string {
+	if r.Name != "" {
+		return r.Name
+	}
 	return fmt.Sprintf("%s-%s", CertManagerCertificateName, strings.ToLower(strings.ReplaceAll(r.Issuer, ".", "-")))
 }

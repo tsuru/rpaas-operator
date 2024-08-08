@@ -115,6 +115,9 @@ type CertificateInfo struct {
 	DNSNames           []string
 	PublicKeyAlgorithm string
 	PublicKeyBitSize   int
+
+	IsManagedByCertManager bool
+	CertManagerIssuer      string
 }
 
 type Event struct {

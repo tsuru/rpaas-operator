@@ -293,6 +293,9 @@ type CertificateData struct {
 	Name        string `json:"name"`
 	Certificate string `json:"certificate"`
 	Key         string `json:"key"`
+
+	IsManagedByCertManager bool   `json:"isManagedByCertManager,omitempty"`
+	CertManagerIssuer      string `json:"certManagerIssuer,omitempty"`
 }
 
 func getAnnotations(params map[string]interface{}) (map[string]string, error) {
