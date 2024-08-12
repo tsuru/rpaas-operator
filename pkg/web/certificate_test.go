@@ -390,6 +390,22 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 			expectedCode: http.StatusOK,
 		},
 
+		"doing a correct request with name": {
+			requestBody: `{"name": "cert01", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+			manager: &fake.RpaasManager{
+				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, clientTypes.CertManager{
+						Name:     "cert01",
+						Issuer:   "my-issuer",
+						DNSNames: []string{"foo.example.com"},
+					}, in)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+
 		"when some error is returned": {
 			manager: &fake.RpaasManager{
 				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
@@ -417,7 +433,7 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 	}
 }
 
-func Test_DeleteCertManagerRequest(t *testing.T) {
+func Test_DeleteCertManagerRequestByIssuer(t *testing.T) {
 	tests := map[string]struct {
 		manager      rpaas.RpaasManager
 		instance     string
@@ -428,7 +444,7 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 		"remove Cert Manager request without issuer": {
 			instance: "my-instance",
 			manager: &fake.RpaasManager{
-				FakeDeleteCertManagerRequest: func(instanceName, issuer string) error {
+				FakeDeleteCertManagerRequestByIssuer: func(instanceName, issuer string) error {
 					assert.Equal(t, "my-instance", instanceName)
 					assert.Empty(t, issuer)
 					return nil
@@ -441,7 +457,7 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 			instance: "my-instance",
 			issuer:   "my-cert-issuer",
 			manager: &fake.RpaasManager{
-				FakeDeleteCertManagerRequest: func(instanceName, issuer string) error {
+				FakeDeleteCertManagerRequestByIssuer: func(instanceName, issuer string) error {
 					assert.Equal(t, "my-instance", instanceName)
 					assert.Equal(t, "my-cert-issuer", issuer)
 					return nil
@@ -452,7 +468,7 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 
 		"when some error is returned": {
 			manager: &fake.RpaasManager{
-				FakeDeleteCertManagerRequest: func(instanceName, issuer string) error {
+				FakeDeleteCertManagerRequestByIssuer: func(instanceName, issuer string) error {
 					return &rpaas.ValidationError{Msg: "some error"}
 				},
 			},
@@ -472,6 +488,55 @@ func Test_DeleteCertManagerRequest(t *testing.T) {
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
 			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+		})
+	}
+}
+
+func Test_DeleteCertManagerRequestByName(t *testing.T) {
+	tests := map[string]struct {
+		manager      rpaas.RpaasManager
+		instance     string
+		name         string
+		expectedCode int
+		expectedBody string
+	}{
+
+		"remove Cert Manager request from a specific issuer": {
+			instance: "my-instance",
+			name:     "cert01",
+			manager: &fake.RpaasManager{
+				FakeDeleteCertManagerRequestByName: func(instanceName, name string) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "cert01", name)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+
+		"when some error is returned": {
+			name: "cert02",
+			manager: &fake.RpaasManager{
+				FakeDeleteCertManagerRequestByName: func(instanceName, issuer string) error {
+					return &rpaas.ValidationError{Msg: "some error"}
+				},
+			},
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `{"message":"some error"}`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/cert-manager?name=%s", srv.URL, tt.instance, tt.name)
+			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
 		})
 	}
 }

@@ -72,6 +72,7 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 	}
 
 	newRequest := v1alpha1.CertManager{
+		Name:        in.Name,
 		Issuer:      issuer,
 		DNSNames:    in.DNSNames,
 		IPAddresses: in.IPAddresses,
@@ -81,7 +82,9 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		instance.Spec.DynamicCertificates.CertManager = nil
 	}
 
-	if index, found := findCertManagerRequestByIssuer(instance, in.Issuer); found {
+	if index, found := findCertManagerRequestByName(instance, in.Name); found {
+		instance.Spec.DynamicCertificates.CertManagerRequests[index] = newRequest
+	} else if index, found := findCertManagerRequestByIssuer(instance, in.Issuer); found {
 		instance.Spec.DynamicCertificates.CertManagerRequests[index] = newRequest
 	} else {
 		instance.Spec.DynamicCertificates.CertManagerRequests = append(instance.Spec.DynamicCertificates.CertManagerRequests, newRequest)
@@ -90,7 +93,7 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instanceName, issuer string) error {
+func (m *k8sRpaasManager) DeleteCertManagerRequestByIssuer(ctx context.Context, instanceName, issuer string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -113,6 +116,38 @@ func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instance
 	}
 
 	index, found := findCertManagerRequestByIssuer(instance, issuer)
+	if !found {
+		return &NotFoundError{Msg: "cert-manager certificate has already been removed"}
+	}
+
+	// NOTE: removes the index-th element of slice.
+	instance.Spec.DynamicCertificates.CertManagerRequests = append(instance.Spec.DynamicCertificates.CertManagerRequests[:index], instance.Spec.DynamicCertificates.CertManagerRequests[index+1:]...)
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) DeleteCertManagerRequestByName(ctx context.Context, instanceName, name string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if name == "" {
+		return &ValidationError{Msg: "cert-manager name cannot be empty"}
+	}
+
+	if instance.Spec.DynamicCertificates == nil {
+		instance.Spec.DynamicCertificates = &v1alpha1.DynamicCertificates{}
+	}
+
+	if req := instance.Spec.DynamicCertificates.CertManager; req != nil {
+		if req.Name == name {
+			instance.Spec.DynamicCertificates.CertManager = nil
+			return m.cli.Update(ctx, instance)
+		}
+	}
+
+	index, found := findCertManagerRequestByName(instance, name)
 	if !found {
 		return &NotFoundError{Msg: "cert-manager certificate has already been removed"}
 	}
@@ -194,6 +229,24 @@ func findCertManagerRequestByIssuer(instance *v1alpha1.RpaasInstance, issuer str
 
 	for i, req := range instance.Spec.DynamicCertificates.CertManagerRequests {
 		if req.Issuer == issuer {
+			return i, true
+		}
+	}
+
+	return -1, false
+}
+
+func findCertManagerRequestByName(instance *v1alpha1.RpaasInstance, name string) (int, bool) {
+	if instance.Spec.DynamicCertificates == nil {
+		return -1, false
+	}
+
+	if name == "" {
+		return -1, false
+	}
+
+	for i, req := range instance.Spec.DynamicCertificates.CertManagerRequests {
+		if req.Name == name {
 			return i, true
 		}
 	}

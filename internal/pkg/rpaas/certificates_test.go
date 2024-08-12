@@ -198,6 +198,33 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 			},
 		},
 
+		"using certificate issuer name": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Name:     "cert-1",
+				Issuer:   "issuer-1",
+				DNSNames: []string{"my-instance-1.example.com"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager: true,
+			},
+			assert: func(t *testing.T, cli client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-1",
+					Namespace: "rpaasv2",
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.Nil(t, instance.Spec.DynamicCertificates.CertManager)
+				assert.Equal(t, []v1alpha1.CertManager{{
+					Name:     "cert-1",
+					Issuer:   "issuer-1",
+					DNSNames: []string{"my-instance-1.example.com"},
+				}}, instance.Spec.DynamicCertificates.CertManagerRequests)
+			},
+		},
+
 		"with forbidden DNS names": {
 			instanceName: "my-instance-1",
 			certManager: clientTypes.CertManager{
@@ -249,7 +276,7 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
+func Test_k8sRpaasManager_DeleteCertManagerRequestByIssuer(t *testing.T) {
 	resources := []runtime.Object{
 		&v1alpha1.RpaasInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -333,7 +360,7 @@ func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
 
 			manager := &k8sRpaasManager{cli: client}
 
-			err := manager.DeleteCertManagerRequest(context.TODO(), tt.instanceName, tt.issuer)
+			err := manager.DeleteCertManagerRequestByIssuer(context.TODO(), tt.instanceName, tt.issuer)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
