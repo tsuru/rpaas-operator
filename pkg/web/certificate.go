@@ -145,8 +145,18 @@ func deleteCertManagerRequest(c echo.Context) error {
 		return err
 	}
 
-	if err := manager.DeleteCertManagerRequest(ctx, c.Param("instance"), c.QueryParam("issuer")); err != nil {
-		return err
+	instanceName := c.Param("instance")
+	name := c.QueryParam("name")
+	issuer := c.QueryParam("issuer")
+
+	if name != "" {
+		if err := manager.DeleteCertManagerRequestByName(ctx, instanceName, name); err != nil {
+			return err
+		}
+	} else {
+		if err := manager.DeleteCertManagerRequestByIssuer(ctx, instanceName, issuer); err != nil {
+			return err
+		}
 	}
 
 	return c.NoContent(http.StatusOK)
