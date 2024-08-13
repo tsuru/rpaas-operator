@@ -203,6 +203,11 @@ func (c *client) newRequestWithQueryString(method, pathName string, body io.Read
 
 	c.baseAuthHeader(request.Header)
 
+	rpaasDisableValidation := os.Getenv("RPAAS_DISABLE_VALIDATION")
+	if rpaasDisableValidation != "" {
+		request.Header.Set("X-Rpaas-Disable-Validation", rpaasDisableValidation)
+	}
+
 	return request, nil
 }
 
