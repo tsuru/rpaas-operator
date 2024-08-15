@@ -41,6 +41,17 @@ func Test_ReconcileCertManager(t *testing.T) {
 			},
 		},
 
+		&cmv1.Issuer{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "issuer-2",
+				Namespace: "rpaasv2",
+			},
+			Spec: cmv1.IssuerSpec{
+				IssuerConfig: cmv1.IssuerConfig{
+					SelfSigned: &cmv1.SelfSignedIssuer{},
+				},
+			},
+		},
 		&cmv1.ClusterIssuer{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "cluster-issuer-1",
@@ -207,6 +218,108 @@ wg4cGbIbBPs=
 					DNSNames:    []string{"my-instance.example.com"},
 					IPAddresses: []string{"169.196.1.100"},
 				}, cert.Spec)
+			},
+		},
+
+		"when many cert manager requests are set, should create certificates": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
+						CertManagerRequests: []v1alpha1.CertManager{
+							{
+								Name:     "cert-01",
+								Issuer:   "issuer-1",
+								DNSNames: []string{"my-instance.example.com"},
+							},
+							{
+								Name:     "cert-02",
+								Issuer:   "issuer-1",
+								DNSNames: []string{"my-instance2.example.com"},
+							},
+							{
+								Name:     "cert-03",
+								Issuer:   "issuer-2",
+								DNSNames: []string{"my-instance3.example.org"},
+							},
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				var certList cmv1.CertificateList
+
+				err := cli.List(context.TODO(), &certList)
+				require.NoError(t, err)
+
+				certs := []cmv1.Certificate{}
+				for _, cert := range certList.Items {
+					if cert.Labels["rpaas.extensions.tsuru.io/instance-name"] == "my-instance" {
+						certs = append(certs, cert)
+					}
+				}
+
+				require.Len(t, certs, 3)
+
+				for _, cert := range certs {
+					assert.Equal(t, []metav1.OwnerReference{
+						{
+							APIVersion:         "extensions.tsuru.io/v1alpha1",
+							Kind:               "RpaasInstance",
+							Name:               "my-instance",
+							Controller:         func(b bool) *bool { return &b }(true),
+							BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+						},
+					}, cert.ObjectMeta.OwnerReferences)
+				}
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-01",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+				}, certs[0].Labels)
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-02",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+				}, certs[1].Labels)
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-03",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+				}, certs[2].Labels)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: "my-instance-cert-01",
+					DNSNames:   []string{"my-instance.example.com"},
+				}, certs[0].Spec)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: "my-instance-cert-02",
+					DNSNames:   []string{"my-instance2.example.com"},
+				}, certs[1].Spec)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-2",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: "my-instance-cert-03",
+					DNSNames:   []string{"my-instance3.example.org"},
+				}, certs[2].Spec)
 			},
 		},
 
@@ -420,7 +533,8 @@ wg4cGbIbBPs=
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
-			allResources := append(resources, tt.instance)
+			allResources := append([]k8sruntime.Object{}, tt.instance)
+			allResources = append(allResources, resources...)
 
 			cli := fake.NewClientBuilder().
 				WithScheme(runtime.NewScheme()).

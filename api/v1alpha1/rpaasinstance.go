@@ -69,17 +69,37 @@ func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
 		return
 	}
 
-	uniqueCerts := make(map[string]*CertManager)
+	uniqueCertsByIssuer := make(map[string]*CertManager)
+	uniqueCertsByName := make(map[string]*CertManager)
+
 	if req := i.Spec.DynamicCertificates.CertManager; req != nil {
 		r := req.DeepCopy()
 		r.DNSNames = r.dnsNames(i)
-		uniqueCerts[r.Issuer] = r
+
+		if req.Name != "" {
+			uniqueCertsByName[req.Name] = r
+		} else {
+			uniqueCertsByIssuer[r.Issuer] = r
+		}
 	}
 
 	for _, req := range i.Spec.DynamicCertificates.CertManagerRequests {
-		r, found := uniqueCerts[req.Issuer]
+
+		if req.Name != "" {
+			r, found := uniqueCertsByName[req.Name]
+			if found {
+				r.DNSNames = append(r.DNSNames, req.dnsNames(i)...)
+				r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
+			} else {
+				uniqueCertsByName[req.Name] = req.DeepCopy()
+			}
+
+			continue
+		}
+
+		r, found := uniqueCertsByIssuer[req.Issuer]
 		if !found {
-			uniqueCerts[req.Issuer] = req.DeepCopy()
+			uniqueCertsByIssuer[req.Issuer] = req.DeepCopy()
 			continue
 		}
 
@@ -87,11 +107,20 @@ func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
 		r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
 	}
 
-	for _, v := range uniqueCerts {
+	for _, v := range uniqueCertsByName {
+		reqs = append(reqs, *v)
+	}
+	for _, v := range uniqueCertsByIssuer {
 		reqs = append(reqs, *v)
 	}
 
-	sort.Slice(reqs, func(i, j int) bool { return reqs[i].Issuer < reqs[j].Issuer })
+	sort.Slice(reqs, func(i, j int) bool {
+		if reqs[i].Name != reqs[j].Name {
+			return reqs[i].Name < reqs[j].Name
+		}
+
+		return reqs[i].Issuer < reqs[j].Issuer
+	})
 
 	return
 }
