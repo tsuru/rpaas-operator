@@ -133,6 +133,16 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 		},
 		&cmv1.ClusterIssuer{
 			ObjectMeta: metav1.ObjectMeta{
+				Name: "issuer-2",
+				Annotations: map[string]string{
+					maxDNSNamesAnnotation:   "1",
+					maxIPsAnnotation:        "0",
+					allowWildcardAnnotation: "false",
+				},
+			},
+		},
+		&cmv1.ClusterIssuer{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "default-issuer",
 			},
 		},
@@ -235,6 +245,42 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				DefaultCertManagerIssuer: "issuer-1",
 			},
 			expectedError: "there is some DNS name with forbidden suffix (invalid ones: wrong.io, wrong.com - allowed DNS suffixes: example.com, example.org)",
+		},
+
+		"with exceeded number of DNS names": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames: []string{"my-instance-1.example.com", "my-instance-1.example.org"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "maximum number of DNS names exceeded (maximum allowed: 1)",
+		},
+
+		"with exceeded number of IP Addresses": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				IPAddresses: []string{"10.1.1.1"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "maximum number of IP Addresses exceeded (maximum allowed: 0)",
+		},
+
+		"with forbidden use of wildcards": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames: []string{"*.example.org"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "wildcard DNS names are not allowed on this issuer",
 		},
 
 		"using wrong certificate issuer from configs": {

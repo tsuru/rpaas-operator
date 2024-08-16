@@ -72,6 +72,9 @@ const (
 
 	externalDNSHostnameLabel  = "external-dns.alpha.kubernetes.io/hostname"
 	allowedDNSZonesAnnotation = "rpaas.extensions.tsuru.io/allowed-dns-zones"
+	maxDNSNamesAnnotation     = "rpaas.extensions.tsuru.io/cert-manager-max-dns-names"
+	maxIPsAnnotation          = "rpaas.extensions.tsuru.io/cert-manager-max-ips"
+	allowWildcardAnnotation   = "rpaas.extensions.tsuru.io/cert-manager-allow-wildcard"
 
 	nginxContainerName = "nginx"
 )
