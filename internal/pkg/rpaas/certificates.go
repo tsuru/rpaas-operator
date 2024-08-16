@@ -7,6 +7,7 @@ package rpaas
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -69,6 +70,28 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 	allowed := strings.Split(issuerAnnotations[allowedDNSZonesAnnotation], ",")
 	if err = areDNSNamesAllowed(allowed, in.DNSNames); err != nil {
 		return err
+	}
+
+	if issuerAnnotations[maxDNSNamesAnnotation] != "" {
+		maxDNSName, _ := strconv.Atoi(issuerAnnotations[maxDNSNamesAnnotation])
+		if len(in.DNSNames) > maxDNSName {
+			return &ValidationError{Msg: fmt.Sprintf("maximum number of DNS names exceeded (maximum allowed: %d)", maxDNSName)}
+		}
+	}
+
+	if issuerAnnotations[maxIPsAnnotation] != "" {
+		maxIPs, _ := strconv.Atoi(issuerAnnotations[maxIPsAnnotation])
+		if len(in.IPAddresses) > maxIPs {
+			return &ValidationError{Msg: fmt.Sprintf("maximum number of IP Addresses exceeded (maximum allowed: %d)", maxIPs)}
+		}
+	}
+
+	if issuerAnnotations[allowWildcardAnnotation] == "false" {
+		for _, dnsName := range in.DNSNames {
+			if strings.HasPrefix(dnsName, "*") {
+				return &ValidationError{Msg: "wildcard DNS names are not allowed on this issuer"}
+			}
+		}
 	}
 
 	newRequest := v1alpha1.CertManager{
