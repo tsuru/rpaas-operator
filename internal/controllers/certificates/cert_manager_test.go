@@ -78,6 +78,21 @@ func Test_ReconcileCertManager(t *testing.T) {
 			},
 		},
 
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-take-over-old",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "my-instance-take-over",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-take-over-test",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(`--- some old cert here ---`),
+				"tls.key": []byte(`--- some old key here ---`),
+			},
+		},
+
 		&cmv1.Certificate{
 			ObjectMeta: metav1.ObjectMeta{
 				Name:      "my-instance-2",
@@ -320,6 +335,87 @@ wg4cGbIbBPs=
 					SecretName: "my-instance-cert-03",
 					DNSNames:   []string{"my-instance3.example.org"},
 				}, certs[2].Spec)
+			},
+		},
+
+		"when take over existing certificate using cert manager": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance-take-over-test",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
+						CertManagerRequests: []v1alpha1.CertManager{
+							{
+								Name:     "my-instance-take-over",
+								Issuer:   "issuer-1",
+								DNSNames: []string{"my-instance.example.com"},
+							},
+						},
+					},
+					TLS: []nginxv1alpha1.NginxTLS{
+						{
+							SecretName: "my-instance-take-over-old",
+							Hosts:      []string{"my-instance.example.com"},
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				var certList cmv1.CertificateList
+
+				err := cli.List(context.TODO(), &certList)
+				require.NoError(t, err)
+
+				certs := []cmv1.Certificate{}
+				for _, cert := range certList.Items {
+					if cert.Labels["rpaas.extensions.tsuru.io/instance-name"] == "my-instance-take-over-test" {
+						certs = append(certs, cert)
+					}
+				}
+
+				require.Len(t, certs, 1)
+
+				for _, cert := range certs {
+					assert.Equal(t, []metav1.OwnerReference{
+						{
+							APIVersion:         "extensions.tsuru.io/v1alpha1",
+							Kind:               "RpaasInstance",
+							Name:               "my-instance-take-over-test",
+							Controller:         func(b bool) *bool { return &b }(true),
+							BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+						},
+					}, cert.ObjectMeta.OwnerReferences)
+				}
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "my-instance-take-over",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-take-over-test",
+				}, certs[0].Labels)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: "my-instance-take-over-test-my-instance-take-over",
+					DNSNames:   []string{"my-instance.example.com"},
+				}, certs[0].Spec)
+
+				secret := corev1.Secret{}
+				err = cli.Get(context.TODO(), types.NamespacedName{
+					Name:      certs[0].Spec.SecretName,
+					Namespace: instance.Namespace,
+				}, &secret)
+				require.NoError(t, err)
+
+				assert.Equal(t, certs[0].Labels, secret.Labels)
+				assert.Equal(t, certs[0].Annotations, secret.Annotations)
+
+				assert.Equal(t, "--- some old cert here ---", string(secret.Data["tls.crt"]))
+				assert.Equal(t, "--- some old key here ---", string(secret.Data["tls.key"]))
 			},
 		},
 
