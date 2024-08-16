@@ -12,6 +12,7 @@ import (
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -45,6 +46,10 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance, i
 		var cert cmv1.Certificate
 		err = client.Get(ctx, types.NamespacedName{Name: newCert.Name, Namespace: newCert.Namespace}, &cert)
 		if err != nil && k8serrors.IsNotFound(err) {
+			if err = takeOverPreviousSecret(ctx, client, instance, instanceMergedWithFlavors, newCert); err != nil {
+				return err
+			}
+
 			if err = client.Create(ctx, newCert); err != nil {
 				return err
 			}
@@ -110,6 +115,46 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 	}
 
 	return nil
+}
+
+func takeOverPreviousSecret(ctx context.Context, c client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance, cert *cmv1.Certificate) error {
+	var secret corev1.Secret
+
+	err := c.Get(ctx, types.NamespacedName{Name: cert.Spec.SecretName, Namespace: cert.Namespace}, &secret)
+
+	if err == nil {
+		return nil
+	}
+
+	if !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	// find previous secret
+	certificateName := cert.Labels[CertificateNameLabel]
+	previousSecret, err := getTLSSecretByCertificateName(ctx, c, instanceMergedWithFlavors, certificateName)
+
+	if err == ErrTLSSecretNotFound {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	secret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        cert.Spec.SecretName,
+			Namespace:   cert.Namespace,
+			Labels:      cert.Labels,
+			Annotations: cert.Annotations,
+		},
+		Data:       previousSecret.Data,
+		StringData: previousSecret.StringData,
+		Type:       previousSecret.Type,
+	}
+
+	return c.Create(ctx, &secret)
 }
 
 func getCertificates(ctx context.Context, c client.Client, i *v1alpha1.RpaasInstance) ([]cmv1.Certificate, error) {
