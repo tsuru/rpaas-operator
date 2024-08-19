@@ -19,7 +19,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
-	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
 const CertificateNameLabel = "rpaas.extensions.tsuru.io/certificate-name"
@@ -59,7 +58,7 @@ func UpdateCertificateFromSecret(ctx context.Context, c client.Client, instance 
 		}
 	}
 
-	return updateInstanceWithCertificateInfos(ctx, c, instance, &s)
+	return nil
 }
 
 func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string, certData, keyData []byte) error {
@@ -106,7 +105,7 @@ func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 		return err
 	}
 
-	return updateInstanceWithCertificateInfos(ctx, c, instance, s)
+	return updateInstanceSpecWithCertificateInfos(ctx, c, instance, s)
 
 }
 
@@ -136,9 +135,6 @@ func DeleteCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 		instance.Spec.TLS = append(instance.Spec.TLS[:index], instance.Spec.TLS[index+1:]...) // removes the i-th element
 	}
 
-	delete(instance.Spec.PodTemplate.Annotations, certificateHashAnnotationKey(certificateName))
-	delete(instance.Spec.PodTemplate.Annotations, keyHashAnnotationKey(certificateName))
-
 	if err = c.Update(ctx, instance); err != nil {
 		return err
 	}
@@ -146,7 +142,7 @@ func DeleteCertificate(ctx context.Context, c client.Client, instance *v1alpha1.
 	return c.Delete(ctx, s)
 }
 
-func updateInstanceWithCertificateInfos(ctx context.Context, c client.Client, i *v1alpha1.RpaasInstance, s *corev1.Secret) error {
+func updateInstanceSpecWithCertificateInfos(ctx context.Context, c client.Client, i *v1alpha1.RpaasInstance, s *corev1.Secret) error {
 	hosts, err := extractDNSNames(s.Data[corev1.TLSCertKey])
 	if err != nil {
 		return err
@@ -163,20 +159,38 @@ func updateInstanceWithCertificateInfos(ctx context.Context, c client.Client, i 
 		})
 	}
 
-	if i.Spec.PodTemplate.Annotations == nil {
-		i.Spec.PodTemplate.Annotations = make(map[string]string)
+	if !reflect.DeepEqual(i.Spec.TLS, original.Spec.TLS) {
+		updateErr := c.Update(ctx, i)
+		if updateErr != nil {
+			return updateErr
+		}
 	}
 
-	certName := s.Labels[CertificateNameLabel]
+	return nil
+}
 
-	i.Spec.PodTemplate.Annotations[certificateHashAnnotationKey(certName)] = util.SHA256(s.Data[corev1.TLSCertKey])
-	i.Spec.PodTemplate.Annotations[keyHashAnnotationKey(certName)] = util.SHA256(s.Data[corev1.TLSPrivateKeyKey])
+func ListCertificateSecrets(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance) ([]corev1.Secret, error) {
+	var sl corev1.SecretList
+	err := c.List(ctx, &sl, &client.ListOptions{
+		LabelSelector: labels.Set{
+			"rpaas.extensions.tsuru.io/instance-name": instance.Name,
+		}.AsSelector(),
+		Namespace: instance.Namespace,
+	})
 
-	if reflect.DeepEqual(i.Spec.PodTemplate.Annotations, original.Spec.PodTemplate.Annotations) && reflect.DeepEqual(i.Spec.TLS, original.Spec.TLS) {
-		return nil
+	if err != nil {
+		return nil, err
 	}
 
-	return c.Update(ctx, i)
+	result := make([]corev1.Secret, 0, len(sl.Items))
+
+	for _, s := range sl.Items {
+		if _, ok := s.Labels[CertificateNameLabel]; ok {
+			result = append(result, s)
+		}
+	}
+
+	return result, nil
 }
 
 func getTLSSecretByCertificateName(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certName string) (*corev1.Secret, error) {
@@ -255,32 +269,4 @@ func extractDNSNames(rawCert []byte) ([]string, error) {
 	leaf := certs[0]
 
 	return leaf.DNSNames, nil
-}
-
-func certificateHashAnnotationKey(certName string) string {
-	keyFormat := "rpaas.extensions.tsuru.io/%s-certificate-sha256"
-
-	// NOTE: Annotation keys must not be greater than 63 chars.
-	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
-	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
-
-	if len(certName) > maxIssuer {
-		certName = certName[:maxIssuer]
-	}
-
-	return fmt.Sprintf(keyFormat, certName)
-}
-
-func keyHashAnnotationKey(certName string) string {
-	keyFormat := "rpaas.extensions.tsuru.io/%s-key-sha256"
-
-	// NOTE: Annotation keys must not be greater than 63 chars.
-	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
-	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
-
-	if len(certName) > maxIssuer {
-		certName = certName[:maxIssuer]
-	}
-
-	return fmt.Sprintf(keyFormat, certName)
 }

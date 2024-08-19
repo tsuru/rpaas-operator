@@ -256,7 +256,11 @@ func Test_newNginx(t *testing.T) {
 			if tt.expected != nil {
 				nginx = tt.expected(nginx)
 			}
-			assert.Equal(t, nginx, newNginx(instance, plan, cm))
+			assert.Equal(t, nginx, newNginx(newNginxOptions{
+				instanceMergedWithFlavors: instance,
+				plan:                      plan,
+				configMap:                 cm,
+			}))
 		})
 	}
 }

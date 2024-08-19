@@ -598,12 +598,7 @@ wg4cGbIbBPs=
 				},
 			},
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
-				assert.Equal(t, []nginxv1alpha1.NginxTLS{
-					{SecretName: "my-instance-3-cert-manager-issuer-1", Hosts: []string{"www.example.com", "www.example.org", "www.example.test"}},
-				}, instance.Spec.TLS)
-
-				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-issue-certificate-sha256"])
-				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", instance.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-issuer-1-key-sha256"])
+				assert.Nil(t, instance.Spec.TLS)
 
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
@@ -614,7 +609,7 @@ wg4cGbIbBPs=
 
 				var s corev1.Secret
 				err = cli.Get(context.TODO(), types.NamespacedName{
-					Name:      instance.Spec.TLS[0].SecretName,
+					Name:      cert.Spec.SecretName,
 					Namespace: instance.Namespace,
 				}, &s)
 				require.NoError(t, err)
@@ -637,7 +632,7 @@ wg4cGbIbBPs=
 				WithRuntimeObjects(allResources...).
 				Build()
 
-			err := reconcileCertManager(context.TODO(), cli, tt.instance, tt.instance)
+			_, err := ReconcileCertManager(context.TODO(), cli, tt.instance, tt.instance)
 
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
