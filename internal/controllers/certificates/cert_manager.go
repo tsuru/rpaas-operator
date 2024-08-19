@@ -26,32 +26,34 @@ import (
 
 const CertManagerCertificateName string = "cert-manager"
 
-func reconcileCertManager(ctx context.Context, client client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
+func ReconcileCertManager(ctx context.Context, client client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) ([]cmv1.Certificate, error) {
 	err := removeOldCertificates(ctx, client, instance, instanceMergedWithFlavors)
 	if err != nil {
-		return err
+		return nil, err
 	}
+
+	certManagerCerts := []cmv1.Certificate{}
 
 	for _, req := range instanceMergedWithFlavors.CertManagerRequests() {
 		issuer, err := getCertManagerIssuer(ctx, client, req, instanceMergedWithFlavors.Namespace)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		newCert, err := newCertificate(instanceMergedWithFlavors, issuer, req)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		var cert cmv1.Certificate
 		err = client.Get(ctx, types.NamespacedName{Name: newCert.Name, Namespace: newCert.Namespace}, &cert)
 		if err != nil && k8serrors.IsNotFound(err) {
-			if err = takeOverPreviousSecret(ctx, client, instance, instanceMergedWithFlavors, newCert); err != nil {
-				return err
+			if err = takeOverPreviousSecret(ctx, client, instanceMergedWithFlavors, newCert); err != nil {
+				return nil, err
 			}
 
 			if err = client.Create(ctx, newCert); err != nil {
-				return err
+				return nil, err
 			}
 
 			newCert.DeepCopyInto(&cert)
@@ -61,9 +63,11 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance, i
 			newCert.ResourceVersion = cert.ResourceVersion
 
 			if err = client.Update(ctx, newCert); err != nil {
-				return err
+				return nil, err
 			}
 		}
+
+		certManagerCerts = append(certManagerCerts, cert)
 
 		if !isCertificateReady(&cert) {
 			continue
@@ -71,11 +75,11 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance, i
 
 		err = UpdateCertificateFromSecret(ctx, client, instance, cmCertificateName(req), newCert.Spec.SecretName)
 		if err != nil {
-			return err
+			return nil, err
 		}
 	}
 
-	return nil
+	return certManagerCerts, nil
 }
 
 func removeOldCertificates(ctx context.Context, c client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
@@ -117,7 +121,7 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 	return nil
 }
 
-func takeOverPreviousSecret(ctx context.Context, c client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance, cert *cmv1.Certificate) error {
+func takeOverPreviousSecret(ctx context.Context, c client.Client, instanceMergedWithFlavors *v1alpha1.RpaasInstance, cert *cmv1.Certificate) error {
 	var secret corev1.Secret
 
 	err := c.Get(ctx, types.NamespacedName{Name: cert.Spec.SecretName, Namespace: cert.Namespace}, &secret)

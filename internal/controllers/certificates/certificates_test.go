@@ -146,12 +146,7 @@ func TestUpdateCertificateFromSecret(t *testing.T) {
 				err = c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-3", Namespace: "rpaasv2"}, &i)
 				assert.NoError(t, err)
 
-				assert.Equal(t, []nginxv1alpha1.NginxTLS{{
-					SecretName: "my-instance-3-cert-manager",
-					Hosts:      []string{"*.example.com", "*.example.org"},
-				}}, i.Spec.TLS)
-				assert.Equal(t, "b08063b4653a313c028d44e6e0ceebbc38efa961b2178a30d930c02da438c984", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-certificate-sha256"])
-				assert.Equal(t, "c0a86dc8278f233cff1f90833b486db20b00b31879b8dec395f9e7f6ba556f8b", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/cert-manager-key-sha256"])
+				assert.Nil(t, i.Spec.TLS)
 			},
 		},
 	}
@@ -255,9 +250,6 @@ wg4cGbIbBPs=
 					SecretName: s.Name,
 					Hosts:      []string{"www.example.com", "www.example.org", "www.example.test"},
 				}}, i.Spec.TLS)
-
-				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/www.example.com-certificate-sha256"])
-				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/www.example.com-key-sha256"])
 			},
 		},
 
@@ -308,9 +300,6 @@ wg4cGbIbBPs=
 					SecretName: s.Name,
 					Hosts:      []string{"www.example.com", "www.example.org", "www.example.test"},
 				}}, i.Spec.TLS)
-
-				assert.Equal(t, "a0610da4d1958cfa7c375870e2c1bac796e84f509bbd989fa5a7c0e040965f28", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/www.example.com-certificate-sha256"])
-				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/www.example.com-key-sha256"])
 			},
 		},
 
@@ -431,10 +420,6 @@ func Test_DeleteCertificate(t *testing.T) {
 				require.NoError(t, err)
 
 				assert.Len(t, i.Spec.TLS, 0)
-				_, found := i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/www.example.com-certificate-sha256"]
-				assert.False(t, found)
-				_, found = i.Spec.PodTemplate.Annotations["rpaas.extensions.tsuru.io/www.example.com-key-sha256"]
-				assert.False(t, found)
 			},
 		},
 	}

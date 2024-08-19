@@ -123,7 +123,8 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
-	if err = certificates.ReconcileDynamicCertificates(ctx, r.Client, instance, instanceMergedWithFlavors); err != nil {
+	certManagerCertificates, err := certificates.ReconcileCertManager(ctx, r.Client, instance, instanceMergedWithFlavors)
+	if err != nil {
 		return reconcile.Result{}, err
 	}
 
@@ -173,8 +174,19 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		}
 	}
 
+	certificateSecrets, err := certificates.ListCertificateSecrets(ctx, r.Client, instanceMergedWithFlavors)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	// Nginx CRD
-	nginx := newNginx(instanceMergedWithFlavors, plan, configMap)
+	nginx := newNginx(newNginxOptions{
+		instanceMergedWithFlavors: instanceMergedWithFlavors,
+		plan:                      plan,
+		configMap:                 configMap,
+		certManagerCertificates:   certManagerCertificates,
+		certificateSecrets:        certificateSecrets,
+	})
 	changes["nginx"], err = r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx)
 	if err != nil {
 		return ctrl.Result{}, err

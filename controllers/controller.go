@@ -20,6 +20,7 @@ import (
 	"strings"
 	"text/template"
 
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/imdario/mergo"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/sirupsen/logrus"
@@ -42,6 +43,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	controllerUtil "github.com/tsuru/rpaas-operator/internal/controllers/util"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/util"
@@ -1088,32 +1090,40 @@ func mergeServiceWithDNS(instance *v1alpha1.RpaasInstance) *nginxv1alpha1.NginxS
 	return s
 }
 
-func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxv1alpha1.Nginx {
+type newNginxOptions struct {
+	instanceMergedWithFlavors *v1alpha1.RpaasInstance
+	plan                      *v1alpha1.RpaasPlan
+	configMap                 *corev1.ConfigMap
+	certManagerCertificates   []cmv1.Certificate
+	certificateSecrets        []corev1.Secret
+}
+
+func newNginx(opts newNginxOptions) *nginxv1alpha1.Nginx {
 	var cacheConfig nginxv1alpha1.NginxCacheSpec
-	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
-		cacheConfig.Path = plan.Spec.Config.CachePath
+	if v1alpha1.BoolValue(opts.plan.Spec.Config.CacheEnabled) {
+		cacheConfig.Path = opts.plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
-		if plan.Spec.Config.CacheSize != nil && !plan.Spec.Config.CacheSize.IsZero() {
-			cacheConfig.Size = plan.Spec.Config.CacheSize
+		if opts.plan.Spec.Config.CacheSize != nil && !opts.plan.Spec.Config.CacheSize.IsZero() {
+			cacheConfig.Size = opts.plan.Spec.Config.CacheSize
 		}
 	}
 
-	instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(instanceMergedWithFlavors)
+	opts.instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(opts.instanceMergedWithFlavors)
 
-	if s := instanceMergedWithFlavors.Spec.Service; s != nil {
-		s.Labels = instanceMergedWithFlavors.GetBaseLabels(s.Labels)
+	if s := opts.instanceMergedWithFlavors.Spec.Service; s != nil {
+		s.Labels = opts.instanceMergedWithFlavors.GetBaseLabels(s.Labels)
 	}
 
-	if ing := instanceMergedWithFlavors.Spec.Ingress; ing != nil {
-		ing.Labels = instanceMergedWithFlavors.GetBaseLabels(ing.Labels)
+	if ing := opts.instanceMergedWithFlavors.Spec.Ingress; ing != nil {
+		ing.Labels = opts.instanceMergedWithFlavors.GetBaseLabels(ing.Labels)
 	}
 
-	replicas := instanceMergedWithFlavors.Spec.Replicas
-	if shutdown := instanceMergedWithFlavors.Spec.Shutdown; shutdown {
+	replicas := opts.instanceMergedWithFlavors.Spec.Replicas
+	if shutdown := opts.instanceMergedWithFlavors.Spec.Shutdown; shutdown {
 		replicas = ptr.To(int32(0))
 	}
 
-	if isAutoscaleEnabled(&instanceMergedWithFlavors.Spec) {
+	if isAutoscaleEnabled(&opts.instanceMergedWithFlavors.Spec) {
 		// NOTE: we should avoid changing the number of replicas as it's managed by HPA.
 		replicas = nil
 	}
@@ -1124,32 +1134,31 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 			APIVersion: "nginx.tsuru.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instanceMergedWithFlavors.Name,
-			Namespace: instanceMergedWithFlavors.Namespace,
+			Name:      opts.instanceMergedWithFlavors.Name,
+			Namespace: opts.instanceMergedWithFlavors.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instanceMergedWithFlavors, schema.GroupVersionKind{
+				*metav1.NewControllerRef(opts.instanceMergedWithFlavors, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
 					Version: v1alpha1.GroupVersion.Version,
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: instanceMergedWithFlavors.GetBaseLabels(nil),
+			Labels: opts.instanceMergedWithFlavors.GetBaseLabels(nil),
 		},
 		Spec: nginxv1alpha1.NginxSpec{
-			Image:    plan.Spec.Image,
+			Image:    opts.plan.Spec.Image,
 			Replicas: replicas,
 			Config: &nginxv1alpha1.ConfigRef{
-				Name: configMap.Name,
+				Name: opts.configMap.Name,
 				Kind: nginxv1alpha1.ConfigKindConfigMap,
 			},
-			Resources:       plan.Spec.Resources,
-			Service:         instanceMergedWithFlavors.Spec.Service.DeepCopy(),
+			Resources:       opts.plan.Spec.Resources,
+			Service:         opts.instanceMergedWithFlavors.Spec.Service.DeepCopy(),
 			HealthcheckPath: "/_nginx_healthcheck",
-			TLS:             instanceMergedWithFlavors.Spec.TLS,
 			Cache:           cacheConfig,
-			PodTemplate:     instanceMergedWithFlavors.Spec.PodTemplate,
-			Lifecycle:       instanceMergedWithFlavors.Spec.Lifecycle,
-			Ingress:         instanceMergedWithFlavors.Spec.Ingress,
+			PodTemplate:     opts.instanceMergedWithFlavors.Spec.PodTemplate,
+			Lifecycle:       opts.instanceMergedWithFlavors.Spec.Lifecycle,
+			Ingress:         opts.instanceMergedWithFlavors.Spec.Ingress,
 		},
 	}
 
@@ -1157,7 +1166,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		n.Spec.Service.Type = corev1.ServiceTypeLoadBalancer
 	}
 
-	for i, f := range instanceMergedWithFlavors.Spec.Files {
+	for i, f := range opts.instanceMergedWithFlavors.Spec.Files {
 		volumeName := fmt.Sprintf("extra-files-%d", i)
 
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
@@ -1177,12 +1186,12 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		})
 	}
 
-	if isTLSSessionTicketEnabled(&instanceMergedWithFlavors.Spec) {
+	if isTLSSessionTicketEnabled(&opts.instanceMergedWithFlavors.Spec) {
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
 			Name: sessionTicketsVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretNameForTLSSessionTickets(instanceMergedWithFlavors.Name),
+					SecretName: secretNameForTLSSessionTickets(opts.instanceMergedWithFlavors.Name),
 				},
 			},
 		})
@@ -1192,6 +1201,53 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 			MountPath: sessionTicketsVolumeMountPath,
 			ReadOnly:  true,
 		})
+	}
+
+	mapSecretNameToCertName := make(map[string]string)
+	secretsByName := make(map[string]corev1.Secret)
+
+	for _, secret := range opts.certificateSecrets {
+		secretsByName[secret.Name] = secret
+		certName := secret.Labels[certificates.CertificateNameLabel]
+		if certName != "" {
+			mapSecretNameToCertName[secret.Name] = certName
+		}
+	}
+
+	tlsByCertName := make(map[string]nginxv1alpha1.NginxTLS)
+	for _, tls := range opts.instanceMergedWithFlavors.Spec.TLS {
+		certName := mapSecretNameToCertName[tls.SecretName]
+		if certName == "" {
+			continue
+		}
+		tlsByCertName[certName] = tls
+
+		if secret, ok := secretsByName[tls.SecretName]; ok {
+			n.Spec.PodTemplate.Annotations[certificateHashAnnotationKey(tls.SecretName)] = util.SHA256(secret.Data[corev1.TLSCertKey])
+			n.Spec.PodTemplate.Annotations[keyHashAnnotationKey(tls.SecretName)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
+		}
+	}
+
+	for _, cert := range opts.certManagerCertificates {
+		tlsByCertName[cert.Name] = nginxv1alpha1.NginxTLS{
+			SecretName: cert.Spec.SecretName,
+			Hosts:      cert.Spec.DNSNames,
+		}
+
+		if secret, ok := secretsByName[cert.Spec.SecretName]; ok {
+			if n.Spec.PodTemplate.Annotations == nil {
+				n.Spec.PodTemplate.Annotations = make(map[string]string)
+			}
+
+			n.Spec.PodTemplate.Annotations[certificateHashAnnotationKey(secret.Name)] = util.SHA256(secret.Data[corev1.TLSCertKey])
+			n.Spec.PodTemplate.Annotations[keyHashAnnotationKey(secret.Name)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
+		} else {
+			// TODO: use other fields to generate the hash
+		}
+	}
+
+	for _, tls := range tlsByCertName {
+		n.Spec.TLS = append(n.Spec.TLS, tls)
 	}
 
 	return n
@@ -1209,6 +1265,34 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	}
 	hash := sha256.Sum256(data)
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
+}
+
+func certificateHashAnnotationKey(secretName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-secret-cert-sha256"
+
+	// NOTE: Annotation keys must not be greater than 63 chars.
+	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
+
+	if len(secretName) > maxIssuer {
+		secretName = secretName[:maxIssuer]
+	}
+
+	return fmt.Sprintf(keyFormat, secretName)
+}
+
+func keyHashAnnotationKey(secretName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-secret-key-sha256"
+
+	// NOTE: Annotation keys must not be greater than 63 chars.
+	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
+
+	if len(secretName) > maxIssuer {
+		secretName = secretName[:maxIssuer]
+	}
+
+	return fmt.Sprintf(keyFormat, secretName)
 }
 
 func generateSpecHash(spec any) (string, error) {
