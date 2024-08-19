@@ -21,6 +21,7 @@ import (
 	"text/template"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/sirupsen/logrus"
@@ -1091,6 +1092,7 @@ func mergeServiceWithDNS(instance *v1alpha1.RpaasInstance) *nginxv1alpha1.NginxS
 }
 
 type newNginxOptions struct {
+	logger                    *logr.Logger
 	instanceMergedWithFlavors *v1alpha1.RpaasInstance
 	plan                      *v1alpha1.RpaasPlan
 	configMap                 *corev1.ConfigMap
@@ -1099,6 +1101,12 @@ type newNginxOptions struct {
 }
 
 func newNginx(opts newNginxOptions) *nginxv1alpha1.Nginx {
+
+	logger := opts.logger
+	if logger == nil {
+		logger = ptr.To(logr.Discard())
+	}
+
 	var cacheConfig nginxv1alpha1.NginxCacheSpec
 	if v1alpha1.BoolValue(opts.plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = opts.plan.Spec.Config.CachePath
@@ -1203,54 +1211,79 @@ func newNginx(opts newNginxOptions) *nginxv1alpha1.Nginx {
 		})
 	}
 
+	var podAnnotations map[string]string
+	podAnnotations, n.Spec.TLS = newNginxTLS(logger, opts.certificateSecrets, opts.instanceMergedWithFlavors.Spec.TLS, opts.certManagerCertificates)
+
+	if len(podAnnotations) > 0 {
+		if n.Spec.PodTemplate.Annotations == nil {
+			n.Spec.PodTemplate.Annotations = make(map[string]string)
+		}
+
+		for k, v := range podAnnotations {
+			n.Spec.PodTemplate.Annotations[k] = v
+		}
+	}
+
+	return n
+}
+
+func newNginxTLS(logger *logr.Logger, certificateSecrets []corev1.Secret, userDefinedCertificates []nginxv1alpha1.NginxTLS, certManagerCertificates []cmv1.Certificate) (podAnnotations map[string]string, tls []nginxv1alpha1.NginxTLS) {
 	mapSecretNameToCertName := make(map[string]string)
 	secretsByName := make(map[string]corev1.Secret)
 
-	for _, secret := range opts.certificateSecrets {
+	for _, secret := range certificateSecrets {
 		secretsByName[secret.Name] = secret
 		certName := secret.Labels[certificates.CertificateNameLabel]
-		if certName != "" {
+		if certName == "" {
+			logger.V(4).Info("certificate secret without certificate name label", "secret", secret.Name)
+		} else {
 			mapSecretNameToCertName[secret.Name] = certName
 		}
 	}
 
+	podAnnotations = make(map[string]string)
 	tlsByCertName := make(map[string]nginxv1alpha1.NginxTLS)
-	for _, tls := range opts.instanceMergedWithFlavors.Spec.TLS {
+	for _, tls := range userDefinedCertificates {
 		certName := mapSecretNameToCertName[tls.SecretName]
 		if certName == "" {
+			logger.V(4).Info("certificate secret missing for user-defined certificate", "secret", tls.SecretName)
 			continue
 		}
 		tlsByCertName[certName] = tls
 
 		if secret, ok := secretsByName[tls.SecretName]; ok {
-			n.Spec.PodTemplate.Annotations[certificateHashAnnotationKey(tls.SecretName)] = util.SHA256(secret.Data[corev1.TLSCertKey])
-			n.Spec.PodTemplate.Annotations[keyHashAnnotationKey(tls.SecretName)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
+			podAnnotations[certificateHashAnnotationKey(certName)] = util.SHA256(secret.Data[corev1.TLSCertKey])
+			podAnnotations[keyHashAnnotationKey(certName)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
+		} else {
+			logger.V(4).Info("certificate secret missing for user-defined certificate", "secret", tls.SecretName, "cert-name", certName)
 		}
 	}
 
-	for _, cert := range opts.certManagerCertificates {
+	for _, cert := range certManagerCertificates {
 		tlsByCertName[cert.Name] = nginxv1alpha1.NginxTLS{
 			SecretName: cert.Spec.SecretName,
 			Hosts:      cert.Spec.DNSNames,
 		}
 
 		if secret, ok := secretsByName[cert.Spec.SecretName]; ok {
-			if n.Spec.PodTemplate.Annotations == nil {
-				n.Spec.PodTemplate.Annotations = make(map[string]string)
-			}
-
-			n.Spec.PodTemplate.Annotations[certificateHashAnnotationKey(secret.Name)] = util.SHA256(secret.Data[corev1.TLSCertKey])
-			n.Spec.PodTemplate.Annotations[keyHashAnnotationKey(secret.Name)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
+			podAnnotations[certificateHashAnnotationKey(cert.Name)] = util.SHA256(secret.Data[corev1.TLSCertKey])
+			podAnnotations[keyHashAnnotationKey(cert.Name)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
 		} else {
-			// TODO: use other fields to generate the hash
+			logger.V(4).Info("cert-manager secret is missing", "secret", cert.Spec.SecretName, "cert-name", cert.Name)
 		}
 	}
 
-	for _, tls := range tlsByCertName {
-		n.Spec.TLS = append(n.Spec.TLS, tls)
+	for _, tlsItem := range tlsByCertName {
+		tls = append(tls, tlsItem)
 	}
 
-	return n
+	if len(tls) > 1 {
+		sort.Slice(tls, func(i, j int) bool {
+			return tls[i].SecretName < tls[j].SecretName
+		})
+	}
+
+	return podAnnotations, tls
 }
 
 func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
@@ -1267,32 +1300,32 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
 }
 
-func certificateHashAnnotationKey(secretName string) string {
-	keyFormat := "rpaas.extensions.tsuru.io/%s-secret-cert-sha256"
+func certificateHashAnnotationKey(certName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-cert-sha256"
 
 	// NOTE: Annotation keys must not be greater than 63 chars.
 	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
 
-	if len(secretName) > maxIssuer {
-		secretName = secretName[:maxIssuer]
+	if len(certName) > maxIssuer {
+		certName = certName[:maxIssuer]
 	}
 
-	return fmt.Sprintf(keyFormat, secretName)
+	return fmt.Sprintf(keyFormat, certName)
 }
 
-func keyHashAnnotationKey(secretName string) string {
-	keyFormat := "rpaas.extensions.tsuru.io/%s-secret-key-sha256"
+func keyHashAnnotationKey(certName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-key-sha256"
 
 	// NOTE: Annotation keys must not be greater than 63 chars.
 	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
 	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
 
-	if len(secretName) > maxIssuer {
-		secretName = secretName[:maxIssuer]
+	if len(certName) > maxIssuer {
+		certName = certName[:maxIssuer]
 	}
 
-	return fmt.Sprintf(keyFormat, secretName)
+	return fmt.Sprintf(keyFormat, certName)
 }
 
 func generateSpecHash(spec any) (string, error) {
