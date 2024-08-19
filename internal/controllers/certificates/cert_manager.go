@@ -67,16 +67,11 @@ func ReconcileCertManager(ctx context.Context, client client.Client, instance, i
 			}
 		}
 
-		certManagerCerts = append(certManagerCerts, cert)
-
 		if !isCertificateReady(&cert) {
 			continue
 		}
 
-		err = UpdateCertificateFromSecret(ctx, client, instance, cmCertificateName(req), newCert.Spec.SecretName)
-		if err != nil {
-			return nil, err
-		}
+		certManagerCerts = append(certManagerCerts, cert)
 	}
 
 	return certManagerCerts, nil
@@ -214,6 +209,12 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 			DNSNames:    req.DNSNames,
 			IPAddresses: req.IPAddresses,
 			SecretName:  fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
+			SecretTemplate: &cmv1.CertificateSecretTemplate{
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": cmCertificateName(req),
+					"rpaas.extensions.tsuru.io/instance-name":    instance.Name,
+				},
+			},
 		},
 	}, nil
 }

@@ -15,7 +15,6 @@ import (
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime/schema"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -27,39 +26,6 @@ var (
 	ErrTLSSecretNotFound      = fmt.Errorf("TLS secret not found")
 	ErrTooManyTLSSecretsFound = fmt.Errorf("too many TLS secrets found")
 )
-
-func UpdateCertificateFromSecret(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName, secretName string) error {
-	if c == nil {
-		return fmt.Errorf("kubernetes client cannot be nil")
-	}
-
-	if instance == nil {
-		return fmt.Errorf("rpaasinstance cannot be nil")
-	}
-
-	var s corev1.Secret
-	err := c.Get(ctx, types.NamespacedName{Name: secretName, Namespace: instance.Namespace}, &s)
-	if err != nil {
-		return err
-	}
-
-	originalSecret := s.DeepCopy()
-
-	if s.Labels == nil {
-		s.Labels = make(map[string]string)
-	}
-
-	s.Labels[CertificateNameLabel] = certificateName
-	s.Labels["rpaas.extensions.tsuru.io/instance-name"] = instance.Name
-
-	if !reflect.DeepEqual(originalSecret.Labels, s.Labels) {
-		if err = c.Update(ctx, &s); err != nil {
-			return err
-		}
-	}
-
-	return nil
-}
 
 func UpdateCertificate(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certificateName string, certData, keyData []byte) error {
 	if c == nil {

@@ -232,6 +232,12 @@ wg4cGbIbBPs=
 					SecretName:  cert.Name,
 					DNSNames:    []string{"my-instance.example.com"},
 					IPAddresses: []string{"169.196.1.100"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
 				}, cert.Spec)
 			},
 		},
@@ -314,6 +320,12 @@ wg4cGbIbBPs=
 					},
 					SecretName: "my-instance-cert-01",
 					DNSNames:   []string{"my-instance.example.com"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-01",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
 				}, certs[0].Spec)
 
 				assert.Equal(t, cmv1.CertificateSpec{
@@ -324,6 +336,12 @@ wg4cGbIbBPs=
 					},
 					SecretName: "my-instance-cert-02",
 					DNSNames:   []string{"my-instance2.example.com"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-02",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
 				}, certs[1].Spec)
 
 				assert.Equal(t, cmv1.CertificateSpec{
@@ -334,6 +352,12 @@ wg4cGbIbBPs=
 					},
 					SecretName: "my-instance-cert-03",
 					DNSNames:   []string{"my-instance3.example.org"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-03",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
 				}, certs[2].Spec)
 			},
 		},
@@ -402,6 +426,12 @@ wg4cGbIbBPs=
 					},
 					SecretName: "my-instance-take-over-test-my-instance-take-over",
 					DNSNames:   []string{"my-instance.example.com"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "my-instance-take-over",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance-take-over-test",
+						},
+					},
 				}, certs[0].Spec)
 
 				secret := corev1.Secret{}
@@ -468,6 +498,12 @@ wg4cGbIbBPs=
 					},
 					SecretName: cert.Name,
 					DNSNames:   []string{"my-instance.rpaasv2.example.org"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
 				}, cert.Spec)
 			},
 		},
@@ -522,6 +558,12 @@ wg4cGbIbBPs=
 					SecretName:  cert.Name,
 					DNSNames:    []string{"my-instance-2.example.com", "app1.example.com"},
 					IPAddresses: []string{"2001:db8:dead:beef::"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-cluster-issuer-1",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance-2",
+						},
+					},
 				}, cert.Spec)
 			},
 		},
