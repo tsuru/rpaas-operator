@@ -181,6 +181,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	// Nginx CRD
 	nginx := newNginx(newNginxOptions{
+		logger:                    &logger,
 		instanceMergedWithFlavors: instanceMergedWithFlavors,
 		plan:                      plan,
 		configMap:                 configMap,
