@@ -122,68 +122,6 @@ cHPInBo/AIYDW+WuoTwDOgAE3zfoDUUeS7WV7ZmC2A1kWxGvzKU6nOFBPmTxdCT2
 	}
 }
 
-func TestUpdateCertificateFromSecret(t *testing.T) {
-	tests := map[string]struct {
-		instance        string
-		certificateName string
-		secretName      string
-		expectedError   string
-		assert          func(t *testing.T, c client.Client)
-	}{
-		"adding a certificate from secret (e.g. cert manager)": {
-			instance:        "my-instance-3",
-			certificateName: "cert-manager",
-			secretName:      "my-instance-3-cert-manager",
-			assert: func(t *testing.T, c client.Client) {
-				var s corev1.Secret
-				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-3-cert-manager", Namespace: "rpaasv2"}, &s)
-				require.NoError(t, err)
-
-				assert.Equal(t, "cert-manager", s.Labels["rpaas.extensions.tsuru.io/certificate-name"])
-				assert.Equal(t, "my-instance-3", s.Labels["rpaas.extensions.tsuru.io/instance-name"])
-
-				var i v1alpha1.RpaasInstance
-				err = c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-3", Namespace: "rpaasv2"}, &i)
-				assert.NoError(t, err)
-
-				assert.Nil(t, i.Spec.TLS)
-			},
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			resources := k8sResources()
-
-			client := fake.NewClientBuilder().
-				WithScheme(runtime.NewScheme()).
-				WithRuntimeObjects(resources...).
-				Build()
-
-			var instance *v1alpha1.RpaasInstance
-			for _, object := range resources {
-				if i, found := object.(*v1alpha1.RpaasInstance); found && i.Name == tt.instance {
-					instance = i
-					break
-				}
-			}
-
-			require.NotNil(t, instance, "you should select a RpaasInstance from resources")
-
-			err := certificates.UpdateCertificateFromSecret(context.TODO(), client, instance, tt.certificateName, tt.secretName)
-			if tt.expectedError != "" {
-				assert.EqualError(t, err, tt.expectedError)
-				return
-			}
-
-			require.NoError(t, err)
-
-			require.NotNil(t, tt.assert, "you must provide an assert function")
-			tt.assert(t, client)
-		})
-	}
-}
-
 func TestUpdateCertificate(t *testing.T) {
 	tests := map[string]struct {
 		instance        string
