@@ -629,6 +629,10 @@ wg4cGbIbBPs=
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance-3",
 					Namespace: "rpaasv2",
+					Labels: map[string]string{
+						"team-label":  "team-abc",
+						"cost-center": "cost-center",
+					},
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					DynamicCertificates: &v1alpha1.DynamicCertificates{
@@ -648,6 +652,13 @@ wg4cGbIbBPs=
 					Namespace: instance.Namespace,
 				}, &cert)
 				require.NoError(t, err)
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-3",
+					"team-label":  "team-abc",
+					"cost-center": "cost-center",
+				}, cert.Labels)
 
 				var s corev1.Secret
 				err = cli.Get(context.TODO(), types.NamespacedName{

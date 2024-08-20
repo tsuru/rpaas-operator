@@ -188,14 +188,20 @@ func getCertificates(ctx context.Context, c client.Client, i *v1alpha1.RpaasInst
 }
 
 func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference, req v1alpha1.CertManager) (*cmv1.Certificate, error) {
+	labels := map[string]string{}
+
+	for k, v := range instance.Labels {
+		labels[k] = v
+	}
+
+	labels["rpaas.extensions.tsuru.io/certificate-name"] = cmCertificateName(req)
+	labels["rpaas.extensions.tsuru.io/instance-name"] = instance.Name
+
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
 			Namespace: instance.Namespace,
-			Labels: map[string]string{
-				"rpaas.extensions.tsuru.io/certificate-name": cmCertificateName(req),
-				"rpaas.extensions.tsuru.io/instance-name":    instance.Name,
-			},
+			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
