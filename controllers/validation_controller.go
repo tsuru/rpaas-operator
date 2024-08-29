@@ -46,12 +46,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	validationHash, err := generateSpecHash(&validation.Spec)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if validation.Status.RevisionHash == validationHash && validation.Status.Valid != nil {
+	if validation.Status.ObservedGeneration == validation.ObjectMeta.Generation && validation.Status.Valid != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -88,6 +83,11 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 
 	configMap := newValidationConfigMap(validationMergedWithFlavors, rendered)
 	_, err = reconcileConfigMap(ctx, r.Client, configMap)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	validationHash, err := generateSpecHash(&validation.Spec)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
