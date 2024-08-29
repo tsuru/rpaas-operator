@@ -6,6 +6,7 @@ package validation
 import (
 	"context"
 	"fmt"
+	"reflect"
 	"time"
 
 	corev1 "k8s.io/api/core/v1"
@@ -333,6 +334,16 @@ func (v *validationManager) waitController(ctx context.Context, validation *v1al
 			return err
 		}
 	} else {
+		isLastStatus := existingValidation.Generation == existingValidation.Status.ObservedGeneration
+
+		if reflect.DeepEqual(existingValidation.Spec, validation.Spec) && existingValidation.Status.Valid != nil && isLastStatus {
+			if *existingValidation.Status.Valid {
+				return nil
+			}
+
+			return &rpaas.ValidationError{Msg: existingValidation.Status.Error}
+		}
+
 		validation.ObjectMeta.ResourceVersion = existingValidation.ResourceVersion
 		err = v.cli.Update(ctx, validation, &client.UpdateOptions{})
 		if err != nil {
@@ -340,7 +351,7 @@ func (v *validationManager) waitController(ctx context.Context, validation *v1al
 		}
 	}
 
-	maxRetries := 30
+	maxRetries := 60
 
 	for retry := 0; retry < maxRetries; retry++ {
 		existingValidation = v1alpha1.RpaasValidation{}
