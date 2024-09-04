@@ -941,36 +941,40 @@ func externalAddresssesFromNginx(nginx *nginxv1alpha1.Nginx) v1alpha1.RpaasInsta
 	return ingressesStatus
 }
 
-func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, certificatesHasChanges bool, err error) {
 	found, err := r.getNginx(ctx, instance)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get nginx CR: %v", err)
-			return false, err
+			return false, false, err
 		}
 
 		err = r.Client.Create(ctx, nginx)
 		if err != nil {
 			logrus.Errorf("Failed to create nginx CR: %v", err)
-			return false, err
+			return false, false, err
 		}
-		return true, nil
+		return true, false, nil
 	}
 
 	if equality.Semantic.DeepEqual(nginx.Spec, found.Spec) {
-		return false, nil
+		return false, false, nil
 	}
+
+	// Certificates uses pod annotations, so we need to check if the pod template has changed
+	certificatesHasChanges = !equality.Semantic.DeepEqual(nginx.Spec.PodTemplate.Annotations, found.Spec.PodTemplate.Annotations)
+
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
 	err = r.Client.Update(ctx, nginx)
 	if err != nil {
 		logrus.Errorf("Failed to update nginx CR: %v", err)
-		return false, err
+		return false, false, err
 	}
 
-	return true, nil
+	return true, certificatesHasChanges, nil
 }
 
-func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
+func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, nginxTLS []nginxv1alpha1.NginxTLS) (string, error) {
 	rf := &referenceFinder{
 		spec:      &instance.Spec,
 		client:    r.Client,
@@ -991,9 +995,13 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
+	instanceWithNginxTLS := instance.DeepCopy()
+	instanceWithNginxTLS.Spec.TLS = nginxTLS
+
 	config := nginx.ConfigurationData{
-		Instance: instance,
+		Instance: instanceWithNginxTLS,
 		Config:   &plan.Spec.Config,
+		NginxTLS: nginxTLS,
 	}
 
 	return cr.Render(config)
@@ -1092,21 +1100,14 @@ func mergeServiceWithDNS(instance *v1alpha1.RpaasInstance) *nginxv1alpha1.NginxS
 }
 
 type newNginxOptions struct {
-	logger                    *logr.Logger
 	instanceMergedWithFlavors *v1alpha1.RpaasInstance
 	plan                      *v1alpha1.RpaasPlan
 	configMap                 *corev1.ConfigMap
-	certManagerCertificates   []cmv1.Certificate
-	certificateSecrets        []corev1.Secret
+	nginxTLS                  []nginxv1alpha1.NginxTLS
+	certificatePodAnnotations map[string]string
 }
 
 func newNginx(opts newNginxOptions) *nginxv1alpha1.Nginx {
-
-	logger := opts.logger
-	if logger == nil {
-		logger = ptr.To(logr.Discard())
-	}
-
 	var cacheConfig nginxv1alpha1.NginxCacheSpec
 	if v1alpha1.BoolValue(opts.plan.Spec.Config.CacheEnabled) {
 		cacheConfig.Path = opts.plan.Spec.Config.CachePath
@@ -1211,15 +1212,14 @@ func newNginx(opts newNginxOptions) *nginxv1alpha1.Nginx {
 		})
 	}
 
-	var podAnnotations map[string]string
-	podAnnotations, n.Spec.TLS = newNginxTLS(logger, opts.certificateSecrets, opts.instanceMergedWithFlavors.Spec.TLS, opts.certManagerCertificates)
+	n.Spec.TLS = opts.nginxTLS
 
-	if len(podAnnotations) > 0 {
+	if len(opts.certificatePodAnnotations) > 0 {
 		if n.Spec.PodTemplate.Annotations == nil {
 			n.Spec.PodTemplate.Annotations = make(map[string]string)
 		}
 
-		for k, v := range podAnnotations {
+		for k, v := range opts.certificatePodAnnotations {
 			n.Spec.PodTemplate.Annotations[k] = v
 		}
 	}
@@ -1260,7 +1260,14 @@ func newNginxTLS(logger *logr.Logger, certificateSecrets []corev1.Secret, userDe
 	}
 
 	for _, cert := range certManagerCertificates {
-		tlsByCertName[cert.Name] = nginxv1alpha1.NginxTLS{
+		certName := cert.Labels[certificates.CertificateNameLabel]
+
+		if certName == "" {
+			logger.V(4).Info("cert-manager certificate without certificate name label", "certificate", cert.Name)
+			continue
+		}
+
+		tlsByCertName[certName] = nginxv1alpha1.NginxTLS{
 			SecretName: cert.Spec.SecretName,
 			Hosts:      cert.Spec.DNSNames,
 		}

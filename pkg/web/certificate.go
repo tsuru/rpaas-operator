@@ -78,7 +78,7 @@ func getCertificates(c echo.Context) error {
 		return err
 	}
 
-	certList, err := manager.GetCertificates(ctx, c.Param("instance"))
+	certList, _, err := manager.GetCertificates(ctx, c.Param("instance"))
 	if err != nil {
 		return err
 	}

@@ -249,14 +249,14 @@ func Test_GetCertificates(t *testing.T) {
 		{
 			name: "when the instance and certificate exists",
 			manager: &fake.RpaasManager{
-				FakeGetCertificates: func(instanceName string) ([]rpaas.CertificateData, error) {
+				FakeGetCertificates: func(instanceName string) ([]rpaas.CertificateData, []clientTypes.Event, error) {
 					return []rpaas.CertificateData{
 						{
 							Name:        "cert-name",
 							Certificate: `my-certificate`,
 							Key:         `my-key`,
 						},
-					}, nil
+					}, nil, nil
 				},
 			},
 			instance:     "real-instance",
@@ -266,8 +266,8 @@ func Test_GetCertificates(t *testing.T) {
 		{
 			name: "when the instance exists but the certificate has a missing key",
 			manager: &fake.RpaasManager{
-				FakeGetCertificates: func(instanceName string) ([]rpaas.CertificateData, error) {
-					return nil, fmt.Errorf("key data not found")
+				FakeGetCertificates: func(instanceName string) ([]rpaas.CertificateData, []clientTypes.Event, error) {
+					return nil, nil, fmt.Errorf("key data not found")
 				},
 			},
 			instance:     "real-instance",
@@ -281,14 +281,14 @@ func Test_GetCertificates(t *testing.T) {
 				SuppressPrivateKeyOnCertificatesList: true,
 			},
 			manager: &fake.RpaasManager{
-				FakeGetCertificates: func(instance string) ([]rpaas.CertificateData, error) {
+				FakeGetCertificates: func(instance string) ([]rpaas.CertificateData, []clientTypes.Event, error) {
 					return []rpaas.CertificateData{
 						{
 							Name:        "my-example.com",
 							Certificate: "X509 certificate",
 							Key:         "PEM ENCODED KEY",
 						},
-					}, nil
+					}, nil, nil
 				},
 			},
 			expectedCode: http.StatusOK,

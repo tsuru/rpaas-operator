@@ -484,7 +484,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				WithRuntimeObjects(resources...).
 				Build()
 
-			got, err := (&k8sRpaasManager{cli: client}).GetCertificates(context.TODO(), tt.instanceName)
+			got, _, err := (&k8sRpaasManager{cli: client}).GetCertificates(context.TODO(), tt.instanceName)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

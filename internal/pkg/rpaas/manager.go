@@ -256,7 +256,7 @@ type RpaasManager interface {
 
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
 	DeleteCertificate(ctx context.Context, instance, name string) error
-	GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error)
+	GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, []clientTypes.Event, error)
 	CreateInstance(ctx context.Context, args CreateArgs) error
 	DeleteInstance(ctx context.Context, name string) error
 	UpdateInstance(ctx context.Context, name string, args UpdateInstanceArgs) error

@@ -636,27 +636,22 @@ func (m *k8sRpaasManager) Stop(ctx context.Context, instanceName string) error {
 	return m.patchInstance(ctx, originalInstance, instance)
 }
 
-func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error) {
+func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, []clientTypes.Event, error) {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	mapCertificatesIssuers := map[string]string{}
-
-	if instance.Spec.DynamicCertificates != nil {
-		for _, certManagerRequest := range instance.Spec.DynamicCertificates.CertManagerRequests {
-			if certManagerRequest.Name != "" {
-				mapCertificatesIssuers[certManagerRequest.Name] = certManagerRequest.Issuer
-			}
-		}
+	nginx, err := m.getNginx(ctx, instance)
+	if err != nil && k8sErrors.IsNotFound(err) {
+		return nil, nil, nil
 	}
 
 	var certList []CertificateData
-	for _, tls := range instance.Spec.TLS {
+	for _, tls := range nginx.Spec.TLS {
 		var s corev1.Secret
 		if err = m.cli.Get(ctx, types.NamespacedName{Name: tls.SecretName, Namespace: instance.Namespace}, &s); err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		certData := CertificateData{
@@ -665,15 +660,53 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 			Key:         string(s.Data[corev1.TLSPrivateKeyKey]),
 		}
 
-		if issuer, ok := mapCertificatesIssuers[certData.Name]; ok {
-			certData.CertManagerIssuer = issuer
+		issuerGroup := s.Annotations["cert-manager.io/issuer-group"]
+		if issuerGroup == "cert-manager.io" {
+			certData.CertManagerIssuer = s.Annotations["cert-manager.io/issuer-name"]
 			certData.IsManagedByCertManager = true
+		} else if issuerGroup != "" {
+			certData.IsManagedByCertManager = true
+			certData.CertManagerIssuer = fmt.Sprintf("%s.%s.%s",
+				s.Annotations["cert-manager.io/issuer-name"],
+				s.Annotations["cert-manager.io/issuer-kind"],
+				issuerGroup,
+			)
 		}
 
 		certList = append(certList, certData)
 	}
 
-	return certList, nil
+	events := make([]clientTypes.Event, 0)
+
+	for _, certManagerRequest := range instance.CertManagerRequests() {
+		certManagerCertificateName := certificates.CertManagerCertificateNameForInstance(instance.Name, certManagerRequest)
+		certificateEvents, err := m.eventsForObjectName(ctx, instance.Namespace, "Certificate", certManagerCertificateName)
+		if err != nil {
+			return nil, nil, err
+		}
+
+		for _, evt := range certificateEvents {
+			events = append(events, clientTypes.Event{
+				First:   evt.FirstTimestamp.Time.In(time.UTC),
+				Last:    evt.LastTimestamp.Time.In(time.UTC),
+				Count:   evt.Count,
+				Type:    evt.Type,
+				Reason:  evt.Reason,
+				Message: fmt.Sprintf("certificate %q, %s", certManagerCertificateName, evt.Message),
+			})
+		}
+
+	}
+
+	sort.SliceStable(events, func(i, j int) bool {
+		return events[i].Last.Before(events[j].Last) // ascending order by last event occurrence
+	})
+
+	sort.Slice(certList, func(i, j int) bool {
+		return certList[i].Name < certList[j].Name
+	})
+
+	return certList, events, nil
 }
 
 func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, name string) error {
@@ -716,7 +749,7 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return err
 	}
 
-	certsInfo, err := m.getCertificatesInfo(ctx, instance)
+	certsInfo, _, err := m.getCertificatesInfo(ctx, instance)
 	if err != nil {
 		return err
 	}
@@ -1359,6 +1392,46 @@ func (m *k8sRpaasManager) eventsForObject(ctx context.Context, namespace, kind s
 	return events, nil
 }
 
+func (m *k8sRpaasManager) eventsForObjectName(ctx context.Context, namespace, kind string, name string) ([]corev1.Event, error) {
+	listOpts := &client.ListOptions{
+		FieldSelector: fields.Set{
+			"involvedObject.kind": kind,
+			"involvedObject.name": name,
+		}.AsSelector(),
+		Namespace: namespace,
+	}
+
+	var eventList corev1.EventList
+	if err := m.cli.List(ctx, &eventList, listOpts); err != nil {
+		// NOTE: As of controller-runtime v0.13, fake package added listing filter
+		// support however it only supports a single requirement per filter, so
+		// it's not thrustworthy.
+		if err.Error() == fmt.Sprintf("field selector %s is not in one of the two supported forms \"key==val\" or \"key=val\"", listOpts.FieldSelector) {
+			err = m.cli.List(ctx, &eventList, &client.ListOptions{Namespace: namespace})
+		}
+
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	// NOTE: re-applying the above filter to work on unit tests as well.
+	events := eventList.Items
+	for i := 0; i < len(events); i++ {
+		if events[i].InvolvedObject.Kind != kind || events[i].InvolvedObject.Name != name {
+			events[i] = events[len(events)-1]
+			events = eventList.Items[:len(events)-1]
+			i--
+		}
+	}
+
+	sort.Slice(events, func(i, j int) bool {
+		return events[i].CreationTimestamp.After(events[j].CreationTimestamp.Time)
+	})
+
+	return events, nil
+}
+
 func formatPodEvents(events []corev1.Event) string {
 	var statuses []string
 	for _, evt := range events {
@@ -1599,7 +1672,8 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		})
 	}
 
-	info.Certificates, err = m.getCertificatesInfo(ctx, instance)
+	var certificateEvents []clientTypes.Event
+	info.Certificates, certificateEvents, err = m.getCertificatesInfo(ctx, instance)
 	if err != nil {
 		return nil, err
 	}
@@ -1642,6 +1716,8 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 	if err != nil {
 		return nil, err
 	}
+
+	info.Events = append(info.Events, certificateEvents...)
 
 	return info, nil
 }
@@ -2030,21 +2106,21 @@ func (m *k8sRpaasManager) newPodStatus(ctx context.Context, pod *corev1.Pod) (cl
 	}, nil
 }
 
-func (m *k8sRpaasManager) getCertificatesInfo(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]clientTypes.CertificateInfo, error) {
-	certs, err := m.GetCertificates(ctx, instance.Name)
+func (m *k8sRpaasManager) getCertificatesInfo(ctx context.Context, instance *v1alpha1.RpaasInstance) ([]clientTypes.CertificateInfo, []clientTypes.Event, error) {
+	certs, events, err := m.GetCertificates(ctx, instance.Name)
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
 	var certsInfo []clientTypes.CertificateInfo
 	for _, cert := range certs {
 		certs, err := pki.DecodeX509CertificateChainBytes([]byte(cert.Certificate))
 		if err != nil {
-			return nil, err
+			return nil, nil, err
 		}
 
 		if len(certs) == 0 {
-			return nil, fmt.Errorf("no certificates found in pem file")
+			return nil, nil, fmt.Errorf("no certificates found in pem file")
 		}
 
 		leaf := certs[0]
@@ -2062,7 +2138,7 @@ func (m *k8sRpaasManager) getCertificatesInfo(ctx context.Context, instance *v1a
 		})
 	}
 
-	return certsInfo, nil
+	return certsInfo, events, nil
 }
 
 func getPortsForPod(pod *corev1.Pod) []clientTypes.PodPort {

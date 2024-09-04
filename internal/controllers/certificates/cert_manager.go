@@ -89,7 +89,7 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 	}
 
 	for _, req := range instanceMergedWithFlavors.CertManagerRequests() {
-		delete(toRemove, fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)))
+		delete(toRemove, CertManagerCertificateNameForInstance(instance.Name, req))
 	}
 
 	for name := range toRemove {
@@ -199,7 +199,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
+			Name:      CertManagerCertificateNameForInstance(instance.Name, req),
 			Namespace: instance.Namespace,
 			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
@@ -214,7 +214,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 			IssuerRef:   *issuer,
 			DNSNames:    req.DNSNames,
 			IPAddresses: req.IPAddresses,
-			SecretName:  fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
+			SecretName:  CertManagerCertificateNameForInstance(instance.Name, req),
 			SecretTemplate: &cmv1.CertificateSecretTemplate{
 				Labels: map[string]string{
 					"rpaas.extensions.tsuru.io/certificate-name": cmCertificateName(req),
@@ -320,4 +320,8 @@ func cmCertificateName(r v1alpha1.CertManager) string {
 		return r.Name
 	}
 	return fmt.Sprintf("%s-%s", CertManagerCertificateName, strings.ToLower(strings.ReplaceAll(r.Issuer, ".", "-")))
+}
+
+func CertManagerCertificateNameForInstance(instanceName string, r v1alpha1.CertManager) string {
+	return fmt.Sprintf("%s-%s", instanceName, cmCertificateName(r))
 }

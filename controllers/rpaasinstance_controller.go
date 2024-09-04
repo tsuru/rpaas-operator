@@ -92,6 +92,11 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		reservation = NoopReservation()
 	}
 
+	var reportError = func(err error) (ctrl.Result, error) {
+		reservation.Cancel()
+		return ctrl.Result{}, err
+	}
+
 	if s := instance.Spec.Suspend; s != nil && *s {
 		r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceSuspended", "no modifications will be done by RPaaS controller")
 		return reconcile.Result{Requeue: true}, nil
@@ -108,24 +113,24 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	plan := &v1alpha1.RpaasPlan{}
 	err = r.Client.Get(ctx, planName, plan)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reportError(err)
 	}
 
 	instanceMergedWithFlavors, err := r.mergeWithFlavors(ctx, instance.DeepCopy())
 	if err != nil {
-		return reconcile.Result{}, nil
+		return reportError(err)
 	}
 
 	if instanceMergedWithFlavors.Spec.PlanTemplate != nil {
 		plan.Spec, err = mergePlans(plan.Spec, *instanceMergedWithFlavors.Spec.PlanTemplate)
 		if err != nil {
-			return reconcile.Result{}, err
+			return reportError(err)
 		}
 	}
 
 	certManagerCertificates, err := certificates.ReconcileCertManager(ctx, r.Client, instance, instanceMergedWithFlavors)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reportError(err)
 	}
 
 	instanceMergedWithFlavors.Spec.PodTemplate.Ports = []corev1.ContainerPort{
@@ -150,68 +155,72 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		})
 	}
 
-	rendered, err := r.renderTemplate(ctx, instanceMergedWithFlavors, plan)
+	changes := map[string]bool{}
+
+	certificateSecrets, err := certificates.ListCertificateSecrets(ctx, r.Client, instanceMergedWithFlavors)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reportError(err)
 	}
 
-	changes := map[string]bool{}
+	certificatePodAnnotations, nginxTLS := newNginxTLS(&logger, certificateSecrets, instanceMergedWithFlavors.Spec.TLS, certManagerCertificates)
+
+	rendered, err := r.renderTemplate(ctx, instanceMergedWithFlavors, plan, nginxTLS)
+	if err != nil {
+		return reportError(err)
+	}
 
 	configMap := newConfigMap(instanceMergedWithFlavors, rendered)
 	changes["configMap"], err = r.reconcileConfigMap(ctx, configMap)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reportError(err)
 	}
 
 	configList, err := r.listConfigs(ctx, instanceMergedWithFlavors)
 	if err != nil {
-		return reconcile.Result{}, err
+		return reportError(err)
 	}
 
 	if shouldDeleteOldConfig(instanceMergedWithFlavors, configList) {
 		if err = r.deleteOldConfig(ctx, instanceMergedWithFlavors, configList); err != nil {
-			return ctrl.Result{}, err
+			return reportError(err)
 		}
-	}
-
-	certificateSecrets, err := certificates.ListCertificateSecrets(ctx, r.Client, instanceMergedWithFlavors)
-	if err != nil {
-		return reconcile.Result{}, err
 	}
 
 	// Nginx CRD
 	nginx := newNginx(newNginxOptions{
-		logger:                    &logger,
 		instanceMergedWithFlavors: instanceMergedWithFlavors,
 		plan:                      plan,
 		configMap:                 configMap,
-		certManagerCertificates:   certManagerCertificates,
-		certificateSecrets:        certificateSecrets,
+		certificatePodAnnotations: certificatePodAnnotations,
+		nginxTLS:                  nginxTLS,
 	})
-	changes["nginx"], err = r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx)
+	var certificatesHasChanges bool
+	changes["nginx"], certificatesHasChanges, err = r.reconcileNginx(ctx, instanceMergedWithFlavors, nginx)
 	if err != nil {
-		return ctrl.Result{}, err
+		return reportError(err)
 	}
 
 	// Session Resumption
 	changes["sessionResumption"], err = r.reconcileTLSSessionResumption(ctx, instanceMergedWithFlavors)
 	if err != nil {
-		return ctrl.Result{}, err
+		return reportError(err)
 	}
 
 	// HPA
 	changes["hpa"], err = r.reconcileHPA(ctx, instanceMergedWithFlavors, nginx)
 	if err != nil {
-		return ctrl.Result{}, err
+		return reportError(err)
 	}
 
 	// PDB
 	changes["pdb"], err = r.reconcilePDB(ctx, instanceMergedWithFlavors, nginx)
 	if err != nil {
-		return ctrl.Result{}, err
+		return reportError(err)
 	}
 
-	if listOfChanges := getChangesList(changes); len(listOfChanges) > 0 {
+	if certificatesHasChanges {
+		reservation.Cancel()
+	} else if listOfChanges := getChangesList(changes); len(listOfChanges) > 0 {
 		if systemRollout {
 			msg := fmt.Sprintf("RPaaS controller has updated these resources: %s to ensure system consistency", strings.Join(listOfChanges, ", "))
 			logger.Info(msg)
