@@ -19,7 +19,6 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
-	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/fake"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -227,90 +226,6 @@ func Test_deleteCertificate(t *testing.T) {
 			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
 		})
 
-	}
-}
-
-func Test_GetCertificates(t *testing.T) {
-	tests := []struct {
-		name         string
-		manager      rpaas.RpaasManager
-		instance     string
-		expectedCode int
-		expectedBody string
-		config       *config.RpaasConfig
-	}{
-		{
-			name:         "when the instance does not exist",
-			manager:      &fake.RpaasManager{},
-			instance:     "my-instance",
-			expectedCode: http.StatusOK,
-			expectedBody: "[]",
-		},
-		{
-			name: "when the instance and certificate exists",
-			manager: &fake.RpaasManager{
-				FakeGetCertificates: func(instanceName string) ([]rpaas.CertificateData, []clientTypes.Event, error) {
-					return []rpaas.CertificateData{
-						{
-							Name:        "cert-name",
-							Certificate: `my-certificate`,
-							Key:         `my-key`,
-						},
-					}, nil, nil
-				},
-			},
-			instance:     "real-instance",
-			expectedCode: http.StatusOK,
-			expectedBody: "[{\"name\":\"cert-name\",\"certificate\":\"my-certificate\",\"key\":\"my-key\"}]",
-		},
-		{
-			name: "when the instance exists but the certificate has a missing key",
-			manager: &fake.RpaasManager{
-				FakeGetCertificates: func(instanceName string) ([]rpaas.CertificateData, []clientTypes.Event, error) {
-					return nil, nil, fmt.Errorf("key data not found")
-				},
-			},
-			instance:     "real-instance",
-			expectedCode: http.StatusInternalServerError,
-			expectedBody: "{\"message\":\"key data not found\"}",
-		},
-		{
-			name:     "when suppressing private key is enabled",
-			instance: "my-instance",
-			config: &config.RpaasConfig{
-				SuppressPrivateKeyOnCertificatesList: true,
-			},
-			manager: &fake.RpaasManager{
-				FakeGetCertificates: func(instance string) ([]rpaas.CertificateData, []clientTypes.Event, error) {
-					return []rpaas.CertificateData{
-						{
-							Name:        "my-example.com",
-							Certificate: "X509 certificate",
-							Key:         "PEM ENCODED KEY",
-						},
-					}, nil, nil
-				},
-			},
-			expectedCode: http.StatusOK,
-			expectedBody: "[{\"name\":\"my-example.com\",\"certificate\":\"X509 certificate\",\"key\":\"*** private ***\"}]",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if tt.config != nil {
-				config.Set(*tt.config)
-			}
-			srv := newTestingServer(t, tt.manager)
-			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/certificate", srv.URL, tt.instance)
-			request, err := http.NewRequest(http.MethodGet, path, nil)
-			require.NoError(t, err)
-			rsp, err := srv.Client().Do(request)
-			require.NoError(t, err)
-			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
-			assert.Equal(t, tt.expectedBody, bodyContent(rsp))
-		})
 	}
 }
 

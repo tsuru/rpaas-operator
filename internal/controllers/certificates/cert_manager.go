@@ -104,12 +104,18 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 			certName = CertManagerCertificateName
 		}
 
-		if err = DeleteCertificate(ctx, c, instance, certName); err != nil {
+		if err = c.Delete(ctx, &cert); err != nil {
 			return err
 		}
 
-		if err = c.Delete(ctx, &cert); err != nil {
+		var secret corev1.Secret
+		err = c.Get(ctx, types.NamespacedName{Name: cert.Spec.SecretName, Namespace: instance.Namespace}, &secret)
+		if err != nil && !k8serrors.IsNotFound(err) {
 			return err
+		} else if err == nil {
+			if err = c.Delete(ctx, &secret); err != nil {
+				return err
+			}
 		}
 	}
 

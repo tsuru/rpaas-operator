@@ -30,6 +30,7 @@ func (m *k8sRpaasManager) GetCertManagerRequests(ctx context.Context, instanceNa
 	var requests []clientTypes.CertManager
 	for _, r := range instance.CertManagerRequests() {
 		requests = append(requests, clientTypes.CertManager{
+			Name:        r.Name,
 			Issuer:      r.Issuer,
 			DNSNames:    r.DNSNames,
 			IPAddresses: r.IPAddresses,
