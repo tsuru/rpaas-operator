@@ -200,7 +200,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		labels[k] = v
 	}
 
-	labels["rpaas.extensions.tsuru.io/certificate-name"] = cmCertificateName(req)
+	labels["rpaas.extensions.tsuru.io/certificate-name"] = req.RequiredName()
 	labels["rpaas.extensions.tsuru.io/instance-name"] = instance.Name
 
 	return &cmv1.Certificate{
@@ -223,7 +223,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 			SecretName:  CertManagerCertificateNameForInstance(instance.Name, req),
 			SecretTemplate: &cmv1.CertificateSecretTemplate{
 				Labels: map[string]string{
-					"rpaas.extensions.tsuru.io/certificate-name": cmCertificateName(req),
+					"rpaas.extensions.tsuru.io/certificate-name": req.RequiredName(),
 					"rpaas.extensions.tsuru.io/instance-name":    instance.Name,
 				},
 			},
@@ -321,13 +321,6 @@ func isCertificateReady(cert *cmv1.Certificate) bool {
 	return false
 }
 
-func cmCertificateName(r v1alpha1.CertManager) string {
-	if r.Name != "" {
-		return r.Name
-	}
-	return fmt.Sprintf("%s-%s", CertManagerCertificateName, strings.ToLower(strings.ReplaceAll(r.Issuer, ".", "-")))
-}
-
 func CertManagerCertificateNameForInstance(instanceName string, r v1alpha1.CertManager) string {
-	return fmt.Sprintf("%s-%s", instanceName, cmCertificateName(r))
+	return fmt.Sprintf("%s-%s", instanceName, r.RequiredName())
 }
