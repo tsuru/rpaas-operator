@@ -715,11 +715,15 @@ func Test_CertManagerCertificateName(t *testing.T) {
 			request:  v1alpha1.CertManager{Issuer: "my-custom.ClusterIssuer.example.com"},
 			expected: "cert-manager-my-custom-clusterissuer-example-com",
 		},
+		{
+			request:  v1alpha1.CertManager{Issuer: "my-custom.ClusterIssuer.example.com", Name: "cert01"},
+			expected: "cert01",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(fmt.Sprintf("%v == %q", tt.request, tt.expected), func(t *testing.T) {
-			got := cmCertificateName(tt.request)
+			got := tt.request.RequiredName()
 			assert.Equal(t, tt.expected, got)
 		})
 	}

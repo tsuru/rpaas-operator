@@ -5,6 +5,9 @@
 package v1alpha1
 
 import (
+	"fmt"
+	"strings"
+
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -173,6 +176,13 @@ type CertManager struct {
 	// DNSNamesDefault when is set use the provided DNSName from DNS Zone field.
 	// +optional
 	DNSNamesDefault bool `json:"dnsNamesDefault,omitempty"`
+}
+
+func (r *CertManager) RequiredName() string {
+	if r.Name != "" {
+		return r.Name
+	}
+	return fmt.Sprintf("cert-manager-%s", strings.ToLower(strings.ReplaceAll(r.Issuer, ".", "-")))
 }
 
 type AllowedUpstream struct {
