@@ -483,7 +483,7 @@ http {
         {{- template "rpaasv2.internal.server" $all }}
     }
 
-    {{- range $_, $tls := $instance.Spec.TLS }}
+    {{- range $_, $tls := $nginxTLS }}
     server {
         listen {{ httpsPort $instance }} ssl http2
             {{- with $config.HTTPSListenOptions }} {{ . }}{{ end }};
