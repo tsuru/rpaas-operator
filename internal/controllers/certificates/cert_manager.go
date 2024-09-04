@@ -99,11 +99,6 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 			return err
 		}
 
-		certName := cert.Labels[CertificateNameLabel]
-		if certName == "" {
-			certName = CertManagerCertificateName
-		}
-
 		if err = c.Delete(ctx, &cert); err != nil {
 			return err
 		}
