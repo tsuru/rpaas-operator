@@ -106,9 +106,9 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		instance.Spec.DynamicCertificates.CertManager = nil
 	}
 
-	if index, found := findCertManagerRequestByName(instance, in.Name); found {
+	if index, found := findCertManagerRequestByName(instance, in.Name); found && in.Name != "" {
 		instance.Spec.DynamicCertificates.CertManagerRequests[index] = newRequest
-	} else if index, found := findCertManagerRequestByIssuer(instance, in.Issuer); found {
+	} else if index, found := findCertManagerRequestByIssuer(instance, in.Issuer); found && in.Name == "" {
 		instance.Spec.DynamicCertificates.CertManagerRequests[index] = newRequest
 	} else {
 		instance.Spec.DynamicCertificates.CertManagerRequests = append(instance.Spec.DynamicCertificates.CertManagerRequests, newRequest)
