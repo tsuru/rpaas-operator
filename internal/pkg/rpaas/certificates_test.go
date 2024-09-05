@@ -322,6 +322,67 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 	}
 }
 
+func Test_k8sRpaasManager_UpdateCertManagerRequestWithManyCertificates(t *testing.T) {
+	cfg := config.RpaasConfig{
+		EnableCertManager: true,
+	}
+
+	oldCfg := config.Get()
+	config.Set(cfg)
+	defer func() { config.Set(oldCfg) }()
+
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-1",
+			Namespace: "rpaasv2",
+		},
+	}
+
+	issuer := &cmv1.ClusterIssuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-issuer",
+			Annotations: map[string]string{
+				allowedDNSZonesAnnotation: "example.com,example.org",
+			},
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(rpaasruntime.NewScheme()).
+		WithRuntimeObjects(instance, issuer).
+		Build()
+
+	manager := &k8sRpaasManager{cli: client}
+
+	err := manager.UpdateCertManagerRequest(context.TODO(), instance.Name, clientTypes.CertManager{
+		Issuer:   "default-issuer",
+		Name:     "my-instance-1.example.com",
+		DNSNames: []string{"my-instance-1.example.com"},
+	})
+
+	require.NoError(t, err)
+
+	err = manager.UpdateCertManagerRequest(context.TODO(), instance.Name, clientTypes.CertManager{
+		Issuer:   "default-issuer",
+		Name:     "my-instance-2.example.com",
+		DNSNames: []string{"my-instance-2.example.com"},
+	})
+	require.NoError(t, err)
+
+	updatedInstance := &v1alpha1.RpaasInstance{}
+	err = client.Get(context.TODO(), types.NamespacedName{
+		Name:      "my-instance-1",
+		Namespace: "rpaasv2",
+	}, updatedInstance)
+	require.NoError(t, err)
+
+	assert.Len(t, updatedInstance.Spec.DynamicCertificates.CertManagerRequests, 2)
+	assert.Equal(t, []v1alpha1.CertManager{
+		{Name: "my-instance-1.example.com", Issuer: "default-issuer", DNSNames: []string{"my-instance-1.example.com"}},
+		{Name: "my-instance-2.example.com", Issuer: "default-issuer", DNSNames: []string{"my-instance-2.example.com"}},
+	}, updatedInstance.Spec.DynamicCertificates.CertManagerRequests)
+}
+
 func Test_k8sRpaasManager_DeleteCertManagerRequestByIssuer(t *testing.T) {
 	resources := []runtime.Object{
 		&v1alpha1.RpaasInstance{
