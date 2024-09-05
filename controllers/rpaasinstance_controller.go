@@ -219,6 +219,9 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if certificatesHasChanges {
+		msg := "RPaaS controller has updated this resource due a certificate change"
+		logger.Info(msg)
+		r.EventRecorder.Event(instance, corev1.EventTypeWarning, "RpaasInstanceCertificatesChanged", msg)
 		reservation.Cancel()
 	} else if listOfChanges := getChangesList(changes); len(listOfChanges) > 0 {
 		if systemRollout {
@@ -231,7 +234,11 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	if err = r.refreshStatus(ctx, instance, instanceHash, nginx); err != nil {
-		return ctrl.Result{}, err
+		reservation.Cancel()
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, err
 	}
 
 	return ctrl.Result{}, nil
