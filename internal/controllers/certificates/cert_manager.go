@@ -198,6 +198,11 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 	labels["rpaas.extensions.tsuru.io/certificate-name"] = req.RequiredName()
 	labels["rpaas.extensions.tsuru.io/instance-name"] = instance.Name
 
+	var commonName string
+	if len(req.DNSNames) > 0 {
+		commonName = req.DNSNames[0]
+	}
+
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      CertManagerCertificateNameForInstance(instance.Name, req),
@@ -215,6 +220,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 			IssuerRef:   *issuer,
 			DNSNames:    req.DNSNames,
 			IPAddresses: req.IPAddresses,
+			CommonName:  commonName,
 			SecretName:  CertManagerCertificateNameForInstance(instance.Name, req),
 			SecretTemplate: &cmv1.CertificateSecretTemplate{
 				Labels: map[string]string{

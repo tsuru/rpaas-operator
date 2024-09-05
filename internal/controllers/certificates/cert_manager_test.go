@@ -230,6 +230,7 @@ wg4cGbIbBPs=
 						Kind:  "Issuer",
 					},
 					SecretName:  cert.Name,
+					CommonName:  "my-instance.example.com",
 					DNSNames:    []string{"my-instance.example.com"},
 					IPAddresses: []string{"169.196.1.100"},
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
@@ -319,6 +320,7 @@ wg4cGbIbBPs=
 						Kind:  "Issuer",
 					},
 					SecretName: "my-instance-cert-01",
+					CommonName: "my-instance.example.com",
 					DNSNames:   []string{"my-instance.example.com"},
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
 						Labels: map[string]string{
@@ -335,6 +337,7 @@ wg4cGbIbBPs=
 						Kind:  "Issuer",
 					},
 					SecretName: "my-instance-cert-02",
+					CommonName: "my-instance2.example.com",
 					DNSNames:   []string{"my-instance2.example.com"},
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
 						Labels: map[string]string{
@@ -351,6 +354,7 @@ wg4cGbIbBPs=
 						Kind:  "Issuer",
 					},
 					SecretName: "my-instance-cert-03",
+					CommonName: "my-instance3.example.org",
 					DNSNames:   []string{"my-instance3.example.org"},
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
 						Labels: map[string]string{
@@ -425,6 +429,7 @@ wg4cGbIbBPs=
 						Kind:  "Issuer",
 					},
 					SecretName: "my-instance-take-over-test-my-instance-take-over",
+					CommonName: "my-instance.example.com",
 					DNSNames:   []string{"my-instance.example.com"},
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
 						Labels: map[string]string{
@@ -497,6 +502,7 @@ wg4cGbIbBPs=
 						Kind:  "Issuer",
 					},
 					SecretName: cert.Name,
+					CommonName: "my-instance.rpaasv2.example.org",
 					DNSNames:   []string{"my-instance.rpaasv2.example.org"},
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
 						Labels: map[string]string{
@@ -556,6 +562,7 @@ wg4cGbIbBPs=
 						Kind:  "ClusterIssuer",
 					},
 					SecretName:  cert.Name,
+					CommonName:  "my-instance-2.example.com",
 					DNSNames:    []string{"my-instance-2.example.com", "app1.example.com"},
 					IPAddresses: []string{"2001:db8:dead:beef::"},
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
