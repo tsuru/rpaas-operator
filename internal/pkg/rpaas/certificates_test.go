@@ -138,6 +138,7 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 					maxDNSNamesAnnotation:   "1",
 					maxIPsAnnotation:        "0",
 					allowWildcardAnnotation: "false",
+					strictNamesAnnotation:   "true",
 				},
 			},
 		},
@@ -274,6 +275,7 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 		"with forbidden use of wildcards": {
 			instanceName: "my-instance-1",
 			certManager: clientTypes.CertManager{
+				Name:     "example.org",
 				DNSNames: []string{"*.example.org"},
 			},
 			cfg: config.RpaasConfig{
@@ -281,6 +283,19 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				DefaultCertManagerIssuer: "issuer-2",
 			},
 			expectedError: "wildcard DNS names are not allowed on this issuer",
+		},
+
+		"with strict names": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Name:     "cert-1",
+				DNSNames: []string{"my-instance-1.example.com"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "the name of this certificate must be: \"my-instance-1.example.com\"",
 		},
 
 		"using wrong certificate issuer from configs": {

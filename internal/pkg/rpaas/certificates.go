@@ -87,6 +87,14 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		}
 	}
 
+	if issuerAnnotations[strictNamesAnnotation] == "true" && len(in.DNSNames) > 0 {
+		expectedName := strings.TrimPrefix(in.DNSNames[0], "*.")
+
+		if expectedName != in.Name {
+			return &ValidationError{Msg: fmt.Sprintf("the name of this certificate must be: %q", expectedName)}
+		}
+	}
+
 	if issuerAnnotations[allowWildcardAnnotation] == "false" {
 		for _, dnsName := range in.DNSNames {
 			if strings.HasPrefix(dnsName, "*") {
