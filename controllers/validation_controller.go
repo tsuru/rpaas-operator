@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"path/filepath"
+	"time"
 
 	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
@@ -45,12 +46,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	validationHash, err := generateSpecHash(&validation.Spec)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	if validation.Status.RevisionHash == validationHash && validation.Status.Valid != nil {
+	if validation.Status.ObservedGeneration == validation.ObjectMeta.Generation && validation.Status.Valid != nil {
 		return reconcile.Result{}, nil
 	}
 
@@ -91,6 +87,11 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
+	validationHash, err := generateSpecHash(&validation.Spec)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
 	pod := newValidationPod(validationMergedWithFlavors, validationHash, plan, configMap)
 
 	existingPod, err := r.getPod(ctx, pod.Namespace, pod.Name)
@@ -110,9 +111,16 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	_, err = r.reconcilePod(ctx, pod)
+	hasChanged, err := r.reconcilePod(ctx, pod)
 	if err != nil {
 		return ctrl.Result{}, err
+	}
+
+	if !hasChanged {
+		return ctrl.Result{
+			Requeue:      true,
+			RequeueAfter: time.Second * 10,
+		}, nil
 	}
 
 	return ctrl.Result{}, nil

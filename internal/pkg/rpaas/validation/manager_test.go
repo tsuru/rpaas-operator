@@ -70,6 +70,82 @@ func TestUpdateBlock(t *testing.T) {
 	require.NoError(t, err)
 }
 
+func TestUpdateBlockWithDelayedPodStart(t *testing.T) {
+	block := rpaas.ConfigurationBlock{
+		Name:    "http",
+		Content: "blah;",
+	}
+
+	cli := clientFake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects().Build()
+
+	baseManager := &fake.RpaasManager{
+		FakeUpdateBlock: func(instance string, updateBlock rpaas.ConfigurationBlock) error {
+			assert.Equal(t, instance, "blah")
+			assert.Equal(t, block, updateBlock)
+			return nil
+		},
+		FakeGetInstance: func(instanceName string) (*v1alpha1.RpaasInstance, error) {
+			return &v1alpha1.RpaasInstance{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "default",
+					Name:      instanceName,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{},
+			}, nil
+		},
+	}
+
+	stop := fakeValidationControllerWithGenerationControl(cli, true, "")
+	defer stop()
+
+	validationMngr := New(baseManager, cli)
+
+	err := validationMngr.UpdateBlock(context.TODO(), "blah", block)
+	require.NoError(t, err)
+
+	err = validationMngr.UpdateBlock(context.TODO(), "blah", block)
+	require.NoError(t, err)
+}
+
+func TestUpdateBlockWithDelayedPodStartAndError(t *testing.T) {
+	block := rpaas.ConfigurationBlock{
+		Name:    "http",
+		Content: "blah;",
+	}
+
+	cli := clientFake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects().Build()
+
+	baseManager := &fake.RpaasManager{
+		FakeUpdateBlock: func(instance string, updateBlock rpaas.ConfigurationBlock) error {
+			assert.Equal(t, instance, "blah")
+			assert.Equal(t, block, updateBlock)
+			return nil
+		},
+		FakeGetInstance: func(instanceName string) (*v1alpha1.RpaasInstance, error) {
+			return &v1alpha1.RpaasInstance{
+				ObjectMeta: v1.ObjectMeta{
+					Namespace: "default",
+					Name:      instanceName,
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{},
+			}, nil
+		},
+	}
+
+	stop := fakeValidationControllerWithGenerationControl(cli, false, "error")
+	defer stop()
+
+	validationMngr := New(baseManager, cli)
+
+	err := validationMngr.UpdateBlock(context.TODO(), "blah", block)
+	assert.NotNil(t, err)
+	assert.Equal(t, "error", err.Error())
+
+	err = validationMngr.UpdateBlock(context.TODO(), "blah", block)
+	assert.NotNil(t, err)
+	assert.Equal(t, "error", err.Error())
+}
+
 func TestUpdateBlockControllerError(t *testing.T) {
 	block := rpaas.ConfigurationBlock{
 		Name:    "http",
@@ -396,6 +472,64 @@ func fakeValidationController(cli client.Client, valid bool, errorMesssage strin
 
 				item.Status.Valid = &valid
 				item.Status.Error = errorMesssage
+
+				cli.Update(context.Background(), &item)
+				if err != nil {
+					fmt.Println("stop controller", err)
+				}
+			}
+
+			if atomic.LoadInt32(&stopped) == 1 {
+				break
+			}
+
+			time.Sleep(time.Millisecond * 100)
+		}
+	}()
+
+	return stop
+}
+
+func fakeValidationControllerWithGenerationControl(cli client.Client, valid bool, errorMesssage string) (stop func()) {
+	var stopped int32
+	stop = func() {
+		atomic.StoreInt32(&stopped, 1)
+	}
+
+	list := v1alpha1.RpaasValidationList{}
+	err := cli.List(context.Background(), &list, &client.ListOptions{})
+	if err != nil {
+		fmt.Println("stop controller", err)
+	}
+
+	for _, item := range list.Items {
+		item.Generation = 1
+
+		cli.Update(context.Background(), &item)
+		if err != nil {
+			fmt.Println("failed to update", err)
+		}
+	}
+
+	time.Sleep(time.Millisecond * 100)
+
+	go func() {
+		for {
+			list := v1alpha1.RpaasValidationList{}
+			err := cli.List(context.Background(), &list, &client.ListOptions{})
+			if err != nil {
+				fmt.Println("stop controller", err)
+			}
+
+		itemsLoop:
+			for _, item := range list.Items {
+				if item.Status.Valid != nil {
+					continue itemsLoop
+				}
+
+				item.Status.Valid = &valid
+				item.Status.Error = errorMesssage
+				item.Status.ObservedGeneration = item.Generation
 
 				cli.Update(context.Background(), &item)
 				if err != nil {
