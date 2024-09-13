@@ -190,12 +190,12 @@ func (c *client) SetService(service string) (Client, error) {
 	return &newClient, nil
 }
 
-func (c *client) newRequest(method, pathName string, body io.Reader, instance string) (*http.Request, error) {
-	return c.newRequestWithQueryString(method, pathName, body, instance, nil)
+func (c *client) newRequest(method, pathName string, body io.Reader) (*http.Request, error) {
+	return c.newRequestWithQueryString(method, pathName, body, nil)
 }
 
-func (c *client) newRequestWithQueryString(method, pathName string, body io.Reader, instance string, qs url.Values) (*http.Request, error) {
-	url := c.formatURLWithQueryString(pathName, instance, qs)
+func (c *client) newRequestWithQueryString(method, pathName string, body io.Reader, qs url.Values) (*http.Request, error) {
+	url := c.formatURLWithQueryString(pathName, qs)
 	request, err := http.NewRequest(method, url, body)
 	if err != nil {
 		return nil, err
@@ -229,30 +229,26 @@ func (c *client) do(ctx context.Context, request *http.Request) (*http.Response,
 	return c.client.Do(request.WithContext(ctx))
 }
 
-func (c *client) formatURL(pathName, instance string) string {
+func (c *client) formatURL(pathName string) string {
 	if !c.throughTsuru {
 		return fmt.Sprintf("%s%s", c.rpaasAddress, pathName)
 	}
 
-	return fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s", c.tsuruTarget, c.tsuruService, instance, pathName)
+	return fmt.Sprintf("%s/1.20/services/%s%s", c.tsuruTarget, c.tsuruService, pathName)
 }
 
-func (c *client) formatURLWithQueryString(pathName, instance string, qs url.Values) string {
+func (c *client) formatURLWithQueryString(pathName string, qs url.Values) string {
 	qsData := qs.Encode()
 
-	if !c.throughTsuru {
-		if qsData != "" {
-			qsData = "?" + qsData
-		}
+	if qsData != "" {
+		qsData = "?" + qsData
+	}
 
+	if !c.throughTsuru {
 		return fmt.Sprintf("%s%s%s", c.rpaasAddress, pathName, qsData)
 	}
 
-	if qsData != "" {
-		qsData = "&" + qsData
-	}
-
-	return fmt.Sprintf("%s/services/%s/proxy/%s?callback=%s%s", c.tsuruTarget, c.tsuruService, instance, pathName, qsData)
+	return fmt.Sprintf("%s/1.20/services/%s%s%s", c.tsuruTarget, c.tsuruService, pathName, qsData)
 }
 
 func unmarshalBody(resp *http.Response, dst interface{}) error {

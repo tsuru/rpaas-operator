@@ -27,7 +27,7 @@ func (c *client) Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, 
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/info", args.Instance)
-	req, err := c.newRequest("GET", pathName, nil, args.Instance)
+	req, err := c.newRequest("GET", pathName, nil)
 	if err != nil {
 		return nil, err
 	}

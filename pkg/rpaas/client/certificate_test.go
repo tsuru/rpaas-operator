@@ -58,7 +58,7 @@ func TestClientThroughTsuru_UpdateCertificate(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/certificate"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/certificate", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Equal(t, "multipart/form-data; boundary=\"custom-boundary\"", r.Header.Get("Content-Type"))
 				assert.Equal(t, "--custom-boundary\r\nContent-Disposition: form-data; name=\"cert\"; filename=\"cert.pem\"\r\nContent-Type: application/octet-stream\r\n\r\nmy certificate\r\n--custom-boundary\r\nContent-Disposition: form-data; name=\"key\"; filename=\"key.pem\"\r\nContent-Type: application/octet-stream\r\n\r\nmy key\r\n--custom-boundary\r\nContent-Disposition: form-data; name=\"name\"\r\n\r\n\r\n--custom-boundary--\r\n", getBody(t, r))
@@ -113,7 +113,7 @@ func TestClientThroughTsuru_DeleteCertificate(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "DELETE")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/certificate/"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/certificate/", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.WriteHeader(http.StatusOK)
 			},
@@ -126,7 +126,7 @@ func TestClientThroughTsuru_DeleteCertificate(t *testing.T) {
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "DELETE")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/certificate/my-certificate"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/certificate/my-certificate", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Equal(t, "", getBody(t, r))
 				w.WriteHeader(http.StatusOK)
@@ -151,7 +151,7 @@ func TestClientThroughTsuru_DeleteCertificate(t *testing.T) {
 				Name:     "my certificate",
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/certificate/my+certificate"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/certificate/my+certificate", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				w.WriteHeader(http.StatusOK)
 			},
 		},
@@ -186,7 +186,7 @@ func TestClientThroughTsuru_ListCertManagerRequests(t *testing.T) {
 			instance: "my-instance",
 			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/cert-manager", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 
 				fmt.Fprintf(w, `[{"issuer": "my-issuer", "dnsNames": ["www.example.com", "web.example.com"], "ipAddresses": ["169.196.254.100"]}, {"issuer": "my-issuer-1", "dnsNames": ["*.test"]}]`)
@@ -208,7 +208,7 @@ func TestClientThroughTsuru_ListCertManagerRequests(t *testing.T) {
 			instance: "my-instance",
 			handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/cert-manager", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 
 				w.WriteHeader(http.StatusInternalServerError)
@@ -255,7 +255,7 @@ func TestClientThroughTsuru_UpdateCertManager(t *testing.T) {
 				},
 			},
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/cert-manager", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "POST", r.Method)
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				var cm types.CertManager
@@ -313,7 +313,7 @@ func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
 		"when removing a Cert Manager request with no issuer provided": {
 			instance: "my-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/cert-manager", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "DELETE", r.Method)
 				w.WriteHeader(http.StatusOK)
 			},
@@ -323,7 +323,7 @@ func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
 			instance: "my-instance",
 			issuer:   "lets-encrypt",
 			handler: func(w http.ResponseWriter, r *http.Request) {
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/cert-manager&issuer=lets-encrypt"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/cert-manager?issuer=lets-encrypt", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "DELETE", r.Method)
 				w.WriteHeader(http.StatusOK)
 			},

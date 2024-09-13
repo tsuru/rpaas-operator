@@ -30,7 +30,7 @@ func (c *client) Log(ctx context.Context, args LogArgs) error {
 	httpClient := *c.client
 	httpClient.Timeout = time.Duration(0)
 
-	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/log", args.Instance), args.Instance)
+	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/log", args.Instance))
 	u, err := url.Parse(serverAddress)
 	if err != nil {
 		return err

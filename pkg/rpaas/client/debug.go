@@ -27,7 +27,7 @@ func (c *client) Debug(ctx context.Context, args DebugArgs) (*websocket.Conn, er
 		return nil, err
 	}
 
-	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/debug", args.Instance), args.Instance)
+	serverAddress := c.formatURL(fmt.Sprintf("/resources/%s/debug", args.Instance))
 	u, err := url.Parse(serverAddress)
 	if err != nil {
 		return nil, err

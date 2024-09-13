@@ -48,7 +48,7 @@ func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) error {
 	body := strings.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
-	req, err := c.newRequest("POST", pathName, body, args.Instance)
+	req, err := c.newRequest("POST", pathName, body)
 	if err != nil {
 		return err
 	}
@@ -84,7 +84,7 @@ func (c *client) DeleteBlock(ctx context.Context, args DeleteBlockArgs) error {
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/block/%s", args.Instance, args.Name)
-	req, err := c.newRequest("DELETE", pathName, nil, args.Instance)
+	req, err := c.newRequest("DELETE", pathName, nil)
 	if err != nil {
 		return err
 	}
@@ -115,7 +115,7 @@ func (c *client) ListBlocks(ctx context.Context, args ListBlocksArgs) ([]types.B
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/block", args.Instance)
-	req, err := c.newRequest("GET", pathName, nil, args.Instance)
+	req, err := c.newRequest("GET", pathName, nil)
 	if err != nil {
 		return nil, err
 	}
