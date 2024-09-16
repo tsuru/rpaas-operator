@@ -20,7 +20,7 @@ func (c *client) GetMetadata(ctx context.Context, instance string) (*types.Metad
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/metadata", instance)
-	req, err := c.newRequest("GET", pathName, nil, instance)
+	req, err := c.newRequest("GET", pathName, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -55,7 +55,7 @@ func (c *client) SetMetadata(ctx context.Context, instance string, metadata *typ
 	body := bytes.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/metadata", instance)
-	req, err := c.newRequest("POST", pathName, body, instance)
+	req, err := c.newRequest("POST", pathName, body)
 	if err != nil {
 		return err
 	}
@@ -86,7 +86,7 @@ func (c *client) UnsetMetadata(ctx context.Context, instance string, metadata *t
 	body := bytes.NewReader(b)
 
 	pathName := fmt.Sprintf("/resources/%s/metadata", instance)
-	req, err := c.newRequest("DELETE", pathName, body, instance)
+	req, err := c.newRequest("DELETE", pathName, body)
 	if err != nil {
 		return err
 	}

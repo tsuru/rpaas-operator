@@ -43,7 +43,7 @@ func TestClientThroughTsuru_GetMetadata(t *testing.T) {
 			instance: "my-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "GET")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/metadata"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/metadata", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 
 				metadata := types.Metadata{
@@ -102,7 +102,7 @@ func TestClientThroughTsuru_SetMetadata(t *testing.T) {
 			instance: "my-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "POST")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/metadata"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/metadata", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				assert.NotNil(t, r.Body)
@@ -154,7 +154,7 @@ func TestClientThroughTsuru_UnsetMetadata(t *testing.T) {
 			instance: "my-instance",
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "DELETE")
-				assert.Equal(t, fmt.Sprintf("/services/%s/proxy/%s?callback=%s", FakeTsuruService, "my-instance", "/resources/my-instance/metadata"), r.URL.RequestURI())
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/metadata", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				assert.Equal(t, "application/json", r.Header.Get("Content-Type"))
 				assert.NotNil(t, r.Body)
