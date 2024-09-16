@@ -192,7 +192,13 @@ func runDeleteCertificate(c *cli.Context) error {
 	}
 
 	if c.Bool("cert-manager") {
-		if err = client.DeleteCertManager(c.Context, c.String("instance"), c.String("issuer")); err != nil {
+		if c.String("name") != "" {
+			err = client.DeleteCertManagerByName(c.Context, c.String("instance"), c.String("name"))
+		} else {
+			err = client.DeleteCertManagerByIssuer(c.Context, c.String("instance"), c.String("issuer"))
+		}
+
+		if err != nil {
 			return err
 		}
 

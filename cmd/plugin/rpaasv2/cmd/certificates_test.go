@@ -219,12 +219,25 @@ func TestDeleteCertificate(t *testing.T) {
 			expected: "certificate \"my-instance.example.com\" successfully deleted on my-instance\n",
 		},
 		{
-			name: "removing a certificate request for Cert Manager",
+			name: "removing a certificate request for Cert Manager by issuer",
 			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--cert-manager", "--issuer", "some-issuer"},
 			client: &fake.FakeClient{
-				FakeDeleteCertManager: func(instance, issuer string) error {
+				FakeDeleteCertManagerByIssuer: func(instance, issuer string) error {
 					assert.Equal(t, "my-instance", instance)
 					assert.Equal(t, "some-issuer", issuer)
+					return nil
+				},
+			},
+			expected: "cert manager integration was disabled\n",
+		},
+
+		{
+			name: "removing a certificate request for Cert Manager by issuer",
+			args: []string{"./rpaasv2", "certificates", "delete", "-i", "my-instance", "--cert-manager", "--name", "some-name"},
+			client: &fake.FakeClient{
+				FakeDeleteCertManagerByName: func(instance, name string) error {
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "some-name", name)
 					return nil
 				},
 			},
