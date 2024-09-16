@@ -135,13 +135,13 @@ func updateInstanceSpecWithCertificateInfos(ctx context.Context, c client.Client
 	return nil
 }
 
-func ListCertificateSecrets(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance) ([]corev1.Secret, error) {
+func ListCertificateSecrets(ctx context.Context, c client.Client, namespace, instance string) ([]corev1.Secret, error) {
 	var sl corev1.SecretList
 	err := c.List(ctx, &sl, &client.ListOptions{
 		LabelSelector: labels.Set{
-			"rpaas.extensions.tsuru.io/instance-name": instance.Name,
+			"rpaas.extensions.tsuru.io/instance-name": instance,
 		}.AsSelector(),
-		Namespace: instance.Namespace,
+		Namespace: namespace,
 	})
 
 	if err != nil {

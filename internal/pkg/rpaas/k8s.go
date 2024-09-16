@@ -713,7 +713,7 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 
 	events := make([]clientTypes.Event, 0)
 
-	for _, certManagerRequest := range instance.CertManagerRequests() {
+	for _, certManagerRequest := range instance.Spec.CertManagerRequests(instance.Name) {
 		certName := certManagerRequest.RequiredName()
 		certManagerCertificateName := certificates.CertManagerCertificateNameForInstance(instance.Name, certManagerRequest)
 		certificateEvents, err := m.eventsForObjectName(ctx, instance.Namespace, "Certificate", certManagerCertificateName)

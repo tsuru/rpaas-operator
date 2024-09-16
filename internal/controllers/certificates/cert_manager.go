@@ -34,7 +34,7 @@ func ReconcileCertManager(ctx context.Context, client client.Client, instance, i
 
 	certManagerCerts := []cmv1.Certificate{}
 
-	for _, req := range instanceMergedWithFlavors.CertManagerRequests() {
+	for _, req := range instanceMergedWithFlavors.Spec.CertManagerRequests(instance.Name) {
 		issuer, err := getCertManagerIssuer(ctx, client, req, instanceMergedWithFlavors.Namespace)
 		if err != nil {
 			return nil, err
@@ -77,6 +77,31 @@ func ReconcileCertManager(ctx context.Context, client client.Client, instance, i
 	return certManagerCerts, nil
 }
 
+func CertManagerCertificates(ctx context.Context, client client.Client, namespace, name string, spec *v1alpha1.RpaasInstanceSpec) ([]cmv1.Certificate, error) {
+	certManagerCerts := []cmv1.Certificate{}
+
+	for _, req := range spec.CertManagerRequests(name) {
+		certName := CertManagerCertificateNameForInstance(name, req)
+
+		var cert cmv1.Certificate
+		err := client.Get(ctx, types.NamespacedName{Name: certName, Namespace: namespace}, &cert)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		if !isCertificateReady(&cert) {
+			continue
+		}
+
+		certManagerCerts = append(certManagerCerts, cert)
+	}
+
+	return certManagerCerts, nil
+}
+
 func removeOldCertificates(ctx context.Context, c client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
 	certs, err := getCertificates(ctx, c, instanceMergedWithFlavors)
 	if err != nil {
@@ -88,7 +113,7 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 		toRemove[cert.Name] = true
 	}
 
-	for _, req := range instanceMergedWithFlavors.CertManagerRequests() {
+	for _, req := range instanceMergedWithFlavors.Spec.CertManagerRequests(instanceMergedWithFlavors.Name) {
 		delete(toRemove, CertManagerCertificateNameForInstance(instance.Name, req))
 	}
 

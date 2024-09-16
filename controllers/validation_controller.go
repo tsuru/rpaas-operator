@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/go-logr/logr"
+	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/equality"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -19,6 +20,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 )
 
@@ -37,6 +39,7 @@ type RpaasValidationReconciler struct {
 // +kubebuilder:rbac:groups=extensions.tsuru.io,resources=rpaasvalidations/status,verbs=get;update;patch
 
 func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+
 	validation, err := r.getRpaasValidation(ctx, req.NamespacedName)
 	if k8sErrors.IsNotFound(err) {
 		return reconcile.Result{}, nil
@@ -45,6 +48,9 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	logger := r.Log.WithName("Reconcile").
+		WithValues("RpaasValidation", types.NamespacedName{Name: validation.Name, Namespace: validation.Namespace})
 
 	if validation.Status.ObservedGeneration == validation.ObjectMeta.Generation && validation.Status.Valid != nil {
 		return reconcile.Result{}, nil
@@ -76,7 +82,19 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		}
 	}
 
-	rendered, err := r.renderTemplate(ctx, validationMergedWithFlavors, plan)
+	certificateSecrets, err := certificates.ListCertificateSecrets(ctx, r.Client, validationMergedWithFlavors.Namespace, validationMergedWithFlavors.Name)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	certManagerCertificates, err := certificates.CertManagerCertificates(ctx, r.Client, validationMergedWithFlavors.Namespace, validationMergedWithFlavors.Name, &validationMergedWithFlavors.Spec)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	podAnnotations, nginxTLS := newNginxTLS(&logger, certificateSecrets, validationMergedWithFlavors.Spec.TLS, certManagerCertificates)
+
+	rendered, err := r.renderTemplate(ctx, validationMergedWithFlavors, plan, nginxTLS)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -92,7 +110,13 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	pod := newValidationPod(validationMergedWithFlavors, validationHash, plan, configMap)
+	pod := newValidationPod(validationMergedWithFlavors, validationHash, plan, configMap, nginxTLS)
+	if pod.Annotations == nil {
+		pod.Annotations = make(map[string]string)
+	}
+	for k, v := range podAnnotations {
+		pod.Annotations[k] = v
+	}
 
 	existingPod, err := r.getPod(ctx, pod.Namespace, pod.Name)
 	if err != nil && !k8sErrors.IsNotFound(err) {
@@ -270,7 +294,7 @@ func mergeValidationWithFlavor(validation *v1alpha1.RpaasValidation, flavor v1al
 	return nil
 }
 
-func (r *RpaasValidationReconciler) renderTemplate(ctx context.Context, validation *v1alpha1.RpaasValidation, plan *v1alpha1.RpaasPlan) (string, error) {
+func (r *RpaasValidationReconciler) renderTemplate(ctx context.Context, validation *v1alpha1.RpaasValidation, plan *v1alpha1.RpaasPlan, nginxTLS []nginxv1alpha1.NginxTLS) (string, error) {
 	rf := &referenceFinder{
 		spec:      &validation.Spec,
 		client:    r.Client,
@@ -291,11 +315,15 @@ func (r *RpaasValidationReconciler) renderTemplate(ctx context.Context, validati
 		return "", err
 	}
 
+	validationWithNginxTLS := validation.DeepCopy()
+	validationWithNginxTLS.Spec.TLS = nginxTLS
+
 	config := nginx.ConfigurationData{
 		Instance: &v1alpha1.RpaasInstance{
-			Spec: validation.Spec,
+			Spec: validationWithNginxTLS.Spec,
 		},
-		Config: &plan.Spec.Config,
+		Config:   &plan.Spec.Config,
+		NginxTLS: nginxTLS,
 	}
 
 	return cr.Render(config)
@@ -371,7 +399,7 @@ func (r *RpaasValidationReconciler) reconcilePod(ctx context.Context, pod *corev
 	return true, nil
 }
 
-func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, validationHash string, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *corev1.Pod {
+func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, validationHash string, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap, nginxTLS []nginxv1alpha1.NginxTLS) *corev1.Pod {
 	n := &corev1.Pod{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      configMap.Name,
@@ -466,7 +494,7 @@ func newValidationPod(validationMergedWithFlavors *v1alpha1.RpaasValidation, val
 		})
 	}
 
-	for index, t := range validationMergedWithFlavors.Spec.TLS {
+	for index, t := range nginxTLS {
 		volumeName := fmt.Sprintf("nginx-certs-%d", index)
 
 		n.Spec.Volumes = append(n.Spec.Volumes, corev1.Volume{

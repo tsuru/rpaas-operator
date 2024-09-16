@@ -157,7 +157,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	changes := map[string]bool{}
 
-	certificateSecrets, err := certificates.ListCertificateSecrets(ctx, r.Client, instanceMergedWithFlavors)
+	certificateSecrets, err := certificates.ListCertificateSecrets(ctx, r.Client, instanceMergedWithFlavors.Namespace, instanceMergedWithFlavors.Name)
 	if err != nil {
 		return reportError(err)
 	}

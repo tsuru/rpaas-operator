@@ -39,6 +39,7 @@ func TestNewValidationPod(t *testing.T) {
 				Name: "valid-config",
 			},
 		},
+		[]nginxv1alpha1.NginxTLS{},
 	)
 
 	assert.Equal(t, &corev1.Pod{
@@ -115,15 +116,6 @@ func TestNewValidationPodFullFeatured(t *testing.T) {
 						},
 					},
 				},
-				TLS: []nginxv1alpha1.NginxTLS{
-					{
-						SecretName: "secret-tls",
-						Hosts: []string{
-							"host1",
-							"host2",
-						},
-					},
-				},
 
 				TLSSessionResumption: &v1alpha1.TLSSessionResumption{
 					SessionTicket: &v1alpha1.TLSSessionTicket{
@@ -144,6 +136,15 @@ func TestNewValidationPodFullFeatured(t *testing.T) {
 		&corev1.ConfigMap{
 			ObjectMeta: metav1.ObjectMeta{
 				Name: "valid-config",
+			},
+		},
+		[]nginxv1alpha1.NginxTLS{
+			{
+				SecretName: "secret-tls",
+				Hosts: []string{
+					"host1",
+					"host2",
+				},
 			},
 		},
 	)
