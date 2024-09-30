@@ -127,12 +127,14 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 }
 
 func (r *RpaasValidationReconciler) finishValidation(ctx context.Context, existingPod *corev1.Pod, validation *v1alpha1.RpaasValidation, validationHash string) (finished bool, err error) {
-	if existingPod.Annotations[v1alpha1.RpaasOperatorValidationHashAnnotationKey] != validationHash {
-		return false, nil
-	}
-
 	logger := r.Log.WithName("finishValidation").
 		WithValues("RpaasValidation", types.NamespacedName{Name: validation.Name, Namespace: validation.Namespace})
+
+	actualValidationHash := existingPod.Annotations[v1alpha1.RpaasOperatorValidationHashAnnotationKey]
+	if actualValidationHash != validationHash {
+		logger.Info("validation hash mismatch", "expected", validationHash, "actual", actualValidationHash)
+		return false, nil
+	}
 
 	var valid *bool = nil
 	terminatedMessage := ""
