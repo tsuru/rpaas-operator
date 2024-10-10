@@ -189,13 +189,10 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		{
 			name: "with TLS actived",
 			data: ConfigurationData{
-				Config: &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstance{
-					Spec: v1alpha1.RpaasInstanceSpec{
-						TLS: []nginxv1alpha1.NginxTLS{
-							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
-						},
-					},
+				Config:   &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{},
+				NginxTLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
@@ -208,14 +205,11 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		{
 			name: "with many certs actived",
 			data: ConfigurationData{
-				Config: &v1alpha1.NginxConfig{},
-				Instance: &v1alpha1.RpaasInstance{
-					Spec: v1alpha1.RpaasInstanceSpec{
-						TLS: []nginxv1alpha1.NginxTLS{
-							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
-							{SecretName: "my-cert-02", Hosts: []string{"www.example.org", "blog.example.org", "shop.example.org"}},
-						},
-					},
+				Config:   &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{},
+				NginxTLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
+					{SecretName: "my-cert-02", Hosts: []string{"www.example.org", "blog.example.org", "shop.example.org"}},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
@@ -236,12 +230,9 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{
 					HTTPSListenOptions: "backlog=2048 deferred reuseport",
 				},
-				Instance: &v1alpha1.RpaasInstance{
-					Spec: v1alpha1.RpaasInstanceSpec{
-						TLS: []nginxv1alpha1.NginxTLS{
-							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
-						},
-					},
+				Instance: &v1alpha1.RpaasInstance{},
+				NginxTLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
@@ -417,13 +408,13 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						TLS: []nginxv1alpha1.NginxTLS{
-							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
-						},
 						PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 							HostNetwork: true,
 						},
 					},
+				},
+				NginxTLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
@@ -441,9 +432,6 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Config: &v1alpha1.NginxConfig{},
 				Instance: &v1alpha1.RpaasInstance{
 					Spec: v1alpha1.RpaasInstanceSpec{
-						TLS: []nginxv1alpha1.NginxTLS{
-							{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
-						},
 						PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 							Ports: []corev1.ContainerPort{
 								{
@@ -461,6 +449,9 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 							},
 						},
 					},
+				},
+				NginxTLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
 				},
 			},
 			assertion: func(t *testing.T, result string) {

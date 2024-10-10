@@ -230,7 +230,6 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 	group.POST("/:instance/certificate", updateCertificate)
 	group.DELETE("/:instance/certificate/:name", deleteCertificate)
 	group.DELETE("/:instance/certificate", deleteCertificate)
-	group.GET("/:instance/certificate", getCertificates)
 	group.GET("/:instance/cert-manager", listCertManagerRequests)
 	group.POST("/:instance/cert-manager", updateCertManagerRequest)
 	group.DELETE("/:instance/cert-manager", deleteCertManagerRequest)

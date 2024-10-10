@@ -303,7 +303,7 @@ func TestClientThroughTsuru_UpdateCertManager(t *testing.T) {
 	}
 }
 
-func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
+func TestClientThroughTsuru_DeleteCertManagerByIssuer(t *testing.T) {
 	tests := map[string]struct {
 		instance      string
 		issuer        string
@@ -344,7 +344,59 @@ func TestClientThroughTsuru_DeleteCertManager(t *testing.T) {
 			client, server := newClientThroughTsuru(t, tt.handler)
 			defer server.Close()
 
-			err := client.DeleteCertManager(context.TODO(), tt.instance, tt.issuer)
+			err := client.DeleteCertManagerByIssuer(context.TODO(), tt.instance, tt.issuer)
+			if tt.expectedError == "" {
+				require.NoError(t, err)
+				return
+			}
+
+			assert.EqualError(t, err, tt.expectedError)
+		})
+	}
+}
+
+func TestClientThroughTsuru_DeleteCertManagerByName(t *testing.T) {
+	tests := map[string]struct {
+		instance      string
+		name          string
+		expectedError string
+		handler       http.HandlerFunc
+	}{
+		"when removing a Cert Manager request with no issuer provided": {
+			instance: "my-instance",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/cert-manager", FakeTsuruService, "my-instance"), r.URL.RequestURI())
+				assert.Equal(t, "DELETE", r.Method)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+
+		"when removing a Cert Manager request from a specific issuer": {
+			instance: "my-instance",
+			name:     "my-name",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/cert-manager?name=my-name", FakeTsuruService, "my-instance"), r.URL.RequestURI())
+				assert.Equal(t, "DELETE", r.Method)
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+
+		"when server returns an error": {
+			instance: "my-instance",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusNotFound)
+				fmt.Fprintf(w, `{"Msg": "some error"}`)
+			},
+			expectedError: `rpaasv2: unexpected status code: 404 Not Found, detail: {"Msg": "some error"}`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client, server := newClientThroughTsuru(t, tt.handler)
+			defer server.Close()
+
+			err := client.DeleteCertManagerByName(context.TODO(), tt.instance, tt.name)
 			if tt.expectedError == "" {
 				require.NoError(t, err)
 				return

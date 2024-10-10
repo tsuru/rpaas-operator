@@ -29,7 +29,7 @@ build/api: build-dirs
 
 .PHONY: build/manager
 build/manager: manager
-	
+
 .PHONY: build/plugin/rpaasv2
 build/plugin/rpaasv2: build-dirs
 	go build -o $(GO_BUILD_DIR)/ ./cmd/plugin/rpaasv2
@@ -102,7 +102,7 @@ controller-gen:
 ifeq (, $(shell which controller-gen))
 	@{ \
 	set -e ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.7.0 ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.15.0 ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else

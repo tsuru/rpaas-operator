@@ -38,7 +38,21 @@ func (r *systemRolloutRateLimiter) Reserve() (allowed bool, reservation SystemRo
 		return false, nil
 	}
 
-	return true, rateLimitReservation
+	return true, &onceReservation{Reservation: rateLimitReservation}
+}
+
+type onceReservation struct {
+	*rate.Reservation
+	canceled bool
+}
+
+func (r *onceReservation) Cancel() {
+	if r.canceled {
+		return
+	}
+
+	r.Reservation.Cancel()
+	r.canceled = true
 }
 
 type noopReservation struct{}

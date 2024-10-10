@@ -49,7 +49,6 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 			&cli.StringFlag{
 				Name:  "name",
 				Usage: "an identifier for the current certificate and key",
-				Value: "default",
 			},
 			&cli.PathFlag{
 				Name:    "certificate",
@@ -104,9 +103,14 @@ func runUpdateCertificate(c *cli.Context) error {
 		return err
 	}
 
+	name := c.String("name")
+	if name == "" {
+		name = "default"
+	}
+
 	args := rpaasclient.UpdateCertificateArgs{
 		Instance:    c.String("instance"),
-		Name:        c.String("name"),
+		Name:        name,
 		Certificate: string(certificate),
 		Key:         string(key),
 	}
@@ -131,6 +135,7 @@ func updateCertManagerCertificate(c *cli.Context, client rpaasclient.Client) (bo
 	err := client.UpdateCertManager(c.Context, rpaasclient.UpdateCertManagerArgs{
 		Instance: c.String("instance"),
 		CertManager: clientTypes.CertManager{
+			Name:        c.String("name"),
 			Issuer:      c.String("issuer"),
 			DNSNames:    c.StringSlice("dns"),
 			IPAddresses: c.StringSlice("ip"),
@@ -187,7 +192,13 @@ func runDeleteCertificate(c *cli.Context) error {
 	}
 
 	if c.Bool("cert-manager") {
-		if err = client.DeleteCertManager(c.Context, c.String("instance"), c.String("issuer")); err != nil {
+		if c.String("name") != "" {
+			err = client.DeleteCertManagerByName(c.Context, c.String("instance"), c.String("name"))
+		} else {
+			err = client.DeleteCertManagerByIssuer(c.Context, c.String("instance"), c.String("issuer"))
+		}
+
+		if err != nil {
 			return err
 		}
 
@@ -211,7 +222,12 @@ func runDeleteCertificate(c *cli.Context) error {
 func writeCertificatesInfoOnTableFormat(w io.Writer, certs []clientTypes.CertificateInfo) {
 	var data [][]string
 	for _, c := range certs {
-		data = append(data, []string{c.Name, formatPublicKeyInfo(c), formatCertificateValidity(c), strings.Join(c.DNSNames, "\n")})
+		extraInfo := ""
+		if c.IsManagedByCertManager {
+			extraInfo = "\n  managed by: cert-manager\n  issuer: " + c.CertManagerIssuer
+		}
+
+		data = append(data, []string{c.Name + extraInfo, formatPublicKeyInfo(c), formatCertificateValidity(c), strings.Join(c.DNSNames, "\n")})
 	}
 
 	table := tablewriter.NewWriter(w)

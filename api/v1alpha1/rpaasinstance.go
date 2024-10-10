@@ -64,46 +64,75 @@ func (i *RpaasInstance) BelongsToCluster(clusterName string) bool {
 	return clusterName == instanceCluster
 }
 
-func (i *RpaasInstance) CertManagerRequests() (reqs []CertManager) {
-	if i == nil || i.Spec.DynamicCertificates == nil {
+func (s *RpaasInstanceSpec) CertManagerRequests(name string) (reqs []CertManager) {
+	if s == nil || s.DynamicCertificates == nil {
 		return
 	}
 
-	uniqueCerts := make(map[string]*CertManager)
-	if req := i.Spec.DynamicCertificates.CertManager; req != nil {
+	uniqueCertsByIssuer := make(map[string]*CertManager)
+	uniqueCertsByName := make(map[string]*CertManager)
+
+	if req := s.DynamicCertificates.CertManager; req != nil {
 		r := req.DeepCopy()
-		r.DNSNames = r.dnsNames(i)
-		uniqueCerts[r.Issuer] = r
+		r.DNSNames = r.dnsNames(name, s)
+
+		if req.Name != "" {
+			uniqueCertsByName[req.Name] = r
+		} else {
+			uniqueCertsByIssuer[r.Issuer] = r
+		}
 	}
 
-	for _, req := range i.Spec.DynamicCertificates.CertManagerRequests {
-		r, found := uniqueCerts[req.Issuer]
-		if !found {
-			uniqueCerts[req.Issuer] = req.DeepCopy()
+	for _, req := range s.DynamicCertificates.CertManagerRequests {
+
+		if req.Name != "" {
+			r, found := uniqueCertsByName[req.Name]
+			if found {
+				r.DNSNames = append(r.DNSNames, req.dnsNames(name, s)...)
+				r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
+			} else {
+				uniqueCertsByName[req.Name] = req.DeepCopy()
+			}
+
 			continue
 		}
 
-		r.DNSNames = append(r.DNSNames, req.dnsNames(i)...)
+		r, found := uniqueCertsByIssuer[req.Issuer]
+		if !found {
+			uniqueCertsByIssuer[req.Issuer] = req.DeepCopy()
+			continue
+		}
+
+		r.DNSNames = append(r.DNSNames, req.dnsNames(name, s)...)
 		r.IPAddresses = append(r.IPAddresses, req.IPAddresses...)
 	}
 
-	for _, v := range uniqueCerts {
+	for _, v := range uniqueCertsByName {
+		reqs = append(reqs, *v)
+	}
+	for _, v := range uniqueCertsByIssuer {
 		reqs = append(reqs, *v)
 	}
 
-	sort.Slice(reqs, func(i, j int) bool { return reqs[i].Issuer < reqs[j].Issuer })
+	sort.Slice(reqs, func(i, j int) bool {
+		if reqs[i].Name != reqs[j].Name {
+			return reqs[i].Name < reqs[j].Name
+		}
+
+		return reqs[i].Issuer < reqs[j].Issuer
+	})
 
 	return
 }
 
-func (c *CertManager) dnsNames(i *RpaasInstance) (names []string) {
+func (c *CertManager) dnsNames(name string, spec *RpaasInstanceSpec) (names []string) {
 	if c == nil {
 		return
 	}
 
 	names = append(names, c.DNSNames...)
-	if c.DNSNamesDefault && i.Spec.DNS != nil && i.Spec.DNS.Zone != "" {
-		names = append(names, fmt.Sprintf("%s.%s", i.Name, i.Spec.DNS.Zone))
+	if c.DNSNamesDefault && spec.DNS != nil && spec.DNS.Zone != "" {
+		names = append(names, fmt.Sprintf("%s.%s", name, spec.DNS.Zone))
 	}
 
 	return

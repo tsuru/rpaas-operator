@@ -15,7 +15,6 @@ import (
 
 	"github.com/labstack/echo/v4"
 
-	"github.com/tsuru/rpaas-operator/internal/config"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
@@ -71,31 +70,6 @@ func updateCertificate(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
-func getCertificates(c echo.Context) error {
-	ctx := c.Request().Context()
-	manager, err := getManager(ctx)
-	if err != nil {
-		return err
-	}
-
-	certList, err := manager.GetCertificates(ctx, c.Param("instance"))
-	if err != nil {
-		return err
-	}
-
-	if certList == nil {
-		certList = make([]rpaas.CertificateData, 0)
-	}
-
-	if config.Get().SuppressPrivateKeyOnCertificatesList {
-		for i := range certList {
-			certList[i].Key = "*** private ***"
-		}
-	}
-
-	return c.JSON(http.StatusOK, certList)
-}
-
 func listCertManagerRequests(c echo.Context) error {
 	ctx := c.Request().Context()
 
@@ -145,8 +119,18 @@ func deleteCertManagerRequest(c echo.Context) error {
 		return err
 	}
 
-	if err := manager.DeleteCertManagerRequest(ctx, c.Param("instance"), c.QueryParam("issuer")); err != nil {
-		return err
+	instanceName := c.Param("instance")
+	name := c.QueryParam("name")
+	issuer := c.QueryParam("issuer")
+
+	if name != "" {
+		if err := manager.DeleteCertManagerRequestByName(ctx, instanceName, name); err != nil {
+			return err
+		}
+	} else {
+		if err := manager.DeleteCertManagerRequestByIssuer(ctx, instanceName, issuer); err != nil {
+			return err
+		}
 	}
 
 	return c.NoContent(http.StatusOK)

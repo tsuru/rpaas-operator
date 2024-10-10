@@ -105,5 +105,5 @@ func TestCertManagerRequests(t *testing.T) {
 			IPAddresses:     []string{"10.1.1.1", "10.1.1.2"},
 			DNSNamesDefault: true,
 		},
-	}, instance.CertManagerRequests())
+	}, instance.Spec.CertManagerRequests(instance.Name))
 }

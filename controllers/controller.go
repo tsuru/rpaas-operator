@@ -20,6 +20,8 @@ import (
 	"strings"
 	"text/template"
 
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/go-logr/logr"
 	"github.com/imdario/mergo"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/sirupsen/logrus"
@@ -42,6 +44,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	controllerUtil "github.com/tsuru/rpaas-operator/internal/controllers/util"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
 	"github.com/tsuru/rpaas-operator/pkg/util"
@@ -938,36 +941,40 @@ func externalAddresssesFromNginx(nginx *nginxv1alpha1.Nginx) v1alpha1.RpaasInsta
 	return ingressesStatus
 }
 
-func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, err error) {
+func (r *RpaasInstanceReconciler) reconcileNginx(ctx context.Context, instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (hasChanged bool, certificatesHasChanges bool, err error) {
 	found, err := r.getNginx(ctx, instance)
 	if err != nil {
 		if !k8sErrors.IsNotFound(err) {
 			logrus.Errorf("Failed to get nginx CR: %v", err)
-			return false, err
+			return false, false, err
 		}
 
 		err = r.Client.Create(ctx, nginx)
 		if err != nil {
 			logrus.Errorf("Failed to create nginx CR: %v", err)
-			return false, err
+			return false, false, err
 		}
-		return true, nil
+		return true, false, nil
 	}
 
 	if equality.Semantic.DeepEqual(nginx.Spec, found.Spec) {
-		return false, nil
+		return false, false, nil
 	}
+
+	// Certificates uses pod annotations, so we need to check if the pod template has changed
+	certificatesHasChanges = !equality.Semantic.DeepEqual(nginx.Spec.PodTemplate.Annotations, found.Spec.PodTemplate.Annotations)
+
 	nginx.ObjectMeta.ResourceVersion = found.ObjectMeta.ResourceVersion
 	err = r.Client.Update(ctx, nginx)
 	if err != nil {
 		logrus.Errorf("Failed to update nginx CR: %v", err)
-		return false, err
+		return false, false, err
 	}
 
-	return true, nil
+	return true, certificatesHasChanges, nil
 }
 
-func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan) (string, error) {
+func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, nginxTLS []nginxv1alpha1.NginxTLS) (string, error) {
 	rf := &referenceFinder{
 		spec:      &instance.Spec,
 		client:    r.Client,
@@ -988,9 +995,13 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 		return "", err
 	}
 
+	instanceWithNginxTLS := instance.DeepCopy()
+	instanceWithNginxTLS.Spec.TLS = nginxTLS
+
 	config := nginx.ConfigurationData{
-		Instance: instance,
+		Instance: instanceWithNginxTLS,
 		Config:   &plan.Spec.Config,
+		NginxTLS: nginxTLS,
 	}
 
 	return cr.Render(config)
@@ -1088,32 +1099,40 @@ func mergeServiceWithDNS(instance *v1alpha1.RpaasInstance) *nginxv1alpha1.NginxS
 	return s
 }
 
-func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.RpaasPlan, configMap *corev1.ConfigMap) *nginxv1alpha1.Nginx {
+type newNginxOptions struct {
+	instanceMergedWithFlavors *v1alpha1.RpaasInstance
+	plan                      *v1alpha1.RpaasPlan
+	configMap                 *corev1.ConfigMap
+	nginxTLS                  []nginxv1alpha1.NginxTLS
+	certificatePodAnnotations map[string]string
+}
+
+func newNginx(opts newNginxOptions) *nginxv1alpha1.Nginx {
 	var cacheConfig nginxv1alpha1.NginxCacheSpec
-	if v1alpha1.BoolValue(plan.Spec.Config.CacheEnabled) {
-		cacheConfig.Path = plan.Spec.Config.CachePath
+	if v1alpha1.BoolValue(opts.plan.Spec.Config.CacheEnabled) {
+		cacheConfig.Path = opts.plan.Spec.Config.CachePath
 		cacheConfig.InMemory = true
-		if plan.Spec.Config.CacheSize != nil && !plan.Spec.Config.CacheSize.IsZero() {
-			cacheConfig.Size = plan.Spec.Config.CacheSize
+		if opts.plan.Spec.Config.CacheSize != nil && !opts.plan.Spec.Config.CacheSize.IsZero() {
+			cacheConfig.Size = opts.plan.Spec.Config.CacheSize
 		}
 	}
 
-	instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(instanceMergedWithFlavors)
+	opts.instanceMergedWithFlavors.Spec.Service = mergeServiceWithDNS(opts.instanceMergedWithFlavors)
 
-	if s := instanceMergedWithFlavors.Spec.Service; s != nil {
-		s.Labels = instanceMergedWithFlavors.GetBaseLabels(s.Labels)
+	if s := opts.instanceMergedWithFlavors.Spec.Service; s != nil {
+		s.Labels = opts.instanceMergedWithFlavors.GetBaseLabels(s.Labels)
 	}
 
-	if ing := instanceMergedWithFlavors.Spec.Ingress; ing != nil {
-		ing.Labels = instanceMergedWithFlavors.GetBaseLabels(ing.Labels)
+	if ing := opts.instanceMergedWithFlavors.Spec.Ingress; ing != nil {
+		ing.Labels = opts.instanceMergedWithFlavors.GetBaseLabels(ing.Labels)
 	}
 
-	replicas := instanceMergedWithFlavors.Spec.Replicas
-	if shutdown := instanceMergedWithFlavors.Spec.Shutdown; shutdown {
+	replicas := opts.instanceMergedWithFlavors.Spec.Replicas
+	if shutdown := opts.instanceMergedWithFlavors.Spec.Shutdown; shutdown {
 		replicas = ptr.To(int32(0))
 	}
 
-	if isAutoscaleEnabled(&instanceMergedWithFlavors.Spec) {
+	if isAutoscaleEnabled(&opts.instanceMergedWithFlavors.Spec) {
 		// NOTE: we should avoid changing the number of replicas as it's managed by HPA.
 		replicas = nil
 	}
@@ -1124,32 +1143,31 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 			APIVersion: "nginx.tsuru.io/v1alpha1",
 		},
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      instanceMergedWithFlavors.Name,
-			Namespace: instanceMergedWithFlavors.Namespace,
+			Name:      opts.instanceMergedWithFlavors.Name,
+			Namespace: opts.instanceMergedWithFlavors.Namespace,
 			OwnerReferences: []metav1.OwnerReference{
-				*metav1.NewControllerRef(instanceMergedWithFlavors, schema.GroupVersionKind{
+				*metav1.NewControllerRef(opts.instanceMergedWithFlavors, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
 					Version: v1alpha1.GroupVersion.Version,
 					Kind:    "RpaasInstance",
 				}),
 			},
-			Labels: instanceMergedWithFlavors.GetBaseLabels(nil),
+			Labels: opts.instanceMergedWithFlavors.GetBaseLabels(nil),
 		},
 		Spec: nginxv1alpha1.NginxSpec{
-			Image:    plan.Spec.Image,
+			Image:    opts.plan.Spec.Image,
 			Replicas: replicas,
 			Config: &nginxv1alpha1.ConfigRef{
-				Name: configMap.Name,
+				Name: opts.configMap.Name,
 				Kind: nginxv1alpha1.ConfigKindConfigMap,
 			},
-			Resources:       plan.Spec.Resources,
-			Service:         instanceMergedWithFlavors.Spec.Service.DeepCopy(),
+			Resources:       opts.plan.Spec.Resources,
+			Service:         opts.instanceMergedWithFlavors.Spec.Service.DeepCopy(),
 			HealthcheckPath: "/_nginx_healthcheck",
-			TLS:             instanceMergedWithFlavors.Spec.TLS,
 			Cache:           cacheConfig,
-			PodTemplate:     instanceMergedWithFlavors.Spec.PodTemplate,
-			Lifecycle:       instanceMergedWithFlavors.Spec.Lifecycle,
-			Ingress:         instanceMergedWithFlavors.Spec.Ingress,
+			PodTemplate:     opts.instanceMergedWithFlavors.Spec.PodTemplate,
+			Lifecycle:       opts.instanceMergedWithFlavors.Spec.Lifecycle,
+			Ingress:         opts.instanceMergedWithFlavors.Spec.Ingress,
 		},
 	}
 
@@ -1157,7 +1175,7 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		n.Spec.Service.Type = corev1.ServiceTypeLoadBalancer
 	}
 
-	for i, f := range instanceMergedWithFlavors.Spec.Files {
+	for i, f := range opts.instanceMergedWithFlavors.Spec.Files {
 		volumeName := fmt.Sprintf("extra-files-%d", i)
 
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
@@ -1177,12 +1195,12 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		})
 	}
 
-	if isTLSSessionTicketEnabled(&instanceMergedWithFlavors.Spec) {
+	if isTLSSessionTicketEnabled(&opts.instanceMergedWithFlavors.Spec) {
 		n.Spec.PodTemplate.Volumes = append(n.Spec.PodTemplate.Volumes, corev1.Volume{
 			Name: sessionTicketsVolumeName,
 			VolumeSource: corev1.VolumeSource{
 				Secret: &corev1.SecretVolumeSource{
-					SecretName: secretNameForTLSSessionTickets(instanceMergedWithFlavors.Name),
+					SecretName: secretNameForTLSSessionTickets(opts.instanceMergedWithFlavors.Name),
 				},
 			},
 		})
@@ -1194,7 +1212,85 @@ func newNginx(instanceMergedWithFlavors *v1alpha1.RpaasInstance, plan *v1alpha1.
 		})
 	}
 
+	n.Spec.TLS = opts.nginxTLS
+
+	if len(opts.certificatePodAnnotations) > 0 {
+		if n.Spec.PodTemplate.Annotations == nil {
+			n.Spec.PodTemplate.Annotations = make(map[string]string)
+		}
+
+		for k, v := range opts.certificatePodAnnotations {
+			n.Spec.PodTemplate.Annotations[k] = v
+		}
+	}
+
 	return n
+}
+
+func newNginxTLS(logger *logr.Logger, certificateSecrets []corev1.Secret, userDefinedCertificates []nginxv1alpha1.NginxTLS, certManagerCertificates []cmv1.Certificate) (podAnnotations map[string]string, tls []nginxv1alpha1.NginxTLS) {
+	mapSecretNameToCertName := make(map[string]string)
+	secretsByName := make(map[string]corev1.Secret)
+
+	for _, secret := range certificateSecrets {
+		secretsByName[secret.Name] = secret
+		certName := secret.Labels[certificates.CertificateNameLabel]
+		if certName == "" {
+			logger.V(4).Info("certificate secret without certificate name label", "secret", secret.Name)
+		} else {
+			mapSecretNameToCertName[secret.Name] = certName
+		}
+	}
+
+	podAnnotations = make(map[string]string)
+	tlsByCertName := make(map[string]nginxv1alpha1.NginxTLS)
+	for _, tls := range userDefinedCertificates {
+		certName := mapSecretNameToCertName[tls.SecretName]
+		if certName == "" {
+			logger.V(4).Info("certificate secret missing for user-defined certificate", "secret", tls.SecretName)
+			continue
+		}
+		tlsByCertName[certName] = tls
+
+		if secret, ok := secretsByName[tls.SecretName]; ok {
+			podAnnotations[certificateHashAnnotationKey(certName)] = util.SHA256(secret.Data[corev1.TLSCertKey])
+			podAnnotations[keyHashAnnotationKey(certName)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
+		} else {
+			logger.V(4).Info("certificate secret missing for user-defined certificate", "secret", tls.SecretName, "cert-name", certName)
+		}
+	}
+
+	for _, cert := range certManagerCertificates {
+		certName := cert.Labels[certificates.CertificateNameLabel]
+
+		if certName == "" {
+			logger.V(4).Info("cert-manager certificate without certificate name label", "certificate", cert.Name)
+			continue
+		}
+
+		tlsByCertName[certName] = nginxv1alpha1.NginxTLS{
+			SecretName: cert.Spec.SecretName,
+			Hosts:      cert.Spec.DNSNames,
+		}
+
+		if secret, ok := secretsByName[cert.Spec.SecretName]; ok {
+			podAnnotations[certificateHashAnnotationKey(cert.Name)] = util.SHA256(secret.Data[corev1.TLSCertKey])
+			podAnnotations[keyHashAnnotationKey(cert.Name)] = util.SHA256(secret.Data[corev1.TLSPrivateKeyKey])
+		} else {
+			logger.V(4).Info("cert-manager secret is missing", "secret", cert.Spec.SecretName, "cert-name", cert.Name)
+		}
+	}
+
+	for _, tlsItem := range tlsByCertName {
+		tls = append(tls, tlsItem)
+	}
+
+	if len(tls) > 1 {
+		sort.Slice(tls, func(i, j int) bool {
+			return tls[i].SecretName < tls[j].SecretName
+		})
+	}
+
+	return podAnnotations, tls
 }
 
 func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
@@ -1209,6 +1305,34 @@ func generateNginxHash(nginx *nginxv1alpha1.Nginx) (string, error) {
 	}
 	hash := sha256.Sum256(data)
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
+}
+
+func certificateHashAnnotationKey(certName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-cert-sha256"
+
+	// NOTE: Annotation keys must not be greater than 63 chars.
+	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
+
+	if len(certName) > maxIssuer {
+		certName = certName[:maxIssuer]
+	}
+
+	return fmt.Sprintf(keyFormat, certName)
+}
+
+func keyHashAnnotationKey(certName string) string {
+	keyFormat := "rpaas.extensions.tsuru.io/%s-key-sha256"
+
+	// NOTE: Annotation keys must not be greater than 63 chars.
+	// See more: https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#syntax-and-character-set
+	maxIssuer := 63 - len(fmt.Sprintf(keyFormat, ""))
+
+	if len(certName) > maxIssuer {
+		certName = certName[:maxIssuer]
+	}
+
+	return fmt.Sprintf(keyFormat, certName)
 }
 
 func generateSpecHash(spec any) (string, error) {

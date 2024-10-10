@@ -352,7 +352,8 @@ func Test_k8sRpaasManager_GetCertificates(t *testing.T) {
 				Name:      "my-instance-certs-abc123",
 				Namespace: "rpaasv2",
 				Labels: map[string]string{
-					certificates.CertificateNameLabel: "default",
+					certificates.CertificateNameLabel:         "default",
+					"rpaas.extensions.tsuru.io/instance-name": "my-instance-1",
 				},
 			},
 			Data: map[string][]byte{
@@ -428,11 +429,14 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 		},
 	}
 
+	notBefore, _ := time.Parse("Jan 2 15:04:05 2006 MST", "Mar 26 20:21:39 2019 GMT")
+	notAfter, _ := time.Parse("Jan 2 15:04:05 2006 MST", "Mar 25 20:21:39 2020 GMT")
+
 	tests := map[string]struct {
 		name          string
 		instanceName  string
 		expectedError string
-		expected      []CertificateData
+		expected      []clientTypes.CertificateInfo
 	}{
 		"instance not found": {
 			instanceName:  "instance-not-found",
@@ -441,37 +445,16 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 
 		"getting an existing certificate": {
 			instanceName: "my-instance-1",
-			expected: []CertificateData{
+			expected: []clientTypes.CertificateInfo{
 				{
-					Name: "default",
-					Certificate: `-----BEGIN CERTIFICATE-----
-MIIB9TCCAV6gAwIBAgIRAIpoagB8BUn8x36iyvafmC0wDQYJKoZIhvcNAQELBQAw
-EjEQMA4GA1UEChMHQWNtZSBDbzAeFw0xOTAzMjYyMDIxMzlaFw0yMDAzMjUyMDIx
-MzlaMBIxEDAOBgNVBAoTB0FjbWUgQ28wgZ8wDQYJKoZIhvcNAQEBBQADgY0AMIGJ
-AoGBAOIsM9LhHqI3oBhHDCGZkGKgiI72ghnLr5UpaA3I9U7np/LPzt/JpWRG4wjF
-5Var2IRPGoNwLcdybFW0YTqvw1wNY88q9BcpwS5PeV7uWyZqWafdSxxveaG6VeCH
-YFMqopOKri4kJ4sZB9WS3xMlGZXK6zHPwA4xPtuVEND+LI17AgMBAAGjSzBJMA4G
-A1UdDwEB/wQEAwIFoDATBgNVHSUEDDAKBggrBgEFBQcDATAMBgNVHRMBAf8EAjAA
-MBQGA1UdEQQNMAuCCWxvY2FsaG9zdDANBgkqhkiG9w0BAQsFAAOBgQCaF9zDYoPh
-4KmqxFI3KB+cl8Z/0y0txxH4vqlnByBBiCLpPzivcCRFlT1bGPVJOLsyd/BdOset
-yTcvMUPbnEPXZMR4Dsbzzjco1JxMSvZgkhm85gAlwNGjFZrMXqO8G5R/gpWN3UUc
-7likRQOu7q61DlicQAZXRnOh6BbKaq1clg==
------END CERTIFICATE-----`,
-					Key: `-----BEGIN RSA PRIVATE KEY-----
-MIICXQIBAAKBgQDiLDPS4R6iN6AYRwwhmZBioIiO9oIZy6+VKWgNyPVO56fyz87f
-yaVkRuMIxeVWq9iETxqDcC3HcmxVtGE6r8NcDWPPKvQXKcEuT3le7lsmalmn3Usc
-b3mhulXgh2BTKqKTiq4uJCeLGQfVkt8TJRmVyusxz8AOMT7blRDQ/iyNewIDAQAB
-AoGBAI05gJqayyALj8HZCzAnzUpoZxytvAsTbm27TyfcZaCBchNhwxFlvgphYP5n
-Y468+xOSuUF9WHiDcDYLzfJxMZAqmuS+D/IREYDkcrGVT1MXfSCkNaFVqG52+hLZ
-GmGsy8+KsJnDJ1HYmwfSnaTj3L8+Bf2Hg291Yb1caRH9+5vBAkEA7P5N3cSN73Fa
-HwaWzqkaY75mCR4TpRi27YWGA3wdQek2G71HiSbCOxrWOymvgoNRi6M/sdrP5PTt
-JAFxC+pd8QJBAPRPvS0Tm/0lMIZ0q7jxyoW/gKDzokmSszopdlvSU53lN06vaYdK
-XyTvqOO95nJx0DjkdM26QojJlSueMTitJisCQDuxNfWku0dTGqrz4uo8p5v16gdj
-3vjXh8O9vOqFyWy/i9Ri0XDXJVbzxH/0WPObld+BB9sJTRHTKyPFhS7GIlECQDZ8
-chxTez6BxMi3zHR6uEgL5Yv/yfnOldoq1RK1XaChNix+QnLBy2ZZbLkd6P8tEtsd
-WE9pct0+193ace/J7fECQQDAhwHBpJjhM+k97D92akneKXIUBo+Egr5E5qF9/g5I
-sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
------END RSA PRIVATE KEY-----`,
+					Name:               "default",
+					PublicKeyAlgorithm: "RSA",
+					PublicKeyBitSize:   1024,
+					ValidFrom:          notBefore.UTC(),
+					ValidUntil:         notAfter.UTC(),
+					DNSNames: []string{
+						"localhost",
+					},
 				},
 			},
 		},
@@ -484,7 +467,7 @@ sM5FaDCEIJVbWjPDluxUGbVOQlFHsJs+pZv0Anf9DPwU
 				WithRuntimeObjects(resources...).
 				Build()
 
-			got, err := (&k8sRpaasManager{cli: client}).GetCertificates(context.TODO(), tt.instanceName)
+			got, _, err := (&k8sRpaasManager{cli: client}).GetCertificates(context.TODO(), tt.instanceName)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

@@ -127,9 +127,6 @@ func deleteExtraFiles(c echo.Context) error {
 	var files []string
 	err = c.Bind(&files)
 	if err != nil {
-		return err
-	}
-	if err != nil {
 		return &echo.HTTPError{
 			Code:     http.StatusBadRequest,
 			Message:  fmt.Sprintf("%s", err),
