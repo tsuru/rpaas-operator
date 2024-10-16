@@ -38,7 +38,6 @@ type FakeClient struct {
 	FakeSetService              func(service string) error
 	FakeListCertManagerRequests func(instance string) ([]types.CertManager, error)
 	FakeUpdateCertManager       func(args client.UpdateCertManagerArgs) error
-	FakeDeleteCertManager       func(instance, issuer string) error
 	FakeLog                     func(args client.LogArgs) error
 	FakeAddExtraFiles           func(args client.ExtraFilesArgs) error
 	FakeUpdateExtraFiles        func(args client.ExtraFilesArgs) error
@@ -48,6 +47,9 @@ type FakeClient struct {
 	FakeGetMetadata             func(instance string) (*types.Metadata, error)
 	FakeSetMetadata             func(instance string, metadata *types.Metadata) error
 	FakeUnsetMetadata           func(instance string, metadata *types.Metadata) error
+
+	FakeDeleteCertManagerByName   func(instance, name string) error
+	FakeDeleteCertManagerByIssuer func(instance, issuer string) error
 }
 
 func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*types.InstanceInfo, error) {
@@ -221,9 +223,17 @@ func (f *FakeClient) UpdateCertManager(ctx context.Context, args client.UpdateCe
 	return nil
 }
 
-func (f *FakeClient) DeleteCertManager(ctx context.Context, instance, issuer string) error {
-	if f.FakeDeleteCertManager != nil {
-		return f.FakeDeleteCertManager(instance, issuer)
+func (f *FakeClient) DeleteCertManagerByName(ctx context.Context, instance, name string) error {
+	if f.FakeDeleteCertManagerByName != nil {
+		return f.FakeDeleteCertManagerByName(instance, name)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) DeleteCertManagerByIssuer(ctx context.Context, instance, issuer string) error {
+	if f.FakeDeleteCertManagerByName != nil {
+		return f.FakeDeleteCertManagerByName(instance, issuer)
 	}
 
 	return nil

@@ -7,6 +7,7 @@ package rpaas
 import (
 	"context"
 	"fmt"
+	"strconv"
 	"strings"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -27,8 +28,9 @@ func (m *k8sRpaasManager) GetCertManagerRequests(ctx context.Context, instanceNa
 	}
 
 	var requests []clientTypes.CertManager
-	for _, r := range instance.CertManagerRequests() {
+	for _, r := range instance.Spec.CertManagerRequests(instance.Name) {
 		requests = append(requests, clientTypes.CertManager{
+			Name:        r.Name,
 			Issuer:      r.Issuer,
 			DNSNames:    r.DNSNames,
 			IPAddresses: r.IPAddresses,
@@ -71,7 +73,38 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		return err
 	}
 
+	if issuerAnnotations[maxDNSNamesAnnotation] != "" {
+		maxDNSName, _ := strconv.Atoi(issuerAnnotations[maxDNSNamesAnnotation])
+		if len(in.DNSNames) > maxDNSName {
+			return &ValidationError{Msg: fmt.Sprintf("maximum number of DNS names exceeded (maximum allowed: %d)", maxDNSName)}
+		}
+	}
+
+	if issuerAnnotations[maxIPsAnnotation] != "" {
+		maxIPs, _ := strconv.Atoi(issuerAnnotations[maxIPsAnnotation])
+		if len(in.IPAddresses) > maxIPs {
+			return &ValidationError{Msg: fmt.Sprintf("maximum number of IP Addresses exceeded (maximum allowed: %d)", maxIPs)}
+		}
+	}
+
+	if issuerAnnotations[strictNamesAnnotation] == "true" && len(in.DNSNames) > 0 {
+		expectedName := strings.TrimPrefix(in.DNSNames[0], "*.")
+
+		if expectedName != in.Name {
+			return &ValidationError{Msg: fmt.Sprintf("the name of this certificate must be: %q", expectedName)}
+		}
+	}
+
+	if issuerAnnotations[allowWildcardAnnotation] == "false" {
+		for _, dnsName := range in.DNSNames {
+			if strings.HasPrefix(dnsName, "*") {
+				return &ValidationError{Msg: "wildcard DNS names are not allowed on this issuer"}
+			}
+		}
+	}
+
 	newRequest := v1alpha1.CertManager{
+		Name:        in.Name,
 		Issuer:      issuer,
 		DNSNames:    in.DNSNames,
 		IPAddresses: in.IPAddresses,
@@ -81,7 +114,9 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 		instance.Spec.DynamicCertificates.CertManager = nil
 	}
 
-	if index, found := findCertManagerRequestByIssuer(instance, in.Issuer); found {
+	if index, found := findCertManagerRequestByName(instance, in.Name); found && in.Name != "" {
+		instance.Spec.DynamicCertificates.CertManagerRequests[index] = newRequest
+	} else if index, found := findCertManagerRequestByIssuer(instance, in.Issuer); found && in.Name == "" {
 		instance.Spec.DynamicCertificates.CertManagerRequests[index] = newRequest
 	} else {
 		instance.Spec.DynamicCertificates.CertManagerRequests = append(instance.Spec.DynamicCertificates.CertManagerRequests, newRequest)
@@ -90,7 +125,7 @@ func (m *k8sRpaasManager) UpdateCertManagerRequest(ctx context.Context, instance
 	return m.cli.Update(ctx, instance)
 }
 
-func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instanceName, issuer string) error {
+func (m *k8sRpaasManager) DeleteCertManagerRequestByIssuer(ctx context.Context, instanceName, issuer string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -113,6 +148,38 @@ func (m *k8sRpaasManager) DeleteCertManagerRequest(ctx context.Context, instance
 	}
 
 	index, found := findCertManagerRequestByIssuer(instance, issuer)
+	if !found {
+		return &NotFoundError{Msg: "cert-manager certificate has already been removed"}
+	}
+
+	// NOTE: removes the index-th element of slice.
+	instance.Spec.DynamicCertificates.CertManagerRequests = append(instance.Spec.DynamicCertificates.CertManagerRequests[:index], instance.Spec.DynamicCertificates.CertManagerRequests[index+1:]...)
+
+	return m.cli.Update(ctx, instance)
+}
+
+func (m *k8sRpaasManager) DeleteCertManagerRequestByName(ctx context.Context, instanceName, name string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	if name == "" {
+		return &ValidationError{Msg: "cert-manager name cannot be empty"}
+	}
+
+	if instance.Spec.DynamicCertificates == nil {
+		instance.Spec.DynamicCertificates = &v1alpha1.DynamicCertificates{}
+	}
+
+	if req := instance.Spec.DynamicCertificates.CertManager; req != nil {
+		if req.Name == name {
+			instance.Spec.DynamicCertificates.CertManager = nil
+			return m.cli.Update(ctx, instance)
+		}
+	}
+
+	index, found := findCertManagerRequestByName(instance, name)
 	if !found {
 		return &NotFoundError{Msg: "cert-manager certificate has already been removed"}
 	}
@@ -194,6 +261,24 @@ func findCertManagerRequestByIssuer(instance *v1alpha1.RpaasInstance, issuer str
 
 	for i, req := range instance.Spec.DynamicCertificates.CertManagerRequests {
 		if req.Issuer == issuer {
+			return i, true
+		}
+	}
+
+	return -1, false
+}
+
+func findCertManagerRequestByName(instance *v1alpha1.RpaasInstance, name string) (int, bool) {
+	if instance.Spec.DynamicCertificates == nil {
+		return -1, false
+	}
+
+	if name == "" {
+		return -1, false
+	}
+
+	for i, req := range instance.Spec.DynamicCertificates.CertManagerRequests {
+		if req.Name == name {
 			return i, true
 		}
 	}

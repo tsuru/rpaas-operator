@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"testing"
 
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
+	"github.com/go-logr/logr"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -256,7 +258,231 @@ func Test_newNginx(t *testing.T) {
 			if tt.expected != nil {
 				nginx = tt.expected(nginx)
 			}
-			assert.Equal(t, nginx, newNginx(instance, plan, cm))
+			assert.Equal(t, nginx, newNginx(newNginxOptions{
+				instanceMergedWithFlavors: instance,
+				plan:                      plan,
+				configMap:                 cm,
+			}))
+		})
+	}
+}
+
+func Test_newNginxTLS(t *testing.T) {
+	tests := map[string]struct {
+		secrets                 []corev1.Secret
+		userDefinedCertificates []nginxv1alpha1.NginxTLS
+		certManagerCertificates []cmv1.Certificate
+
+		expectedNginxTLS       []nginxv1alpha1.NginxTLS
+		expectedPodAnnotations map[string]string
+	}{
+		"with user defined certs": {
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-cert-1",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-1",
+						},
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       []byte("cert-1"),
+						corev1.TLSPrivateKeyKey: []byte("key-1"),
+					},
+				},
+			},
+			certManagerCertificates: []cmv1.Certificate{},
+			userDefinedCertificates: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "my-instance-cert-1",
+					Hosts:      []string{"my-instance.example.com"},
+				},
+			},
+
+			expectedNginxTLS: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "my-instance-cert-1",
+					Hosts:      []string{"my-instance.example.com"},
+				},
+			},
+			expectedPodAnnotations: map[string]string{
+				"rpaas.extensions.tsuru.io/cert-1-cert-sha256": "ddac83f4b68ce473ef27be844322c23ee3fd821c3688e45114a08e6f915b998f",
+				"rpaas.extensions.tsuru.io/cert-1-key-sha256":  "bea64e1cd1e71cae49e4b5da1caae5f3b3db79b8472e230350f2a1356fac0eb3",
+			},
+		},
+
+		"with cert-manager certs": {
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-cert-1",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-1",
+						},
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       []byte("cert-1"),
+						corev1.TLSPrivateKeyKey: []byte("key-1"),
+					},
+				},
+			},
+			certManagerCertificates: []cmv1.Certificate{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cert-1",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-1",
+						},
+					},
+					Spec: cmv1.CertificateSpec{
+						SecretName: "my-instance-cert-1",
+						DNSNames:   []string{"my-instance.example.com"},
+					},
+				},
+			},
+
+			expectedNginxTLS: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "my-instance-cert-1",
+					Hosts:      []string{"my-instance.example.com"},
+				},
+			},
+			expectedPodAnnotations: map[string]string{
+				"rpaas.extensions.tsuru.io/cert-1-cert-sha256": "ddac83f4b68ce473ef27be844322c23ee3fd821c3688e45114a08e6f915b998f",
+				"rpaas.extensions.tsuru.io/cert-1-key-sha256":  "bea64e1cd1e71cae49e4b5da1caae5f3b3db79b8472e230350f2a1356fac0eb3",
+			},
+		},
+
+		"with cert-manager certs and user defined certs": {
+			secrets: []corev1.Secret{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-user-cert-1",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-1",
+						},
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       []byte("user-cert"),
+						corev1.TLSPrivateKeyKey: []byte("user-key"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-user-cert-3",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-3",
+						},
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       []byte("user-cert"),
+						corev1.TLSPrivateKeyKey: []byte("user-key"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-cert-manager-cert-1",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-1",
+						},
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       []byte("cert-manager-cert"),
+						corev1.TLSPrivateKeyKey: []byte("cert-manager-key"),
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-cert-manager-cert-2",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-2",
+						},
+					},
+					Data: map[string][]byte{
+						corev1.TLSCertKey:       []byte("cert-manager-cert"),
+						corev1.TLSPrivateKeyKey: []byte("cert-manager-key"),
+					},
+				},
+			},
+			certManagerCertificates: []cmv1.Certificate{
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cert-1",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-1",
+						},
+					},
+					Spec: cmv1.CertificateSpec{
+						SecretName: "my-instance-cert-manager-cert-1",
+						DNSNames:   []string{"my-instance.example.com"},
+					},
+				},
+				{
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "cert-2",
+						Namespace: "rpaasv2",
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-2",
+						},
+					},
+					Spec: cmv1.CertificateSpec{
+						SecretName: "my-instance-cert-manager-cert-2",
+						DNSNames:   []string{"my-instance2.example.net"},
+					},
+				},
+			},
+
+			userDefinedCertificates: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "my-instance-user-cert-1",
+					Hosts:      []string{"my-instance.example.com"},
+				},
+				{
+					SecretName: "my-instance-user-cert-3",
+					Hosts:      []string{"my-instance3.example.org"},
+				},
+			},
+
+			expectedNginxTLS: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "my-instance-cert-manager-cert-1",
+					Hosts:      []string{"my-instance.example.com"},
+				},
+				{
+					SecretName: "my-instance-cert-manager-cert-2",
+					Hosts:      []string{"my-instance2.example.net"},
+				},
+				{
+					SecretName: "my-instance-user-cert-3",
+					Hosts:      []string{"my-instance3.example.org"},
+				},
+			},
+			expectedPodAnnotations: map[string]string{
+				"rpaas.extensions.tsuru.io/cert-1-cert-sha256": "f5e76ae176b1b82a5d6dcd17aaaf40edf3585e67ba525876dda0024bc4417b71",
+				"rpaas.extensions.tsuru.io/cert-1-key-sha256":  "ad87968cb51ecf83c1d2f46b99338b51580f9c38441e4c898c690c38e50f27f3",
+				"rpaas.extensions.tsuru.io/cert-2-cert-sha256": "f5e76ae176b1b82a5d6dcd17aaaf40edf3585e67ba525876dda0024bc4417b71",
+				"rpaas.extensions.tsuru.io/cert-2-key-sha256":  "ad87968cb51ecf83c1d2f46b99338b51580f9c38441e4c898c690c38e50f27f3",
+				"rpaas.extensions.tsuru.io/cert-3-cert-sha256": "c355a26d57de036ee3c48a7e375fbdccf4b2a941b9a49af243aa21a3cdd6bce0",
+				"rpaas.extensions.tsuru.io/cert-3-key-sha256":  "8650e0a41148cbca7b84a2a171c60ba3fffba1231abe44eaf1f575205b125e78",
+			},
+		},
+	}
+
+	logger := logr.Discard()
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			podAnnotations, nginxTLS := newNginxTLS(&logger, tt.secrets, tt.userDefinedCertificates, tt.certManagerCertificates)
+			assert.Equal(t, tt.expectedNginxTLS, nginxTLS)
+			assert.Equal(t, tt.expectedPodAnnotations, podAnnotations)
 		})
 	}
 }

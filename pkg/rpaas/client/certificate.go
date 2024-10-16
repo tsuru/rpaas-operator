@@ -193,7 +193,34 @@ func (c *client) UpdateCertManager(ctx context.Context, args UpdateCertManagerAr
 	return nil
 }
 
-func (c *client) DeleteCertManager(ctx context.Context, instance, issuer string) error {
+func (c *client) DeleteCertManagerByName(ctx context.Context, instance, name string) error {
+	if instance == "" {
+		return ErrMissingInstance
+	}
+
+	data := url.Values{}
+	if name != "" {
+		data.Set("name", name)
+	}
+
+	req, err := c.newRequestWithQueryString("DELETE", fmt.Sprintf("/resources/%s/cert-manager", instance), nil, data)
+	if err != nil {
+		return err
+	}
+
+	response, err := c.do(ctx, req)
+	if err != nil {
+		return err
+	}
+
+	if response.StatusCode != http.StatusOK {
+		return newErrUnexpectedStatusCodeFromResponse(response)
+	}
+
+	return nil
+}
+
+func (c *client) DeleteCertManagerByIssuer(ctx context.Context, instance, issuer string) error {
 	if instance == "" {
 		return ErrMissingInstance
 	}

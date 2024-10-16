@@ -115,6 +115,9 @@ type CertificateInfo struct {
 	DNSNames           []string
 	PublicKeyAlgorithm string
 	PublicKeyBitSize   int
+
+	IsManagedByCertManager bool
+	CertManagerIssuer      string
 }
 
 type Event struct {
@@ -162,6 +165,9 @@ type CertManager struct {
 	Issuer      string   `json:"issuer"`
 	DNSNames    []string `json:"dnsNames,omitempty"`
 	IPAddresses []string `json:"ipAddresses,omitempty"`
+
+	// Name is used to multiple certificates in the same instance, and also to take over the manual certificates
+	Name string `json:"name,omitempty"`
 }
 
 type Metadata struct {

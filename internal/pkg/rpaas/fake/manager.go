@@ -20,7 +20,7 @@ var _ rpaas.RpaasManager = &RpaasManager{}
 
 type RpaasManager struct {
 	FakeUpdateCertificate        func(instance, name string, cert tls.Certificate) error
-	FakeGetCertificates          func(instanceName string) ([]rpaas.CertificateData, error)
+	FakeGetCertificates          func(instanceName string) ([]clientTypes.CertificateInfo, []clientTypes.Event, error)
 	FakeDeleteCertificate        func(instance, name string) error
 	FakeCreateInstance           func(args rpaas.CreateArgs) error
 	FakeDeleteInstance           func(instanceName string) error
@@ -59,10 +59,12 @@ type RpaasManager struct {
 	FakeDeleteUpstream           func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 	FakeGetCertManagerRequests   func(instanceName string) ([]clientTypes.CertManager, error)
 	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
-	FakeDeleteCertManagerRequest func(instanceName, issuer string) error
 	FakeGetMetadata              func(instanceName string) (*clientTypes.Metadata, error)
 	FakeSetMetadata              func(instanceName string, metadata *clientTypes.Metadata) error
 	FakeUnsetMetadata            func(instanceName string, metadata *clientTypes.Metadata) error
+
+	FakeDeleteCertManagerRequestByIssuer func(instanceName, issuer string) error
+	FakeDeleteCertManagerRequestByName   func(instanceName, name string) error
 }
 
 func (m *RpaasManager) Log(ctx context.Context, instanceName string, args rpaas.LogArgs) error {
@@ -79,12 +81,12 @@ func (m *RpaasManager) GetInstanceInfo(ctx context.Context, instanceName string)
 	return nil, nil
 }
 
-func (m *RpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]rpaas.CertificateData, error) {
+func (m *RpaasManager) GetCertificates(ctx context.Context, instanceName string) ([]clientTypes.CertificateInfo, []clientTypes.Event, error) {
 	if m.FakeGetCertificates != nil {
 		return m.FakeGetCertificates(instanceName)
 	}
 
-	return nil, nil
+	return nil, nil, nil
 }
 
 func (m *RpaasManager) DeleteCertificate(ctx context.Context, instance, name string) error {
@@ -346,9 +348,16 @@ func (m *RpaasManager) UpdateCertManagerRequest(ctx context.Context, instance st
 	return nil
 }
 
-func (m *RpaasManager) DeleteCertManagerRequest(ctx context.Context, instance, issuer string) error {
-	if m.FakeDeleteCertManagerRequest != nil {
-		return m.FakeDeleteCertManagerRequest(instance, issuer)
+func (m *RpaasManager) DeleteCertManagerRequestByIssuer(ctx context.Context, instance, issuer string) error {
+	if m.FakeDeleteCertManagerRequestByIssuer != nil {
+		return m.FakeDeleteCertManagerRequestByIssuer(instance, issuer)
+	}
+	return nil
+}
+
+func (m *RpaasManager) DeleteCertManagerRequestByName(ctx context.Context, instanceName, name string) error {
+	if m.FakeDeleteCertManagerRequestByName != nil {
+		return m.FakeDeleteCertManagerRequestByName(instanceName, name)
 	}
 	return nil
 }

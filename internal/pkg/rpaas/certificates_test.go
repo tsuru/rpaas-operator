@@ -133,6 +133,17 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 		},
 		&cmv1.ClusterIssuer{
 			ObjectMeta: metav1.ObjectMeta{
+				Name: "issuer-2",
+				Annotations: map[string]string{
+					maxDNSNamesAnnotation:   "1",
+					maxIPsAnnotation:        "0",
+					allowWildcardAnnotation: "false",
+					strictNamesAnnotation:   "true",
+				},
+			},
+		},
+		&cmv1.ClusterIssuer{
+			ObjectMeta: metav1.ObjectMeta{
 				Name: "default-issuer",
 			},
 		},
@@ -198,6 +209,33 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 			},
 		},
 
+		"using certificate issuer name": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Name:     "cert-1",
+				Issuer:   "issuer-1",
+				DNSNames: []string{"my-instance-1.example.com"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager: true,
+			},
+			assert: func(t *testing.T, cli client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      "my-instance-1",
+					Namespace: "rpaasv2",
+				}, &instance)
+				require.NoError(t, err)
+
+				assert.Nil(t, instance.Spec.DynamicCertificates.CertManager)
+				assert.Equal(t, []v1alpha1.CertManager{{
+					Name:     "cert-1",
+					Issuer:   "issuer-1",
+					DNSNames: []string{"my-instance-1.example.com"},
+				}}, instance.Spec.DynamicCertificates.CertManagerRequests)
+			},
+		},
+
 		"with forbidden DNS names": {
 			instanceName: "my-instance-1",
 			certManager: clientTypes.CertManager{
@@ -208,6 +246,56 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 				DefaultCertManagerIssuer: "issuer-1",
 			},
 			expectedError: "there is some DNS name with forbidden suffix (invalid ones: wrong.io, wrong.com - allowed DNS suffixes: example.com, example.org)",
+		},
+
+		"with exceeded number of DNS names": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				DNSNames: []string{"my-instance-1.example.com", "my-instance-1.example.org"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "maximum number of DNS names exceeded (maximum allowed: 1)",
+		},
+
+		"with exceeded number of IP Addresses": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				IPAddresses: []string{"10.1.1.1"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "maximum number of IP Addresses exceeded (maximum allowed: 0)",
+		},
+
+		"with forbidden use of wildcards": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Name:     "example.org",
+				DNSNames: []string{"*.example.org"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "wildcard DNS names are not allowed on this issuer",
+		},
+
+		"with strict names": {
+			instanceName: "my-instance-1",
+			certManager: clientTypes.CertManager{
+				Name:     "cert-1",
+				DNSNames: []string{"my-instance-1.example.com"},
+			},
+			cfg: config.RpaasConfig{
+				EnableCertManager:        true,
+				DefaultCertManagerIssuer: "issuer-2",
+			},
+			expectedError: "the name of this certificate must be: \"my-instance-1.example.com\"",
 		},
 
 		"using wrong certificate issuer from configs": {
@@ -249,7 +337,68 @@ func Test_k8sRpaasManager_UpdateCertManagerRequest(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
+func Test_k8sRpaasManager_UpdateCertManagerRequestWithManyCertificates(t *testing.T) {
+	cfg := config.RpaasConfig{
+		EnableCertManager: true,
+	}
+
+	oldCfg := config.Get()
+	config.Set(cfg)
+	defer func() { config.Set(oldCfg) }()
+
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance-1",
+			Namespace: "rpaasv2",
+		},
+	}
+
+	issuer := &cmv1.ClusterIssuer{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "default-issuer",
+			Annotations: map[string]string{
+				allowedDNSZonesAnnotation: "example.com,example.org",
+			},
+		},
+	}
+
+	client := fake.NewClientBuilder().
+		WithScheme(rpaasruntime.NewScheme()).
+		WithRuntimeObjects(instance, issuer).
+		Build()
+
+	manager := &k8sRpaasManager{cli: client}
+
+	err := manager.UpdateCertManagerRequest(context.TODO(), instance.Name, clientTypes.CertManager{
+		Issuer:   "default-issuer",
+		Name:     "my-instance-1.example.com",
+		DNSNames: []string{"my-instance-1.example.com"},
+	})
+
+	require.NoError(t, err)
+
+	err = manager.UpdateCertManagerRequest(context.TODO(), instance.Name, clientTypes.CertManager{
+		Issuer:   "default-issuer",
+		Name:     "my-instance-2.example.com",
+		DNSNames: []string{"my-instance-2.example.com"},
+	})
+	require.NoError(t, err)
+
+	updatedInstance := &v1alpha1.RpaasInstance{}
+	err = client.Get(context.TODO(), types.NamespacedName{
+		Name:      "my-instance-1",
+		Namespace: "rpaasv2",
+	}, updatedInstance)
+	require.NoError(t, err)
+
+	assert.Len(t, updatedInstance.Spec.DynamicCertificates.CertManagerRequests, 2)
+	assert.Equal(t, []v1alpha1.CertManager{
+		{Name: "my-instance-1.example.com", Issuer: "default-issuer", DNSNames: []string{"my-instance-1.example.com"}},
+		{Name: "my-instance-2.example.com", Issuer: "default-issuer", DNSNames: []string{"my-instance-2.example.com"}},
+	}, updatedInstance.Spec.DynamicCertificates.CertManagerRequests)
+}
+
+func Test_k8sRpaasManager_DeleteCertManagerRequestByIssuer(t *testing.T) {
 	resources := []runtime.Object{
 		&v1alpha1.RpaasInstance{
 			ObjectMeta: metav1.ObjectMeta{
@@ -333,7 +482,7 @@ func Test_k8sRpaasManager_DeleteCertManagerRequest(t *testing.T) {
 
 			manager := &k8sRpaasManager{cli: client}
 
-			err := manager.DeleteCertManagerRequest(context.TODO(), tt.instanceName, tt.issuer)
+			err := manager.DeleteCertManagerRequestByIssuer(context.TODO(), tt.instanceName, tt.issuer)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

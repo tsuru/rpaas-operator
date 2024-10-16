@@ -256,7 +256,7 @@ type RpaasManager interface {
 
 	UpdateCertificate(ctx context.Context, instance, name string, cert tls.Certificate) error
 	DeleteCertificate(ctx context.Context, instance, name string) error
-	GetCertificates(ctx context.Context, instanceName string) ([]CertificateData, error)
+	GetCertificates(ctx context.Context, instanceName string) ([]clientTypes.CertificateInfo, []clientTypes.Event, error)
 	CreateInstance(ctx context.Context, args CreateArgs) error
 	DeleteInstance(ctx context.Context, name string) error
 	UpdateInstance(ctx context.Context, name string, args UpdateInstanceArgs) error
@@ -282,17 +282,12 @@ type RpaasManager interface {
 
 	GetCertManagerRequests(ctx context.Context, instanceName string) ([]clientTypes.CertManager, error)
 	UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error
-	DeleteCertManagerRequest(ctx context.Context, instanceName, issuer string) error
+	DeleteCertManagerRequestByIssuer(ctx context.Context, instanceName, issuer string) error
+	DeleteCertManagerRequestByName(ctx context.Context, instanceName, name string) error
 
 	GetMetadata(ctx context.Context, instanceName string) (*clientTypes.Metadata, error)
 	SetMetadata(ctx context.Context, instanceName string, metadata *clientTypes.Metadata) error
 	UnsetMetadata(ctx context.Context, instanceName string, metadata *clientTypes.Metadata) error
-}
-
-type CertificateData struct {
-	Name        string `json:"name"`
-	Certificate string `json:"certificate"`
-	Key         string `json:"key"`
 }
 
 func getAnnotations(params map[string]interface{}) (map[string]string, error) {

@@ -12,6 +12,7 @@ import (
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	cmmeta "github.com/cert-manager/cert-manager/pkg/apis/meta/v1"
+	corev1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
@@ -25,28 +26,34 @@ import (
 
 const CertManagerCertificateName string = "cert-manager"
 
-func reconcileCertManager(ctx context.Context, client client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
+func ReconcileCertManager(ctx context.Context, client client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) ([]cmv1.Certificate, error) {
 	err := removeOldCertificates(ctx, client, instance, instanceMergedWithFlavors)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	for _, req := range instanceMergedWithFlavors.CertManagerRequests() {
+	certManagerCerts := []cmv1.Certificate{}
+
+	for _, req := range instanceMergedWithFlavors.Spec.CertManagerRequests(instance.Name) {
 		issuer, err := getCertManagerIssuer(ctx, client, req, instanceMergedWithFlavors.Namespace)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		newCert, err := newCertificate(instanceMergedWithFlavors, issuer, req)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		var cert cmv1.Certificate
 		err = client.Get(ctx, types.NamespacedName{Name: newCert.Name, Namespace: newCert.Namespace}, &cert)
 		if err != nil && k8serrors.IsNotFound(err) {
+			if err = takeOverPreviousSecret(ctx, client, instanceMergedWithFlavors, newCert); err != nil {
+				return nil, err
+			}
+
 			if err = client.Create(ctx, newCert); err != nil {
-				return err
+				return nil, err
 			}
 
 			newCert.DeepCopyInto(&cert)
@@ -56,7 +63,7 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance, i
 			newCert.ResourceVersion = cert.ResourceVersion
 
 			if err = client.Update(ctx, newCert); err != nil {
-				return err
+				return nil, err
 			}
 		}
 
@@ -64,13 +71,35 @@ func reconcileCertManager(ctx context.Context, client client.Client, instance, i
 			continue
 		}
 
-		err = UpdateCertificateFromSecret(ctx, client, instance, cmCertificateName(req), newCert.Spec.SecretName)
-		if err != nil {
-			return err
-		}
+		certManagerCerts = append(certManagerCerts, cert)
 	}
 
-	return nil
+	return certManagerCerts, nil
+}
+
+func CertManagerCertificates(ctx context.Context, client client.Client, namespace, name string, spec *v1alpha1.RpaasInstanceSpec) ([]cmv1.Certificate, error) {
+	certManagerCerts := []cmv1.Certificate{}
+
+	for _, req := range spec.CertManagerRequests(name) {
+		certName := CertManagerCertificateNameForInstance(name, req)
+
+		var cert cmv1.Certificate
+		err := client.Get(ctx, types.NamespacedName{Name: certName, Namespace: namespace}, &cert)
+		if err != nil {
+			if k8serrors.IsNotFound(err) {
+				continue
+			}
+			return nil, err
+		}
+
+		if !isCertificateReady(&cert) {
+			continue
+		}
+
+		certManagerCerts = append(certManagerCerts, cert)
+	}
+
+	return certManagerCerts, nil
 }
 
 func removeOldCertificates(ctx context.Context, c client.Client, instance, instanceMergedWithFlavors *v1alpha1.RpaasInstance) error {
@@ -84,8 +113,8 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 		toRemove[cert.Name] = true
 	}
 
-	for _, req := range instanceMergedWithFlavors.CertManagerRequests() {
-		delete(toRemove, fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)))
+	for _, req := range instanceMergedWithFlavors.Spec.CertManagerRequests(instanceMergedWithFlavors.Name) {
+		delete(toRemove, CertManagerCertificateNameForInstance(instance.Name, req))
 	}
 
 	for name := range toRemove {
@@ -95,21 +124,62 @@ func removeOldCertificates(ctx context.Context, c client.Client, instance, insta
 			return err
 		}
 
-		certName := cert.Labels[CertificateNameLabel]
-		if certName == "" {
-			certName = CertManagerCertificateName
-		}
-
-		if err = DeleteCertificate(ctx, c, instance, certName); err != nil {
-			return err
-		}
-
 		if err = c.Delete(ctx, &cert); err != nil {
 			return err
+		}
+
+		var secret corev1.Secret
+		err = c.Get(ctx, types.NamespacedName{Name: cert.Spec.SecretName, Namespace: instance.Namespace}, &secret)
+		if err != nil && !k8serrors.IsNotFound(err) {
+			return err
+		} else if err == nil {
+			if err = c.Delete(ctx, &secret); err != nil {
+				return err
+			}
 		}
 	}
 
 	return nil
+}
+
+func takeOverPreviousSecret(ctx context.Context, c client.Client, instanceMergedWithFlavors *v1alpha1.RpaasInstance, cert *cmv1.Certificate) error {
+	var secret corev1.Secret
+
+	err := c.Get(ctx, types.NamespacedName{Name: cert.Spec.SecretName, Namespace: cert.Namespace}, &secret)
+
+	if err == nil {
+		return nil
+	}
+
+	if !k8serrors.IsNotFound(err) {
+		return err
+	}
+
+	// find previous secret
+	certificateName := cert.Labels[CertificateNameLabel]
+	previousSecret, err := getTLSSecretByCertificateName(ctx, c, instanceMergedWithFlavors, certificateName)
+
+	if err == ErrTLSSecretNotFound {
+		return nil
+	}
+
+	if err != nil {
+		return err
+	}
+
+	secret = corev1.Secret{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        cert.Spec.SecretName,
+			Namespace:   cert.Namespace,
+			Labels:      cert.Labels,
+			Annotations: cert.Annotations,
+		},
+		Data:       previousSecret.Data,
+		StringData: previousSecret.StringData,
+		Type:       previousSecret.Type,
+	}
+
+	return c.Create(ctx, &secret)
 }
 
 func getCertificates(ctx context.Context, c client.Client, i *v1alpha1.RpaasInstance) ([]cmv1.Certificate, error) {
@@ -144,14 +214,25 @@ func getCertificates(ctx context.Context, c client.Client, i *v1alpha1.RpaasInst
 }
 
 func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectReference, req v1alpha1.CertManager) (*cmv1.Certificate, error) {
+	labels := map[string]string{}
+
+	for k, v := range instance.Labels {
+		labels[k] = v
+	}
+
+	labels["rpaas.extensions.tsuru.io/certificate-name"] = req.RequiredName()
+	labels["rpaas.extensions.tsuru.io/instance-name"] = instance.Name
+
+	var commonName string
+	if len(req.DNSNames) > 0 {
+		commonName = req.DNSNames[0]
+	}
+
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
-			Name:      fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
+			Name:      CertManagerCertificateNameForInstance(instance.Name, req),
 			Namespace: instance.Namespace,
-			Labels: map[string]string{
-				"rpaas.extensions.tsuru.io/certificate-name": cmCertificateName(req),
-				"rpaas.extensions.tsuru.io/instance-name":    instance.Name,
-			},
+			Labels:    labels,
 			OwnerReferences: []metav1.OwnerReference{
 				*metav1.NewControllerRef(instance, schema.GroupVersionKind{
 					Group:   v1alpha1.GroupVersion.Group,
@@ -164,7 +245,14 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 			IssuerRef:   *issuer,
 			DNSNames:    req.DNSNames,
 			IPAddresses: req.IPAddresses,
-			SecretName:  fmt.Sprintf("%s-%s", instance.Name, cmCertificateName(req)),
+			CommonName:  commonName,
+			SecretName:  CertManagerCertificateNameForInstance(instance.Name, req),
+			SecretTemplate: &cmv1.CertificateSecretTemplate{
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": req.RequiredName(),
+					"rpaas.extensions.tsuru.io/instance-name":    instance.Name,
+				},
+			},
 		},
 	}, nil
 }
@@ -259,6 +347,6 @@ func isCertificateReady(cert *cmv1.Certificate) bool {
 	return false
 }
 
-func cmCertificateName(r v1alpha1.CertManager) string {
-	return fmt.Sprintf("%s-%s", CertManagerCertificateName, strings.ToLower(strings.ReplaceAll(r.Issuer, ".", "-")))
+func CertManagerCertificateNameForInstance(instanceName string, r v1alpha1.CertManager) string {
+	return fmt.Sprintf("%s-%s", instanceName, r.RequiredName())
 }
