@@ -40,12 +40,12 @@ require (
 	golang.org/x/net v0.12.0
 	golang.org/x/term v0.10.0
 	golang.org/x/time v0.3.0
-	k8s.io/api v0.26.2
-	k8s.io/apimachinery v0.26.2
-	k8s.io/client-go v0.26.2
+	k8s.io/api v0.26.7
+	k8s.io/apimachinery v0.26.7
+	k8s.io/client-go v0.26.7
 	k8s.io/klog/v2 v2.90.1
-	k8s.io/kubectl v0.26.2
-	k8s.io/metrics v0.26.2
+	k8s.io/kubectl v0.26.7
+	k8s.io/metrics v0.26.7
 	k8s.io/utils v0.0.0-20240502163921-fe8a2dddb1d0
 	sigs.k8s.io/controller-runtime v0.14.5
 	sigs.k8s.io/go-open-service-broker-client/v2 v2.0.0-20200925085050-ae25e62aaf10
@@ -155,8 +155,8 @@ require (
 	gopkg.in/yaml.v2 v2.4.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 	k8s.io/apiextensions-apiserver v0.26.2 // indirect
-	k8s.io/cli-runtime v0.26.2 // indirect
-	k8s.io/component-base v0.26.2 // indirect
+	k8s.io/cli-runtime v0.26.7 // indirect
+	k8s.io/component-base v0.26.7 // indirect
 	k8s.io/kube-aggregator v0.24.2 // indirect
 	k8s.io/kube-openapi v0.0.0-20230303024457-afdc3dddf62d // indirect
 	knative.dev/pkg v0.0.0-20230306194819-b77a78c6c0ad // indirect

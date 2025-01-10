@@ -702,15 +702,24 @@ func isAutoscaleEnabled(instance *v1alpha1.RpaasInstanceSpec) bool {
 	return !instance.Shutdown && isAutoscaleValid(instance.Autoscale)
 }
 
+func buildMetadataForScaledObject(instance *v1alpha1.RpaasInstance, value string) map[string]string {
+	metadata := map[string]string{
+		"value": value,
+	}
+	if len(instance.Spec.PodTemplate.Containers) > 0 {
+		metadata["containerName"] = "nginx"
+	}
+
+	return metadata
+}
+
 func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*kedav1alpha1.ScaledObject, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
 	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 			Type:       "cpu",
 			MetricType: autoscalingv2.UtilizationMetricType,
-			Metadata: map[string]string{
-				"value": strconv.Itoa(int(*instance.Spec.Autoscale.TargetCPUUtilizationPercentage)),
-			},
+			Metadata:   buildMetadataForScaledObject(instance, strconv.Itoa(int(*instance.Spec.Autoscale.TargetCPUUtilizationPercentage))),
 		})
 	}
 
@@ -718,9 +727,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 			Type:       "memory",
 			MetricType: autoscalingv2.UtilizationMetricType,
-			Metadata: map[string]string{
-				"value": strconv.Itoa(int(*instance.Spec.Autoscale.TargetMemoryUtilizationPercentage)),
-			},
+			Metadata:   buildMetadataForScaledObject(instance, strconv.Itoa(int(*instance.Spec.Autoscale.TargetMemoryUtilizationPercentage))),
 		})
 	}
 
@@ -1347,8 +1354,47 @@ func generateSpecHash(spec any) (string, error) {
 	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
 }
 
-func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autoscalingv2.HorizontalPodAutoscaler {
+func buildNGNIXContainerMetrics(instance *v1alpha1.RpaasInstance) []autoscalingv2.MetricSpec {
 	var metrics []autoscalingv2.MetricSpec
+
+	if a := instance.Spec.Autoscale; a != nil && a.TargetCPUUtilizationPercentage != nil {
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ContainerResourceMetricSourceType,
+			ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+				Name:      corev1.ResourceCPU,
+				Container: "nginx",
+				Target: autoscalingv2.MetricTarget{
+					Type:               autoscalingv2.UtilizationMetricType,
+					AverageUtilization: instance.Spec.Autoscale.TargetCPUUtilizationPercentage,
+				},
+			},
+		})
+	}
+
+	if a := instance.Spec.Autoscale; a != nil && a.TargetMemoryUtilizationPercentage != nil {
+		metrics = append(metrics, autoscalingv2.MetricSpec{
+			Type: autoscalingv2.ContainerResourceMetricSourceType,
+			ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+				Name:      corev1.ResourceMemory,
+				Container: "nginx",
+				Target: autoscalingv2.MetricTarget{
+					Type:               autoscalingv2.UtilizationMetricType,
+					AverageUtilization: instance.Spec.Autoscale.TargetMemoryUtilizationPercentage,
+				},
+			},
+		})
+	}
+
+	return metrics
+}
+
+func buildHPAMetrics(instance *v1alpha1.RpaasInstance) []autoscalingv2.MetricSpec {
+	var metrics []autoscalingv2.MetricSpec
+
+	if len(instance.Spec.PodTemplate.Containers) > 0 {
+		//only look at nginx container metrics if there are multiple containers
+		return buildNGNIXContainerMetrics(instance)
+	}
 
 	if a := instance.Spec.Autoscale; a != nil && a.TargetCPUUtilizationPercentage != nil {
 		metrics = append(metrics, autoscalingv2.MetricSpec{
@@ -1375,6 +1421,12 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 			},
 		})
 	}
+
+	return metrics
+}
+
+func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autoscalingv2.HorizontalPodAutoscaler {
+	metrics := buildHPAMetrics(instance)
 
 	minReplicas := instance.Spec.Replicas
 	if a := instance.Spec.Autoscale; a != nil && a.MinReplicas != nil {
