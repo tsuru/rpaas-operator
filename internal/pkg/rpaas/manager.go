@@ -76,6 +76,7 @@ type ExtraFileHandler interface {
 }
 
 type Route struct {
+	ServerName  string `json:"server_name" form:"server_name"`
 	Path        string `json:"path" form:"path"`
 	Destination string `json:"destination" form:"destination"`
 	Content     string `json:"content" form:"content"`
@@ -83,7 +84,7 @@ type Route struct {
 }
 
 type RouteHandler interface {
-	DeleteRoute(ctx context.Context, instanceName, path string) error
+	DeleteRoute(ctx context.Context, instanceName, serverName, path string) error
 	GetRoutes(ctx context.Context, instanceName string) ([]Route, error)
 	UpdateRoute(ctx context.Context, instanceName string, route Route) error
 }

@@ -1030,14 +1030,14 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 	return purgeCount, purgeErrors
 }
 
-func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
+func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, serverName, path string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
 	originalInstance := instance.DeepCopy()
-	err = NewMutation(&instance.Spec).DeleteRoute(path)
+	err = NewMutation(&instance.Spec).DeleteRoute(serverName, path)
 	if err != nil {
 		return err
 	}

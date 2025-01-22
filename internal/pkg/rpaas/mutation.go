@@ -58,13 +58,14 @@ func (m *mutation) UpdateRoute(route Route) error {
 	}
 
 	newLocation := v1alpha1.Location{
+		ServerName:  route.ServerName,
 		Path:        route.Path,
 		Destination: route.Destination,
 		ForceHTTPS:  route.HTTPSOnly,
 		Content:     content,
 	}
 
-	if index, found := hasPath(m.spec, route.Path); found {
+	if index, found := hasPath(m.spec, route.ServerName, route.Path); found {
 		m.spec.Locations[index] = newLocation
 	} else {
 		m.spec.Locations = append(m.spec.Locations, newLocation)
@@ -73,8 +74,8 @@ func (m *mutation) UpdateRoute(route Route) error {
 	return nil
 }
 
-func (m *mutation) DeleteRoute(path string) error {
-	index, found := hasPath(m.spec, path)
+func (m *mutation) DeleteRoute(serverName, path string) error {
+	index, found := hasPath(m.spec, serverName, path)
 	if !found {
 		return &NotFoundError{Msg: "path does not exist"}
 	}
@@ -196,9 +197,9 @@ func validateRoute(r Route) error {
 	return nil
 }
 
-func hasPath(spec *v1alpha1.RpaasInstanceSpec, path string) (index int, found bool) {
+func hasPath(spec *v1alpha1.RpaasInstanceSpec, serverName, path string) (index int, found bool) {
 	for i, location := range spec.Locations {
-		if location.Path == path {
+		if location.ServerName == serverName && location.Path == path {
 			return i, true
 		}
 	}

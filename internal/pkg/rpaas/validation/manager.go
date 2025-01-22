@@ -228,13 +228,13 @@ func findFileByName(files []v1alpha1.File, filename string) (int, bool) {
 	return -1, false
 }
 
-func (v *validationManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
+func (v *validationManager) DeleteRoute(ctx context.Context, instanceName, serverName, path string) error {
 	validation, err := v.validationCRD(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
-	err = rpaas.NewMutation(&validation.Spec).DeleteRoute(path)
+	err = rpaas.NewMutation(&validation.Spec).DeleteRoute(serverName, path)
 	if err != nil {
 		return err
 	}
@@ -244,7 +244,7 @@ func (v *validationManager) DeleteRoute(ctx context.Context, instanceName, path 
 		return err
 	}
 
-	return v.RpaasManager.DeleteRoute(ctx, instanceName, path)
+	return v.RpaasManager.DeleteRoute(ctx, instanceName, serverName, path)
 }
 
 func (v *validationManager) UpdateRoute(ctx context.Context, instanceName string, route rpaas.Route) error {

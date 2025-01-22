@@ -22,12 +22,13 @@ func deleteRoute(c echo.Context) error {
 		return err
 	}
 
+	serverName := c.QueryParam("server_name")
 	path, err := formValue(c.Request(), "path")
 	if err != nil {
 		return &rpaas.ValidationError{Msg: err.Error()}
 	}
 
-	err = manager.DeleteRoute(ctx, c.Param("instance"), path)
+	err = manager.DeleteRoute(ctx, c.Param("instance"), serverName, path)
 	if err != nil {
 		return err
 	}

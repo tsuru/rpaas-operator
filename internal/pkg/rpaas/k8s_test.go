@@ -1790,10 +1790,11 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 	resources := []runtime.Object{instance1, instance2, instance3}
 
 	tests := []struct {
-		name      string
-		instance  string
-		path      string
-		assertion func(t *testing.T, err error, ri *v1alpha1.RpaasInstance)
+		name       string
+		instance   string
+		serverName string
+		path       string
+		assertion  func(t *testing.T, err error, ri *v1alpha1.RpaasInstance)
 	}{
 		{
 			name:     "when instance not found",
@@ -1858,7 +1859,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			err := manager.DeleteRoute(context.Background(), tt.instance, tt.path)
+			err := manager.DeleteRoute(context.Background(), tt.instance, tt.serverName, tt.path)
 			var ri v1alpha1.RpaasInstance
 			if err == nil {
 				require.NoError(t, manager.cli.Get(context.Background(), types.NamespacedName{Name: tt.instance, Namespace: getServiceName()}, &ri))

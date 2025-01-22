@@ -9,10 +9,12 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"sort"
 	"strings"
 
 	"github.com/ajg/form"
 	"github.com/labstack/echo/v4"
+	"golang.org/x/exp/maps"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
 )
@@ -122,10 +124,14 @@ func serviceInfo(c echo.Context) error {
 	if address == "" {
 		address = "pending"
 	}
-	var routes []string
+	mapRoutes := map[string]bool{}
 	for _, location := range instance.Spec.Locations {
-		routes = append(routes, location.Path)
+		mapRoutes[location.Path] = true
 	}
+
+	routes := maps.Keys(mapRoutes)
+	sort.Strings(routes)
+
 	ret := []map[string]string{
 		{
 			"label": "Address",
