@@ -1450,6 +1450,332 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 		},
 
+		"(native HPA controller) setting autoscale with multiple containers": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    10,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(50),
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ContainerResourceMetricSourceType,
+							ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+								Name:      corev1.ResourceCPU,
+								Container: "nginx",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(50),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+			expectedChanged: true,
+		},
+
+		"(native HPA controller) updating autoscale with multiple containers": {
+			resources: []runtime.Object{
+				func(hpa *autoscalingv2.HorizontalPodAutoscaler) runtime.Object {
+					hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+						ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MaxReplicas: 10,
+						Metrics: []autoscalingv2.MetricSpec{
+							{
+								Type: autoscalingv2.ContainerResourceMetricSourceType,
+								ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+									Name:      corev1.ResourceCPU,
+									Container: "nginx",
+									Target: autoscalingv2.MetricTarget{
+										Type:               autoscalingv2.UtilizationMetricType,
+										AverageUtilization: func(n int32) *int32 { return &n }(90),
+									},
+								},
+							},
+						},
+					}
+					return hpa
+				}(baseExpectedHPA.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                       func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                       10,
+					TargetCPUUtilizationPercentage:    func(n int32) *int32 { return &n }(50),
+					TargetMemoryUtilizationPercentage: func(n int32) *int32 { return &n }(60),
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.ResourceVersion = "2" // second change
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ContainerResourceMetricSourceType,
+							ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+								Name:      corev1.ResourceCPU,
+								Container: "nginx",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(50),
+								},
+							},
+						},
+						{
+							Type: autoscalingv2.ContainerResourceMetricSourceType,
+							ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+								Name:      corev1.ResourceMemory,
+								Container: "nginx",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(60),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+			expectedChanged: true,
+		},
+
+		"(native HPA controller) no update with multiple containers": {
+			resources: []runtime.Object{
+				func(hpa *autoscalingv2.HorizontalPodAutoscaler) runtime.Object {
+					hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+						ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MaxReplicas: 10,
+						Metrics: []autoscalingv2.MetricSpec{
+							{
+								Type: autoscalingv2.ContainerResourceMetricSourceType,
+								ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+									Name:      corev1.ResourceCPU,
+									Container: "nginx",
+									Target: autoscalingv2.MetricTarget{
+										Type:               autoscalingv2.UtilizationMetricType,
+										AverageUtilization: func(n int32) *int32 { return &n }(90),
+									},
+								},
+							},
+						},
+					}
+					return hpa
+				}(baseExpectedHPA.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    10,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ContainerResourceMetricSourceType,
+							ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+								Name:      corev1.ResourceCPU,
+								Container: "nginx",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(90),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+			expectedChanged: false,
+		},
+
+		"(native HPA controller) change to ContainerMetrics when multiple containers": {
+			resources: []runtime.Object{
+				func(hpa *autoscalingv2.HorizontalPodAutoscaler) runtime.Object {
+					hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+						ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MaxReplicas: 10,
+						Metrics: []autoscalingv2.MetricSpec{
+							{
+								Type: autoscalingv2.ResourceMetricSourceType,
+								Resource: &autoscalingv2.ResourceMetricSource{
+									Name: "cpu",
+									Target: autoscalingv2.MetricTarget{
+										Type:               autoscalingv2.UtilizationMetricType,
+										AverageUtilization: func(n int32) *int32 { return &n }(90),
+									},
+								},
+							},
+						},
+					}
+					return hpa
+				}(baseExpectedHPA.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    10,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.ResourceVersion = "2"
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ContainerResourceMetricSourceType,
+							ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+								Name:      corev1.ResourceCPU,
+								Container: "nginx",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(90),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+			expectedChanged: true,
+		},
+
+		"(native HPA controller) change to ResourceMetrics when single container": {
+			resources: []runtime.Object{
+				func(hpa *autoscalingv2.HorizontalPodAutoscaler) runtime.Object {
+					hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+						ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MaxReplicas: 10,
+						Metrics: []autoscalingv2.MetricSpec{
+							{
+								Type: autoscalingv2.ContainerResourceMetricSourceType,
+								ContainerResource: &autoscalingv2.ContainerResourceMetricSource{
+									Name:      corev1.ResourceCPU,
+									Container: "nginx",
+									Target: autoscalingv2.MetricTarget{
+										Type:               autoscalingv2.UtilizationMetricType,
+										AverageUtilization: func(n int32) *int32 { return &n }(90),
+									},
+								},
+							},
+						},
+					}
+					return hpa
+				}(baseExpectedHPA.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    10,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.ResourceVersion = "2"
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MaxReplicas: 10,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: "cpu",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(90),
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+			expectedChanged: true,
+		},
+
 		"(KEDA controller) with RPS enabled": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
@@ -1756,6 +2082,411 @@ func Test_reconcileHPA(t *testing.T) {
 							"start":           "00 22 * * 0",
 							"end":             "00 01 * * 1",
 							"timezone":        "America/Sao_Paulo",
+						},
+					},
+				}
+				return so
+			},
+		},
+
+		"(KEDA controller) setting autoscale with multiple containers": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    50,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(50),
+					Schedules: []v1alpha1.ScheduledWindow{
+						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
+						{MinReplicas: 10, Start: "00 22 * * 0", End: "00 01 * * 1", Timezone: "America/Sao_Paulo"},
+					},
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:  true,
+						Timezone: "Etc/UTC",
+					},
+				}
+				return ri
+			},
+			expectedChanged: true,
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
+				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type:       "cpu",
+						MetricType: autoscalingv2.UtilizationMetricType,
+						Metadata: map[string]string{
+							"value":         "50",
+							"containerName": "nginx",
+						},
+					},
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "5",
+							"start":           "00 20 * * 2",
+							"end":             "00 01 * * 3",
+							"timezone":        "Etc/UTC",
+						},
+					},
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "10",
+							"start":           "00 22 * * 0",
+							"end":             "00 01 * * 1",
+							"timezone":        "America/Sao_Paulo",
+						},
+					},
+				}
+				return so
+			},
+		},
+
+		"(KEDA controller) updating autoscale with multiple containers": {
+			resources: []runtime.Object{
+				func(so *kedav1alpha1.ScaledObject) runtime.Object {
+					so.Spec = kedav1alpha1.ScaledObjectSpec{
+						ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicaCount: func(n int32) *int32 { return &n }(1),
+						MaxReplicaCount: func(n int32) *int32 { return &n }(50),
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type:       "cpu",
+								MetricType: autoscalingv2.UtilizationMetricType,
+								Metadata: map[string]string{
+									"value":         "60",
+									"containerName": "nginx",
+								},
+							},
+							{
+								Type: "cron",
+								Metadata: map[string]string{
+									"desiredReplicas": "5",
+									"start":           "00 20 * * 2",
+									"end":             "00 01 * * 3",
+									"timezone":        "America/Sao_Paulo",
+								},
+							},
+						},
+					}
+					return so
+				}(baseExpectedScaledObject.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    50,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(80),
+					Schedules: []v1alpha1.ScheduledWindow{
+						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
+						{MinReplicas: 10, Start: "00 22 * * 0", End: "00 01 * * 1"},
+					},
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:  true,
+						Timezone: "Etc/UTC",
+					},
+				}
+				return ri
+			},
+			expectedChanged: true,
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.ResourceVersion = "2" // second update
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
+				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type:       "cpu",
+						MetricType: autoscalingv2.UtilizationMetricType,
+						Metadata: map[string]string{
+							"value":         "80",
+							"containerName": "nginx",
+						},
+					},
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "5",
+							"start":           "00 20 * * 2",
+							"end":             "00 01 * * 3",
+							"timezone":        "Etc/UTC",
+						},
+					},
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "10",
+							"start":           "00 22 * * 0",
+							"end":             "00 01 * * 1",
+							"timezone":        "Etc/UTC",
+						},
+					},
+				}
+				return so
+			},
+		},
+
+		"(KEDA controller) no update with multiple containers": {
+			resources: []runtime.Object{
+				func(so *kedav1alpha1.ScaledObject) runtime.Object {
+					so.Spec = kedav1alpha1.ScaledObjectSpec{
+						ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicaCount: ptr.To(int32(2)),
+						MaxReplicaCount: ptr.To(int32(500)),
+						PollingInterval: ptr.To(int32(5)),
+						Advanced: &kedav1alpha1.AdvancedConfig{
+							HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+								Name: "my-instance",
+							},
+						},
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type:       "cpu",
+								MetricType: autoscalingv2.UtilizationMetricType,
+								Metadata: map[string]string{
+									"value":         "50",
+									"containerName": "nginx",
+								},
+							},
+							{
+								Type: "prometheus",
+								Metadata: map[string]string{
+									"serverAddress": "https://prometheus.example.com",
+									"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+									"threshold":     "50",
+								},
+								AuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+									Name: "prometheus-auth",
+									Kind: "ClusterTriggerAuthentication",
+								},
+							},
+						},
+					}
+					return so
+				}(baseExpectedScaledObject.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    ptr.To(int32(2)),
+					MaxReplicas:                    500,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(50),
+					TargetRequestsPerSecond:        ptr.To(int32(50)),
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:                 true,
+						PrometheusServerAddress: "https://prometheus.example.com",
+						RPSQueryTemplate:        `sum(rate(nginx_vts_requests_total{instance="{{ .Name }}", namespace="{{ .Namespace }}"}[5m]))`,
+						RPSAuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+							Kind: "ClusterTriggerAuthentication",
+							Name: "prometheus-auth",
+						},
+						PollingInterval: ptr.To(int32(5)),
+					},
+				}
+				return ri
+			},
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.Spec.MinReplicaCount = ptr.To(int32(2))
+				so.Spec.MaxReplicaCount = ptr.To(int32(500))
+				so.Spec.PollingInterval = ptr.To(int32(5))
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type:       "cpu",
+						MetricType: autoscalingv2.UtilizationMetricType,
+						Metadata: map[string]string{
+							"value":         "50",
+							"containerName": "nginx",
+						},
+					},
+					{
+						Type: "prometheus",
+						Metadata: map[string]string{
+							"serverAddress": "https://prometheus.example.com",
+							"query":         `sum(rate(nginx_vts_requests_total{instance="my-instance", namespace="default"}[5m]))`,
+							"threshold":     "50",
+						},
+						AuthenticationRef: &kedav1alpha1.ScaledObjectAuthRef{
+							Kind: "ClusterTriggerAuthentication",
+							Name: "prometheus-auth",
+						},
+					},
+				}
+				return so
+			},
+			expectedChanged: false,
+		},
+
+		"(KEDA controller) add containerName to trigger metadata when multiple containers": {
+			resources: []runtime.Object{
+				func(so *kedav1alpha1.ScaledObject) runtime.Object {
+					so.Spec = kedav1alpha1.ScaledObjectSpec{
+						ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicaCount: func(n int32) *int32 { return &n }(1),
+						MaxReplicaCount: func(n int32) *int32 { return &n }(50),
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type:       "cpu",
+								MetricType: autoscalingv2.UtilizationMetricType,
+								Metadata: map[string]string{
+									"value": "90",
+								},
+							},
+							{
+								Type: "cron",
+								Metadata: map[string]string{
+									"desiredReplicas": "5",
+									"start":           "00 20 * * 2",
+									"end":             "00 01 * * 3",
+									"timezone":        "Etc/UTC",
+								},
+							},
+						},
+					}
+					return so
+				}(baseExpectedScaledObject.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
+					Containers: []corev1.Container{
+						{Name: "sidecar"},
+					},
+				}
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    50,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					Schedules: []v1alpha1.ScheduledWindow{
+						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
+					},
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:  true,
+						Timezone: "Etc/UTC",
+					},
+				}
+				return ri
+			},
+			expectedChanged: true,
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.ResourceVersion = "2" // second update
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
+				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type:       "cpu",
+						MetricType: autoscalingv2.UtilizationMetricType,
+						Metadata: map[string]string{
+							"value":         "90",
+							"containerName": "nginx",
+						},
+					},
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "5",
+							"start":           "00 20 * * 2",
+							"end":             "00 01 * * 3",
+							"timezone":        "Etc/UTC",
+						},
+					},
+				}
+				return so
+			},
+		},
+
+		"(KEDA controller) remove containerName from trigger metadata when single container": {
+			resources: []runtime.Object{
+				func(so *kedav1alpha1.ScaledObject) runtime.Object {
+					so.Spec = kedav1alpha1.ScaledObjectSpec{
+						ScaleTargetRef: &kedav1alpha1.ScaleTarget{
+							APIVersion: "apps/v1",
+							Kind:       "Deployment",
+							Name:       "my-instance",
+						},
+						MinReplicaCount: func(n int32) *int32 { return &n }(1),
+						MaxReplicaCount: func(n int32) *int32 { return &n }(50),
+						Triggers: []kedav1alpha1.ScaleTriggers{
+							{
+								Type:       "cpu",
+								MetricType: autoscalingv2.UtilizationMetricType,
+								Metadata: map[string]string{
+									"value":         "90",
+									"containerName": "nginx",
+								},
+							},
+							{
+								Type: "cron",
+								Metadata: map[string]string{
+									"desiredReplicas": "5",
+									"start":           "00 20 * * 2",
+									"end":             "00 01 * * 3",
+									"timezone":        "Etc/UTC",
+								},
+							},
+						},
+					}
+					return so
+				}(baseExpectedScaledObject.DeepCopy()),
+			},
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MaxReplicas:                    50,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					Schedules: []v1alpha1.ScheduledWindow{
+						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
+					},
+					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
+						Enabled:  true,
+						Timezone: "Etc/UTC",
+					},
+				}
+				return ri
+			},
+			expectedChanged: true,
+			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
+				so.ResourceVersion = "2" // second update
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
+				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
+					{
+						Type:       "cpu",
+						MetricType: autoscalingv2.UtilizationMetricType,
+						Metadata: map[string]string{
+							"value": "90",
+						},
+					},
+					{
+						Type: "cron",
+						Metadata: map[string]string{
+							"desiredReplicas": "5",
+							"start":           "00 20 * * 2",
+							"end":             "00 01 * * 3",
+							"timezone":        "Etc/UTC",
 						},
 					},
 				}
