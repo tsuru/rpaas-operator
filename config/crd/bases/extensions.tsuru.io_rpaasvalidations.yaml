@@ -484,6 +484,11 @@ spec:
                       type: boolean
                     path:
                       type: string
+                    serverName:
+                      description: Servername is the optional server name to match
+                        the location block, if not provided it will set on all server
+                        names.
+                      type: string
                   required:
                   - path
                   type: object
