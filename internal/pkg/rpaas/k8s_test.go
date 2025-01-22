@@ -1780,6 +1780,31 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 		},
 	}
 
+	instance4 := newEmptyRpaasInstance()
+	instance4.Name = "multiple-servernames-instance"
+	instance4.Spec.Locations = []v1alpha1.Location{
+		{
+			ServerName: "server1.example.com",
+			Path:       "/",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for / location on server1",
+			},
+		},
+		{
+			ServerName: "server2.example.com",
+			Path:       "/",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for / location on server2",
+			},
+		},
+		{
+			Path: "/common",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for /common location",
+			},
+		},
+	}
+
 	cm := newEmptyLocations()
 	cm.Name = "my-locations-config"
 	cm.Data = map[string]string{
@@ -1787,7 +1812,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 	}
 
 	scheme := newScheme()
-	resources := []runtime.Object{instance1, instance2, instance3}
+	resources := []runtime.Object{instance1, instance2, instance3, instance4}
 
 	tests := []struct {
 		name       string
@@ -1812,7 +1837,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
-				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+				assert.Equal(t, &NotFoundError{Msg: "path \"/path/unknown\" does not exist"}, err)
 			},
 		},
 		{
@@ -1822,7 +1847,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
-				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+				assert.Equal(t, &NotFoundError{Msg: "path \"/path/unknown\" does not exist"}, err)
 			},
 		},
 		{
@@ -1852,6 +1877,40 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Nil(t, ri.Spec.Locations)
+			},
+		},
+		{
+			name:       "when removing by serverName",
+			instance:   "multiple-servernames-instance",
+			serverName: "server2.example.com",
+			path:       "/",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Equal(t, []v1alpha1.Location{
+					{
+						ServerName: "server1.example.com",
+						Path:       "/",
+						Content: &v1alpha1.Value{
+							Value: "# My NGINX config for / location on server1",
+						},
+					},
+					{
+						Path: "/common",
+						Content: &v1alpha1.Value{
+							Value: "# My NGINX config for /common location",
+						},
+					},
+				}, ri.Spec.Locations)
+			},
+		},
+		{
+			name:     "when removing with serverName missing",
+			instance: "multiple-servernames-instance",
+			path:     "/",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+				assert.Equal(t, &NotFoundError{Msg: "path \"/\" does not exist"}, err)
 			},
 		},
 	}

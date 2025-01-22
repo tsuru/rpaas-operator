@@ -77,7 +77,10 @@ func (m *mutation) UpdateRoute(route Route) error {
 func (m *mutation) DeleteRoute(serverName, path string) error {
 	index, found := hasPath(m.spec, serverName, path)
 	if !found {
-		return &NotFoundError{Msg: "path does not exist"}
+		if serverName != "" {
+			return &NotFoundError{Msg: fmt.Sprintf("path %q with serverName %q does not exist", path, serverName)}
+		}
+		return &NotFoundError{Msg: fmt.Sprintf("path %q does not exist", path)}
 	}
 
 	m.spec.Locations = append(m.spec.Locations[:index], m.spec.Locations[index+1:]...)
