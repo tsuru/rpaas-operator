@@ -42,6 +42,20 @@ func Test_deleteRoute(t *testing.T) {
 			},
 		},
 		{
+			name:         "when delete route is successful with a custom server name",
+			instance:     "my-instance",
+			requestBody:  "path=/my/custom/path&server_name=my-server",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeDeleteRoute: func(instanceName, serverName, path string) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "my-server", serverName)
+					assert.Equal(t, "/my/custom/path", path)
+					return nil
+				},
+			},
+		},
+		{
 			name:         "when delete route method returns some error",
 			instance:     "my-instance",
 			requestBody:  "path=/",

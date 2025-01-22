@@ -1881,7 +1881,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 		},
 		{
 			name:       "when removing by serverName",
-			instance:   "multiple-servernames-instance",
+			instance:   instance4.Name,
 			serverName: "server2.example.com",
 			path:       "/",
 			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
@@ -1905,7 +1905,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 		},
 		{
 			name:     "when removing with serverName missing",
-			instance: "multiple-servernames-instance",
+			instance: instance4.Name,
 			path:     "/",
 			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)

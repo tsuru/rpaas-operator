@@ -22,7 +22,7 @@ func deleteRoute(c echo.Context) error {
 		return err
 	}
 
-	serverName := c.QueryParam("server_name")
+	serverName, _ := formValue(c.Request(), "server_name")
 	path, err := formValue(c.Request(), "path")
 	if err != nil {
 		return &rpaas.ValidationError{Msg: err.Error()}
@@ -84,22 +84,24 @@ func formValue(req *http.Request, key string) (string, error) {
 		return "", fmt.Errorf("content-type is not application form")
 	}
 
-	rawBody, err := io.ReadAll(req.Body)
-	if err != nil {
-		return "", err
-	}
-	defer req.Body.Close()
+	if req.Form == nil {
+		rawBody, err := io.ReadAll(req.Body)
+		if err != nil {
+			return "", err
+		}
+		defer req.Body.Close()
 
-	if len(rawBody) == 0 {
-		return "", fmt.Errorf("missing body message")
+		if len(rawBody) == 0 {
+			return "", fmt.Errorf("missing body message")
+		}
+
+		req.Form, err = url.ParseQuery(string(rawBody))
+		if err != nil {
+			return "", err
+		}
 	}
 
-	queryByKey, err := url.ParseQuery(string(rawBody))
-	if err != nil {
-		return "", err
-	}
-
-	values := queryByKey[key]
+	values := req.Form[key]
 	if len(values) == 0 {
 		return "", fmt.Errorf("missing key %q", key)
 	}
