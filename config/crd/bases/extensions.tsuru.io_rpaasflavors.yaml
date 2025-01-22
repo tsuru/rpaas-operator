@@ -508,9 +508,9 @@ spec:
                         path:
                           type: string
                         serverName:
-                          description: Servername is the optional server name to match
-                            the location block, if not provided it will set on all
-                            server names.
+                          description: ServerName is an optional parameter used to
+                            match the server name in the location block. If not provided,
+                            it will apply to all servers.
                           type: string
                       required:
                       - path

@@ -215,7 +215,7 @@ type DNSConfig struct {
 }
 
 type Location struct {
-	// Servername is the optional server name to match the location block, if not provided it will set on all server names.
+	// ServerName is an optional parameter used to match the server name in the location block. If not provided, it will apply to all servers.
 	ServerName  string `json:"serverName,omitempty"`
 	Path        string `json:"path"`
 	Destination string `json:"destination,omitempty"`
