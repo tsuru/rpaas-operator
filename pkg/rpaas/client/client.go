@@ -68,8 +68,9 @@ type ListBlocksArgs struct {
 }
 
 type DeleteRouteArgs struct {
-	Instance string
-	Path     string
+	Instance   string
+	ServerName string
+	Path       string
 }
 
 type ListRoutesArgs struct {
@@ -78,6 +79,7 @@ type ListRoutesArgs struct {
 
 type UpdateRouteArgs struct {
 	Instance    string
+	ServerName  string
 	Path        string
 	Destination string
 	HTTPSOnly   bool

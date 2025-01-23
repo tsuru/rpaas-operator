@@ -1067,6 +1067,7 @@ func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([
 		}
 
 		routes = append(routes, Route{
+			ServerName:  location.ServerName,
 			Path:        location.Path,
 			Destination: location.Destination,
 			HTTPSOnly:   location.ForceHTTPS,
@@ -1703,6 +1704,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 
 	for _, r := range routes {
 		info.Routes = append(info.Routes, clientTypes.Route{
+			ServerName:  r.ServerName,
 			Path:        r.Path,
 			Destination: r.Destination,
 			Content:     r.Content,

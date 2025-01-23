@@ -25,6 +25,7 @@ type Block struct {
 }
 
 type Route struct {
+	ServerName  string `json:"server_name,omitempty" form:"server_name,omitempty"`
 	Path        string `json:"path" form:"path"`
 	Destination string `json:"destination,omitempty" form:"destination,omitempty"`
 	HTTPSOnly   bool   `json:"https_only,omitempty" form:"https_only,omitempty"`
