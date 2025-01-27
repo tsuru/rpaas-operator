@@ -15,12 +15,14 @@ type Server struct {
 	Default       bool   `json:"default,omitempty"`
 	Wildcard      bool   `json:"wildcard,omitempty"`
 
+	Blocks    map[v1alpha1.BlockType]v1alpha1.Value
 	Locations []v1alpha1.Location `json:"locations,omitempty"`
 }
 
 func ProduceServers(spec *v1alpha1.RpaasInstanceSpec) []*Server {
 	defaultServer := &Server{
 		Default: true,
+		Blocks:  deepCopyBlocks(spec.Blocks),
 	}
 
 	mapServerNames := make(map[string]*Server)
@@ -29,7 +31,28 @@ func ProduceServers(spec *v1alpha1.RpaasInstanceSpec) []*Server {
 	for _, server := range spec.Locations {
 		if server.ServerName != "" {
 			mapServerNames[server.ServerName] = &Server{
-				Name: server.ServerName,
+				Name:   server.ServerName,
+				Blocks: deepCopyBlocks(spec.Blocks),
+			}
+		}
+	}
+
+	for _, serverBlock := range spec.ServerBlocks {
+		if serverBlock.ServerName != "" {
+			if _, ok := mapServerNames[serverBlock.ServerName]; !ok {
+				mapServerNames[serverBlock.ServerName] = &Server{
+					Name:   serverBlock.ServerName,
+					Blocks: deepCopyBlocks(spec.Blocks),
+				}
+			}
+
+			_, hasDefaultBlock := defaultServer.Blocks[serverBlock.Type]
+			if serverBlock.Extend && hasDefaultBlock {
+				mapServerNames[serverBlock.ServerName].Blocks[serverBlock.Type] = v1alpha1.Value{
+					Value: defaultServer.Blocks[v1alpha1.BlockTypeServer].Value + "\n" + serverBlock.Content.Value,
+				}
+			} else {
+				mapServerNames[serverBlock.ServerName].Blocks[serverBlock.Type] = *serverBlock.Content.DeepCopy()
 			}
 		}
 	}
@@ -75,6 +98,7 @@ func ProduceServers(spec *v1alpha1.RpaasInstanceSpec) []*Server {
 			mapServerNames[host] = &Server{
 				Name:      host,
 				Locations: deepCopyLocations(defaultServer.Locations),
+				Blocks:    deepCopyBlocks(spec.Blocks),
 			}
 		}
 
@@ -141,4 +165,15 @@ func deepCopyLocations(locations []v1alpha1.Location) []v1alpha1.Location {
 
 func isWildCard(host string) bool {
 	return strings.HasPrefix(host, "*.")
+}
+
+func deepCopyBlocks(blocks map[v1alpha1.BlockType]v1alpha1.Value) map[v1alpha1.BlockType]v1alpha1.Value {
+	if len(blocks) == 0 {
+		return nil
+	}
+	copiedBlocks := make(map[v1alpha1.BlockType]v1alpha1.Value, len(blocks))
+	for k, v := range blocks {
+		copiedBlocks[k] = *v.DeepCopy()
+	}
+	return copiedBlocks
 }

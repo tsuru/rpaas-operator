@@ -393,6 +393,83 @@ func TestProduceServers(t *testing.T) {
 				},
 			},
 		},
+
+		// Multi Block support
+		{
+			name: "spec with blocks",
+			spec: &v1alpha1.RpaasInstanceSpec{
+				Blocks: map[v1alpha1.BlockType]v1alpha1.Value{
+					"server": {
+						Value: "proxy_set_header MyHeader MyValue;",
+					},
+				},
+			},
+			expected: []*Server{
+				{
+					Default: true,
+					Blocks: map[v1alpha1.BlockType]v1alpha1.Value{
+						"server": {
+							Value: "proxy_set_header MyHeader MyValue;",
+						},
+					},
+				},
+			},
+		},
+
+		{
+			name: "spec with blocks with override and extend",
+			spec: &v1alpha1.RpaasInstanceSpec{
+				Blocks: map[v1alpha1.BlockType]v1alpha1.Value{
+					"server": {
+						Value: "proxy_set_header MyHeader MyValue;",
+					},
+				},
+				ServerBlocks: []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       "server",
+						Content: &v1alpha1.Value{
+							Value: "proxy_set_header MyHeader example.com;",
+						},
+					},
+					{
+						ServerName: "example.net",
+						Type:       "server",
+						Content: &v1alpha1.Value{
+							Value: "proxy_set_header MyHeader example.net;",
+						},
+						Extend: true,
+					},
+				},
+			},
+			expected: []*Server{
+				{
+					Default: true,
+					Blocks: map[v1alpha1.BlockType]v1alpha1.Value{
+						"server": {
+							Value: "proxy_set_header MyHeader MyValue;",
+						},
+					},
+				},
+				{
+					Name: "example.com",
+					Blocks: map[v1alpha1.BlockType]v1alpha1.Value{
+						"server": {
+							Value: "proxy_set_header MyHeader example.com;",
+						},
+					},
+				},
+				{
+					Name: "example.net",
+
+					Blocks: map[v1alpha1.BlockType]v1alpha1.Value{
+						"server": {
+							Value: "proxy_set_header MyHeader MyValue;\nproxy_set_header MyHeader example.net;",
+						},
+					},
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

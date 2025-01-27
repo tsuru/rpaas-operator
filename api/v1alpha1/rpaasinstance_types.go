@@ -46,6 +46,9 @@ type RpaasInstanceSpec struct {
 	// config.
 	Blocks map[BlockType]Value `json:"blocks,omitempty"`
 
+	// ServerBlocks are configuration file fragments added to to a specific serverName
+	ServerBlocks []ServerBlock `json:"serverBlocks,omitempty"`
+
 	// Locations hold paths that can be configured to forward resquests to
 	// one destination app or include raw NGINX configurations itself.
 	// +optional
@@ -221,6 +224,13 @@ type Location struct {
 	Destination string `json:"destination,omitempty"`
 	Content     *Value `json:"content,omitempty"`
 	ForceHTTPS  bool   `json:"forceHTTPS,omitempty"`
+}
+
+type ServerBlock struct {
+	ServerName string    `json:"serverName"`
+	Type       BlockType `json:"type"`
+	Content    *Value    `json:"content"`
+	Extend     bool      `json:"extend,omitempty"` // Extend is a flag to indicate if the block should be appended to the default configuration
 }
 
 type ValueSource struct {
