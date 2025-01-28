@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
+
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 

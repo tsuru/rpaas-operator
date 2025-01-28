@@ -10,8 +10,9 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"k8s.io/apimachinery/pkg/util/validation"
+
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 )
 
 type mutation struct {
