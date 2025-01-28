@@ -289,6 +289,48 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 		expectedCode int
 		expectedBody string
 	}{
+		"instance name with exactly 30 characters": {
+			requestBody: `{"name": "thisIsExactlyThirtyCharacterss", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+			manager: &fake.RpaasManager{
+				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, clientTypes.CertManager{
+						Name:     "thisIsExactlyThirtyCharacterss",
+						Issuer:   "my-issuer",
+						DNSNames: []string{"foo.example.com"},
+					}, in)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+		"instance name with more than 30 characters": {
+			requestBody: `{"name": "thisInstanceNameIsWayTooLongForTheRequest", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+			manager: &fake.RpaasManager{
+				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
+					return &rpaas.ValidationError{
+						Msg: fmt.Sprintf("The instance name '%s' exceeds the limit of 30 characters.", "thisInstanceNameIsWayTooLongForTheRequest"),
+					}
+				},
+			},
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `{"message":"The instance name 'thisInstanceNameIsWayTooLongForTheRequest' exceeds the limit of 30 characters."}`,
+		},
+		"instance name with less than 30 characters": {
+			requestBody: `{"name": "shortInstanceName", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+			manager: &fake.RpaasManager{
+				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, clientTypes.CertManager{
+						Name:     "shortInstanceName",
+						Issuer:   "my-issuer",
+						DNSNames: []string{"foo.example.com"},
+					}, in)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
 		"doing a correct request": {
 			requestBody: `{"issuer": "my-issuer", "dnsNames": ["foo.example.com", "bar.example.com"], "ipAddresses": ["169.196.100.1"]}`,
 			manager: &fake.RpaasManager{

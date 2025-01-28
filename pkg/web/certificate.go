@@ -103,6 +103,17 @@ func updateCertManagerRequest(c echo.Context) error {
 		return err
 	}
 
+	const maxInstanceNameLength = 30
+	if len(in.Name) > maxInstanceNameLength {
+		return &rpaas.ValidationError{
+			Msg: fmt.Sprintf(
+				"The instance name '%s' exceeds the limit of %d characters.",
+				in.Name, maxInstanceNameLength,
+			),
+			Internal: nil,
+		}
+	}
+
 	err = manager.UpdateCertManagerRequest(ctx, c.Param("instance"), in)
 	if err != nil {
 		return err
