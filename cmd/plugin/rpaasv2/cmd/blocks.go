@@ -47,6 +47,11 @@ func NewCmdUpdateBlock() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
+				Name:    "server-name",
+				Aliases: []string{"sn"},
+				Usage:   "Optional, indicates that blocks belongs to specific server_name, ignoring it this block will apply to all server_names",
+			},
+			&cli.StringFlag{
 				Name:     "name",
 				Aliases:  []string{"context", "n"},
 				Usage:    "the NGINX context name wherein the fragment will be injected (supported values: root, http, server, lua-server, lua-worker)",
@@ -57,6 +62,10 @@ func NewCmdUpdateBlock() *cli.Command {
 				Aliases:  []string{"content-file", "c"},
 				Usage:    "path in the system to the NGINX configuration",
 				Required: true,
+			},
+			&cli.BoolFlag{
+				Name:  "extend",
+				Usage: "if set, the content will be appended to the default block, only valid for server context",
 			},
 		},
 		Before: setupClient,
@@ -75,17 +84,26 @@ func runUpdateBlock(c *cli.Context) error {
 		return err
 	}
 
+	serverName := c.String("server-name")
+
 	args := rpaasclient.UpdateBlockArgs{
-		Instance: c.String("instance"),
-		Name:     c.String("name"),
-		Content:  string(content),
+		Instance:   c.String("instance"),
+		Name:       c.String("name"),
+		ServerName: serverName,
+		Extend:     c.Bool("extend"),
+		Content:    string(content),
 	}
 	err = client.UpdateBlock(c.Context, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "NGINX configuration fragment inserted at %q context\n", args.Name)
+	if serverName == "" {
+		fmt.Fprintf(c.App.Writer, "NGINX configuration fragment inserted at %q context\n", args.Name)
+	} else {
+		fmt.Fprintf(c.App.Writer, "NGINX configuration fragment inserted at %q context for server name %q\n", args.Name, serverName)
+
+	}
 	return nil
 }
 
@@ -107,6 +125,11 @@ func NewCmdDeleteBlock() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
+				Name:    "server-name",
+				Aliases: []string{"sn"},
+				Usage:   "Optional, indicates that blocks belongs to specific server_name, ignoring it this block will apply to all server_names",
+			},
+			&cli.StringFlag{
 				Name:     "name",
 				Aliases:  []string{"context", "n"},
 				Usage:    "the NGINX context name wherein the fragment is (supported values: root, http, server, lua-server, lua-worker)",
@@ -124,16 +147,23 @@ func runDeleteBlock(c *cli.Context) error {
 		return err
 	}
 
+	serverName := c.String("server-name")
+
 	args := rpaasclient.DeleteBlockArgs{
-		Instance: c.String("instance"),
-		Name:     c.String("name"),
+		Instance:   c.String("instance"),
+		Name:       c.String("name"),
+		ServerName: serverName,
 	}
 	err = client.DeleteBlock(c.Context, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "NGINX configuration at %q context removed\n", args.Name)
+	if serverName == "" {
+		fmt.Fprintf(c.App.Writer, "NGINX configuration at %q context removed\n", args.Name)
+	} else {
+		fmt.Fprintf(c.App.Writer, "NGINX configuration at %q context for server name %q removed\n", args.Name, serverName)
+	}
 	return nil
 }
 
@@ -186,17 +216,40 @@ func runListBlocks(c *cli.Context) error {
 }
 
 func writeBlocksOnTableFormat(w io.Writer, blocks []clientTypes.Block) {
-	data := [][]string{}
+	hasServerName := false
 	for _, block := range blocks {
-		data = append(data, []string{block.Name, block.Content})
+		if block.ServerName != "" {
+			hasServerName = true
+			break
+		}
+	}
+
+	rows := [][]string{}
+	for _, block := range blocks {
+		row := []string{block.Name, block.Content}
+		if hasServerName {
+			row = append([]string{block.ServerName}, row...)
+			row = append(row, checkedChar(block.Extend))
+		}
+		rows = append(rows, row)
 	}
 
 	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Context", "Configuration"})
+
+	headers := []string{"Context", "Configuration"}
+	alignment := []int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT}
+	if hasServerName {
+		headers = append([]string{"Server Name"}, headers...)
+		headers = append(headers, "Extend")
+		alignment = append(alignment, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER)
+	}
+
+	table.SetHeader(headers)
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.AppendBulk(data)
+	table.SetColumnAlignment(alignment)
+	table.AppendBulk(rows)
 	table.Render()
 }
 

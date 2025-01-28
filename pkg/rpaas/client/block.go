@@ -8,6 +8,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 
 	"github.com/ajg/form"
@@ -37,8 +38,10 @@ func (c *client) UpdateBlock(ctx context.Context, args UpdateBlockArgs) error {
 	}
 
 	values := types.Block{
-		Name:    args.Name,
-		Content: args.Content,
+		Name:       args.Name,
+		ServerName: args.ServerName,
+		Content:    args.Content,
+		Extend:     args.Extend,
 	}
 
 	b, err := form.EncodeToString(values)
@@ -84,6 +87,12 @@ func (c *client) DeleteBlock(ctx context.Context, args DeleteBlockArgs) error {
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/block/%s", args.Instance, args.Name)
+	if args.ServerName != "" {
+		qs := url.Values{}
+		qs.Add("server_name", args.ServerName)
+		pathName = fmt.Sprintf("%s?%s", pathName, qs.Encode())
+	}
+
 	req, err := c.newRequest("DELETE", pathName, nil)
 	if err != nil {
 		return err

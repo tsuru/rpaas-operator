@@ -20,8 +20,10 @@ type RpaasFile struct {
 }
 
 type Block struct {
-	Name    string `json:"block_name" form:"block_name"`
-	Content string `json:"content" form:"content"`
+	Name       string `json:"block_name" form:"block_name"`
+	ServerName string `json:"server_name,omitempty" form:"server_name,omitempty"`
+	Content    string `json:"content" form:"content"`
+	Extend     bool   `json:"extend,omitempty" form:"extend,omitempty"`
 }
 
 type Route struct {

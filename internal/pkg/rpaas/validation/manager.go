@@ -33,13 +33,13 @@ func New(manager rpaas.RpaasManager, cli client.Client) rpaas.RpaasManager {
 	}
 }
 
-func (v *validationManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
+func (v *validationManager) DeleteBlock(ctx context.Context, instanceName, serverName, blockName string) error {
 	validation, err := v.validationCRD(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
-	err = rpaas.NewMutation(&validation.Spec).DeleteBlock(blockName)
+	err = rpaas.NewMutation(&validation.Spec).DeleteBlock(serverName, blockName)
 	if err != nil {
 		return err
 	}
@@ -49,7 +49,7 @@ func (v *validationManager) DeleteBlock(ctx context.Context, instanceName, block
 		return err
 	}
 
-	return v.RpaasManager.DeleteBlock(ctx, instanceName, blockName)
+	return v.RpaasManager.DeleteBlock(ctx, instanceName, serverName, blockName)
 }
 
 func (v *validationManager) UpdateBlock(ctx context.Context, instanceName string, block rpaas.ConfigurationBlock) error {

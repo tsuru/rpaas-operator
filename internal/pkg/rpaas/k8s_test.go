@@ -102,11 +102,12 @@ func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath
 
 func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 	tests := []struct {
-		name      string
-		instance  string
-		block     string
-		resources func() []runtime.Object
-		assertion func(*testing.T, error, v1alpha1.RpaasInstance)
+		name       string
+		instance   string
+		serverName string
+		block      string
+		resources  func() []runtime.Object
+		assertion  func(*testing.T, error, v1alpha1.RpaasInstance)
 	}{
 		{
 			name:     "when block does not exist",
@@ -139,12 +140,46 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 				assert.Nil(t, instance.Spec.Blocks)
 			},
 		},
+		{
+			name:       "when removing by server name",
+			instance:   "another-instance",
+			block:      "server",
+			serverName: "example.com",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Name = "another-instance"
+				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeServer: {
+						Value: "# Some NGINX configuration at Server scope",
+					},
+				}
+				instance.Spec.ServerBlocks = []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Content: &v1alpha1.Value{
+							Value: "# Some NGINX configuration at server scope for example.com",
+						},
+					},
+				}
+				return []runtime.Object{instance}
+			},
+			assertion: func(t *testing.T, err error, instance v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Nil(t, instance.Spec.ServerBlocks)
+				assert.Equal(t, map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeServer: {
+						Value: "# Some NGINX configuration at Server scope",
+					},
+				}, instance.Spec.Blocks)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources()...).Build()}
-			err := manager.DeleteBlock(context.TODO(), tt.instance, tt.block)
+			err := manager.DeleteBlock(context.TODO(), tt.instance, tt.serverName, tt.block)
 			var instance v1alpha1.RpaasInstance
 			if err == nil {
 				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{
@@ -293,6 +328,104 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 						Value: "# my custom http configuration",
 					},
 				}, instance.Spec.Blocks)
+			},
+		},
+		{
+			name: "when adding an HTTP block using server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "http", Content: "# my custom http configuration", ServerName: "example.com"},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.Equal(t, &ValidationError{Msg: "serverName is only allowed for server block"}, err)
+			},
+		},
+		{
+			name: "when adding a Server block with server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration", ServerName: "example.com", Extend: true},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+				assert.Equal(t, []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Extend:     true,
+						Content: &v1alpha1.Value{
+							Value: "# my custom server configuration",
+						},
+					},
+				}, instance.Spec.ServerBlocks)
+			},
+		},
+		{
+			name: "when adding a Server block with invalid server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration", ServerName: "çaexample.com", Extend: true},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Equal(t, "serverName must be a valid DNS-1123 domain", err.Error())
+			},
+		},
+		{
+			name: "when adding a Server block with wildcard server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration", ServerName: "*.example.com"},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "when updating a Server block with server name",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Spec.ServerBlocks = []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Extend:     true,
+						Content: &v1alpha1.Value{
+							Value: "# my custom server configuration",
+						},
+					},
+				}
+				return []runtime.Object{
+					instance,
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration 2", ServerName: "example.com", Extend: false},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+				assert.Equal(t, []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Extend:     false,
+						Content: &v1alpha1.Value{
+							Value: "# my custom server configuration 2",
+						},
+					},
+				}, instance.Spec.ServerBlocks)
 			},
 		},
 		{

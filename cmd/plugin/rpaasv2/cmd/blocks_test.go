@@ -67,6 +67,43 @@ func TestUpdateBlock(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			name:     "when UpdateBlock with server name",
+			args:     []string{"./rpaasv2", "blocks", "update", "-i", "my-instance", "--name", "server", "--content", blockFile.Name(), "--server-name", "example.org"},
+			expected: "NGINX configuration fragment inserted at \"server\" context for server name \"example.org\"\n",
+			client: &fake.FakeClient{
+				FakeUpdateBlock: func(args rpaasclient.UpdateBlockArgs) error {
+					expected := rpaasclient.UpdateBlockArgs{
+						Instance:   "my-instance",
+						Name:       "server",
+						Content:    nginxConfig,
+						ServerName: "example.org",
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
+
+		{
+			name:     "when UpdateBlock with server name and extend",
+			args:     []string{"./rpaasv2", "blocks", "update", "-i", "my-instance", "--name", "server", "--content", blockFile.Name(), "--server-name", "example.org", "--extend"},
+			expected: "NGINX configuration fragment inserted at \"server\" context for server name \"example.org\"\n",
+			client: &fake.FakeClient{
+				FakeUpdateBlock: func(args rpaasclient.UpdateBlockArgs) error {
+					expected := rpaasclient.UpdateBlockArgs{
+						Instance:   "my-instance",
+						Name:       "server",
+						Content:    nginxConfig,
+						ServerName: "example.org",
+						Extend:     true,
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -119,6 +156,23 @@ func TestDeleteBlock(t *testing.T) {
 					expected := rpaasclient.DeleteBlockArgs{
 						Instance: "my-instance",
 						Name:     "http",
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
+
+		{
+			name:     "when DeleteBlock when server name is provided",
+			args:     []string{"./rpaasv2", "blocks", "delete", "-i", "my-instance", "--name", "http", "--server-name", "example.org"},
+			expected: "NGINX configuration at \"http\" context for server name \"example.org\" removed\n",
+			client: &fake.FakeClient{
+				FakeDeleteBlock: func(args rpaasclient.DeleteBlockArgs) error {
+					expected := rpaasclient.DeleteBlockArgs{
+						Instance:   "my-instance",
+						Name:       "http",
+						ServerName: "example.org",
 					}
 					assert.Equal(t, expected, args)
 					return nil
@@ -186,6 +240,33 @@ func TestListBlocks(t *testing.T) {
 					return []clientTypes.Block{
 						{Name: "http", Content: "# some HTTP configuration"},
 						{Name: "server", Content: "# some server configuration"},
+					}, nil
+				},
+			},
+		},
+		{
+			name: "when listing blocks on table format with server name",
+			args: []string{"./rpaasv2", "blocks", "list", "-i", "my-instance"},
+			expected: `+-------------+---------+--------------------------------------+--------+
+| Server Name | Context | Configuration                        | Extend |
++-------------+---------+--------------------------------------+--------+
+|             | http    | # some HTTP configuration            |        |
+|             | server  | # some common server configuration   |        |
+| example.org | server  | # some specific server configuration |        |
+| example.com | server  | # some extended server configuration |   ✓    |
++-------------+---------+--------------------------------------+--------+
+`,
+			client: &fake.FakeClient{
+				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, error) {
+					expected := rpaasclient.ListBlocksArgs{
+						Instance: "my-instance",
+					}
+					assert.Equal(t, expected, args)
+					return []clientTypes.Block{
+						{Name: "http", Content: "# some HTTP configuration"},
+						{Name: "server", Content: "# some common server configuration"},
+						{Name: "server", Content: "# some specific server configuration", ServerName: "example.org"},
+						{Name: "server", Content: "# some extended server configuration", ServerName: "example.com", Extend: true},
 					}, nil
 				},
 			},

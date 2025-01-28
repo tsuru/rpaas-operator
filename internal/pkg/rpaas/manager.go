@@ -27,8 +27,10 @@ import (
 )
 
 type ConfigurationBlock struct {
-	Name    string `form:"block_name" json:"block_name"`
-	Content string `form:"content" json:"content"`
+	Name       string `form:"block_name" json:"block_name"`
+	Content    string `form:"content" json:"content"`
+	ServerName string `form:"server_name" json:"server_name"`
+	Extend     bool   `form:"extend" json:"extend"`
 }
 
 // ConfigurationBlockHandler defines some functions to handle the custom
@@ -37,7 +39,7 @@ type ConfigurationBlockHandler interface {
 	// DeleteBlock removes the configuration block named by blockName. It returns
 	// a nil error meaning it was successful, otherwise a non-nil one which
 	// describes the reached problem.
-	DeleteBlock(ctx context.Context, instanceName, blockName string) error
+	DeleteBlock(ctx context.Context, instanceName, serverName, blockName string) error
 
 	// ListBlocks returns all custom configuration blocks from instance (which
 	// name is instanceName). It returns a nil error meaning it was successful,

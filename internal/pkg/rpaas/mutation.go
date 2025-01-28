@@ -4,8 +4,10 @@ import (
 	"fmt"
 	"net/url"
 	"regexp"
+	"strings"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	"k8s.io/apimachinery/pkg/util/validation"
 )
 
 type mutation struct {
@@ -23,27 +25,58 @@ func (m *mutation) UpdateBlock(block ConfigurationBlock) error {
 		return err
 	}
 
-	if m.spec.Blocks == nil {
-		m.spec.Blocks = make(map[v1alpha1.BlockType]v1alpha1.Value)
-	}
+	if block.ServerName == "" {
+		if m.spec.Blocks == nil {
+			m.spec.Blocks = make(map[v1alpha1.BlockType]v1alpha1.Value)
+		}
 
-	blockType := v1alpha1.BlockType(block.Name)
-	m.spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
+		blockType := v1alpha1.BlockType(block.Name)
+		m.spec.Blocks[blockType] = v1alpha1.Value{Value: block.Content}
+	} else {
+		if m.spec.ServerBlocks == nil {
+			m.spec.ServerBlocks = make([]v1alpha1.ServerBlock, 0)
+		}
+
+		blockType := v1alpha1.BlockType(block.Name)
+
+		serverBlock := v1alpha1.ServerBlock{
+			ServerName: block.ServerName,
+			Type:       blockType,
+			Content:    &v1alpha1.Value{Value: block.Content},
+			Extend:     block.Extend,
+		}
+
+		if index, found := hasServerBlock(m.spec, block.ServerName, blockType); found {
+			m.spec.ServerBlocks[index] = serverBlock
+		} else {
+			m.spec.ServerBlocks = append(m.spec.ServerBlocks, serverBlock)
+		}
+	}
 
 	return nil
 }
 
-func (m *mutation) DeleteBlock(blockName string) error {
+func (m *mutation) DeleteBlock(serverName, blockName string) error {
 	if m.spec.Blocks == nil {
 		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
 	}
 
 	blockType := v1alpha1.BlockType(blockName)
-	if _, ok := m.spec.Blocks[blockType]; !ok {
-		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
-	}
 
-	delete(m.spec.Blocks, blockType)
+	if serverName == "" {
+		if _, ok := m.spec.Blocks[blockType]; !ok {
+			return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
+		}
+
+		delete(m.spec.Blocks, blockType)
+	} else {
+		index, found := hasServerBlock(m.spec, serverName, blockType)
+		if !found {
+			return NotFoundError{Msg: fmt.Sprintf("block %q with serverName %q not found", blockName, serverName)}
+		}
+
+		m.spec.ServerBlocks = append(m.spec.ServerBlocks[:index], m.spec.ServerBlocks[index+1:]...)
+	}
 	return nil
 }
 
@@ -166,6 +199,26 @@ func validateBlock(block ConfigurationBlock) error {
 	if err != nil {
 		return err
 	}
+
+	if block.ServerName != "" {
+		if blockType != v1alpha1.BlockTypeServer {
+			return &ValidationError{Msg: "serverName is only allowed for server block"}
+		}
+
+		if len(block.ServerName) > 64 {
+			return &ValidationError{Msg: "serverName must be less than 64 characters"}
+		}
+
+		nameToValidate := block.ServerName
+		if strings.HasPrefix(nameToValidate, "*.") {
+			nameToValidate = nameToValidate[2:]
+		}
+		if errs := validation.IsDNS1123Subdomain(nameToValidate); len(errs) > 0 {
+			return &ValidationError{Msg: "serverName must be a valid DNS-1123 domain"}
+		}
+
+	}
+
 	return nil
 }
 
@@ -203,6 +256,16 @@ func validateRoute(r Route) error {
 func hasPath(spec *v1alpha1.RpaasInstanceSpec, serverName, path string) (index int, found bool) {
 	for i, location := range spec.Locations {
 		if location.ServerName == serverName && location.Path == path {
+			return i, true
+		}
+	}
+
+	return
+}
+
+func hasServerBlock(spec *v1alpha1.RpaasInstanceSpec, serverName string, blockType v1alpha1.BlockType) (index int, found bool) {
+	for i, block := range spec.ServerBlocks {
+		if block.ServerName == serverName && block.Type == blockType {
 			return i, true
 		}
 	}

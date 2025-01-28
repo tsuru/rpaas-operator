@@ -131,7 +131,7 @@ func (m *RpaasManager) GetInstance(ctx context.Context, name string) (*v1alpha1.
 	return nil, nil
 }
 
-func (m *RpaasManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
+func (m *RpaasManager) DeleteBlock(ctx context.Context, instanceName, serverName, blockName string) error {
 	if m.FakeDeleteBlock != nil {
 		return m.FakeDeleteBlock(instanceName, blockName)
 	}

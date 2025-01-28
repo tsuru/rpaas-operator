@@ -536,7 +536,7 @@ func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, er
 	return nsName, nil
 }
 
-func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
+func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, serverName, blockName string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -544,7 +544,7 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 
 	originalInstance := instance.DeepCopy()
 
-	err = NewMutation(&instance.Spec).DeleteBlock(blockName)
+	err = NewMutation(&instance.Spec).DeleteBlock(serverName, blockName)
 	if err != nil {
 		return err
 	}

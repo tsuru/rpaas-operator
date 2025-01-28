@@ -6357,6 +6357,53 @@ spec:
                   zero and not specified. Defaults to 1.
                 format: int32
                 type: integer
+              serverBlocks:
+                description: ServerBlocks are configuration file fragments added to
+                  to a specific serverName
+                items:
+                  properties:
+                    content:
+                      properties:
+                        value:
+                          type: string
+                        valueFrom:
+                          properties:
+                            configMapKeyRef:
+                              description: Selects a key from a ConfigMap.
+                              properties:
+                                key:
+                                  description: The key to select.
+                                  type: string
+                                name:
+                                  description: |-
+                                    Name of the referent.
+                                    More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
+                                    TODO: Add other useful fields. apiVersion, kind, uid?
+                                  type: string
+                                optional:
+                                  description: Specify whether the ConfigMap or its
+                                    key must be defined
+                                  type: boolean
+                              required:
+                              - key
+                              type: object
+                              x-kubernetes-map-type: atomic
+                            namespace:
+                              type: string
+                          type: object
+                      type: object
+                    extend:
+                      type: boolean
+                    serverName:
+                      type: string
+                    type:
+                      type: string
+                  required:
+                  - content
+                  - serverName
+                  - type
+                  type: object
+                type: array
               service:
                 description: Service to expose the nginx instance
                 properties:

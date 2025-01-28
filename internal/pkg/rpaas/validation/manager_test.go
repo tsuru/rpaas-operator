@@ -212,7 +212,7 @@ func TestDeleteBlock(t *testing.T) {
 
 	validationMngr := New(baseManager, cli)
 
-	err := validationMngr.DeleteBlock(context.TODO(), "blah", "http")
+	err := validationMngr.DeleteBlock(context.TODO(), "blah", "", "http")
 
 	require.NoError(t, err)
 }
@@ -248,7 +248,7 @@ func TestDeleteBlockError(t *testing.T) {
 
 	validationMngr := New(baseManager, cli)
 
-	err := validationMngr.DeleteBlock(context.TODO(), "blah", "http")
+	err := validationMngr.DeleteBlock(context.TODO(), "blah", "", "http")
 
 	require.Equal(t, &rpaas.ValidationError{Msg: "validation error from rpaas-operator"}, err)
 }
