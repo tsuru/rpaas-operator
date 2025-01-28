@@ -1,3 +1,7 @@
+// Copyright 2024 tsuru authors. All rights reserved.
+// Use of this source code is governed by a BSD-style
+// license that can be found in the LICENSE file.
+
 package rpaas
 
 import (
@@ -209,10 +213,7 @@ func validateBlock(block ConfigurationBlock) error {
 			return &ValidationError{Msg: "serverName must be less than 64 characters"}
 		}
 
-		nameToValidate := block.ServerName
-		if strings.HasPrefix(nameToValidate, "*.") {
-			nameToValidate = nameToValidate[2:]
-		}
+		nameToValidate := strings.TrimPrefix(block.ServerName, "*.")
 		if errs := validation.IsDNS1123Subdomain(nameToValidate); len(errs) > 0 {
 			return &ValidationError{Msg: "serverName must be a valid DNS-1123 domain"}
 		}
