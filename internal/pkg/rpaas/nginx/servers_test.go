@@ -17,6 +17,7 @@ func TestProduceServers(t *testing.T) {
 	tests := []struct {
 		name     string
 		spec     *v1alpha1.RpaasInstanceSpec
+		nginxTLS []nginxv1alpha1.NginxTLS
 		expected []*Server
 	}{
 
@@ -150,12 +151,11 @@ func TestProduceServers(t *testing.T) {
 
 		{
 			name: "spec with tls",
-			spec: &v1alpha1.RpaasInstanceSpec{
-				TLS: []nginxv1alpha1.NginxTLS{
-					{
-						SecretName: "example.org",
-						Hosts:      []string{"example.org"},
-					},
+			spec: &v1alpha1.RpaasInstanceSpec{},
+			nginxTLS: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "example.org",
+					Hosts:      []string{"example.org"},
 				},
 			},
 			expected: []*Server{
@@ -173,12 +173,6 @@ func TestProduceServers(t *testing.T) {
 		{
 			name: "spec with tls and locations",
 			spec: &v1alpha1.RpaasInstanceSpec{
-				TLS: []nginxv1alpha1.NginxTLS{
-					{
-						SecretName: "example.org",
-						Hosts:      []string{"example.org"},
-					},
-				},
 				Locations: []v1alpha1.Location{
 					{
 						Path: "/",
@@ -186,6 +180,12 @@ func TestProduceServers(t *testing.T) {
 							Value: "# My custom NGINX config",
 						},
 					},
+				},
+			},
+			nginxTLS: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "example.org",
+					Hosts:      []string{"example.org"},
 				},
 			},
 			expected: []*Server{
@@ -219,12 +219,6 @@ func TestProduceServers(t *testing.T) {
 		{
 			name: "spec with tls with wildcard",
 			spec: &v1alpha1.RpaasInstanceSpec{
-				TLS: []nginxv1alpha1.NginxTLS{
-					{
-						SecretName: "wild-card-example.org",
-						Hosts:      []string{"*.example.org"},
-					},
-				},
 				Locations: []v1alpha1.Location{
 					{
 						Path: "/",
@@ -232,6 +226,12 @@ func TestProduceServers(t *testing.T) {
 							Value: "# My custom NGINX config",
 						},
 					},
+				},
+			},
+			nginxTLS: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "wild-card-example.org",
+					Hosts:      []string{"*.example.org"},
 				},
 			},
 			expected: []*Server{
@@ -265,12 +265,6 @@ func TestProduceServers(t *testing.T) {
 		{
 			name: "spec with tls with wildcard ad specific blocks",
 			spec: &v1alpha1.RpaasInstanceSpec{
-				TLS: []nginxv1alpha1.NginxTLS{
-					{
-						SecretName: "wild-card-example.org",
-						Hosts:      []string{"*.example.org"},
-					},
-				},
 				Locations: []v1alpha1.Location{
 					{
 						Path: "/",
@@ -286,6 +280,12 @@ func TestProduceServers(t *testing.T) {
 							Value: "# My custom NGINX config",
 						},
 					},
+				},
+			},
+			nginxTLS: []nginxv1alpha1.NginxTLS{
+				{
+					SecretName: "wild-card-example.org",
+					Hosts:      []string{"*.example.org"},
 				},
 			},
 			expected: []*Server{
@@ -479,7 +479,7 @@ func TestProduceServers(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := ProduceServers(tt.spec)
+			result := produceServers(tt.spec, tt.nginxTLS)
 			assert.Equal(t, tt.expected, result)
 		})
 	}

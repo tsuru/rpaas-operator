@@ -14,7 +14,7 @@ import (
 )
 
 type Server struct {
-	Name          string `json:"names"`
+	Name          string `json:"name"`
 	TLS           bool   `json:"tls"`
 	TLSSecretName string `json:"secretName"`
 	Default       bool   `json:"default,omitempty"`
@@ -24,7 +24,12 @@ type Server struct {
 	Locations []v1alpha1.Location `json:"locations,omitempty"`
 }
 
-func ProduceServers(spec *v1alpha1.RpaasInstanceSpec) []*Server {
+func (s *Server) HasBlockServer() bool {
+	_, ok := s.Blocks[v1alpha1.BlockTypeServer]
+	return ok
+}
+
+func produceServers(spec *v1alpha1.RpaasInstanceSpec, nginxTLS []nginxv1alpha1.NginxTLS) []*Server {
 	defaultServer := &Server{
 		Default: true,
 		Blocks:  deepCopyBlocks(spec.Blocks),
@@ -49,6 +54,10 @@ func ProduceServers(spec *v1alpha1.RpaasInstanceSpec) []*Server {
 					Name:   serverBlock.ServerName,
 					Blocks: deepCopyBlocks(spec.Blocks),
 				}
+			}
+
+			if mapServerNames[serverBlock.ServerName].Blocks == nil {
+				mapServerNames[serverBlock.ServerName].Blocks = make(map[v1alpha1.BlockType]v1alpha1.Value)
 			}
 
 			_, hasDefaultBlock := defaultServer.Blocks[serverBlock.Type]
@@ -90,7 +99,7 @@ func ProduceServers(spec *v1alpha1.RpaasInstanceSpec) []*Server {
 
 	wildCardTLS := map[string]nginxv1alpha1.NginxTLS{}
 
-	for _, tls := range spec.TLS {
+	for _, tls := range nginxTLS {
 		for _, host := range tls.Hosts {
 			if isWildCard(host) {
 				wildCardTLS[host] = tls
@@ -114,7 +123,7 @@ func ProduceServers(spec *v1alpha1.RpaasInstanceSpec) []*Server {
 
 	}
 
-	for _, tls := range spec.TLS {
+	for _, tls := range nginxTLS {
 		for _, host := range tls.Hosts {
 			appendTLSServer(host, tls.SecretName)
 		}

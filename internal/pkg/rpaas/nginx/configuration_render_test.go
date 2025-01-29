@@ -219,7 +219,17 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 \s+ssl_certificate_key certs/my-cert-01/tls.key;`, result)
 
 				assert.Regexp(t, `listen 8443 ssl http2;
-\s+server_name www.example.org blog.example.org shop.example.org;
+\s+server_name www.example.org;
+\s+ssl_certificate     certs/my-cert-02/tls.crt;
+\s+ssl_certificate_key certs/my-cert-02/tls.key;`, result)
+
+				assert.Regexp(t, `listen 8443 ssl http2;
+\s+server_name blog.example.org;
+\s+ssl_certificate     certs/my-cert-02/tls.crt;
+\s+ssl_certificate_key certs/my-cert-02/tls.key;`, result)
+
+				assert.Regexp(t, `listen 8443 ssl http2;
+\s+server_name shop.example.org;
 \s+ssl_certificate     certs/my-cert-02/tls.crt;
 \s+ssl_certificate_key certs/my-cert-02/tls.key;`, result)
 			},
@@ -600,6 +610,41 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 			},
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `\s+resolver kube-dns\.kube-system\.svc\.cluster\.local\. 169\.196\.255\.254:3553 ttl=30m;\n`, result)
+			},
+		},
+		{
+			name: "with multi domain support",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{},
+				Instance: &v1alpha1.RpaasInstance{
+					Spec: v1alpha1.RpaasInstanceSpec{
+						ServerBlocks: []v1alpha1.ServerBlock{
+							{
+								Type:       v1alpha1.BlockTypeServer,
+								ServerName: "blog.example.com",
+								Content: &v1alpha1.Value{
+									Value: "server_scope_config_for blog.example.com;",
+								},
+							},
+						},
+					},
+				},
+				NginxTLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-cert-01", Hosts: []string{"blog.example.com"}},
+					{SecretName: "my-cert-02", Hosts: []string{"www.example.org"}},
+				},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `listen 8443 ssl http2;
+\s+server_name www.example.org;
+\s+ssl_certificate     certs/my-cert-02/tls.crt;
+\s+ssl_certificate_key certs/my-cert-02/tls.key;`, result)
+
+				assert.Regexp(t, `listen 8443 ssl http2;
+\s+server_name blog.example.com;
+\s+ssl_certificate     certs/my-cert-01/tls.crt;
+\s+ssl_certificate_key certs/my-cert-01/tls.key;`, result)
+
 			},
 		},
 	}
