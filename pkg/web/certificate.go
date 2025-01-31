@@ -103,12 +103,40 @@ func updateCertManagerRequest(c echo.Context) error {
 		return err
 	}
 
+	err = validateCertManagerRequest(in)
+	if err != nil {
+		return err
+	}
+
 	err = manager.UpdateCertManagerRequest(ctx, c.Param("instance"), in)
 	if err != nil {
 		return err
 	}
 
 	return c.NoContent(http.StatusOK)
+}
+
+func validateCertManagerRequest(in types.CertManager) error {
+	const maxCommonNameLength = 64
+
+	if len(in.Name) > maxCommonNameLength {
+		return &rpaas.ValidationError{
+			Msg: fmt.Sprintf("The certificate name '%s' exceeds the limit of %d characters.", in.Name, maxCommonNameLength),
+		}
+	}
+
+	for _, dns := range in.DNSNames {
+		if len(dns) > maxCommonNameLength {
+			return &rpaas.ValidationError{
+				Msg: fmt.Sprintf("The DNS name '%s' exceeds the limit of %d characters.", dns, maxCommonNameLength),
+			}
+		}
+		if dns == "" {
+			return &rpaas.ValidationError{Msg: "DNS names cannot contain empty values."}
+		}
+	}
+
+	return nil
 }
 
 func deleteCertManagerRequest(c echo.Context) error {

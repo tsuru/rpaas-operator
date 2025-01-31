@@ -289,6 +289,45 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 		expectedCode int
 		expectedBody string
 	}{
+		"doing a request with exactly 64 characters": {
+			requestBody: `{"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+			manager: &fake.RpaasManager{
+				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, clientTypes.CertManager{
+						Name:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+						Issuer:   "my-issuer",
+						DNSNames: []string{"foo.example.com"},
+					}, in)
+					return nil
+				},
+			},
+			expectedCode: http.StatusOK,
+		},
+		"doing a request with invalid name": {
+			requestBody: `{"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+			manager: &fake.RpaasManager{
+				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
+					return &rpaas.ValidationError{
+						Msg: fmt.Sprintf("The certificate name '%s' exceeds the limit of 64 characters.", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+					}
+				},
+			},
+			expectedCode: http.StatusBadRequest, // It should fail because it has 65 characters
+			expectedBody: `{"message":"The certificate name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' exceeds the limit of 64 characters."}`,
+		},
+		"doing a request with invalid dnsNames": {
+			requestBody: `{"name": "validCert", "issuer": "my-issuer", "dnsNames": ["foo.example.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "ipAddresses": ["169.196.100.1"]}`,
+			manager: &fake.RpaasManager{
+				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
+					return &rpaas.ValidationError{
+						Msg: fmt.Sprintf("The DNS name '%s' exceeds the limit of 64 characters.", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+					}
+				},
+			},
+			expectedCode: http.StatusBadRequest, // It should fail because the second "dnsNames" has 65 characters
+			expectedBody: `{"message":"The DNS name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' exceeds the limit of 64 characters."}`,
+		},
 		"doing a correct request": {
 			requestBody: `{"issuer": "my-issuer", "dnsNames": ["foo.example.com", "bar.example.com"], "ipAddresses": ["169.196.100.1"]}`,
 			manager: &fake.RpaasManager{
