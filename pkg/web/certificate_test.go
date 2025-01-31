@@ -289,13 +289,13 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 		expectedCode int
 		expectedBody string
 	}{
-		"instance name with exactly 30 characters": {
-			requestBody: `{"name": "thisIsExactlyThirtyCharacterss", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+		"doing a request with exactly 64 characters": {
+			requestBody: `{"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
 			manager: &fake.RpaasManager{
 				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
 					assert.Equal(t, "my-instance", instanceName)
 					assert.Equal(t, clientTypes.CertManager{
-						Name:     "thisIsExactlyThirtyCharacterss",
+						Name:     "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
 						Issuer:   "my-issuer",
 						DNSNames: []string{"foo.example.com"},
 					}, in)
@@ -304,32 +304,29 @@ func Test_UpdateCertManagerRequest(t *testing.T) {
 			},
 			expectedCode: http.StatusOK,
 		},
-		"instance name with more than 30 characters": {
-			requestBody: `{"name": "thisInstanceNameIsWayTooLongForTheRequest", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+		"doing a request with invalid name": {
+			requestBody: `{"name": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
 			manager: &fake.RpaasManager{
 				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
 					return &rpaas.ValidationError{
-						Msg: fmt.Sprintf("The instance name '%s' exceeds the limit of 30 characters.", "thisInstanceNameIsWayTooLongForTheRequest"),
+						Msg: fmt.Sprintf("The certificate name '%s' exceeds the limit of 64 characters.", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
 					}
 				},
 			},
-			expectedCode: http.StatusBadRequest,
-			expectedBody: `{"message":"The instance name 'thisInstanceNameIsWayTooLongForTheRequest' exceeds the limit of 30 characters."}`,
+			expectedCode: http.StatusBadRequest, // It should fail because it has 65 characters
+			expectedBody: `{"message":"The certificate name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' exceeds the limit of 64 characters."}`,
 		},
-		"instance name with less than 30 characters": {
-			requestBody: `{"name": "shortInstanceName", "issuer": "my-issuer", "dnsNames": ["foo.example.com"]}`,
+		"doing a request with invalid dnsNames": {
+			requestBody: `{"name": "validCert", "issuer": "my-issuer", "dnsNames": ["foo.example.com", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"], "ipAddresses": ["169.196.100.1"]}`,
 			manager: &fake.RpaasManager{
 				FakeUpdateCertManagerRequest: func(instanceName string, in clientTypes.CertManager) error {
-					assert.Equal(t, "my-instance", instanceName)
-					assert.Equal(t, clientTypes.CertManager{
-						Name:     "shortInstanceName",
-						Issuer:   "my-issuer",
-						DNSNames: []string{"foo.example.com"},
-					}, in)
-					return nil
+					return &rpaas.ValidationError{
+						Msg: fmt.Sprintf("The DNS name '%s' exceeds the limit of 64 characters.", "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"),
+					}
 				},
 			},
-			expectedCode: http.StatusOK,
+			expectedCode: http.StatusBadRequest, // It should fail because the second "dnsNames" has 65 characters
+			expectedBody: `{"message":"The DNS name 'aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa' exceeds the limit of 64 characters."}`,
 		},
 		"doing a correct request": {
 			requestBody: `{"issuer": "my-issuer", "dnsNames": ["foo.example.com", "bar.example.com"], "ipAddresses": ["169.196.100.1"]}`,

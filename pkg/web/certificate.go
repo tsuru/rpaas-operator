@@ -117,23 +117,18 @@ func updateCertManagerRequest(c echo.Context) error {
 }
 
 func validateCertManagerRequest(in types.CertManager) error {
-	// Set the limits
 	const maxCommonNameLength = 64
-	const domainSuffixLength = 37                                     // Largest suffix identified
-	maxInstanceNameLength := maxCommonNameLength - domainSuffixLength // 64 - 37 = 27
 
-	// Instance name validation
-	if len(in.Name) > maxInstanceNameLength {
+	if len(in.Name) > maxCommonNameLength {
 		return &rpaas.ValidationError{
 			Msg: fmt.Sprintf(
 				"The certificate name '%s' exceeds the limit of %d characters.",
-				in.Name, maxInstanceNameLength,
+				in.Name, maxCommonNameLength,
 			),
 			Internal: nil,
 		}
 	}
 
-	// Validation of the in.DNSNames array
 	for _, dns := range in.DNSNames {
 		if len(dns) > maxCommonNameLength {
 			return &rpaas.ValidationError{
