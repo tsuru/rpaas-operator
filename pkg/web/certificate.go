@@ -103,15 +103,9 @@ func updateCertManagerRequest(c echo.Context) error {
 		return err
 	}
 
-	const maxInstanceNameLength = 30
-	if len(in.Name) > maxInstanceNameLength {
-		return &rpaas.ValidationError{
-			Msg: fmt.Sprintf(
-				"The instance name '%s' exceeds the limit of %d characters.",
-				in.Name, maxInstanceNameLength,
-			),
-			Internal: nil,
-		}
+	err = validateCertManagerRequest(in)
+	if err != nil {
+		return err
 	}
 
 	err = manager.UpdateCertManagerRequest(ctx, c.Param("instance"), in)
@@ -120,6 +114,45 @@ func updateCertManagerRequest(c echo.Context) error {
 	}
 
 	return c.NoContent(http.StatusOK)
+}
+
+func validateCertManagerRequest(in types.CertManager) error {
+	// Set the limits
+	const maxCommonNameLength = 64
+	const domainSuffixLength = 37                                     // Largest suffix identified
+	maxInstanceNameLength := maxCommonNameLength - domainSuffixLength // 64 - 37 = 27
+
+	// Instance name validation
+	if len(in.Name) > maxInstanceNameLength {
+		return &rpaas.ValidationError{
+			Msg: fmt.Sprintf(
+				"The certificate name '%s' exceeds the limit of %d characters.",
+				in.Name, maxInstanceNameLength,
+			),
+			Internal: nil,
+		}
+	}
+
+	// Validation of the in.DNSNames array
+	for _, dns := range in.DNSNames {
+		if len(dns) > maxCommonNameLength {
+			return &rpaas.ValidationError{
+				Msg: fmt.Sprintf(
+					"The DNS name '%s' exceeds the limit of %d characters.",
+					dns, maxCommonNameLength,
+				),
+				Internal: nil,
+			}
+		}
+		if dns == "" {
+			return &rpaas.ValidationError{
+				Msg:      "DNS names cannot contain empty values.",
+				Internal: nil,
+			}
+		}
+	}
+
+	return nil
 }
 
 func deleteCertManagerRequest(c echo.Context) error {
