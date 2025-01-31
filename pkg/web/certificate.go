@@ -121,29 +121,18 @@ func validateCertManagerRequest(in types.CertManager) error {
 
 	if len(in.Name) > maxCommonNameLength {
 		return &rpaas.ValidationError{
-			Msg: fmt.Sprintf(
-				"The certificate name '%s' exceeds the limit of %d characters.",
-				in.Name, maxCommonNameLength,
-			),
-			Internal: nil,
+			Msg: fmt.Sprintf("The certificate name '%s' exceeds the limit of %d characters.", in.Name, maxCommonNameLength),
 		}
 	}
 
 	for _, dns := range in.DNSNames {
 		if len(dns) > maxCommonNameLength {
 			return &rpaas.ValidationError{
-				Msg: fmt.Sprintf(
-					"The DNS name '%s' exceeds the limit of %d characters.",
-					dns, maxCommonNameLength,
-				),
-				Internal: nil,
+				Msg: fmt.Sprintf("The DNS name '%s' exceeds the limit of %d characters.", dns, maxCommonNameLength),
 			}
 		}
 		if dns == "" {
-			return &rpaas.ValidationError{
-				Msg:      "DNS names cannot contain empty values.",
-				Internal: nil,
-			}
+			return &rpaas.ValidationError{Msg: "DNS names cannot contain empty values."}
 		}
 	}
 
