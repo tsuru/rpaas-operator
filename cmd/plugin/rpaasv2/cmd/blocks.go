@@ -49,7 +49,7 @@ func NewCmdUpdateBlock() *cli.Command {
 			&cli.StringFlag{
 				Name:    "server-name",
 				Aliases: []string{"sn"},
-				Usage:   "Optional, indicates that blocks belongs to specific server_name, ignoring it this block will apply to all server_names",
+				Usage:   "Optional, indicates that block belongs to specific server_name, ignoring it this block will apply to all server_names",
 			},
 			&cli.StringFlag{
 				Name:     "name",
@@ -127,7 +127,7 @@ func NewCmdDeleteBlock() *cli.Command {
 			&cli.StringFlag{
 				Name:    "server-name",
 				Aliases: []string{"sn"},
-				Usage:   "Optional, indicates that blocks belongs to specific server_name, ignoring it this block will apply to all server_names",
+				Usage:   "Optional, indicates that block belongs to specific server_name, ignoring it this block will apply to all server_names",
 			},
 			&cli.StringFlag{
 				Name:     "name",
