@@ -568,7 +568,24 @@ func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) (
 		blocks = append(blocks, ConfigurationBlock{Name: string(blockType), Content: content})
 	}
 
+	for _, serverBlock := range instance.Spec.ServerBlocks {
+		content, err := util.GetValue(ctx, m.cli, instance.Namespace, serverBlock.Content)
+		if err != nil {
+			return nil, err
+		}
+
+		blocks = append(blocks, ConfigurationBlock{
+			Name:       string(serverBlock.Type),
+			Content:    content,
+			ServerName: serverBlock.ServerName,
+			Extend:     serverBlock.Extend,
+		})
+	}
+
 	sort.SliceStable(blocks, func(i, j int) bool {
+		if blocks[i].Name == blocks[j].Name {
+			return blocks[i].ServerName < blocks[j].ServerName
+		}
 		return blocks[i].Name < blocks[j].Name
 	})
 

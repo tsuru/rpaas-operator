@@ -267,6 +267,76 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 				}, blocks)
 			},
 		},
+		{
+			name: "when instance has well known block and server blocks",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP: {
+						Value: "# some NGINX conf at http context",
+					},
+					v1alpha1.BlockTypeServer: {
+						Value: "# some NGINX conf at server context",
+					},
+				}
+				instance.Spec.ServerBlocks = []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Content: &v1alpha1.Value{
+							Value: "# some NGINX conf at server context for example.com",
+						},
+					},
+					{
+						ServerName: "example.net",
+						Type:       v1alpha1.BlockTypeServer,
+						Content: &v1alpha1.Value{
+							Value: "# some NGINX conf at server context for example.net",
+						},
+						Extend: true,
+					},
+				}
+				cm := &corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-blocks",
+						Namespace: getServiceName(),
+					},
+					Data: map[string]string{
+						"server": "# some NGINX conf at server context",
+					},
+				}
+				return []runtime.Object{instance, cm}
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, blocks []ConfigurationBlock) {
+				assert.NoError(t, err)
+				assert.Equal(t, []ConfigurationBlock{
+					{
+						Name:    "http",
+						Content: "# some NGINX conf at http context",
+					},
+					{
+						Name:    "server",
+						Content: "# some NGINX conf at server context",
+					},
+					{
+						Name:       "server",
+						ServerName: "example.com",
+						Content:    "# some NGINX conf at server context for example.com",
+					},
+					{
+						Name:       "server",
+						ServerName: "example.net",
+						Content:    "# some NGINX conf at server context for example.net",
+						Extend:     true,
+					},
+				}, blocks)
+			},
+		},
 	}
 
 	for _, tt := range tests {
