@@ -29,7 +29,7 @@ func (s *Server) HasBlockServer() bool {
 	return ok
 }
 
-func (s *Server) BlockBlockContent() string {
+func (s *Server) ServerBlockContent() string {
 	if len(s.Blocks) == 0 {
 		return ""
 	}

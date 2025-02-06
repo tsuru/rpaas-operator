@@ -557,7 +557,7 @@ http {
         {{- end}}
 
         {{- if $server.HasBlockServer }}
-        {{ $server.BlockBlockContent }}
+        {{ $server.ServerBlockContent }}
         {{- else }}
         {{ template "server" $all }}
         {{- end }}
