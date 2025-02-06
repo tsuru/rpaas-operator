@@ -551,7 +551,7 @@ http {
         {{- end }}
         {{- end }}
 
-        {{- if not (hasRootPath $instance.Spec.Locations) }}
+        {{- if not (hasRootPath $server.Locations) }}
         {{- if $instance.Spec.Binds }}
         location / {
             proxy_set_header Connection "";
