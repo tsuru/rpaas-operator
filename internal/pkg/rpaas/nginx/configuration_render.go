@@ -272,7 +272,7 @@ var internalTemplateFuncs = template.FuncMap(map[string]interface{}{
 	"tlsSessionTicketKeys":    tlsSessionTicketKeys,
 	"tlsSessionTicketTimeout": tlsSessionTicketTimeout,
 	"defaultCertificate":      defaultCertificate,
-	"serverBlock":             serverBlock,
+
 	"iterate": func(n int) []int {
 		v := make([]int, n)
 		for i := 0; i < n; i++ {
@@ -281,18 +281,6 @@ var internalTemplateFuncs = template.FuncMap(map[string]interface{}{
 		return v
 	},
 })
-
-func serverBlock(server *Server) (string, error) {
-	if len(server.Blocks) == 0 {
-		return "", nil
-	}
-	serverBlock, ok := server.Blocks[v1alpha1.BlockTypeServer]
-	if !ok {
-		return "", nil
-	}
-
-	return serverBlock.Value, nil
-}
 
 var templateFuncs = func() template.FuncMap {
 	funcs := sprig.GenericFuncMap()
@@ -569,7 +557,7 @@ http {
         {{- end}}
 
         {{- if $server.HasBlockServer }}
-        {{ serverBlock $server }}
+        {{ $server.BlockBlockContent }}
         {{- else }}
         {{ template "server" $all }}
         {{- end }}

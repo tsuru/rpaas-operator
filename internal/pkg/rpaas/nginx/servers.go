@@ -29,6 +29,18 @@ func (s *Server) HasBlockServer() bool {
 	return ok
 }
 
+func (s *Server) BlockBlockContent() string {
+	if len(s.Blocks) == 0 {
+		return ""
+	}
+	serverBlock, ok := s.Blocks[v1alpha1.BlockTypeServer]
+	if !ok {
+		return ""
+	}
+
+	return serverBlock.Value
+}
+
 func produceServers(spec *v1alpha1.RpaasInstanceSpec, nginxTLS []nginxv1alpha1.NginxTLS) []*Server {
 	defaultServer := &Server{
 		Default: true,
