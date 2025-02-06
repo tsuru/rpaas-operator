@@ -102,11 +102,12 @@ func (f fakeCacheManager) PurgeCache(host, path string, port int32, preservePath
 
 func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 	tests := []struct {
-		name      string
-		instance  string
-		block     string
-		resources func() []runtime.Object
-		assertion func(*testing.T, error, v1alpha1.RpaasInstance)
+		name       string
+		instance   string
+		serverName string
+		block      string
+		resources  func() []runtime.Object
+		assertion  func(*testing.T, error, v1alpha1.RpaasInstance)
 	}{
 		{
 			name:     "when block does not exist",
@@ -139,12 +140,46 @@ func Test_k8sRpaasManager_DeleteBlock(t *testing.T) {
 				assert.Nil(t, instance.Spec.Blocks)
 			},
 		},
+		{
+			name:       "when removing by server name",
+			instance:   "another-instance",
+			block:      "server",
+			serverName: "example.com",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Name = "another-instance"
+				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeServer: {
+						Value: "# Some NGINX configuration at Server scope",
+					},
+				}
+				instance.Spec.ServerBlocks = []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Content: &v1alpha1.Value{
+							Value: "# Some NGINX configuration at server scope for example.com",
+						},
+					},
+				}
+				return []runtime.Object{instance}
+			},
+			assertion: func(t *testing.T, err error, instance v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Nil(t, instance.Spec.ServerBlocks)
+				assert.Equal(t, map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeServer: {
+						Value: "# Some NGINX configuration at Server scope",
+					},
+				}, instance.Spec.Blocks)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.resources()...).Build()}
-			err := manager.DeleteBlock(context.TODO(), tt.instance, tt.block)
+			err := manager.DeleteBlock(context.TODO(), tt.instance, tt.serverName, tt.block)
 			var instance v1alpha1.RpaasInstance
 			if err == nil {
 				err1 := manager.cli.Get(context.TODO(), types.NamespacedName{
@@ -232,6 +267,76 @@ func Test_k8sRpaasManager_ListBlocks(t *testing.T) {
 				}, blocks)
 			},
 		},
+		{
+			name: "when instance has well known block and server blocks",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Spec.Blocks = map[v1alpha1.BlockType]v1alpha1.Value{
+					v1alpha1.BlockTypeHTTP: {
+						Value: "# some NGINX conf at http context",
+					},
+					v1alpha1.BlockTypeServer: {
+						Value: "# some NGINX conf at server context",
+					},
+				}
+				instance.Spec.ServerBlocks = []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Content: &v1alpha1.Value{
+							Value: "# some NGINX conf at server context for example.com",
+						},
+					},
+					{
+						ServerName: "example.net",
+						Type:       v1alpha1.BlockTypeServer,
+						Content: &v1alpha1.Value{
+							Value: "# some NGINX conf at server context for example.net",
+						},
+						Extend: true,
+					},
+				}
+				cm := &corev1.ConfigMap{
+					TypeMeta: metav1.TypeMeta{
+						APIVersion: "v1",
+						Kind:       "ConfigMap",
+					},
+					ObjectMeta: metav1.ObjectMeta{
+						Name:      "my-instance-blocks",
+						Namespace: getServiceName(),
+					},
+					Data: map[string]string{
+						"server": "# some NGINX conf at server context",
+					},
+				}
+				return []runtime.Object{instance, cm}
+			},
+			instance: "my-instance",
+			assertion: func(t *testing.T, err error, blocks []ConfigurationBlock) {
+				assert.NoError(t, err)
+				assert.Equal(t, []ConfigurationBlock{
+					{
+						Name:    "http",
+						Content: "# some NGINX conf at http context",
+					},
+					{
+						Name:    "server",
+						Content: "# some NGINX conf at server context",
+					},
+					{
+						Name:       "server",
+						ServerName: "example.com",
+						Content:    "# some NGINX conf at server context for example.com",
+					},
+					{
+						Name:       "server",
+						ServerName: "example.net",
+						Content:    "# some NGINX conf at server context for example.net",
+						Extend:     true,
+					},
+				}, blocks)
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -293,6 +398,104 @@ func Test_k8sRpaasManager_UpdateBlock(t *testing.T) {
 						Value: "# my custom http configuration",
 					},
 				}, instance.Spec.Blocks)
+			},
+		},
+		{
+			name: "when adding an HTTP block using server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "http", Content: "# my custom http configuration", ServerName: "example.com"},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.Equal(t, &ValidationError{Msg: "serverName is only allowed for server block"}, err)
+			},
+		},
+		{
+			name: "when adding a Server block with server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration", ServerName: "example.com", Extend: true},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+				assert.Equal(t, []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Extend:     true,
+						Content: &v1alpha1.Value{
+							Value: "# my custom server configuration",
+						},
+					},
+				}, instance.Spec.ServerBlocks)
+			},
+		},
+		{
+			name: "when adding a Server block with invalid server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration", ServerName: "çaexample.com", Extend: true},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Equal(t, "serverName must be a valid DNS-1123 domain", err.Error())
+			},
+		},
+		{
+			name: "when adding a Server block with wildcard server name",
+			resources: func() []runtime.Object {
+				return []runtime.Object{
+					newEmptyRpaasInstance(),
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration", ServerName: "*.example.com"},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+			},
+		},
+		{
+			name: "when updating a Server block with server name",
+			resources: func() []runtime.Object {
+				instance := newEmptyRpaasInstance()
+				instance.Spec.ServerBlocks = []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Extend:     true,
+						Content: &v1alpha1.Value{
+							Value: "# my custom server configuration",
+						},
+					},
+				}
+				return []runtime.Object{
+					instance,
+				}
+			},
+			instance: "my-instance",
+			block:    ConfigurationBlock{Name: "server", Content: "# my custom server configuration 2", ServerName: "example.com", Extend: false},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.NoError(t, err)
+				assert.Equal(t, []v1alpha1.ServerBlock{
+					{
+						ServerName: "example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Extend:     false,
+						Content: &v1alpha1.Value{
+							Value: "# my custom server configuration 2",
+						},
+					},
+				}, instance.Spec.ServerBlocks)
 			},
 		},
 		{
@@ -1780,6 +1983,31 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 		},
 	}
 
+	instance4 := newEmptyRpaasInstance()
+	instance4.Name = "multiple-servernames-instance"
+	instance4.Spec.Locations = []v1alpha1.Location{
+		{
+			ServerName: "server1.example.com",
+			Path:       "/",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for / location on server1",
+			},
+		},
+		{
+			ServerName: "server2.example.com",
+			Path:       "/",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for / location on server2",
+			},
+		},
+		{
+			Path: "/common",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for /common location",
+			},
+		},
+	}
+
 	cm := newEmptyLocations()
 	cm.Name = "my-locations-config"
 	cm.Data = map[string]string{
@@ -1787,13 +2015,14 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 	}
 
 	scheme := newScheme()
-	resources := []runtime.Object{instance1, instance2, instance3}
+	resources := []runtime.Object{instance1, instance2, instance3, instance4}
 
 	tests := []struct {
-		name      string
-		instance  string
-		path      string
-		assertion func(t *testing.T, err error, ri *v1alpha1.RpaasInstance)
+		name       string
+		instance   string
+		serverName string
+		path       string
+		assertion  func(t *testing.T, err error, ri *v1alpha1.RpaasInstance)
 	}{
 		{
 			name:     "when instance not found",
@@ -1811,7 +2040,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
-				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+				assert.Equal(t, &NotFoundError{Msg: "path \"/path/unknown\" does not exist"}, err)
 			},
 		},
 		{
@@ -1821,7 +2050,7 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
-				assert.Equal(t, &NotFoundError{Msg: "path does not exist"}, err)
+				assert.Equal(t, &NotFoundError{Msg: "path \"/path/unknown\" does not exist"}, err)
 			},
 		},
 		{
@@ -1853,12 +2082,46 @@ func Test_k8sRpaasManager_DeleteRoute(t *testing.T) {
 				assert.Nil(t, ri.Spec.Locations)
 			},
 		},
+		{
+			name:       "when removing by serverName",
+			instance:   instance4.Name,
+			serverName: "server2.example.com",
+			path:       "/",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Equal(t, []v1alpha1.Location{
+					{
+						ServerName: "server1.example.com",
+						Path:       "/",
+						Content: &v1alpha1.Value{
+							Value: "# My NGINX config for / location on server1",
+						},
+					},
+					{
+						Path: "/common",
+						Content: &v1alpha1.Value{
+							Value: "# My NGINX config for /common location",
+						},
+					},
+				}, ri.Spec.Locations)
+			},
+		},
+		{
+			name:     "when removing with serverName missing",
+			instance: instance4.Name,
+			path:     "/",
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.Error(t, err)
+				assert.True(t, IsNotFoundError(err))
+				assert.Equal(t, &NotFoundError{Msg: "path \"/\" does not exist"}, err)
+			},
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(resources...).Build()}
-			err := manager.DeleteRoute(context.Background(), tt.instance, tt.path)
+			err := manager.DeleteRoute(context.Background(), tt.instance, tt.serverName, tt.path)
 			var ri v1alpha1.RpaasInstance
 			if err == nil {
 				require.NoError(t, manager.cli.Get(context.Background(), types.NamespacedName{Name: tt.instance, Namespace: getServiceName()}, &ri))
@@ -2095,6 +2358,28 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 		},
 	}
 
+	instance3 := newEmptyRpaasInstance()
+	instance3.Name = "multi-server-name-instance"
+	instance3.Spec.Locations = []v1alpha1.Location{
+		{
+			Path: "/common",
+			Content: &v1alpha1.Value{
+				Value: "# My NGINX config for /common location",
+			},
+		},
+		{
+			Path:        "/",
+			ServerName:  "server2.example.org",
+			Destination: "app2.tsuru.example.com",
+		},
+		{
+			Path:        "/",
+			ServerName:  "server1.example.org",
+			Destination: "app2.tsuru.example.com",
+			ForceHTTPS:  true,
+		},
+	}
+
 	cm := newEmptyLocations()
 	cm.Name = "another-instance-locations"
 	cm.Data = map[string]string{
@@ -2102,7 +2387,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 	}
 
 	scheme := newScheme()
-	resources := []runtime.Object{instance1, instance2, cm}
+	resources := []runtime.Object{instance1, instance2, instance3, cm}
 
 	config.Set(config.RpaasConfig{
 		ConfigDenyPatterns: []regexp.Regexp{
@@ -2116,12 +2401,12 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 		name      string
 		instance  string
 		route     Route
-		assertion func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, locations *corev1.ConfigMap)
+		assertion func(t *testing.T, err error, ri *v1alpha1.RpaasInstance)
 	}{
 		{
 			name:     "when instance not found",
 			instance: "instance-not-found",
-			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsNotFoundError(err))
 			},
@@ -2129,7 +2414,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 		{
 			name:     "when path is not defined",
 			instance: "my-instance",
-			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsValidationError(err))
 				assert.Equal(t, &ValidationError{Msg: "path is required"}, err)
@@ -2141,7 +2426,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 			route: Route{
 				Path: "../../passwd",
 			},
-			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsValidationError(err))
 				assert.Equal(t, &ValidationError{Msg: "invalid path format"}, err)
@@ -2153,7 +2438,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 			route: Route{
 				Path: "/my/custom/path",
 			},
-			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsValidationError(err))
 				assert.Equal(t, &ValidationError{Msg: "either content or destination are required"}, err)
@@ -2167,7 +2452,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Destination: "app2.tsuru.example.com",
 				Content:     "# My NGINX config at location context",
 			},
-			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsValidationError(err))
 				assert.Equal(t, &ValidationError{Msg: "cannot set both content and destination"}, err)
@@ -2181,7 +2466,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Content:   "# My NGINX config",
 				HTTPSOnly: true,
 			},
-			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, _ *v1alpha1.RpaasInstance) {
 				assert.Error(t, err)
 				assert.True(t, IsValidationError(err))
 				assert.Equal(t, &ValidationError{Msg: "cannot set both content and httpsonly"}, err)
@@ -2195,7 +2480,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Destination: "app2.tsuru.example.com",
 				HTTPSOnly:   true,
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Equal(t, []v1alpha1.Location{
 					{
@@ -2213,11 +2498,27 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Path:    "/custom/path",
 				Content: "# My custom NGINX config",
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Len(t, ri.Spec.Locations, 1)
 				assert.Equal(t, "/custom/path", ri.Spec.Locations[0].Path)
 				assert.Equal(t, "# My custom NGINX config", ri.Spec.Locations[0].Content.Value)
+			},
+		},
+		{
+			name:     "when adding a route with serverName defined",
+			instance: "my-instance",
+			route: Route{
+				Path:       "/by-servername",
+				ServerName: "server.example.org",
+				Content:    "# My custom NGINX config to a specific serverName",
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Len(t, ri.Spec.Locations, 1)
+				assert.Equal(t, "server.example.org", ri.Spec.Locations[0].ServerName)
+				assert.Equal(t, "/by-servername", ri.Spec.Locations[0].Path)
+				assert.Equal(t, "# My custom NGINX config to a specific serverName", ri.Spec.Locations[0].Content.Value)
 			},
 		},
 		{
@@ -2228,7 +2529,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Destination: "another-app.tsuru.example.com",
 				HTTPSOnly:   true,
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, locations *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Len(t, ri.Spec.Locations, 4)
 				assert.Equal(t, v1alpha1.Location{
@@ -2245,7 +2546,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Path:    "/path1",
 				Content: "# My new NGINX configuration",
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, locations *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Equal(t, v1alpha1.Location{
 					Path: "/path1",
@@ -2263,7 +2564,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Destination: "app1.tsuru.example.com",
 				HTTPSOnly:   true,
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Equal(t, v1alpha1.Location{
 					Path:        "/path1",
@@ -2279,7 +2580,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Path:    "/path2",
 				Content: "# My new NGINX configuration",
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Equal(t, v1alpha1.Location{
 					Path: "/path2",
@@ -2290,13 +2591,46 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 			},
 		},
 		{
+			name:     "when updating a route with path and serverName defined",
+			instance: instance3.Name,
+			route: Route{
+				Path:       "/",
+				ServerName: "server2.example.org",
+				Content:    "# My new NGINX configuration updated",
+			},
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
+				assert.NoError(t, err)
+				assert.Equal(t, []v1alpha1.Location{
+					{
+						Path: "/common",
+						Content: &v1alpha1.Value{
+							Value: "# My NGINX config for /common location",
+						},
+					},
+					{
+						Path:       "/",
+						ServerName: "server2.example.org",
+						Content: &v1alpha1.Value{
+							Value: "# My new NGINX configuration updated",
+						},
+					},
+					{
+						Path:        "/",
+						ServerName:  "server1.example.org",
+						Destination: "app2.tsuru.example.com",
+						ForceHTTPS:  true,
+					},
+				}, ri.Spec.Locations)
+			},
+		},
+		{
 			name:     "when updating a route which its Content was into ConfigMap",
 			instance: "another-instance",
 			route: Route{
 				Path:    "/path4",
 				Content: "# My new NGINX configuration",
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.NoError(t, err)
 				assert.Equal(t, v1alpha1.Location{
 					Path: "/path4",
@@ -2313,7 +2647,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				Path:    "/",
 				Content: "# My new NGINX configuration\na forbidden2abc3 other\ntest",
 			},
-			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance, _ *corev1.ConfigMap) {
+			assertion: func(t *testing.T, err error, ri *v1alpha1.RpaasInstance) {
 				assert.EqualError(t, err, `content contains the forbidden pattern "forbidden2.*?3"`)
 			},
 		},
@@ -2328,7 +2662,7 @@ func Test_k8sRpaasManager_UpdateRoute(t *testing.T) {
 				newErr := manager.cli.Get(context.Background(), types.NamespacedName{Name: tt.instance, Namespace: getServiceName()}, ri)
 				require.NoError(t, newErr)
 			}
-			tt.assertion(t, err, ri, nil)
+			tt.assertion(t, err, ri)
 		})
 	}
 }

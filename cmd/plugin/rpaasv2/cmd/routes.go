@@ -48,6 +48,11 @@ func NewCmdDeleteRoute() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
+				Name:    "server-name",
+				Aliases: []string{"sn"},
+				Usage:   "Optional. Indicates this route belongs to a specific server_name. Not setting it will apply this block to all server_names",
+			},
+			&cli.StringFlag{
 				Name:     "path",
 				Aliases:  []string{"p"},
 				Usage:    "path name",
@@ -66,8 +71,9 @@ func runDeleteRoute(c *cli.Context) error {
 	}
 
 	args := rpaasclient.DeleteRouteArgs{
-		Instance: c.String("instance"),
-		Path:     c.String("path"),
+		Instance:   c.String("instance"),
+		ServerName: c.String("server-name"),
+		Path:       c.String("path"),
 	}
 	err = client.DeleteRoute(c.Context, args)
 	if err != nil {
@@ -128,16 +134,37 @@ func runListRoutes(c *cli.Context) error {
 
 func writeRoutesOnTableFormat(w io.Writer, routes []clientTypes.Route) {
 	data := [][]string{}
+	hasServerName := false
+
 	for _, r := range routes {
-		data = append(data, []string{r.Path, r.Destination, checkedChar(r.HTTPSOnly), r.Content})
+		if r.ServerName != "" {
+			hasServerName = true
+			break
+		}
+	}
+	for _, r := range routes {
+		row := []string{r.Path, r.Destination, checkedChar(r.HTTPSOnly), r.Content}
+		if hasServerName {
+			row = append([]string{r.ServerName}, row...)
+		}
+		data = append(data, row)
 	}
 
 	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Path", "Destination", "Force HTTPS?", "Configuration"})
+	headers := []string{"Path", "Destination", "Force HTTPS?", "Configuration"}
+
+	if hasServerName {
+		headers = append([]string{"Server Name"}, headers...)
+	}
+	table.SetHeader(headers)
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
+	alignments := []int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT}
+	if hasServerName {
+		alignments = append([]int{tablewriter.ALIGN_LEFT}, alignments...)
+	}
+	table.SetColumnAlignment(alignments)
 	table.AppendBulk(data)
 	table.Render()
 }
@@ -178,6 +205,11 @@ func NewCmdUpdateRoute() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
+				Name:    "server-name",
+				Aliases: []string{"sn"},
+				Usage:   "Optional. Indicates this route belongs to a specific server_name. Not setting it will apply this block to all server_names",
+			},
+			&cli.StringFlag{
 				Name:     "path",
 				Aliases:  []string{"p"},
 				Usage:    "path name",
@@ -216,6 +248,7 @@ func runUpdateRoute(c *cli.Context) error {
 
 	args := rpaasclient.UpdateRouteArgs{
 		Instance:    c.String("instance"),
+		ServerName:  c.String("server-name"),
 		Path:        c.String("path"),
 		Destination: c.String("destination"),
 		HTTPSOnly:   c.Bool("https-only"),

@@ -322,7 +322,7 @@ func Test_serviceInfo(t *testing.T) {
 				},
 				{
 					"label": "Routes",
-					"value": "/status\n/admin",
+					"value": "/admin\n/status",
 				},
 			},
 			manager: &fake.RpaasManager{

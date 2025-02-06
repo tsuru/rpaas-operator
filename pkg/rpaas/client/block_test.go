@@ -60,6 +60,24 @@ func TestClientThroughTsuru_UpdateBlock(t *testing.T) {
 			},
 		},
 		{
+			name: "when the server returns the expected response with server name",
+			args: UpdateBlockArgs{
+				Instance:   "my-instance",
+				Name:       "http",
+				Content:    "# NGINX configuration block",
+				ServerName: "example.org",
+				Extend:     true,
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "POST")
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/block", FakeTsuruService, "my-instance"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				assert.Equal(t, "application/x-www-form-urlencoded", r.Header.Get("Content-Type"))
+				assert.Equal(t, "block_name=http&content=%23+NGINX+configuration+block&extend=true&server_name=example.org", getBody(t, r))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
 			name: "when the server returns an error",
 			args: UpdateBlockArgs{
 				Instance: "my-instance",
@@ -115,6 +133,20 @@ func TestClientThroughTsuru_DeleteBlock(t *testing.T) {
 			handler: func(w http.ResponseWriter, r *http.Request) {
 				assert.Equal(t, r.Method, "DELETE")
 				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/block/http", FakeTsuruService, "my-instance"), r.URL.RequestURI())
+				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
+				w.WriteHeader(http.StatusOK)
+			},
+		},
+		{
+			name: "when the server returns the expected response with server_name defined",
+			args: DeleteBlockArgs{
+				Instance:   "my-instance",
+				Name:       "http",
+				ServerName: "example.org",
+			},
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				assert.Equal(t, r.Method, "DELETE")
+				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/block/http?server_name=example.org", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				w.WriteHeader(http.StatusOK)
 			},

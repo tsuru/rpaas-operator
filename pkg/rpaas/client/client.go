@@ -53,14 +53,17 @@ type DeleteCertificateArgs struct {
 }
 
 type UpdateBlockArgs struct {
-	Instance string
-	Name     string
-	Content  string
+	Instance   string
+	Name       string
+	ServerName string
+	Content    string
+	Extend     bool
 }
 
 type DeleteBlockArgs struct {
-	Instance string
-	Name     string
+	Instance   string
+	Name       string
+	ServerName string
 }
 
 type ListBlocksArgs struct {
@@ -68,8 +71,9 @@ type ListBlocksArgs struct {
 }
 
 type DeleteRouteArgs struct {
-	Instance string
-	Path     string
+	Instance   string
+	ServerName string
+	Path       string
 }
 
 type ListRoutesArgs struct {
@@ -78,6 +82,7 @@ type ListRoutesArgs struct {
 
 type UpdateRouteArgs struct {
 	Instance    string
+	ServerName  string
 	Path        string
 	Destination string
 	HTTPSOnly   bool

@@ -21,7 +21,9 @@ func deleteBlock(c echo.Context) error {
 		return err
 	}
 
-	err = manager.DeleteBlock(ctx, c.Param("instance"), c.Param("block"))
+	serverName := c.QueryParam("server_name")
+
+	err = manager.DeleteBlock(ctx, c.Param("instance"), serverName, c.Param("block"))
 	if err != nil {
 		return err
 	}
@@ -85,7 +87,7 @@ func deleteLuaBlock(c echo.Context) error {
 		return err
 	}
 
-	err = manager.DeleteBlock(ctx, c.Param("instance"), luaBlockName(luaBlockType))
+	err = manager.DeleteBlock(ctx, c.Param("instance"), "", luaBlockName(luaBlockType))
 	if err != nil {
 		return err
 	}

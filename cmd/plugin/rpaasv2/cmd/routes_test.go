@@ -56,6 +56,23 @@ func TestDeleteRoute(t *testing.T) {
 				},
 			},
 		},
+
+		{
+			name:     "when DeleteRoute with server name defined returns no error",
+			args:     []string{"./rpaasv2", "routes", "delete", "-i", "my-instance", "-p", "/my/custom/path", "--server-name", "my-server"},
+			expected: "Route \"/my/custom/path\" deleted.\n",
+			client: &fake.FakeClient{
+				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) error {
+					expected := rpaasclient.DeleteRouteArgs{
+						Instance:   "my-instance",
+						Path:       "/my/custom/path",
+						ServerName: "my-server",
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {
@@ -130,6 +147,41 @@ func TestListRoutes(t *testing.T) {
 			},
 		},
 		{
+			name: "when listing routes on table format with serverName defined",
+			args: []string{"./rpaasv2", "routes", "list", "-i", "my-instance"},
+			expected: `+---------------------+--------------+-------------------------------+--------------+-------------------+
+| Server Name         | Path         | Destination                   | Force HTTPS? | Configuration     |
++---------------------+--------------+-------------------------------+--------------+-------------------+
+| server1.example.org | /static      | static.apps.tsuru.example.com |              |                   |
+|                     | /login       | login.apps.tsuru.example.com  |      ✓       |                   |
+| server2.example.org | /custom/path |                               |              | # My NGINX config |
++---------------------+--------------+-------------------------------+--------------+-------------------+
+`,
+			client: &fake.FakeClient{
+				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, error) {
+					expected := rpaasclient.ListRoutesArgs{Instance: "my-instance"}
+					assert.Equal(t, expected, args)
+					return []clientTypes.Route{
+						{
+							ServerName:  "server1.example.org",
+							Path:        "/static",
+							Destination: "static.apps.tsuru.example.com",
+						},
+						{
+							Path:        "/login",
+							Destination: "login.apps.tsuru.example.com",
+							HTTPSOnly:   true,
+						},
+						{
+							ServerName: "server2.example.org",
+							Path:       "/custom/path",
+							Content:    "# My NGINX config",
+						},
+					}, nil
+				},
+			},
+		},
+		{
 			name: "when listing blocks on raw format",
 			args: []string{"./rpaasv2", "routes", "list", "-i", "my-instance", "--raw-output"},
 			expected: `[
@@ -143,6 +195,7 @@ func TestListRoutes(t *testing.T) {
 		"https_only": true
 	},
 	{
+		"server_name": "server2.example.org",
 		"path": "/custom/path",
 		"content": "# My NGINX config"
 	}
@@ -163,8 +216,9 @@ func TestListRoutes(t *testing.T) {
 							HTTPSOnly:   true,
 						},
 						{
-							Path:    "/custom/path",
-							Content: "# My NGINX config",
+							ServerName: "server2.example.org",
+							Path:       "/custom/path",
+							Content:    "# My NGINX config",
 						},
 					}, nil
 				},
@@ -249,6 +303,23 @@ func TestUpdateRoute(t *testing.T) {
 						Instance: "my-instance",
 						Path:     "/custom/path",
 						Content:  nginxConfig,
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
+		{
+			name:     "when using a custom NGINX config with servername defined",
+			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/custom/path", "-c", configFile.Name(), "--server-name", "my-server"},
+			expected: "Route \"/custom/path\" updated.\n",
+			client: &fake.FakeClient{
+				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) error {
+					expected := rpaasclient.UpdateRouteArgs{
+						Instance:   "my-instance",
+						Path:       "/custom/path",
+						ServerName: "my-server",
+						Content:    nginxConfig,
 					}
 					assert.Equal(t, expected, args)
 					return nil

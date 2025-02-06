@@ -36,6 +36,11 @@ func (c *client) DeleteRoute(ctx context.Context, args DeleteRouteArgs) error {
 	pathName := fmt.Sprintf("/resources/%s/route", args.Instance)
 	values := url.Values{}
 	values.Set("path", args.Path)
+
+	if args.ServerName != "" {
+		values.Set("server_name", args.ServerName)
+	}
+
 	body := strings.NewReader(values.Encode())
 	req, err := c.newRequest("DELETE", pathName, body)
 	if err != nil {

@@ -34,8 +34,22 @@ func Test_deleteRoute(t *testing.T) {
 			requestBody:  "path=/my/custom/path",
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
-				FakeDeleteRoute: func(instanceName, path string) error {
+				FakeDeleteRoute: func(instanceName, serverName, path string) error {
 					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "/my/custom/path", path)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "when delete route is successful with a custom server name",
+			instance:     "my-instance",
+			requestBody:  "path=/my/custom/path&server_name=my-server",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeDeleteRoute: func(instanceName, serverName, path string) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "my-server", serverName)
 					assert.Equal(t, "/my/custom/path", path)
 					return nil
 				},
@@ -48,7 +62,7 @@ func Test_deleteRoute(t *testing.T) {
 			expectedCode: http.StatusBadRequest,
 			expectedBody: "some error",
 			manager: &fake.RpaasManager{
-				FakeDeleteRoute: func(instanceName, path string) error {
+				FakeDeleteRoute: func(instanceName, serverName, path string) error {
 					assert.Equal(t, "my-instance", instanceName)
 					assert.Equal(t, "/", path)
 					return &rpaas.ValidationError{Msg: "some error"}
@@ -61,7 +75,7 @@ func Test_deleteRoute(t *testing.T) {
 			requestBody:  "path=%2Fmy%2Fpath",
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
-				FakeDeleteRoute: func(instanceName, path string) error {
+				FakeDeleteRoute: func(instanceName, serverName, path string) error {
 					assert.Equal(t, "my-instance", instanceName)
 					assert.Equal(t, "/my/path", path)
 					return nil

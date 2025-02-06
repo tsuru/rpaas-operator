@@ -536,7 +536,7 @@ func (m *k8sRpaasManager) ensureNamespaceExists(ctx context.Context) (string, er
 	return nsName, nil
 }
 
-func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockName string) error {
+func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, serverName, blockName string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -544,7 +544,7 @@ func (m *k8sRpaasManager) DeleteBlock(ctx context.Context, instanceName, blockNa
 
 	originalInstance := instance.DeepCopy()
 
-	err = NewMutation(&instance.Spec).DeleteBlock(blockName)
+	err = NewMutation(&instance.Spec).DeleteBlock(serverName, blockName)
 	if err != nil {
 		return err
 	}
@@ -568,7 +568,24 @@ func (m *k8sRpaasManager) ListBlocks(ctx context.Context, instanceName string) (
 		blocks = append(blocks, ConfigurationBlock{Name: string(blockType), Content: content})
 	}
 
+	for _, serverBlock := range instance.Spec.ServerBlocks {
+		content, err := util.GetValue(ctx, m.cli, instance.Namespace, serverBlock.Content)
+		if err != nil {
+			return nil, err
+		}
+
+		blocks = append(blocks, ConfigurationBlock{
+			Name:       string(serverBlock.Type),
+			Content:    content,
+			ServerName: serverBlock.ServerName,
+			Extend:     serverBlock.Extend,
+		})
+	}
+
 	sort.SliceStable(blocks, func(i, j int) bool {
+		if blocks[i].Name == blocks[j].Name {
+			return blocks[i].ServerName < blocks[j].ServerName
+		}
 		return blocks[i].Name < blocks[j].Name
 	})
 
@@ -1030,14 +1047,14 @@ func (m *k8sRpaasManager) PurgeCache(ctx context.Context, instanceName string, a
 	return purgeCount, purgeErrors
 }
 
-func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, path string) error {
+func (m *k8sRpaasManager) DeleteRoute(ctx context.Context, instanceName, serverName, path string) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
 	}
 
 	originalInstance := instance.DeepCopy()
-	err = NewMutation(&instance.Spec).DeleteRoute(path)
+	err = NewMutation(&instance.Spec).DeleteRoute(serverName, path)
 	if err != nil {
 		return err
 	}
@@ -1067,6 +1084,7 @@ func (m *k8sRpaasManager) GetRoutes(ctx context.Context, instanceName string) ([
 		}
 
 		routes = append(routes, Route{
+			ServerName:  location.ServerName,
 			Path:        location.Path,
 			Destination: location.Destination,
 			HTTPSOnly:   location.ForceHTTPS,
@@ -1703,6 +1721,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 
 	for _, r := range routes {
 		info.Routes = append(info.Routes, clientTypes.Route{
+			ServerName:  r.ServerName,
 			Path:        r.Path,
 			Destination: r.Destination,
 			Content:     r.Content,
