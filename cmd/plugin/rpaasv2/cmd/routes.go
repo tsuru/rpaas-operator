@@ -50,7 +50,7 @@ func NewCmdDeleteRoute() *cli.Command {
 			&cli.StringFlag{
 				Name:    "server-name",
 				Aliases: []string{"sn"},
-				Usage:   "Optional, indicates that route belongs to specific server_name, ignoring it this route will apply to all server_names",
+				Usage:   "Optional. Indicates this route belongs to a specific server_name. Not setting it will apply this block to all server_names",
 			},
 			&cli.StringFlag{
 				Name:     "path",
@@ -207,7 +207,7 @@ func NewCmdUpdateRoute() *cli.Command {
 			&cli.StringFlag{
 				Name:    "server-name",
 				Aliases: []string{"sn"},
-				Usage:   "Optional, indicates that route belongs to specific server_name, ignoring it this route will apply to all server_names",
+				Usage:   "Optional. Indicates this route belongs to a specific server_name. Not setting it will apply this block to all server_names",
 			},
 			&cli.StringFlag{
 				Name:     "path",

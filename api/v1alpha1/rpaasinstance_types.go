@@ -46,7 +46,7 @@ type RpaasInstanceSpec struct {
 	// config.
 	Blocks map[BlockType]Value `json:"blocks,omitempty"`
 
-	// ServerBlocks are configuration file fragments added to to a specific serverName
+	// ServerBlocks are configuration file fragments added to a specific serverName
 	ServerBlocks []ServerBlock `json:"serverBlocks,omitempty"`
 
 	// Locations hold paths that can be configured to forward resquests to
