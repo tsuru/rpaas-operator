@@ -70,9 +70,10 @@ func runDeleteRoute(c *cli.Context) error {
 		return err
 	}
 
+	serverName := c.String("server-name")
 	args := rpaasclient.DeleteRouteArgs{
 		Instance:   c.String("instance"),
-		ServerName: c.String("server-name"),
+		ServerName: serverName,
 		Path:       c.String("path"),
 	}
 	err = client.DeleteRoute(c.Context, args)
@@ -80,7 +81,12 @@ func runDeleteRoute(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Route %q deleted.\n", args.Path)
+	if serverName == "" {
+		fmt.Fprintf(c.App.Writer, "Route %q deleted.\n", args.Path)
+	} else {
+		fmt.Fprintf(c.App.Writer, "Route %q deleted for server name %q.\n", args.Path, serverName)
+	}
+
 	return nil
 }
 
@@ -246,9 +252,10 @@ func runUpdateRoute(c *cli.Context) error {
 		return err
 	}
 
+	serverName := c.String("server-name")
 	args := rpaasclient.UpdateRouteArgs{
 		Instance:    c.String("instance"),
-		ServerName:  c.String("server-name"),
+		ServerName:  serverName,
 		Path:        c.String("path"),
 		Destination: c.String("destination"),
 		HTTPSOnly:   c.Bool("https-only"),
@@ -259,7 +266,11 @@ func runUpdateRoute(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Route %q updated.\n", args.Path)
+	if serverName == "" {
+		fmt.Fprintf(c.App.Writer, "Route %q updated.\n", args.Path)
+	} else {
+		fmt.Fprintf(c.App.Writer, "Route %q updated for server name %q.\n", args.Path, serverName)
+	}
 	return nil
 }
 

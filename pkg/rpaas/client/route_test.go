@@ -179,6 +179,7 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 		{
 			name: "when the server returns the expected response",
 			args: UpdateRouteArgs{
+				ServerName:  "app.example.com",
 				Instance:    "my-instance",
 				Path:        "/app",
 				Destination: "app.tsuru.example.com",
@@ -189,6 +190,7 @@ func TestClientThroughTsuru_UpdateRoute(t *testing.T) {
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
 				expected := url.Values{
 					"path":        []string{"/app"},
+					"server_name": []string{"app.example.com"},
 					"destination": []string{"app.tsuru.example.com"},
 				}
 				values, err := url.ParseQuery(getBody(t, r))

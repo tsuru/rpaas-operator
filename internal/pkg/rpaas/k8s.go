@@ -1736,8 +1736,10 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 
 	for _, block := range blocks {
 		info.Blocks = append(info.Blocks, clientTypes.Block{
-			Name:    block.Name,
-			Content: block.Content,
+			Name:       block.Name,
+			Content:    block.Content,
+			ServerName: block.ServerName,
+			Extend:     block.Extend,
 		})
 	}
 

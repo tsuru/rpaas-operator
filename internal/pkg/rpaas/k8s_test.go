@@ -4139,6 +4139,14 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 					v1alpha1.BlockTypeHTTP:   {Value: "# some nginx config at http context"},
 					v1alpha1.BlockTypeServer: {Value: "# some nginx config at server context"},
 				}
+				i.Spec.ServerBlocks = []v1alpha1.ServerBlock{
+					{
+						ServerName: "app1.example.com",
+						Type:       v1alpha1.BlockTypeServer,
+						Content:    &v1alpha1.Value{Value: "# some nginx config at server context"},
+						Extend:     true,
+					},
+				}
 				i.Spec.Locations = []v1alpha1.Location{
 					{Path: "/custom/path/1", Destination: "app1.tsuru.example.com"},
 					{Path: "/custom/path/2", Content: &v1alpha1.Value{Value: "# some nginx configuration"}},
@@ -4150,6 +4158,7 @@ func Test_k8sRpaasManager_GetInstanceInfo(t *testing.T) {
 				info.Blocks = []clientTypes.Block{
 					{Name: "http", Content: "# some nginx config at http context"},
 					{Name: "server", Content: "# some nginx config at server context"},
+					{Name: "server", ServerName: "app1.example.com", Content: "# some nginx config at server context", Extend: true},
 				}
 				info.Routes = []clientTypes.Route{
 					{Path: "/custom/path/1", Destination: "app1.tsuru.example.com"},

@@ -60,7 +60,7 @@ func TestDeleteRoute(t *testing.T) {
 		{
 			name:     "when DeleteRoute with server name defined returns no error",
 			args:     []string{"./rpaasv2", "routes", "delete", "-i", "my-instance", "-p", "/my/custom/path", "--server-name", "my-server"},
-			expected: "Route \"/my/custom/path\" deleted.\n",
+			expected: "Route \"/my/custom/path\" deleted for server name \"my-server\".\n",
 			client: &fake.FakeClient{
 				FakeDeleteRoute: func(args rpaasclient.DeleteRouteArgs) error {
 					expected := rpaasclient.DeleteRouteArgs{
@@ -312,7 +312,7 @@ func TestUpdateRoute(t *testing.T) {
 		{
 			name:     "when using a custom NGINX config with servername defined",
 			args:     []string{"./rpaasv2", "routes", "update", "-i", "my-instance", "-p", "/custom/path", "-c", configFile.Name(), "--server-name", "my-server"},
-			expected: "Route \"/custom/path\" updated.\n",
+			expected: "Route \"/custom/path\" updated for server name \"my-server\".\n",
 			client: &fake.FakeClient{
 				FakeUpdateRoute: func(args rpaasclient.UpdateRouteArgs) error {
 					expected := rpaasclient.UpdateRouteArgs{

@@ -118,6 +118,7 @@ func (c *client) UpdateRoute(ctx context.Context, args UpdateRouteArgs) error {
 	}
 
 	values := types.Route{
+		ServerName:  args.ServerName,
 		Path:        args.Path,
 		Destination: args.Destination,
 		HTTPSOnly:   args.HTTPSOnly,
