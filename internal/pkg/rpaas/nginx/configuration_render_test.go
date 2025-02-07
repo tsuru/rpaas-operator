@@ -243,10 +243,16 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				Instance: &v1alpha1.RpaasInstance{},
 				NginxTLS: []nginxv1alpha1.NginxTLS{
 					{SecretName: "my-cert-01", Hosts: []string{"*.example.com"}},
+					{SecretName: "my-cert-02", Hosts: []string{"www.example.com"}},
 				},
 			},
 			assertion: func(t *testing.T, result string) {
 				assert.Regexp(t, `listen 8443 ssl http2 backlog=2048 deferred reuseport;
+\s+server_name www.example.com;
+\s+ssl_certificate     certs/my-cert-02/tls.crt;
+\s+ssl_certificate_key certs/my-cert-02/tls.key;`, result)
+
+				assert.Regexp(t, `listen 8443 ssl http2;
 \s+server_name \*.example.com;
 \s+ssl_certificate     certs/my-cert-01/tls.crt;
 \s+ssl_certificate_key certs/my-cert-01/tls.key;`, result)

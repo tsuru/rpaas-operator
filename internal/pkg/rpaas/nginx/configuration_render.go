@@ -57,6 +57,7 @@ func (r *rpaasConfigurationRenderer) Render(c ConfigurationData) (string, error)
 	if c.Servers == nil {
 		c.Servers = produceServers(&c.Instance.Spec, c.NginxTLS)
 	}
+	initListenOptions(c.Servers, c.Config)
 	err := r.t.Execute(buffer, c)
 	if err != nil {
 		return "", err
@@ -484,10 +485,9 @@ http {
 
     {{- range $_, $server := $servers }}
     server {
-        listen {{ httpPort $instance }}{{ with $server.Default }} default_server{{ end }};
+        listen {{ httpPort $instance }}{{ with $server.Default }} default_server{{ end }}{{- with $server.HTTPListenOptions }} {{ . }}{{ end }};
         {{- if $server.TLS }}
-        listen {{ httpsPort $instance }} ssl http2
-            {{- with $config.HTTPSListenOptions }} {{ . }}{{ end }};
+        listen {{ httpsPort $instance }} ssl http2{{- with $server.HTTPSListenOptions }} {{ . }}{{ end }};
         {{- end }}
 
         {{- with $server.Name }}

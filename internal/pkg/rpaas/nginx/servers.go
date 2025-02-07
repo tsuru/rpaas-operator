@@ -20,6 +20,9 @@ type Server struct {
 	Default       bool   `json:"default,omitempty"`
 	Wildcard      bool   `json:"wildcard,omitempty"`
 
+	HTTPListenOptions  string `json:"httpListenOptions,omitempty"`
+	HTTPSListenOptions string `json:"httpsListenOptions,omitempty"`
+
 	Blocks    map[v1alpha1.BlockType]v1alpha1.Value
 	Locations []v1alpha1.Location `json:"locations,omitempty"`
 }
@@ -172,6 +175,22 @@ func produceServers(spec *v1alpha1.RpaasInstanceSpec, nginxTLS []nginxv1alpha1.N
 	result = append(result, wildcardServers...)
 
 	return result
+}
+
+func initListenOptions(servers []*Server, config *v1alpha1.NginxConfig) {
+	for _, server := range servers {
+		if server.Default {
+			server.HTTPListenOptions = config.HTTPListenOptions
+			break
+		}
+	}
+
+	for _, server := range servers {
+		if server.TLS {
+			server.HTTPSListenOptions = config.HTTPSListenOptions
+			break
+		}
+	}
 }
 
 func sortServers(servers []*Server) {
