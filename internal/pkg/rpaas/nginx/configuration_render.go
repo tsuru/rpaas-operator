@@ -17,6 +17,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/resource"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
+	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 	"github.com/tsuru/rpaas-operator/pkg/util"
 )
 
@@ -42,6 +43,7 @@ type ConfigurationData struct {
 	Instance *v1alpha1.RpaasInstance
 	NginxTLS []nginxv1alpha1.NginxTLS
 	Servers  []*Server
+	Binds    []clientTypes.Bind
 
 	// DEPRECATED: Modules is a map of installed modules, using a map instead of a slice
 	// allow us to use `hasKey` inside templates.
@@ -58,6 +60,7 @@ func (r *rpaasConfigurationRenderer) Render(c ConfigurationData) (string, error)
 		c.Servers = produceServers(&c.Instance.Spec, c.NginxTLS)
 	}
 	initListenOptions(c.Servers, c.Config)
+	c.Binds = clientTypes.NewBinds(c.Instance.Spec.Binds)
 	err := r.t.Execute(buffer, c)
 	if err != nil {
 		return "", err
@@ -305,6 +308,7 @@ var rawNginxConfiguration = `
 {{- $config := .Config -}}
 {{- $instance := .Instance -}}
 {{- $nginxTLS := .NginxTLS -}}
+{{- $binds := .Binds -}}
 {{- $servers := .Servers -}}
 {{- $httpBlock := renderInnerTemplate "http" . -}}
 
@@ -411,24 +415,15 @@ http {
     {{- end }}
     {{- end }}
 
-    {{- range $index, $bind := $instance.Spec.Binds }}
-      {{- if eq $index 0 }}
-        upstream rpaas_default_upstream {
-          server {{ $bind.Host }};
-
-          {{- with $config.UpstreamKeepalive }}
-          keepalive {{ . }};
-          {{- end }}
-      }
-      {{- end }}
-
-      upstream rpaas_backend_{{ $bind.Name }} {
+    {{- range $_, $bind := $binds }}
+    {{- range $_, $upstream := $bind.Upstreams }}
+      upstream {{ $upstream }} {
         server {{ $bind.Host }};
       {{- with $config.UpstreamKeepalive }}
       keepalive {{ . }};
       {{- end }}
       }
-
+    {{- end }}
     {{- end }}
 
     {{- range $_, $location := $instance.Spec.Locations }}

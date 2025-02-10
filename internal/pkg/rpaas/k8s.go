@@ -1689,7 +1689,7 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		Annotations:  flatAnnotations,
 		Replicas:     instance.Spec.Replicas,
 		Plan:         instance.Spec.PlanName,
-		Binds:        instance.Spec.Binds,
+		Binds:        clientTypes.NewBinds(instance.Spec.Binds),
 		Flavors:      instance.Spec.Flavors,
 		Shutdown:     instance.Spec.Shutdown,
 		PlanOverride: instance.Spec.PlanTemplate,
