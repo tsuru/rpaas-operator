@@ -10,7 +10,7 @@ kind: RpaasPlan
 metadata:
   name: basic
 spec:
-  image: tsuru/nginx-tsuru:1.21.4
+  image: tsuru/nginx-tsuru:1.26.3
   resources:
     limits:
       memory: "128Mi"
