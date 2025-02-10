@@ -66,7 +66,7 @@ func Test_RpaasOperator(t *testing.T) {
 		require.NoError(t, err)
 
 		assert.Equal(t, int32(2), *nginx.Spec.Replicas)
-		assert.Equal(t, "tsuru/nginx-tsuru:1.21.4", nginx.Spec.Image)
+		assert.Equal(t, "tsuru/nginx-tsuru:1.26.3", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 		assert.Equal(t, "label-value", nginx.Spec.PodTemplate.Labels["pod-custom-label"])
 
@@ -257,7 +257,7 @@ func Test_RpaasApi(t *testing.T) {
 		require.NoError(t, err)
 		require.NotNil(t, nginx)
 		assert.Equal(t, int32(1), *nginx.Spec.Replicas)
-		assert.Equal(t, "tsuru/nginx-tsuru:1.21.4", nginx.Spec.Image)
+		assert.Equal(t, "tsuru/nginx-tsuru:1.26.3", nginx.Spec.Image)
 		assert.Equal(t, "/_nginx_healthcheck", nginx.Spec.HealthcheckPath)
 
 		nginxService := &corev1.Service{
