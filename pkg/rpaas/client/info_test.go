@@ -34,7 +34,7 @@ func TestClientThroughTsuru_Info(t *testing.T) {
 				assert.Equal(t, r.Method, "GET")
 				assert.Equal(t, fmt.Sprintf("/1.20/services/%s/resources/%s/info", FakeTsuruService, "my-instance"), r.URL.RequestURI())
 				assert.Equal(t, "Bearer f4k3t0k3n", r.Header.Get("Authorization"))
-				fmt.Fprintf(w, `{"address":[{"hostname":"some-host","ip":"0.0.0.0"},{"hostname":"some-host2","ip":"0.0.0.1"}],"replicas":5,"plan":"basic","locations":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host"},{"name":"some-name2","host":"some-host2"}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}`)
+				fmt.Fprintf(w, `{"address":[{"hostname":"some-host","ip":"0.0.0.0"},{"hostname":"some-host2","ip":"0.0.0.1"}],"replicas":5,"plan":"basic","locations":[{"path":"some-path","destination":"some-destination"}],"binds":[{"name":"some-name","host":"some-host","upstreams":["rpaas_backend_app-default","rpaas_default_upstream"]},{"name":"some-name2","host":"some-host2","upstreams":["rpaas_backend_app-backend"]}],"team":"some team","name":"my-instance","description":"some description","tags":["tag1","tag2","tag3"]}`)
 				w.WriteHeader(http.StatusOK)
 			},
 		},
