@@ -335,7 +335,7 @@ func writeBindsOnTableFormat(binds []clientTypes.Bind) string {
 		row := []string{bind.Name, bind.Host}
 
 		if hasUpstreams {
-			row = append(row, strings.Join(bind.Upstreams, ", "))
+			row = append(row, strings.Join(bind.Upstreams, "\n"))
 		}
 
 		rows = append(rows, row)
@@ -353,7 +353,7 @@ func writeBindsOnTableFormat(binds []clientTypes.Bind) string {
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
 	table.SetAutoWrapText(true)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT})
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT})
 	table.AppendBulk(rows)
 	table.Render()
 
