@@ -62,13 +62,13 @@ func (m *mutation) UpdateBlock(block ConfigurationBlock) error {
 }
 
 func (m *mutation) DeleteBlock(serverName, blockName string) error {
-	if m.spec.Blocks == nil {
-		return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
-	}
-
 	blockType := v1alpha1.BlockType(blockName)
 
 	if serverName == "" {
+		if m.spec.Blocks == nil {
+			return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
+		}
+
 		if _, ok := m.spec.Blocks[blockType]; !ok {
 			return NotFoundError{Msg: fmt.Sprintf("block %q not found", blockName)}
 		}
