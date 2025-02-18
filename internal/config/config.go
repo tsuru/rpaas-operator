@@ -113,7 +113,7 @@ func Init() error {
 	viper.SetDefault("enable-cert-manager", false)
 	viper.SetDefault("new-instance-replicas", 1)
 	viper.SetDefault("forbidden-annotations-prefixes", []string{"rpaas.extensions.tsuru.io", "afh.tsuru.io"})
-	viper.SetDefault("debug-image", "")
+	viper.SetDefault("debug-image", "tsuru/netshoot")
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {
