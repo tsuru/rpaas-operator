@@ -80,8 +80,10 @@ const (
 	nginxContainerName = "nginx"
 )
 
-var _ RpaasManager = &k8sRpaasManager{}
-var nameSuffixFunc = utilrand.String
+var (
+	_              RpaasManager = &k8sRpaasManager{}
+	nameSuffixFunc              = utilrand.String
+)
 
 var podAllowedReasonsToFail = map[string]bool{
 	"shutdown":     true,
@@ -311,9 +313,13 @@ func getContainerStatusByName(pod *corev1.Pod, containerName string) *corev1.Con
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
-	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+	instance, execContainerName, status, err := m.execOnPodWithContainerStatus(ctx, &args, instanceName)
 	if err != nil {
 		return err
+	}
+	if status.State.Terminated != nil {
+		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: execContainerName})
+		return logs.DefaultConsumeRequest(req, args.Stdout)
 	}
 
 	req := m.kcs.
@@ -325,7 +331,7 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		Namespace(instance.Namespace).
 		SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{
-			Container: args.Container,
+			Container: execContainerName,
 			Command:   args.Command,
 			Stdin:     args.Stdin != nil,
 			Stdout:    true,
@@ -339,6 +345,60 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 	}
 
 	return executorStream(args.CommonTerminalArgs, executor, ctx)
+}
+
+func (m *k8sRpaasManager) execOnPodWithContainerStatus(ctx context.Context, args *ExecArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {
+	image := config.Get().DebugImage
+	if image == "" {
+		return nil, "", nil, ValidationError{Msg: "No debug image configured"}
+	}
+	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	execContainerName, err := m.generateExecContainer(ctx, args, image, instance)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	pod, err := m.waitForContainer(ctx, instance.Namespace, args.Pod, execContainerName)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	status := getContainerStatusByName(pod, execContainerName)
+	if status == nil {
+		return nil, "", nil, fmt.Errorf("error getting container status of container name %q: %+v", execContainerName, err)
+	}
+	return instance, execContainerName, status, nil
+}
+
+func (m *k8sRpaasManager) generateExecContainer(ctx context.Context, args *ExecArgs, image string, instance *v1alpha1.RpaasInstance) (string, error) {
+	instancePod := corev1.Pod{}
+	err := m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
+	if err != nil {
+		return "", err
+	}
+	execContainerName := fmt.Sprintf("exec-%s", nameSuffixFunc(5))
+	execContainer := &corev1.EphemeralContainer{
+		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+			Name:            execContainerName,
+			Command:         args.Command,
+			Image:           image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Stdin:           args.Stdin != nil,
+			TTY:             args.TTY,
+			VolumeMounts: []corev1.VolumeMount{
+				{
+					Name:      "nginx-config",
+					MountPath: "/etc/nginx",
+					ReadOnly:  true,
+				},
+			},
+		}, TargetContainerName: args.Container,
+	}
+	instancePodWithExec := instancePod.DeepCopy()
+	instancePodWithExec.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *execContainer)
+	err = m.patchEphemeralContainers(ctx, instancePodWithExec, instancePod)
+	return execContainerName, err
 }
 
 func executorStream(args CommonTerminalArgs, executor remotecommand.Executor, ctx context.Context) error {
@@ -682,7 +742,7 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 		nginx = &nginxv1alpha1.Nginx{}
 	}
 
-	var certMap = make(map[string]clientTypes.CertificateInfo)
+	certMap := make(map[string]clientTypes.CertificateInfo)
 	allTLS := append([]nginxv1alpha1.NginxTLS{}, instance.Spec.TLS...)
 	allTLS = append(allTLS, nginx.Spec.TLS...)
 
