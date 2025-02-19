@@ -208,7 +208,7 @@ func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args 
 func removeCertVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
 	var result []corev1.VolumeMount
 	for _, vm := range volumeMounts {
-		if !strings.Contains(vm.MountPath, "certs") {
+		if !strings.HasPrefix(vm.MountPath, "/etc/nginx/certs") {
 			result = append(result, vm)
 		}
 	}
