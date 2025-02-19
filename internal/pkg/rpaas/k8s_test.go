@@ -1060,7 +1060,7 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 	}
 }
 
-func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
+func newEmptyRpaasInstance(volumeMounts ...corev1.VolumeMount) *v1alpha1.RpaasInstance {
 	return &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "extensions.tsuru.io/v1alpha1",
@@ -1070,7 +1070,11 @@ func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 			Name:      "my-instance",
 			Namespace: getServiceName(),
 		},
-		Spec: v1alpha1.RpaasInstanceSpec{},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+				VolumeMounts: volumeMounts,
+			},
+		},
 	}
 }
 
@@ -5276,15 +5280,50 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 		return fmt.Sprint(suffixCounter)
 	}
 
-	instance1 := newEmptyRpaasInstance()
+	volumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "certs-test",
+			ReadOnly:  true,
+			MountPath: "/etc/nginx/certs/",
+		},
+		{
+			Name:      "extra-files-0",
+			MountPath: "/etc/nginx/extra_files/waf.cfg",
+			SubPath:   "waf.cfg",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "extra-files-1",
+			MountPath: "/etc/nginx/extra_files/binary.exe",
+			SubPath:   "binary.exe",
+			ReadOnly:  true,
+		},
+	}
+
+	expectedVolumeMounts := []corev1.VolumeMount{
+		{
+			Name:      "extra-files-0",
+			MountPath: "/etc/nginx/extra_files/waf.cfg",
+			SubPath:   "waf.cfg",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "extra-files-1",
+			MountPath: "/etc/nginx/extra_files/binary.exe",
+			SubPath:   "binary.exe",
+			ReadOnly:  true,
+		},
+	}
+
+	instance1 := newEmptyRpaasInstance(volumeMounts...)
 	instance1.ObjectMeta.Name = "instance1"
-	instance2 := newEmptyRpaasInstance()
+	instance2 := newEmptyRpaasInstance(volumeMounts...)
 	instance2.ObjectMeta.Name = "instance2"
-	instance3 := newEmptyRpaasInstance()
+	instance3 := newEmptyRpaasInstance(volumeMounts...)
 	instance3.ObjectMeta.Name = "instance3"
-	instance4 := newEmptyRpaasInstance()
+	instance4 := newEmptyRpaasInstance(volumeMounts...)
 	instance4.ObjectMeta.Name = "instance4"
-	instance5 := newEmptyRpaasInstance()
+	instance5 := newEmptyRpaasInstance(volumeMounts...)
 	instance5.ObjectMeta.Name = "instance5"
 
 	nginx1 := &nginxv1alpha1.Nginx{
@@ -5444,7 +5483,7 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 					Image:           "tsuru/netshoot",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Stdin:           true,
-					VolumeMounts:    []corev1.VolumeMount{{Name: "nginx-config", MountPath: "/etc/nginx", ReadOnly: true}},
+					VolumeMounts:    expectedVolumeMounts,
 				}, TargetContainerName: "nginx"}}
 				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
 			},
@@ -5471,7 +5510,7 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 					Image:           "tsuru/netshoot",
 					ImagePullPolicy: corev1.PullIfNotPresent,
 					Stdin:           true,
-					VolumeMounts:    []corev1.VolumeMount{{Name: "nginx-config", MountPath: "/etc/nginx", ReadOnly: true}},
+					VolumeMounts:    expectedVolumeMounts,
 				}, TargetContainerName: "nginx"}}
 				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
 			},
@@ -5503,253 +5542,7 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 					time.Sleep(1000 * time.Millisecond)
 				}
 			}()
-			rpaasInstance, debugContainerName, debugContainerStatus, err := manager.debugPodWithContainerStatus(ctx, &tt.args, tt.instance)
-			wg.Wait()
-			if err != nil {
-				tt.assertion(t, err, manager, nil, "", nil)
-			} else {
-				tt.assertion(t, err, manager, rpaasInstance, debugContainerName, debugContainerStatus)
-			}
-		})
-	}
-}
-
-func Test_k8sRpaasManager_Exec(t *testing.T) {
-	defer func(old func(int) string) { nameSuffixFunc = old }(nameSuffixFunc)
-	var suffixCounter int
-	nameSuffixFunc = func(int) string {
-		suffixCounter++
-		return fmt.Sprint(suffixCounter)
-	}
-
-	instance1 := newEmptyRpaasInstance()
-	instance1.ObjectMeta.Name = "instance1"
-	instance2 := newEmptyRpaasInstance()
-	instance2.ObjectMeta.Name = "instance2"
-	instance3 := newEmptyRpaasInstance()
-	instance3.ObjectMeta.Name = "instance3"
-	instance4 := newEmptyRpaasInstance()
-	instance4.ObjectMeta.Name = "instance4"
-	instance5 := newEmptyRpaasInstance()
-	instance5.ObjectMeta.Name = "instance5"
-
-	nginx1 := &nginxv1alpha1.Nginx{
-		ObjectMeta: instance1.ObjectMeta,
-		Status: nginxv1alpha1.NginxStatus{
-			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance1",
-		},
-	}
-	nginx2 := &nginxv1alpha1.Nginx{
-		ObjectMeta: instance2.ObjectMeta,
-		Status: nginxv1alpha1.NginxStatus{
-			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance2",
-		},
-	}
-	nginx3 := &nginxv1alpha1.Nginx{
-		ObjectMeta: instance3.ObjectMeta,
-		Status: nginxv1alpha1.NginxStatus{
-			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance3",
-		},
-	}
-	nginx4 := &nginxv1alpha1.Nginx{
-		ObjectMeta: instance5.ObjectMeta,
-		Status: nginxv1alpha1.NginxStatus{
-			PodSelector: "nginx.tsuru.io/app=nginx,nginx.tsuru.io/resource-name=instance5",
-		},
-	}
-
-	pod1 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod1",
-			Namespace: instance2.Namespace,
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":           "nginx",
-				"nginx.tsuru.io/resource-name": "instance2",
-			},
-			UID: types.UID("pod1-uid"),
-		},
-		Status: corev1.PodStatus{
-			PodIP: "10.0.0.1",
-			Phase: corev1.PodRunning,
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name:  "nginx",
-					Ready: true,
-				},
-			},
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{Name: "nginx"},
-			},
-		},
-	}
-	pod2 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod2",
-			Namespace: instance2.Namespace,
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":           "nginx",
-				"nginx.tsuru.io/resource-name": "instance2",
-			},
-			UID: types.UID("pod2-uid"),
-		},
-		Status: corev1.PodStatus{
-			PodIP: "10.0.0.2",
-			Phase: corev1.PodPending,
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Name:  "nginx",
-					Ready: false,
-				},
-			},
-		},
-		Spec: corev1.PodSpec{
-			Containers: []corev1.Container{
-				{Name: "nginx"},
-			},
-		},
-	}
-	pod4 := &corev1.Pod{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      "pod4",
-			Namespace: instance5.Namespace,
-			Labels: map[string]string{
-				"nginx.tsuru.io/app":           "nginx",
-				"nginx.tsuru.io/resource-name": "instance5",
-			},
-			UID: types.UID("pod4-uid"),
-		},
-		Status: corev1.PodStatus{
-			PodIP: "10.0.0.9",
-			ContainerStatuses: []corev1.ContainerStatus{
-				{
-					Ready: false,
-				},
-			},
-		},
-	}
-
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, nginx1, nginx2, nginx3, nginx4, pod1, pod2, pod4}
-	staticTimeNow := metav1.Now()
-
-	testCases := []struct {
-		name      string
-		instance  string
-		args      ExecArgs
-		assertion func(*testing.T, error, *k8sRpaasManager, *v1alpha1.RpaasInstance, string, *corev1.ContainerStatus)
-		pods      func() []corev1.Pod
-	}{
-		{
-			name:     "no debug image configured",
-			instance: "instance1",
-			pods:     func() []corev1.Pod { return []corev1.Pod{} },
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, instance *v1alpha1.RpaasInstance, debugContainerName string, debugContainerStatus *corev1.ContainerStatus) {
-				assert.Error(t, err)
-				assert.EqualError(t, err, "No debug image configured")
-			},
-		},
-		{
-			name:     "no pod running for debug",
-			instance: "instance1",
-			pods:     func() []corev1.Pod { return []corev1.Pod{} },
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, instance *v1alpha1.RpaasInstance, debugContainerName string, debugContainerStatus *corev1.ContainerStatus) {
-				assert.Error(t, err)
-				assert.EqualError(t, err, "no pod running found in instance instance1")
-			},
-		},
-		{
-			name:     "debug on invalid pod",
-			instance: "instance1",
-			args:     ExecArgs{CommonTerminalArgs: CommonTerminalArgs{Pod: "pod1"}},
-			pods:     func() []corev1.Pod { return []corev1.Pod{} },
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, instance *v1alpha1.RpaasInstance, debugContainerName string, debugContainerStatus *corev1.ContainerStatus) {
-				assert.Error(t, err)
-				assert.EqualError(t, err, "no such pod pod1 in instance instance1")
-			},
-		},
-		{
-			name:     "run debug on pod1 with default image",
-			instance: "instance2",
-			args:     ExecArgs{CommonTerminalArgs: CommonTerminalArgs{Pod: "pod1", Stdin: &bytes.Buffer{}, Stdout: io.Discard, Stderr: io.Discard}},
-			pods: func() []corev1.Pod {
-				pod1Debug := pod1.DeepCopy()
-				pod1Debug.Spec.EphemeralContainers = append(pod1Debug.Spec.EphemeralContainers, corev1.EphemeralContainer{EphemeralContainerCommon: corev1.EphemeralContainerCommon{Name: "exec-1"}, TargetContainerName: "nginx"})
-				pod1Debug.Status.ContainerStatuses = append(pod1Debug.Status.EphemeralContainerStatuses, corev1.ContainerStatus{Name: "exec-1", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: staticTimeNow}}})
-				return []corev1.Pod{*pod1Debug}
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, instance *v1alpha1.RpaasInstance, debugContainerName string, debugContainerStatus *corev1.ContainerStatus) {
-				assert.NoError(t, err)
-				assert.Equal(t, "exec-1", debugContainerName)
-				assert.Equal(t, corev1.ContainerStatus{Name: "exec-1", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: staticTimeNow}}}, *debugContainerStatus)
-				instancePod := corev1.Pod{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "pod1", Namespace: instance2.Namespace}, &instancePod)
-				require.NoError(t, err)
-				expectedEphemerals := []corev1.EphemeralContainer{{EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-					Name:            "exec-1",
-					Image:           "tsuru/netshoot",
-					ImagePullPolicy: corev1.PullIfNotPresent,
-					Stdin:           true,
-					VolumeMounts:    []corev1.VolumeMount{{Name: "nginx-config", MountPath: "/etc/nginx", ReadOnly: true}},
-				}, TargetContainerName: "nginx"}}
-				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
-			},
-		},
-		{
-			name:     "run debug on random pod with running status",
-			instance: "instance2",
-			args:     ExecArgs{CommonTerminalArgs: CommonTerminalArgs{Stdin: &bytes.Buffer{}, Stdout: io.Discard, Stderr: io.Discard}},
-			pods: func() []corev1.Pod {
-				pod1Debug := pod1.DeepCopy()
-				pod1Debug.Spec.EphemeralContainers = append(pod1Debug.Spec.EphemeralContainers, corev1.EphemeralContainer{EphemeralContainerCommon: corev1.EphemeralContainerCommon{Name: "exec-2"}, TargetContainerName: "nginx"})
-				pod1Debug.Status.ContainerStatuses = append(pod1Debug.Status.EphemeralContainerStatuses, corev1.ContainerStatus{Name: "exec-2", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: staticTimeNow}}})
-				return []corev1.Pod{*pod1Debug}
-			},
-			assertion: func(t *testing.T, err error, m *k8sRpaasManager, instance *v1alpha1.RpaasInstance, debugContainerName string, debugContainerStatus *corev1.ContainerStatus) {
-				assert.NoError(t, err)
-				assert.Equal(t, "exec-2", debugContainerName)
-				assert.Equal(t, corev1.ContainerStatus{Name: "exec-2", Ready: true, State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{StartedAt: staticTimeNow}}}, *debugContainerStatus)
-				instancePod := corev1.Pod{}
-				err = m.cli.Get(context.Background(), types.NamespacedName{Name: "pod1", Namespace: instance2.Namespace}, &instancePod)
-				require.NoError(t, err)
-				expectedEphemerals := []corev1.EphemeralContainer{{EphemeralContainerCommon: corev1.EphemeralContainerCommon{
-					Name:            "exec-2",
-					Image:           "tsuru/netshoot",
-					ImagePullPolicy: corev1.PullIfNotPresent,
-					Stdin:           true,
-					VolumeMounts:    []corev1.VolumeMount{{Name: "nginx-config", MountPath: "/etc/nginx", ReadOnly: true}},
-				}, TargetContainerName: "nginx"}}
-				assert.Equal(t, expectedEphemerals, instancePod.Spec.EphemeralContainers)
-			},
-		},
-	}
-
-	for _, tt := range testCases {
-		cfg := config.Get()
-		defer func() { config.Set(cfg) }()
-		config.Set(config.RpaasConfig{DebugImage: "tsuru/netshoot"})
-		t.Run(tt.name, func(t *testing.T) {
-			var wg sync.WaitGroup
-			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(resources...).Build()}
-			watcher := watch.NewFake()
-			kcs := k8sclient.NewSimpleClientset()
-			kcs.PrependWatchReactor("pods", k8stesting.DefaultWatchReactor(watcher, nil))
-			manager.kcs = kcs
-			if tt.name == "no debug image configured" {
-				config.Set(config.RpaasConfig{})
-			}
-			ctx, cancel := context.WithTimeout(context.Background(), 500*time.Millisecond)
-			defer cancel()
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				defer watcher.Stop()
-				for _, pod := range tt.pods() {
-					watcher.Modify(&pod)
-					time.Sleep(1000 * time.Millisecond)
-				}
-			}()
-			rpaasInstance, debugContainerName, debugContainerStatus, err := manager.execOnPodWithContainerStatus(ctx, &tt.args, tt.instance)
+			rpaasInstance, debugContainerName, debugContainerStatus, err := manager.debugPodWithContainerStatus(ctx, &tt.args.CommonTerminalArgs, tt.args.Image, tt.instance)
 			wg.Wait()
 			if err != nil {
 				tt.assertion(t, err, manager, nil, "", nil)
