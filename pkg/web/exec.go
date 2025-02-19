@@ -47,8 +47,8 @@ func extractExecArgs(r url.Values) commonArgs {
 	width, _ := strconv.ParseUint(r.Get("width"), 10, 16)
 	height, _ := strconv.ParseUint(r.Get("height"), 10, 16)
 	return &rpaas.ExecArgs{
-		Command: r["command"],
 		CommonTerminalArgs: rpaas.CommonTerminalArgs{
+			Command:        r["command"],
 			Pod:            r.Get("pod"),
 			Container:      r.Get("container"),
 			TTY:            tty,

@@ -28,6 +28,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	corev1 "k8s.io/api/core/v1"
@@ -40,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
-	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/watch"
@@ -81,7 +81,6 @@ const (
 )
 
 var _ RpaasManager = &k8sRpaasManager{}
-var nameSuffixFunc = utilrand.String
 
 var podAllowedReasonsToFail = map[string]bool{
 	"shutdown":     true,
@@ -148,7 +147,7 @@ func (q *fixedSizeQueue) Next() *remotecommand.TerminalSize {
 }
 
 func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args DebugArgs) error {
-	instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, &args, instanceName)
+	instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, &args.CommonTerminalArgs, args.Image, instanceName)
 	if err != nil {
 		return err
 	}
@@ -180,18 +179,18 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	return executorStream(args.CommonTerminalArgs, executor, ctx)
 }
 
-func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *DebugArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {
-	if args.Image == "" && config.Get().DebugImage == "" {
+func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *CommonTerminalArgs, image string, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {
+	if image == "" && config.Get().DebugImage == "" {
 		return nil, "", nil, ValidationError{Msg: "Debug image not set and no default image configured"}
 	}
-	if args.Image == "" {
-		args.Image = config.Get().DebugImage
+	if image == "" {
+		image = config.Get().DebugImage
 	}
-	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+	instance, err := m.checkPodOnInstance(ctx, instanceName, args)
 	if err != nil {
 		return nil, "", nil, err
 	}
-	debugContainerName, err := m.generateDebugContainer(ctx, args, instance)
+	debugContainerName, err := m.getDebugContainer(ctx, args, image, instance)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -206,34 +205,52 @@ func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args 
 	return instance, debugContainerName, status, nil
 }
 
-func (m *k8sRpaasManager) generateDebugContainer(ctx context.Context, args *DebugArgs, instance *v1alpha1.RpaasInstance) (string, error) {
+func removeCertVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
+	var result []corev1.VolumeMount
+	for _, vm := range volumeMounts {
+		if !strings.HasPrefix(vm.MountPath, "/etc/nginx/certs") {
+			result = append(result, vm)
+		}
+	}
+	return result
+}
+
+func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTerminalArgs, image string, instance *v1alpha1.RpaasInstance) (string, error) {
 	instancePod := corev1.Pod{}
 	err := m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
 	if err != nil {
 		return "", err
 	}
-	debugContainerName := fmt.Sprintf("debugger-%s", nameSuffixFunc(5))
+	debugContainerName := "tsuru-debugger"
+	if ok := doesEphemeralContainerExist(&instancePod, debugContainerName); ok {
+		return debugContainerName, nil
+	}
+	rpaasInstanceVolumeMounts := removeCertVolumeMounts(instance.Spec.PodTemplate.VolumeMounts)
 	debugContainer := &corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            debugContainerName,
 			Command:         args.Command,
-			Image:           args.Image,
+			Image:           image,
 			ImagePullPolicy: corev1.PullIfNotPresent,
 			Stdin:           args.Stdin != nil,
 			TTY:             args.TTY,
-			VolumeMounts: []corev1.VolumeMount{
-				{
-					Name:      "nginx-config",
-					MountPath: "/etc/nginx",
-					ReadOnly:  true,
-				},
-			},
+			VolumeMounts:    rpaasInstanceVolumeMounts,
 		}, TargetContainerName: args.Container,
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
-	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
+	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, instancePod.Spec.EphemeralContainers...)
+	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, *debugContainer)
 	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod)
 	return debugContainerName, err
+}
+
+func doesEphemeralContainerExist(pod *corev1.Pod, debugContainerName string) bool {
+	for _, ephemeralContainer := range pod.Spec.EphemeralContainers {
+		if ephemeralContainer.Name == debugContainerName {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *corev1.Pod, instancePod corev1.Pod) error {
@@ -311,9 +328,26 @@ func getContainerStatusByName(pod *corev1.Pod, containerName string) *corev1.Con
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
-	instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
-	if err != nil {
-		return err
+	var rpaasInstance *v1alpha1.RpaasInstance
+	var execContainerName string
+	if viper.GetBool("feature-flag-ephemeral-container-shell") {
+		instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, &args.CommonTerminalArgs, "", instanceName)
+		if err != nil {
+			return err
+		}
+		if status.State.Terminated != nil {
+			req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: execContainerName})
+			return logs.DefaultConsumeRequest(req, args.Stdout)
+		}
+		rpaasInstance = instance
+		execContainerName = debugContainerName
+	} else {
+		instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+		if err != nil {
+			return err
+		}
+		rpaasInstance = instance
+		execContainerName = args.Container
 	}
 
 	req := m.kcs.
@@ -322,10 +356,10 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		Post().
 		Resource("pods").
 		Name(args.Pod).
-		Namespace(instance.Namespace).
+		Namespace(rpaasInstance.Namespace).
 		SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{
-			Container: args.Container,
+			Container: execContainerName,
 			Command:   args.Command,
 			Stdin:     args.Stdin != nil,
 			Stdout:    true,
@@ -682,7 +716,7 @@ func (m *k8sRpaasManager) GetCertificates(ctx context.Context, instanceName stri
 		nginx = &nginxv1alpha1.Nginx{}
 	}
 
-	var certMap = make(map[string]clientTypes.CertificateInfo)
+	certMap := make(map[string]clientTypes.CertificateInfo)
 	allTLS := append([]nginxv1alpha1.NginxTLS{}, instance.Spec.TLS...)
 	allTLS = append(allTLS, nginx.Spec.TLS...)
 

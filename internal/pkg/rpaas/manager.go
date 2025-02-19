@@ -199,17 +199,16 @@ type AutoscaleHandler interface {
 }
 
 type ExecArgs struct {
-	Command []string
 	CommonTerminalArgs
 }
 
 type DebugArgs struct {
-	Command []string
-	Image   string
+	Image string
 	CommonTerminalArgs
 }
 
 type CommonTerminalArgs struct {
+	Command        []string
 	Pod            string
 	Container      string
 	TerminalWidth  uint16

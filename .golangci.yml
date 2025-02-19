@@ -1,11 +1,7 @@
 run:
-  deadline: 5m
   tests: true
 
 linters-settings:
-  govet:
-    check-shadowing: true
-
   gofmt:
     simplify: true
 
