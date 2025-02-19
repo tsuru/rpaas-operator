@@ -41,7 +41,6 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
-	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/watch"
@@ -81,10 +80,7 @@ const (
 	nginxContainerName = "nginx"
 )
 
-var (
-	_              RpaasManager = &k8sRpaasManager{}
-	nameSuffixFunc              = utilrand.String
-)
+var _ RpaasManager = &k8sRpaasManager{}
 
 var podAllowedReasonsToFail = map[string]bool{
 	"shutdown":     true,
@@ -194,7 +190,7 @@ func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args 
 	if err != nil {
 		return nil, "", nil, err
 	}
-	debugContainerName, err := m.generateDebugContainer(ctx, args, image, instance)
+	debugContainerName, err := m.getDebugContainer(ctx, args, image, instance)
 	if err != nil {
 		return nil, "", nil, err
 	}
@@ -219,14 +215,17 @@ func removeCertVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMo
 	return result
 }
 
-func (m *k8sRpaasManager) generateDebugContainer(ctx context.Context, args *CommonTerminalArgs, image string, instance *v1alpha1.RpaasInstance) (string, error) {
-	rpaasInstanceVolumeMounts := removeCertVolumeMounts(instance.Spec.PodTemplate.VolumeMounts)
+func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTerminalArgs, image string, instance *v1alpha1.RpaasInstance) (string, error) {
 	instancePod := corev1.Pod{}
 	err := m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
 	if err != nil {
 		return "", err
 	}
-	debugContainerName := fmt.Sprintf("debugger-%s", nameSuffixFunc(5))
+	debugContainerName := "tsuru-debugger"
+	if ok := doesEphemeralContainerExist(&instancePod, debugContainerName); ok {
+		return debugContainerName, nil
+	}
+	rpaasInstanceVolumeMounts := removeCertVolumeMounts(instance.Spec.PodTemplate.VolumeMounts)
 	debugContainer := &corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            debugContainerName,
@@ -239,9 +238,19 @@ func (m *k8sRpaasManager) generateDebugContainer(ctx context.Context, args *Comm
 		}, TargetContainerName: args.Container,
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
-	instancePodWithDebug.Spec.EphemeralContainers = append(instancePod.Spec.EphemeralContainers, *debugContainer)
+	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, instancePod.Spec.EphemeralContainers...)
+	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, *debugContainer)
 	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod)
 	return debugContainerName, err
+}
+
+func doesEphemeralContainerExist(pod *corev1.Pod, debugContainerName string) bool {
+	for _, ephemeralContainer := range pod.Spec.EphemeralContainers {
+		if ephemeralContainer.Name == debugContainerName {
+			return true
+		}
+	}
+	return false
 }
 
 func (m *k8sRpaasManager) patchEphemeralContainers(ctx context.Context, instancePodWithDebug *corev1.Pod, instancePod corev1.Pod) error {
