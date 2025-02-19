@@ -225,6 +225,7 @@ forbidden-annotations-prefixes:
 				WebSocketWriteWait:           time.Second,
 				NewInstanceReplicas:          1,
 				ForbiddenAnnotationsPrefixes: []string{"rpaas.extensions.tsuru.io", "afh.tsuru.io"},
+				DebugImage:                   "tsuru/netshoot",
 			}
 			if tt.expected != nil {
 				expected = tt.expected(expected)
