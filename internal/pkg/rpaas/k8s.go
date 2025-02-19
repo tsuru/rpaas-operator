@@ -28,6 +28,7 @@ import (
 	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/hashicorp/go-multierror"
 	"github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
 	corev1 "k8s.io/api/core/v1"
@@ -318,13 +319,26 @@ func getContainerStatusByName(pod *corev1.Pod, containerName string) *corev1.Con
 }
 
 func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args ExecArgs) error {
-	instance, execContainerName, status, err := m.debugPodWithContainerStatus(ctx, &args.CommonTerminalArgs, "", instanceName)
-	if err != nil {
-		return err
-	}
-	if status.State.Terminated != nil {
-		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: execContainerName})
-		return logs.DefaultConsumeRequest(req, args.Stdout)
+	var rpaasInstance *v1alpha1.RpaasInstance
+	var execContainerName string
+	if viper.GetBool("feature-flag-ephemeral-container-shell") {
+		instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, &args.CommonTerminalArgs, "", instanceName)
+		if err != nil {
+			return err
+		}
+		if status.State.Terminated != nil {
+			req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: execContainerName})
+			return logs.DefaultConsumeRequest(req, args.Stdout)
+		}
+		rpaasInstance = instance
+		execContainerName = debugContainerName
+	} else {
+		instance, err := m.checkPodOnInstance(ctx, instanceName, &args.CommonTerminalArgs)
+		if err != nil {
+			return err
+		}
+		rpaasInstance = instance
+		execContainerName = args.Container
 	}
 
 	req := m.kcs.
@@ -333,7 +347,7 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 		Post().
 		Resource("pods").
 		Name(args.Pod).
-		Namespace(instance.Namespace).
+		Namespace(rpaasInstance.Namespace).
 		SubResource("exec").
 		VersionedParams(&corev1.PodExecOptions{
 			Container: execContainerName,

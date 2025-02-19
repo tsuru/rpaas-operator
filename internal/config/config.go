@@ -114,6 +114,7 @@ func Init() error {
 	viper.SetDefault("new-instance-replicas", 1)
 	viper.SetDefault("forbidden-annotations-prefixes", []string{"rpaas.extensions.tsuru.io", "afh.tsuru.io"})
 	viper.SetDefault("debug-image", "tsuru/netshoot")
+	viper.SetDefault("feature-flag-ephemeral-container-shell", false)
 	viper.AutomaticEnv()
 	err := readConfig()
 	if err != nil {
