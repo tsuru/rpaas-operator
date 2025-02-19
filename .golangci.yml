@@ -1,5 +1,4 @@
 run:
-  deadline: 5m
   tests: true
 
 linters-settings:
