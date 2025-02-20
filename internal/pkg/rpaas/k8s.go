@@ -205,13 +205,26 @@ func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args 
 	return instance, debugContainerName, status, nil
 }
 
-func removeCertVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
+func assembleEphemeralVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
 	var result []corev1.VolumeMount
 	for _, vm := range volumeMounts {
-		if !strings.HasPrefix(vm.MountPath, "/etc/nginx/certs") {
-			result = append(result, vm)
+		// NOTE(ravilock): K8s does not support ephemeral containers with volume mounts that have subpaths.
+		if vm.SubPath != "" {
+			continue
 		}
+		if strings.HasPrefix(vm.MountPath, "/etc/nginx/certs") {
+			continue
+		}
+		if vm.Name == "nginx-config" {
+			continue
+		}
+		result = append(result, vm)
 	}
+	result = append(result, corev1.VolumeMount{
+		Name:      "nginx-config",
+		MountPath: "/etc/nginx",
+		ReadOnly:  true,
+	})
 	return result
 }
 
@@ -238,7 +251,7 @@ func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTer
 	if nginxContainer == nil {
 		return "", errors.New("nginx container not found in pod")
 	}
-	rpaasInstanceVolumeMounts := removeCertVolumeMounts(nginxContainer.VolumeMounts)
+	rpaasInstanceVolumeMounts := assembleEphemeralVolumeMounts(nginxContainer.VolumeMounts)
 	debugContainer := &corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            debugContainerName,

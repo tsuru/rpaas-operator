@@ -5275,7 +5275,7 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 		{
 			Name:      "certs-test",
 			ReadOnly:  true,
-			MountPath: "/etc/nginx/certs/",
+			MountPath: "/etc/nginx/certs/test",
 		},
 		{
 			Name:      "extra-files-0",
@@ -5287,21 +5287,30 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 			Name:      "extra-files-1",
 			MountPath: "/etc/nginx/extra_files/binary.exe",
 			SubPath:   "binary.exe",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "extra-files-2",
+			MountPath: "/etc/nginx/extra_files_2",
+			ReadOnly:  true,
+		},
+		{
+			Name:      "nginx-config",
+			MountPath: "/etc/nginx/nginx.conf",
+			SubPath:   "nginx.conf",
 			ReadOnly:  true,
 		},
 	}
 
 	expectedVolumeMounts := []corev1.VolumeMount{
 		{
-			Name:      "extra-files-0",
-			MountPath: "/etc/nginx/extra_files/waf.cfg",
-			SubPath:   "waf.cfg",
+			Name:      "extra-files-2",
+			MountPath: "/etc/nginx/extra_files_2",
 			ReadOnly:  true,
 		},
 		{
-			Name:      "extra-files-1",
-			MountPath: "/etc/nginx/extra_files/binary.exe",
-			SubPath:   "binary.exe",
+			Name:      "nginx-config",
+			MountPath: "/etc/nginx",
 			ReadOnly:  true,
 		},
 	}
