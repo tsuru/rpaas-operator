@@ -215,6 +215,15 @@ func removeCertVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMo
 	return result
 }
 
+func findNginxContainerFromPod(pod *corev1.Pod) *corev1.Container {
+	for _, container := range pod.Spec.Containers {
+		if container.Name == nginxContainerName {
+			return &container
+		}
+	}
+	return nil
+}
+
 func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTerminalArgs, image string, instance *v1alpha1.RpaasInstance) (string, error) {
 	instancePod := corev1.Pod{}
 	err := m.cli.Get(ctx, types.NamespacedName{Name: args.Pod, Namespace: instance.Namespace}, &instancePod)
@@ -225,7 +234,11 @@ func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTer
 	if ok := doesEphemeralContainerExist(&instancePod, debugContainerName); ok {
 		return debugContainerName, nil
 	}
-	rpaasInstanceVolumeMounts := removeCertVolumeMounts(instance.Spec.PodTemplate.VolumeMounts)
+	nginxContainer := findNginxContainerFromPod(&instancePod)
+	if nginxContainer == nil {
+		return "", errors.New("nginx container not found in pod")
+	}
+	rpaasInstanceVolumeMounts := removeCertVolumeMounts(nginxContainer.VolumeMounts)
 	debugContainer := &corev1.EphemeralContainer{
 		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
 			Name:            debugContainerName,

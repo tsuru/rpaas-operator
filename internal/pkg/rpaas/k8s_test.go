@@ -1060,7 +1060,7 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 	}
 }
 
-func newEmptyRpaasInstance(volumeMounts ...corev1.VolumeMount) *v1alpha1.RpaasInstance {
+func newEmptyRpaasInstance() *v1alpha1.RpaasInstance {
 	return &v1alpha1.RpaasInstance{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "extensions.tsuru.io/v1alpha1",
@@ -1071,9 +1071,7 @@ func newEmptyRpaasInstance(volumeMounts ...corev1.VolumeMount) *v1alpha1.RpaasIn
 			Namespace: getServiceName(),
 		},
 		Spec: v1alpha1.RpaasInstanceSpec{
-			PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
-				VolumeMounts: volumeMounts,
-			},
+			PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{},
 		},
 	}
 }
@@ -5308,15 +5306,15 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 		},
 	}
 
-	instance1 := newEmptyRpaasInstance(volumeMounts...)
+	instance1 := newEmptyRpaasInstance()
 	instance1.ObjectMeta.Name = "instance1"
-	instance2 := newEmptyRpaasInstance(volumeMounts...)
+	instance2 := newEmptyRpaasInstance()
 	instance2.ObjectMeta.Name = "instance2"
-	instance3 := newEmptyRpaasInstance(volumeMounts...)
+	instance3 := newEmptyRpaasInstance()
 	instance3.ObjectMeta.Name = "instance3"
-	instance4 := newEmptyRpaasInstance(volumeMounts...)
+	instance4 := newEmptyRpaasInstance()
 	instance4.ObjectMeta.Name = "instance4"
-	instance5 := newEmptyRpaasInstance(volumeMounts...)
+	instance5 := newEmptyRpaasInstance()
 	instance5.ObjectMeta.Name = "instance5"
 
 	nginx1 := &nginxv1alpha1.Nginx{
@@ -5366,7 +5364,10 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				{Name: "nginx"},
+				{
+					Name:         "nginx",
+					VolumeMounts: volumeMounts,
+				},
 			},
 		},
 	}
@@ -5392,7 +5393,10 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 		},
 		Spec: corev1.PodSpec{
 			Containers: []corev1.Container{
-				{Name: "nginx"},
+				{
+					Name:         "nginx",
+					VolumeMounts: volumeMounts,
+				},
 			},
 		},
 	}
