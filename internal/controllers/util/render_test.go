@@ -338,6 +338,80 @@ func TestRenderCustomValues(t *testing.T) {
 				},
 			},
 		},
+		"with custom pod spec": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "sidecar1",
+								Env: []corev1.EnvVar{
+									{Name: "EXAMPLE_ENV1", Value: `{{ .Namespace }}`},
+									{Name: "EXAMPLE_ENV2", Value: `{{ .Name }}`},
+								},
+							},
+							{
+								Name:    "sidecar2",
+								Command: []string{"echo", `{{ .Namespace }}`, `{{ .Name }}`},
+							},
+							{
+								Name: "sidecar3",
+								Args: []string{`{{ .Namespace }}`, `{{ .Name }}`},
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								Name: "init-container",
+								Env: []corev1.EnvVar{
+									{Name: "EXAMPLE_ENV1", Value: `{{ .Namespace }}`},
+									{Name: "EXAMPLE_ENV2", Value: `{{ .Name }}`},
+								},
+							},
+						},
+					},
+				},
+			},
+			expected: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
+						Containers: []corev1.Container{
+							{
+								Name: "sidecar1",
+								Env: []corev1.EnvVar{
+									{Name: "EXAMPLE_ENV1", Value: "rpaasv2"},
+									{Name: "EXAMPLE_ENV2", Value: "my-instance"},
+								},
+							},
+							{
+								Name:    "sidecar2",
+								Command: []string{"echo", "rpaasv2", "my-instance"},
+							},
+							{
+								Name: "sidecar3",
+								Args: []string{"rpaasv2", "my-instance"},
+							},
+						},
+						InitContainers: []corev1.Container{
+							{
+								Name: "init-container",
+								Env: []corev1.EnvVar{
+									{Name: "EXAMPLE_ENV1", Value: "rpaasv2"},
+									{Name: "EXAMPLE_ENV2", Value: "my-instance"},
+								},
+							},
+						},
+					},
+				},
+			},
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
