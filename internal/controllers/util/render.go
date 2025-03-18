@@ -41,7 +41,11 @@ func RenderCustomValues(instance *v1alpha1.RpaasInstance) error {
 		return err
 	}
 
-	return renderAffinityCustomValues(instance)
+	if err := renderAffinityCustomValues(instance); err != nil {
+		return err
+	}
+
+	return renderPodSpec(instance)
 }
 
 func renderServiceCustomAnnotations(instance *v1alpha1.RpaasInstance) error {
@@ -185,4 +189,53 @@ func renderTemplate(instance *v1alpha1.RpaasInstance, templateStr string) (strin
 	}
 
 	return buffer.String(), nil
+}
+
+func renderPodSpec(instance *v1alpha1.RpaasInstance) error {
+	if instance.Spec.PodTemplate.InitContainers != nil {
+		if err := renderContainerSpec(instance, instance.Spec.PodTemplate.InitContainers); err != nil {
+			return err
+		}
+	}
+
+	if instance.Spec.PodTemplate.Containers != nil {
+		if err := renderContainerSpec(instance, instance.Spec.PodTemplate.Containers); err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func renderContainerSpec(instance *v1alpha1.RpaasInstance, containers []corev1.Container) error {
+	for i := range containers {
+		for j, arg := range containers[i].Args {
+			renderedArg, err := renderTemplate(instance, arg)
+			if err != nil {
+				return err
+			}
+			containers[i].Args[j] = renderedArg
+		}
+
+		for j, cmd := range containers[i].Command {
+			renderedCmd, err := renderTemplate(instance, cmd)
+			if err != nil {
+				return err
+			}
+			containers[i].Command[j] = renderedCmd
+		}
+
+		for j, env := range containers[i].Env {
+			if env.Value != "" {
+				renderedValue, err := renderTemplate(instance, env.Value)
+				if err != nil {
+					return err
+				}
+				containers[i].Env[j].Value = renderedValue
+			}
+		}
+
+	}
+
+	return nil
 }
