@@ -157,6 +157,7 @@ type InstanceInfo struct {
 	PlanOverride *v1alpha1.RpaasPlanSpec  `json:"planOverride,omitempty"`
 	ExtraFiles   []RpaasFile              `json:"extraFiles,omitempty"`
 	Shutdown     bool                     `json:"shutdown"`
+	Image        string                   `json:"image,omitempty"`
 }
 
 type AllowedUpstream struct {

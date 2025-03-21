@@ -1833,6 +1833,8 @@ func (m *k8sRpaasManager) GetInstanceInfo(ctx context.Context, instanceName stri
 		return nil, err
 	}
 
+	info.Image = nginx.Spec.Image
+
 	info.Addresses, err = m.getInstanceAddresses(ctx, nginx)
 	if err != nil {
 		return nil, err

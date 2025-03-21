@@ -79,21 +79,32 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 	Parse(`
 {{- $instance := . -}}
 Name: {{ .Name }}
-{{- if .Dashboard}}
-Dashboard: {{ .Dashboard }}
+{{- with .Dashboard}}
+Dashboard: {{ . }}
 {{- end }}
-Description: {{ .Description }}
+{{- with .Description}}
+Description: {{ . }}
+{{- end }}
 Tags: {{ join ", " .Tags }}
-Annotations: {{ join ", " .Annotations }}
+{{- with .Annotations}}
+Annotations: {{ join ", " . }}
+{{- end }}
 Team owner: {{ .Team }}
 Plan: {{ .Plan }}
-Flavors: {{ join ", " .Flavors }}
-Shutdown: {{ .Shutdown }}
+{{- with .Flavors}}
+Flavors: {{ join ", " . }}
+{{- end }}
+{{- with .Shutdown }}
+Shutdown: {{ . }}
+{{- end }}
 {{- with .Cluster}}
 Cluster: {{ . }}
 {{- end }}
 {{- with .Pool }}
 Pool: {{ . }}
+{{- end }}
+{{- with .Image}}
+Image: {{ . }}
 {{- end }}
 
 {{- with .PlanOverride }}{{ "\n" }}
