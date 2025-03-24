@@ -92,7 +92,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	podAnnotations, nginxTLS := newNginxTLS(&logger, certificateSecrets, validationMergedWithFlavors.Spec.TLS, certManagerCertificates)
+	certificatePodAnnotations, nginxTLS := newNginxTLS(&logger, certificateSecrets, validationMergedWithFlavors.Spec.TLS, certManagerCertificates)
 
 	rendered, err := r.renderTemplate(ctx, validationMergedWithFlavors, plan, nginxTLS)
 	if err != nil {
@@ -105,7 +105,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 		return reconcile.Result{}, err
 	}
 
-	validationHash, err := generateSpecHash(&validation.Spec)
+	validationHash, err := generateSpecHash(&validation.Spec, certificatePodAnnotations)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
@@ -114,7 +114,7 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	if pod.Annotations == nil {
 		pod.Annotations = make(map[string]string)
 	}
-	for k, v := range podAnnotations {
+	for k, v := range certificatePodAnnotations {
 		pod.Annotations[k] = v
 	}
 

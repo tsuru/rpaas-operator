@@ -1342,16 +1342,29 @@ func keyHashAnnotationKey(certName string) string {
 	return fmt.Sprintf(keyFormat, certName)
 }
 
-func generateSpecHash(spec any) (string, error) {
+func generateSpecHash(spec *v1alpha1.RpaasInstanceSpec, certificatePodAnnotations map[string]string) (string, error) {
 	if spec == nil {
 		return "", nil
 	}
+
+	hasher := sha256.New()
+
 	data, err := json.Marshal(spec)
 	if err != nil {
 		return "", err
 	}
-	hash := sha256.Sum256(data)
-	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash[:])), nil
+	hasher.Write(data)
+
+	if len(certificatePodAnnotations) > 0 {
+		data, err = json.Marshal(certificatePodAnnotations)
+		if err != nil {
+			return "", err
+		}
+		hasher.Write(data)
+
+	}
+	hash := hasher.Sum(nil)
+	return strings.ToLower(base32.StdEncoding.WithPadding(base32.NoPadding).EncodeToString(hash)), nil
 }
 
 func buildNGNIXContainerMetrics(instance *v1alpha1.RpaasInstance) []autoscalingv2.MetricSpec {
