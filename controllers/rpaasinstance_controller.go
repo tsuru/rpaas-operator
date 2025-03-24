@@ -69,31 +69,11 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	if err != nil {
 		return reconcile.Result{}, err
 	}
-
-	instanceHash, err := generateSpecHash(&instance.Spec)
-	if err != nil {
-		return reconcile.Result{}, err
-	}
-
-	systemRollout := isSystemRollout(instanceHash, instance)
-
-	var rolloutAllowed bool
 	var reservation SystemRolloutReservation
-	if systemRollout {
-		rolloutAllowed, reservation = r.SystemRateLimiter.Reserve()
-
-		if !rolloutAllowed {
-			return ctrl.Result{
-				Requeue:      true,
-				RequeueAfter: time.Minute,
-			}, nil
-		}
-	} else {
-		reservation = NoopReservation()
-	}
-
 	var reportError = func(err error) (ctrl.Result, error) {
-		reservation.Cancel()
+		if reservation != nil {
+			reservation.Cancel()
+		}
 		return ctrl.Result{}, err
 	}
 
@@ -163,6 +143,27 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 	}
 
 	certificatePodAnnotations, nginxTLS := newNginxTLS(&logger, certificateSecrets, instanceMergedWithFlavors.Spec.TLS, certManagerCertificates)
+
+	instanceHash, err := generateSpecHash(&instance.Spec, certificatePodAnnotations)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	systemRollout := isSystemRollout(instanceHash, instance)
+
+	var rolloutAllowed bool
+	if systemRollout {
+		rolloutAllowed, reservation = r.SystemRateLimiter.Reserve()
+
+		if !rolloutAllowed {
+			return ctrl.Result{
+				Requeue:      true,
+				RequeueAfter: time.Minute,
+			}, nil
+		}
+	} else {
+		reservation = NoopReservation()
+	}
 
 	rendered, err := r.renderTemplate(ctx, instanceMergedWithFlavors, plan, nginxTLS)
 	if err != nil {
