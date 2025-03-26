@@ -21,13 +21,11 @@ var corsMacro = Macro{
 		{Name: "allowMethods", Default: "GET, POST, PUT, DELETE, OPTIONS", Required: false, Type: MacroArgTypeString},
 		{Name: "allowHeaders", Default: "Content-Type, Authorization", Required: false, Type: MacroArgTypeString},
 		{Name: "allowCredentials", Default: "true", Required: false, Type: MacroArgTypeBool},
-		{Name: "exposeHeaders", Required: false, Type: MacroArgTypeString},
 		{Name: "maxAge", Default: "3600", Required: false, Type: MacroArgTypeInt},
 		{Name: "optionsStatusCode", Default: "200", Required: false, Type: MacroArgTypeInt},
 	},
 
-	Template: `
-{{ if .Origins }}
+	Template: `{{- if .Origins -}}
 {{ buildCorsOriginRegex .Origins }}
 {{ end }}
 if ($request_method = 'OPTIONS') {
@@ -36,7 +34,9 @@ if ($request_method = 'OPTIONS') {
 
 if ($cors = "true") {
     more_set_headers 'Access-Control-Allow-Origin: $http_origin';
-    {{ if .AllowCredentials }}more_set_headers 'Access-Control-Allow-Credentials: {{ .AllowCredentials }}';{{ end }}
+    {{- if .AllowCredentials }}
+    more_set_headers 'Access-Control-Allow-Credentials: {{ .AllowCredentials }}';
+	{{- end }}
     more_set_headers 'Access-Control-Allow-Methods: {{ .AllowMethods }}';
     more_set_headers 'Access-Control-Allow-Headers: {{ .AllowHeaders }}';
     more_set_headers 'Access-Control-Max-Age: {{ .MaxAge }}';
@@ -44,7 +44,9 @@ if ($cors = "true") {
 
 if ($cors = "trueoptions") {
     more_set_headers 'Access-Control-Allow-Origin: $http_origin';
-    {{ if .AllowCredentials }}more_set_headers 'Access-Control-Allow-Credentials: {{ .AllowCredentials }}';{{ end }}
+    {{- if .AllowCredentials }}
+    more_set_headers 'Access-Control-Allow-Credentials: {{ .AllowCredentials }}';
+	{{- end }}
     more_set_headers 'Access-Control-Allow-Methods: {{ .AllowMethods }}';
     more_set_headers 'Access-Control-Allow-Headers: {{ .AllowHeaders }}';
     more_set_headers 'Access-Control-Max-Age: {{ .MaxAge }}';
