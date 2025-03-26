@@ -42,7 +42,10 @@ type MacroArg struct {
 var macros = map[string]*Macro{}
 
 func init() {
-	register(&corsMacro)
+	register(&cors)
+	register(&securityHeaders)
+	register(&proxyPassWithHeaders)
+	register(&geoIP2Headers)
 }
 
 func register(macro *Macro) {

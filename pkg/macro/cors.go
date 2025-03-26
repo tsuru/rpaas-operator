@@ -14,7 +14,7 @@ import (
 // cors macro inspired by:
 // https://pkg.go.dev/k8s.io/ingress-nginx/internal/ingress/annotations/cors#Config
 // https://github.com/alibaba/tengine-ingress/blob/79c30697fe844e798f70b17c9b1bd7212806da68/rootfs/etc/nginx/template/nginx.tmpl#L836
-var corsMacro = Macro{
+var cors = Macro{
 	Name: "cors",
 	Args: []MacroArg{
 		{Name: "origins", Required: true, Type: MacroArgTypeString},
