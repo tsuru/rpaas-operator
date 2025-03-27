@@ -41,6 +41,7 @@ type ConfigurationBlocks struct {
 type ConfigurationData struct {
 	Config   *v1alpha1.NginxConfig
 	Instance *v1alpha1.RpaasInstance
+	Plan     *v1alpha1.RpaasPlan
 	NginxTLS []nginxv1alpha1.NginxTLS
 	Servers  []*Server
 	Binds    []clientTypes.Bind

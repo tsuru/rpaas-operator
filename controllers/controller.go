@@ -1008,6 +1008,7 @@ func (r *RpaasInstanceReconciler) renderTemplate(ctx context.Context, instance *
 	config := nginx.ConfigurationData{
 		Instance: instanceWithNginxTLS,
 		Config:   &plan.Spec.Config,
+		Plan:     plan,
 		NginxTLS: nginxTLS,
 	}
 

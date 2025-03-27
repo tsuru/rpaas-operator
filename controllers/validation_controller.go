@@ -325,6 +325,7 @@ func (r *RpaasValidationReconciler) renderTemplate(ctx context.Context, validati
 			Spec: validationWithNginxTLS.Spec,
 		},
 		Config:   &plan.Spec.Config,
+		Plan:     plan,
 		NginxTLS: nginxTLS,
 	}
 
