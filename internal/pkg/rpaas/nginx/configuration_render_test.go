@@ -5,7 +5,10 @@
 package nginx
 
 import (
+	"bytes"
+	"fmt"
 	"testing"
+	"text/template"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -789,5 +792,38 @@ func TestK8sQuantityToNginx(t *testing.T) {
 		k8sQuantity := resource.MustParse(expectation.k8sQuantity)
 		nginxQuantity := k8sQuantityToNginx(&k8sQuantity)
 		assert.Equal(t, expectation.nginxQuantity, nginxQuantity)
+	}
+}
+
+func TestSemanticCompare(t *testing.T) {
+	tpl := `{{ .Plan.Spec.Image | splitList ":" | last | splitList "-" | first | semverCompare ">= 1.26.3" }}`
+
+	var parsedTpl = template.Must(template.New("main").
+		Funcs(templateFuncs).
+		Parse(tpl))
+
+	cases := map[string]bool{
+		"v1.6":         false,
+		"1.26.2":       false,
+		"1.26.3":       true,
+		"1.26.3-0.8.1": true,
+		"1.26.4":       true,
+		"1.27.0":       true,
+		"1.27.0-0.9.0": true,
+	}
+
+	for c, expected := range cases {
+		t.Run(c, func(t *testing.T) {
+			var buf bytes.Buffer
+			parsedTpl.Execute(&buf, ConfigurationData{
+				Plan: &v1alpha1.RpaasPlan{
+					Spec: v1alpha1.RpaasPlanSpec{
+						Image: "repository.something.com/namespace/letsgo/nginx-tsuru:" + c,
+					},
+				},
+			})
+
+			assert.Equal(t, fmt.Sprintf("%v", expected), buf.String())
+		})
 	}
 }
