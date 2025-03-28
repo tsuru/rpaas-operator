@@ -9,6 +9,8 @@ import (
 	"regexp"
 	"strings"
 	"text/template"
+
+	"k8s.io/utils/ptr"
 )
 
 // cors macro inspired by:
@@ -17,7 +19,7 @@ import (
 var cors = Macro{
 	Name: "cors",
 	Args: []MacroArg{
-		{Name: "origins", Required: true, Type: MacroArgTypeString},
+		{Name: "origins", Required: true, Type: MacroArgTypeString, Pos: ptr.To(0)},
 		{Name: "allowMethods", Default: "GET, POST, PUT, DELETE, OPTIONS", Required: false, Type: MacroArgTypeString},
 		{Name: "allowHeaders", Default: "Content-Type, Authorization", Required: false, Type: MacroArgTypeString},
 		{Name: "allowCredentials", Default: "true", Required: false, Type: MacroArgTypeBool},

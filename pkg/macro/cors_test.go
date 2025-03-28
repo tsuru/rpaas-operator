@@ -68,6 +68,38 @@ if ($cors = "trueoptions") {
 `, result)
 }
 
+func TestExecuteCorsWithArg(t *testing.T) {
+	result, err := macro.Execute("cors", []string{
+		"http://example.com",
+	}, nil)
+	assert.NoError(t, err)
+	assert.Equal(t, `if ($http_origin ~* ((http://example\.com))$ ) { set $cors 'true'; }
+
+if ($request_method = 'OPTIONS') {
+	set $cors ${cors}options;
+}
+
+if ($cors = "true") {
+    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Credentials: true';
+    more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
+    more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
+    more_set_headers 'Access-Control-Max-Age: 3600';
+}
+
+if ($cors = "trueoptions") {
+    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Credentials: true';
+    more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
+    more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
+    more_set_headers 'Access-Control-Max-Age: 3600';
+    more_set_headers 'Content-Type: text/plain charset=UTF-8';
+    more_set_headers 'Content-Length: 0';
+    return 200;
+}
+`, result)
+}
+
 func TestExecuteCorsWildcard(t *testing.T) {
 	result, err := macro.Execute("cors", nil, map[string]string{
 		"origins": "*",
