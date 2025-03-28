@@ -12,6 +12,8 @@ import (
 	"strconv"
 	"strings"
 	"text/template"
+
+	"github.com/pkg/errors"
 )
 
 type Macro struct {
@@ -57,6 +59,16 @@ func register(macro *Macro) {
 var detectMacroRegex = regexp.MustCompile(`^(\s+)?([A-Z_]+)(.*);$`)
 
 func Expand(input string) (string, error) {
+	return ExpandWithOptions(input, ExpandOptions{
+		IgnoreSyntaxErrors: true,
+	})
+}
+
+type ExpandOptions struct {
+	IgnoreSyntaxErrors bool
+}
+
+func ExpandWithOptions(input string, opts ExpandOptions) (string, error) {
 	lines := strings.Split(input, "\n")
 	var output strings.Builder
 
@@ -74,19 +86,21 @@ func Expand(input string) (string, error) {
 
 		parsedMacro, err := ParseExp(name + " " + args)
 		if err != nil {
+			if !opts.IgnoreSyntaxErrors {
+				return "", errors.Wrap(err, "Invalid macro syntax")
+			}
 			output.WriteString(line)
 			output.WriteString("\n")
-
-			fmt.Println("Error parsing macro:", err)
 			continue
-
 		}
 
 		result, err := Execute(strings.ToLower(parsedMacro.Name), listArgs(parsedMacro), mapKwargs(parsedMacro))
 		if err != nil {
+			if !opts.IgnoreSyntaxErrors {
+				return "", errors.Wrapf(err, "Invalid macro %q", parsedMacro.Name)
+			}
 			output.WriteString(line)
 			output.WriteString("\n")
-			fmt.Println("Error parsing macro:", err)
 			continue
 		}
 		output.WriteString(indentBlock(result, identation))
