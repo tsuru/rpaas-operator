@@ -13,13 +13,13 @@ import (
 )
 
 func TestExecuteCorsEmpty(t *testing.T) {
-	_, err := macro.Execute("cors", map[string]string{})
+	_, err := macro.Execute("cors", nil, map[string]string{})
 	assert.Error(t, err)
 	assert.Equal(t, "missing required argument \"origins\"", err.Error())
 }
 
 func TestExecuteCorsBasic(t *testing.T) {
-	result, err := macro.Execute("cors", map[string]string{
+	result, err := macro.Execute("cors", nil, map[string]string{
 		"origins": "http://example.com",
 	})
 	assert.NoError(t, err)
@@ -35,7 +35,7 @@ if ($cors = "true") {
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
     more_set_headers 'Access-Control-Max-Age: 3600';
- }
+}
 
 if ($cors = "trueoptions") {
     more_set_headers 'Access-Control-Allow-Origin: $http_origin';
@@ -46,12 +46,12 @@ if ($cors = "trueoptions") {
     more_set_headers 'Content-Type: text/plain charset=UTF-8';
     more_set_headers 'Content-Length: 0';
     return 200;
- }
+}
 `, result)
 }
 
 func TestExecuteCorsWildcard(t *testing.T) {
-	result, err := macro.Execute("cors", map[string]string{
+	result, err := macro.Execute("cors", nil, map[string]string{
 		"origins": "*",
 	})
 	assert.NoError(t, err)
@@ -68,7 +68,7 @@ if ($cors = "true") {
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
     more_set_headers 'Access-Control-Max-Age: 3600';
- }
+}
 
 if ($cors = "trueoptions") {
     more_set_headers 'Access-Control-Allow-Origin: $http_origin';
@@ -79,12 +79,12 @@ if ($cors = "trueoptions") {
     more_set_headers 'Content-Type: text/plain charset=UTF-8';
     more_set_headers 'Content-Length: 0';
     return 200;
- }
+}
 `, result)
 }
 
 func TestExecuteCorsFullFeatured(t *testing.T) {
-	result, err := macro.Execute("cors", map[string]string{
+	result, err := macro.Execute("cors", nil, map[string]string{
 		"origins":           "http://example.com, https://facebook.com, http://*.example.com",
 		"allowMethods":      "GET, POST, PUT, PATCH",
 		"allowHeaders":      "Content-Type, Authorization, X-Custom-Header",
@@ -105,7 +105,7 @@ if ($cors = "true") {
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization, X-Custom-Header';
     more_set_headers 'Access-Control-Max-Age: 7200';
- }
+}
 
 if ($cors = "trueoptions") {
     more_set_headers 'Access-Control-Allow-Origin: $http_origin';
@@ -115,6 +115,6 @@ if ($cors = "trueoptions") {
     more_set_headers 'Content-Type: text/plain charset=UTF-8';
     more_set_headers 'Content-Length: 0';
     return 204;
- }
+}
 `, result)
 }

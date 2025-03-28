@@ -4,12 +4,16 @@
 
 package macro
 
-import "text/template"
+import (
+	"text/template"
+
+	"k8s.io/utils/ptr"
+)
 
 var proxyPassWithHeaders = Macro{
 	Name: "proxy_pass_with_headers",
 	Args: []MacroArg{
-		{Name: "destination", Required: true, Type: MacroArgTypeString},
+		{Name: "destination", Required: true, Type: MacroArgTypeString, Pos: ptr.To(0)},
 		{Name: "headerHost", Default: "${server_name}", Required: false, Type: MacroArgTypeString},
 		{Name: "geoip2", Default: "false", Required: false, Type: MacroArgTypeBool},
 	},

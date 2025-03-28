@@ -14,7 +14,7 @@ import (
 )
 
 func TestSecurityHeadersBasic(t *testing.T) {
-	result, err := macro.Execute("security_headers", map[string]string{})
+	result, err := macro.Execute("security_headers", nil, map[string]string{})
 	require.NoError(t, err)
 	assert.Equal(t, `more_set_headers 'X-Content-Type-Options: nosniff';
 more_set_headers 'X-XSS-Protection: 1; mode=block';
@@ -26,7 +26,7 @@ more_set_headers 'Strict-Transport-Security: max-age=31536000; includeSubDomains
 }
 
 func TestSecurityHeadersDisableForceHTTP(t *testing.T) {
-	result, err := macro.Execute("security_headers", map[string]string{
+	result, err := macro.Execute("security_headers", nil, map[string]string{
 		"forceHTTPS": "false",
 	})
 	require.NoError(t, err)
@@ -39,7 +39,7 @@ more_set_headers 'Content-Security-Policy: upgrade-insecure-requests';
 }
 
 func TestSecurityDenyFrameOptions(t *testing.T) {
-	result, err := macro.Execute("security_headers", map[string]string{
+	result, err := macro.Execute("security_headers", nil, map[string]string{
 		"frameOptions": "DENY",
 	})
 	require.NoError(t, err)
@@ -53,7 +53,7 @@ more_set_headers 'Strict-Transport-Security: max-age=31536000; includeSubDomains
 }
 
 func TestSecurityNoop(t *testing.T) {
-	result, err := macro.Execute("security_headers", map[string]string{
+	result, err := macro.Execute("security_headers", nil, map[string]string{
 		"noSniffContentType":         "false",
 		"xssProtection":              "false",
 		"frameOptions":               "NONE",

@@ -40,7 +40,7 @@ if ($cors = "true") {
     more_set_headers 'Access-Control-Allow-Methods: {{ .AllowMethods }}';
     more_set_headers 'Access-Control-Allow-Headers: {{ .AllowHeaders }}';
     more_set_headers 'Access-Control-Max-Age: {{ .MaxAge }}';
- }
+}
 
 if ($cors = "trueoptions") {
     more_set_headers 'Access-Control-Allow-Origin: $http_origin';
@@ -53,7 +53,7 @@ if ($cors = "trueoptions") {
     more_set_headers 'Content-Type: text/plain charset=UTF-8';
     more_set_headers 'Content-Length: 0';
     return {{ .OptionsStatusCode }};
- }
+}
 `,
 	TemplateFuncMap: template.FuncMap{
 		"buildCorsOriginRegex": buildCorsOriginRegex,

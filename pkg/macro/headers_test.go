@@ -13,7 +13,7 @@ import (
 )
 
 func TestProxyPassWithHeaders(t *testing.T) {
-	result, err := macro.Execute("proxy_pass_with_headers", map[string]string{
+	result, err := macro.Execute("proxy_pass_with_headers", nil, map[string]string{
 		"destination": "http://example.com",
 	})
 	require.NoError(t, err)
@@ -31,8 +31,27 @@ proxy_pass http://example.com;`, result)
 
 }
 
+func TestProxyPassWithHeadersSimple(t *testing.T) {
+	result, err := macro.Execute("proxy_pass_with_headers", []string{
+		"http://example.com",
+	}, nil)
+	require.NoError(t, err)
+	assert.Equal(t, `
+proxy_set_header Connection        '';
+proxy_set_header Host              ${server_name};
+proxy_set_header X-Forwarded-For   ${proxy_add_x_forwarded_for};
+proxy_set_header X-Forwarded-Host  ${server_name};
+proxy_set_header X-Forwarded-Proto ${scheme};
+proxy_set_header X-Real-IP         ${remote_addr};
+proxy_set_header X-Request-Id      ${request_id_final};
+proxy_set_header Early-Data        ${ssl_early_data};
+
+proxy_pass http://example.com;`, result)
+
+}
+
 func TestProxyPassWithHeadersFullFeatured(t *testing.T) {
-	result, err := macro.Execute("proxy_pass_with_headers", map[string]string{
+	result, err := macro.Execute("proxy_pass_with_headers", nil, map[string]string{
 		"destination": "http://example.com",
 		"headerHost":  "${host}",
 		"geoip2":      "true",
