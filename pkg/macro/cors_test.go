@@ -18,6 +18,24 @@ func TestExecuteCorsEmpty(t *testing.T) {
 	assert.Equal(t, "missing required argument \"origins\"", err.Error())
 }
 
+func TestExecuteCorsWithInvalidMaxAge(t *testing.T) {
+	_, err := macro.Execute("cors", nil, map[string]string{
+		"origins": "testing.com",
+		"maxAge":  "invalid",
+	})
+	assert.Error(t, err)
+	assert.Equal(t, "argument \"maxAge\" must be an integer", err.Error())
+}
+
+func TestExecuteCorsWithInvalidParam(t *testing.T) {
+	_, err := macro.Execute("cors", nil, map[string]string{
+		"origins": "testing.com",
+		"maxAgee": "invalid",
+	})
+	assert.Error(t, err)
+	assert.Equal(t, "unknown argument \"maxAgee\"", err.Error())
+}
+
 func TestExecuteCorsBasic(t *testing.T) {
 	result, err := macro.Execute("cors", nil, map[string]string{
 		"origins": "http://example.com",

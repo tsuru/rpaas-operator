@@ -25,13 +25,16 @@ type MacroKV struct {
 }
 
 func ParseExp(input string) (*MacroExpr, error) {
-	macroLexer := lexer.MustSimple([]lexer.SimpleRule{
+	macroLexer, err := lexer.NewSimple([]lexer.SimpleRule{
 		{Name: "MacroName", Pattern: `[A-Z_][A-Z0-9_]*`},
 		{Name: "Key", Pattern: `[a-zA-Z_][a-zA-Z0-9_:/]*`},
 		{Name: "String", Pattern: `"[^"]*"|'[^']*'`},
 		{Name: "Whitespace", Pattern: `\s+`},
 		{Name: "Equals", Pattern: `=`},
 	})
+	if err != nil {
+		return nil, err
+	}
 
 	parser := participle.MustBuild[MacroExpr](
 		participle.Lexer(macroLexer),

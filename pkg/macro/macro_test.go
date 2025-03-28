@@ -72,3 +72,14 @@ location / {
 }
 `, output)
 }
+
+func TestExpandWithError(t *testing.T) {
+	_, err := macro.ExpandWithOptions(
+		`
+SECURITY_HEADERS;
+location / {
+	CORS origins="facebook.com,google.com" maxAgee="3600";
+}`, macro.ExpandOptions{IgnoreSyntaxErrors: false})
+	require.Error(t, err)
+	require.Equal(t, "Invalid macro \"CORS\": unknown argument \"maxAgee\"", err.Error())
+}

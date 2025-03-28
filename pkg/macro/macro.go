@@ -14,6 +14,7 @@ import (
 	"text/template"
 
 	"github.com/pkg/errors"
+	"golang.org/x/exp/maps"
 )
 
 type Macro struct {
@@ -213,6 +214,7 @@ func createStructOnTheFly(macro *Macro, args []string, kwargs map[string]string)
 
 	for i, arg := range macro.Args {
 		value := kwargs[arg.Name]
+		delete(kwargs, arg.Name)
 		if value == "" {
 			value = arg.Default
 		}
@@ -225,7 +227,10 @@ func createStructOnTheFly(macro *Macro, args []string, kwargs map[string]string)
 		}
 
 		if arg.Type == MacroArgTypeInt {
-			intValue, _ := strconv.Atoi(value)
+			intValue, err := strconv.Atoi(value)
+			if err != nil {
+				return nil, fmt.Errorf("argument %q must be an integer", arg.Name)
+			}
 			dynamicStruct.Field(i).SetInt(int64(intValue))
 
 		} else if arg.Type == MacroArgTypeBool {
@@ -233,6 +238,14 @@ func createStructOnTheFly(macro *Macro, args []string, kwargs map[string]string)
 			dynamicStruct.Field(i).SetBool(boolValue)
 		} else if arg.Type == MacroArgTypeString {
 			dynamicStruct.Field(i).SetString(value)
+		}
+	}
+
+	if len(kwargs) > 1 {
+		return nil, fmt.Errorf("unknown arguments %q", strings.Join(maps.Keys(kwargs), ", "))
+	} else if len(kwargs) == 1 {
+		for k := range kwargs {
+			return nil, fmt.Errorf("unknown argument %q", k)
 		}
 	}
 
