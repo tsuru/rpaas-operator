@@ -36,11 +36,14 @@ func ParseExp(input string) (*MacroExpr, error) {
 		return nil, err
 	}
 
-	parser := participle.MustBuild[MacroExpr](
+	parser, err := participle.Build[MacroExpr](
 		participle.Lexer(macroLexer),
 		participle.Elide("Whitespace"),
 		participle.Unquote("String"),
 	)
+	if err != nil {
+		return nil, err
+	}
 
 	parsed, err := parser.ParseString("", input)
 	if err != nil {
