@@ -13,6 +13,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/pkg/macro"
 )
 
 func deleteRoute(c echo.Context) error {
@@ -67,6 +68,13 @@ func updateRoute(c echo.Context) error {
 	var route rpaas.Route
 	if err = c.Bind(&route); err != nil {
 		return err
+	}
+
+	if route.Content != "" {
+		_, err = macro.ExpandWithOptions(route.Content, macro.ExpandOptions{IgnoreSyntaxErrors: false})
+		if err != nil {
+			return echo.NewHTTPError(http.StatusBadRequest, err.Error())
+		}
 	}
 
 	err = manager.UpdateRoute(ctx, c.Param("instance"), route)

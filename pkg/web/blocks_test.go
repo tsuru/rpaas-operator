@@ -6,8 +6,10 @@ package web
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -175,6 +177,21 @@ func Test_updateBlock(t *testing.T) {
 					assert.Equal(t, instance, "my-instance")
 					assert.Equal(t, block, rpaas.ConfigurationBlock{Name: "server", Content: "# My nginx custom conf"})
 					return nil
+				},
+			},
+		},
+		{
+			name:     "when update block with invalid macro",
+			instance: "my-instance",
+			requestBody: (url.Values{
+				"block_name": {"server"},
+				"content":    {"MY_INVALID_MACRO abc=123;"},
+			}).Encode(),
+			expectedCode: http.StatusBadRequest,
+			expectedBody: "Invalid macro syntax.*",
+			manager: &fake.RpaasManager{
+				FakeUpdateBlock: func(instance string, block rpaas.ConfigurationBlock) error {
+					return errors.New("Never call this")
 				},
 			},
 		},
