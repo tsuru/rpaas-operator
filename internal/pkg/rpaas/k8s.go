@@ -223,7 +223,6 @@ func assembleEphemeralVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.V
 	result = append(result, corev1.VolumeMount{
 		Name:      "nginx-config",
 		MountPath: "/etc/nginx",
-		ReadOnly:  true,
 	})
 	return result
 }

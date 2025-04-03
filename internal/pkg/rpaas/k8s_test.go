@@ -5311,7 +5311,6 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 		{
 			Name:      "nginx-config",
 			MountPath: "/etc/nginx",
-			ReadOnly:  true,
 		},
 	}
 
