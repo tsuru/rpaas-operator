@@ -52,6 +52,15 @@ func TestParse(t *testing.T) {
 				{KV: &macro.MacroKV{Key: "key2", Value: "value2"}},
 			},
 		},
+		"CORS 'domain' optionsStatusCode=204 allowCredentials=false maxAge=1800": {
+			Name: "CORS",
+			Arguments: []*macro.MacroArgument{
+				{Arg: "domain"},
+				{KV: &macro.MacroKV{Key: "optionsStatusCode", Value: "204"}},
+				{KV: &macro.MacroKV{Key: "allowCredentials", Value: "false"}},
+				{KV: &macro.MacroKV{Key: "maxAge", Value: "1800"}},
+			},
+		},
 		"MY_MACRO arg1 arg2 key1=value1 key2='string value' key3=\"https://globo.com/hello\"": {
 			Name: "MY_MACRO",
 			Arguments: []*macro.MacroArgument{

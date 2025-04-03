@@ -21,7 +21,7 @@ type MacroArgument struct {
 
 type MacroKV struct {
 	Key   string `parser:"@(Key|String)'='"`
-	Value string `parser:"@(Key|String)"`
+	Value string `parser:"@(Key|Number|String)"`
 }
 
 func ParseExp(input string) (*MacroExpr, error) {
@@ -29,6 +29,7 @@ func ParseExp(input string) (*MacroExpr, error) {
 		{Name: "MacroName", Pattern: `[A-Z_][A-Z0-9_]*`},
 		{Name: "Key", Pattern: `[a-zA-Z_][a-zA-Z0-9_:/]*`},
 		{Name: "String", Pattern: `"[^"]*"|'[^']*'`},
+		{Name: "Number", Pattern: `[0-9]+`},
 		{Name: "Whitespace", Pattern: `\s+`},
 		{Name: "Equals", Pattern: `=`},
 	})
