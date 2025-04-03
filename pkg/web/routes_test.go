@@ -8,6 +8,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/url"
 	"strings"
 	"testing"
 
@@ -201,7 +202,7 @@ func Test_updateRoute(t *testing.T) {
 		manager      rpaas.RpaasManager
 	}{
 		{
-			name:         "when update route retunrs no error",
+			name:         "when update route returns no error",
 			instance:     "my-instance",
 			requestBody:  "path=/path1&destination=app1.tsuru.example.com&https_only=true",
 			expectedCode: http.StatusCreated,
@@ -231,6 +232,22 @@ func Test_updateRoute(t *testing.T) {
 						Content: "# My NGINX configurations!",
 					}, route)
 					return &rpaas.ValidationError{Msg: "some error"}
+				},
+			},
+		},
+
+		{
+			name:     "when update route with invalid macro",
+			instance: "my-instance",
+			requestBody: (url.Values{
+				"path":    []string{"/path1"},
+				"content": []string{"CORS invalid=true;"},
+			}).Encode(),
+			expectedCode: http.StatusBadRequest,
+			expectedBody: `.*Invalid macro .*: missing required argument.*`,
+			manager: &fake.RpaasManager{
+				FakeUpdateRoute: func(instanceName string, route rpaas.Route) error {
+					return &rpaas.ValidationError{Msg: "never called"}
 				},
 			},
 		},

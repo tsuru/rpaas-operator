@@ -12,6 +12,7 @@ import (
 	"github.com/labstack/echo/v4"
 
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas"
+	"github.com/tsuru/rpaas-operator/pkg/macro"
 )
 
 func deleteBlock(c echo.Context) error {
@@ -65,6 +66,11 @@ func updateBlock(c echo.Context) error {
 	var block rpaas.ConfigurationBlock
 	if err = c.Bind(&block); err != nil {
 		return err
+	}
+
+	_, err = macro.ExpandWithOptions(block.Content, macro.ExpandOptions{IgnoreSyntaxErrors: false})
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, err.Error())
 	}
 
 	err = manager.UpdateBlock(ctx, c.Param("instance"), block)

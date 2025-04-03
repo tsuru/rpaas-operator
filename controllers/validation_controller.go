@@ -22,6 +22,7 @@ import (
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/controllers/certificates"
 	"github.com/tsuru/rpaas-operator/internal/pkg/rpaas/nginx"
+	"github.com/tsuru/rpaas-operator/pkg/macro"
 )
 
 // RpaasValidationReconciler reconciles a RpaasValidation object
@@ -95,6 +96,11 @@ func (r *RpaasValidationReconciler) Reconcile(ctx context.Context, req ctrl.Requ
 	certificatePodAnnotations, nginxTLS := newNginxTLS(&logger, certificateSecrets, validationMergedWithFlavors.Spec.TLS, certManagerCertificates)
 
 	rendered, err := r.renderTemplate(ctx, validationMergedWithFlavors, plan, nginxTLS)
+	if err != nil {
+		return reconcile.Result{}, err
+	}
+
+	rendered, err = macro.Expand(rendered)
 	if err != nil {
 		return reconcile.Result{}, err
 	}
