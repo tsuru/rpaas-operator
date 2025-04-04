@@ -185,7 +185,7 @@ func Test_updateBlock(t *testing.T) {
 			instance: "my-instance",
 			requestBody: (url.Values{
 				"block_name": {"server"},
-				"content":    {"MY_INVALID_MACRO abc=123;"},
+				"content":    {"MY_INVALID_MACRO $abc=123;"},
 			}).Encode(),
 			expectedCode: http.StatusBadRequest,
 			expectedBody: "Invalid macro syntax.*",
