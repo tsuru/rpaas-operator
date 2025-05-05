@@ -7,6 +7,7 @@ toolchain go1.21.0
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2
 	github.com/ajg/form v1.5.1
+	github.com/alecthomas/participle/v2 v2.1.4
 	github.com/cert-manager/cert-manager v1.9.0
 	github.com/davecgh/go-spew v1.1.1
 	github.com/evanphx/json-patch/v5 v5.6.0
@@ -25,6 +26,7 @@ require (
 	github.com/olekukonko/tablewriter v0.0.5
 	github.com/opentracing-contrib/go-stdlib v1.0.1-0.20201028152118-adbfc141dfc2
 	github.com/opentracing/opentracing-go v1.2.0
+	github.com/pkg/errors v0.9.1
 	github.com/prometheus/client_golang v1.14.0
 	github.com/robfig/cron/v3 v3.0.1
 	github.com/sirupsen/logrus v1.9.0
@@ -37,6 +39,7 @@ require (
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
 	github.com/urfave/cli/v2 v2.3.0
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
+	golang.org/x/mod v0.9.0
 	golang.org/x/net v0.12.0
 	golang.org/x/term v0.10.0
 	golang.org/x/time v0.3.0
@@ -58,7 +61,6 @@ require (
 	github.com/MakeNowJust/heredoc v1.0.0 // indirect
 	github.com/Masterminds/goutils v1.1.1 // indirect
 	github.com/Masterminds/semver/v3 v3.1.1 // indirect
-	github.com/alecthomas/participle/v2 v2.1.4 // indirect
 	github.com/antihax/optional v1.0.0 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/blang/semver/v4 v4.0.0 // indirect
@@ -118,7 +120,6 @@ require (
 	github.com/munnerz/goautoneg v0.0.0-20191010083416-a7dc8b61c822 // indirect
 	github.com/pelletier/go-toml v1.9.4 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pkg/errors v0.9.1 // indirect
 	github.com/pmezard/go-difflib v1.0.0 // indirect
 	github.com/prometheus/client_model v0.3.0 // indirect
 	github.com/prometheus/common v0.42.0 // indirect
