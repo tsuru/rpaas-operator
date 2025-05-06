@@ -31,6 +31,7 @@ import (
 	"github.com/spf13/viper"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	nginxk8s "github.com/tsuru/nginx-operator/pkg/k8s"
+	"golang.org/x/mod/semver"
 	corev1 "k8s.io/api/core/v1"
 	networkingv1 "k8s.io/api/networking/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
@@ -1695,6 +1696,27 @@ func setPlanTemplate(instance *v1alpha1.RpaasInstance, override string) error {
 		return fmt.Errorf("unable to unmarshal plan-override on plan spec: %w", err)
 	}
 
+	if planTemplate.Image != "" {
+		parts := strings.SplitN(planTemplate.Image, ":", 2)
+		if len(parts) != 2 {
+			return ValidationError{Msg: "image must follow the format 'repository:tag'"}
+		}
+
+		tag := parts[1]
+		if tag == "" {
+			return ValidationError{Msg: "image tag cannot be empty"}
+		}
+
+		tagWithPrefix := tag
+		if !strings.HasPrefix(tag, "v") {
+			tagWithPrefix = "v" + tag
+		}
+
+		if !semver.IsValid(tagWithPrefix) {
+			return ValidationError{Msg: fmt.Sprintf("image tag '%s' is not a valid semantic version", tag)}
+		}
+	}
+
 	instance.Spec.PlanTemplate = &planTemplate
 	return nil
 }
@@ -2361,7 +2383,7 @@ func buildServiceInstanceParametersForPlan(flavors []Flavor) interface{} {
 		},
 		"plan-override": map[string]interface{}{
 			"type":        "object",
-			"description": "Allows an instance to change its plan parameters to specific ones. Examples: plan-override={\"config\": {\"cacheEnabled\": false}}; plan-override={\"image\": \"tsuru/nginx:latest\"}.\n",
+			"description": "Allows an instance to change its plan parameters to specific ones. Examples: plan-override={\"config\": {\"cacheEnabled\": false}}; plan-override={\"image\": \"tsuru/nginx:0.0.1\"}.\n",
 		},
 	}
 

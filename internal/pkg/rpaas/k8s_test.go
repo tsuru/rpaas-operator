@@ -3820,7 +3820,7 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 			args: UpdateInstanceArgs{
 				Description: "Another description",
 				Plan:        "plan2",
-				Tags:        []string{"tag3", "tag4", "tag5", `plan-override={"image": "my.registry.test/nginx:latest"}`},
+				Tags:        []string{"tag3", "tag4", "tag5", `plan-override={"image": "my.registry.test/nginx:0.0.1"}`},
 				Team:        "team-two",
 				Parameters: map[string]interface{}{
 					"lb-name":     "my-instance.example",
@@ -3837,13 +3837,31 @@ func Test_k8sRpaasManager_UpdateInstance(t *testing.T) {
 				require.NotNil(t, instance.Annotations)
 				assert.Equal(t, "my-value", instance.Annotations["my-custom-annotation"])
 				assert.Equal(t, "Another description", instance.Annotations["rpaas.extensions.tsuru.io/description"])
-				assert.Equal(t, `plan-override={"image": "my.registry.test/nginx:latest"},tag3,tag4,tag5`, instance.Annotations["rpaas.extensions.tsuru.io/tags"])
+				assert.Equal(t, `plan-override={"image": "my.registry.test/nginx:0.0.1"},tag3,tag4,tag5`, instance.Annotations["rpaas.extensions.tsuru.io/tags"])
 				assert.Equal(t, "team-two", instance.Annotations["rpaas.extensions.tsuru.io/team-owner"])
 				require.NotNil(t, instance.Spec.PodTemplate)
 				assert.Equal(t, "v1", instance.Spec.PodTemplate.Labels["pod-label-1"])
 				assert.Equal(t, "team-two", instance.Spec.PodTemplate.Labels["rpaas.extensions.tsuru.io/team-owner"])
-				assert.Equal(t, &v1alpha1.RpaasPlanSpec{Image: "my.registry.test/nginx:latest"}, instance.Spec.PlanTemplate)
+				assert.Equal(t, &v1alpha1.RpaasPlanSpec{Image: "my.registry.test/nginx:0.0.1"}, instance.Spec.PlanTemplate)
 				assert.Equal(t, instance.Spec.Service.Annotations["cloudprovider.example/lb-name"], "my-instance.example")
+			},
+		},
+		{
+			name:     "when updating an instance with a invalid image tag semantic version",
+			instance: "instance1",
+			args: UpdateInstanceArgs{
+				Description: "Another description",
+				Plan:        "plan2",
+				Tags:        []string{`plan-override={"image": "my.registry.test/nginx:my_version"}`},
+				Parameters: map[string]interface{}{
+					"lb-name":     "my-instance.example",
+					"annotations": "{\"my-custom-annotation\": \"my-value\"}",
+					"flavors":     "flavor3",
+				},
+			},
+			assertion: func(t *testing.T, err error, instance *v1alpha1.RpaasInstance) {
+				require.Error(t, err)
+				assert.Equal(t, `image tag 'my_version' is not a valid semantic version`, err.Error())
 			},
 		},
 	}
@@ -5018,7 +5036,7 @@ func Test_k8sRpaasManager_GetPlans(t *testing.T) {
 			},
 			"plan-override": map[string]interface{}{
 				"type":        "object",
-				"description": "Allows an instance to change its plan parameters to specific ones. Examples: plan-override={\"config\": {\"cacheEnabled\": false}}; plan-override={\"image\": \"tsuru/nginx:latest\"}.\n",
+				"description": "Allows an instance to change its plan parameters to specific ones. Examples: plan-override={\"config\": {\"cacheEnabled\": false}}; plan-override={\"image\": \"tsuru/nginx:0.0.1\"}.\n",
 			},
 			"lb-name": map[string]interface{}{
 				"type":        "string",
