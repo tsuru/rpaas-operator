@@ -287,7 +287,7 @@ func (m *k8sRpaasManager) initShellDebugContainer(ctx context.Context, instance 
 			Stdin:           false,
 			TTY:             false,
 			VolumeMounts:    rpaasInstanceVolumeMounts,
-		}, TargetContainerName: "nginx",
+		}, TargetContainerName: nginxContainerName,
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
 	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, instancePod.Spec.EphemeralContainers...)
@@ -522,7 +522,7 @@ func (m *k8sRpaasManager) checkPodOnInstance(ctx context.Context, instanceName s
 	}
 
 	if args.Container == "" {
-		args.Container = "nginx"
+		args.Container = nginxContainerName
 	}
 	return instance, nil
 }
