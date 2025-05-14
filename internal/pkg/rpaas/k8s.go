@@ -41,6 +41,7 @@ import (
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/apimachinery/pkg/util/httpstream/spdy"
+	utilrand "k8s.io/apimachinery/pkg/util/rand"
 	"k8s.io/apimachinery/pkg/util/strategicpatch"
 	"k8s.io/apimachinery/pkg/util/validation"
 	"k8s.io/apimachinery/pkg/watch"
@@ -82,6 +83,7 @@ const (
 )
 
 var _ RpaasManager = &k8sRpaasManager{}
+var nameSuffixFunc = utilrand.String
 
 var podAllowedReasonsToFail = map[string]bool{
 	"shutdown":     true,
@@ -300,7 +302,9 @@ func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTer
 	if err != nil {
 		return "", err
 	}
-	debugContainerName := "tsuru-debugger"
+
+	debugContainerName := fmt.Sprintf("tsuru-debugger-%s", nameSuffixFunc(5))
+
 	if ok := doesEphemeralContainerExist(&instancePod, debugContainerName); ok {
 		return debugContainerName, nil
 	}
