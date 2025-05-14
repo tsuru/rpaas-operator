@@ -16,14 +16,14 @@ import (
 )
 
 func exec(c echo.Context) error {
-	var wsUpgrader websocket.Upgrader = websocket.Upgrader{
-		HandshakeTimeout: config.Get().WebSocketHandshakeTimeout,
-		ReadBufferSize:   config.Get().WebSocketReadBufferSize,
-		WriteBufferSize:  config.Get().WebSocketWriteBufferSize,
-		CheckOrigin:      checkOrigin,
-	}
 	useWebSocket, _ := strconv.ParseBool(c.QueryParam("ws"))
 	if useWebSocket {
+		wsUpgrader := websocket.Upgrader{
+			HandshakeTimeout: config.Get().WebSocketHandshakeTimeout,
+			ReadBufferSize:   config.Get().WebSocketReadBufferSize,
+			WriteBufferSize:  config.Get().WebSocketWriteBufferSize,
+			CheckOrigin:      checkOrigin,
+		}
 		ws := &wsTransport{extractArgs: extractExecArgs, command: execCommandOnInstance}
 		return ws.Run(c, &wsUpgrader)
 	}

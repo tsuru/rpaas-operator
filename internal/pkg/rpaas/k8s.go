@@ -77,7 +77,8 @@ const (
 	maxIPsAnnotation          = "rpaas.extensions.tsuru.io/cert-manager-max-ips"
 	allowWildcardAnnotation   = "rpaas.extensions.tsuru.io/cert-manager-allow-wildcard"
 
-	nginxContainerName = "nginx"
+	nginxContainerName      = "nginx"
+	debugShellContainerName = "tsuru-shell"
 )
 
 var _ RpaasManager = &k8sRpaasManager{}
@@ -205,6 +206,26 @@ func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args 
 	return instance, debugContainerName, status, nil
 }
 
+func (m *k8sRpaasManager) ephemeralShellPodWithContainerStatus(ctx context.Context, args *CommonTerminalArgs, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {
+	instance, err := m.checkPodOnInstance(ctx, instanceName, args)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	err = m.initShellDebugContainer(ctx, instance, args.Pod)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	pod, err := m.waitForContainer(ctx, instance.Namespace, args.Pod, debugShellContainerName)
+	if err != nil {
+		return nil, "", nil, err
+	}
+	status := getContainerStatusByName(pod, debugShellContainerName)
+	if status == nil {
+		return nil, "", nil, fmt.Errorf("error getting container status of container name %q: %+v", debugShellContainerName, err)
+	}
+	return instance, debugShellContainerName, status, nil
+}
+
 func assembleEphemeralVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
 	var result []corev1.VolumeMount
 	for _, vm := range volumeMounts {
@@ -234,6 +255,43 @@ func findNginxContainerFromPod(pod *corev1.Pod) *corev1.Container {
 		}
 	}
 	return nil
+}
+
+func (m *k8sRpaasManager) initShellDebugContainer(ctx context.Context, instance *v1alpha1.RpaasInstance, pod string) error {
+	image := config.Get().DebugImage
+	if image == "" {
+		return ValidationError{Msg: "no default image configured"}
+	}
+
+	instancePod := corev1.Pod{}
+	err := m.cli.Get(ctx, types.NamespacedName{Name: pod, Namespace: instance.Namespace}, &instancePod)
+	if err != nil {
+		return err
+	}
+	if ok := doesEphemeralContainerExist(&instancePod, debugShellContainerName); ok {
+		return nil
+	}
+	nginxContainer := findNginxContainerFromPod(&instancePod)
+	if nginxContainer == nil {
+		return errors.New("nginx container not found in pod")
+	}
+	rpaasInstanceVolumeMounts := assembleEphemeralVolumeMounts(nginxContainer.VolumeMounts)
+	debugContainer := &corev1.EphemeralContainer{
+		EphemeralContainerCommon: corev1.EphemeralContainerCommon{
+			Name:            debugShellContainerName,
+			Command:         []string{"/bin/sleep", "infinity"},
+			Image:           image,
+			ImagePullPolicy: corev1.PullIfNotPresent,
+			Stdin:           false,
+			TTY:             false,
+			VolumeMounts:    rpaasInstanceVolumeMounts,
+		}, TargetContainerName: "nginx",
+	}
+	instancePodWithDebug := instancePod.DeepCopy()
+	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, instancePod.Spec.EphemeralContainers...)
+	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, *debugContainer)
+	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod)
+	return err
 }
 
 func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTerminalArgs, image string, instance *v1alpha1.RpaasInstance) (string, error) {
@@ -356,13 +414,12 @@ func (m *k8sRpaasManager) Exec(ctx context.Context, instanceName string, args Ex
 	var rpaasInstance *v1alpha1.RpaasInstance
 	var execContainerName string
 	if viper.GetBool("feature-flag-ephemeral-container-shell") {
-		instance, debugContainerName, status, err := m.debugPodWithContainerStatus(ctx, &args.CommonTerminalArgs, "", instanceName)
+		instance, debugContainerName, status, err := m.ephemeralShellPodWithContainerStatus(ctx, &args.CommonTerminalArgs, instanceName)
 		if err != nil {
 			return err
 		}
 		if status.State.Terminated != nil {
-			req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: execContainerName})
-			return logs.DefaultConsumeRequest(req, args.Stdout)
+			return errors.New("debug container terminated, please contact the support team")
 		}
 		rpaasInstance = instance
 		execContainerName = debugContainerName
