@@ -5328,8 +5328,24 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 
 	expectedVolumeMounts := []corev1.VolumeMount{
 		{
+			Name:             "extra-files-0",
+			ReadOnly:         true,
+			MountPath:        "/mnt/extra-files-0/etc/nginx/extra_files/waf.cfg",
+			SubPath:          "",
+			MountPropagation: nil,
+			SubPathExpr:      "",
+		},
+		{
+			Name:             "extra-files-1",
+			ReadOnly:         true,
+			MountPath:        "/mnt/extra-files-1/etc/nginx/extra_files/binary.exe",
+			SubPath:          "",
+			MountPropagation: nil,
+			SubPathExpr:      "",
+		},
+		{
 			Name:      "extra-files-2",
-			MountPath: "/etc/nginx/extra_files_2",
+			MountPath: "/mnt/extra-files-2/etc/nginx/extra_files_2",
 			ReadOnly:  true,
 		},
 		{

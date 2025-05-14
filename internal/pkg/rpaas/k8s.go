@@ -232,14 +232,24 @@ func (m *k8sRpaasManager) ephemeralShellPodWithContainerStatus(ctx context.Conte
 func assembleEphemeralVolumeMounts(volumeMounts []corev1.VolumeMount) []corev1.VolumeMount {
 	var result []corev1.VolumeMount
 	for _, vm := range volumeMounts {
-		// NOTE(ravilock): K8s does not support ephemeral containers with volume mounts that have subpaths.
-		if vm.SubPath != "" {
-			continue
-		}
 		if strings.HasPrefix(vm.MountPath, "/etc/nginx/certs") {
 			continue
 		}
 		if vm.Name == "nginx-config" {
+			continue
+		}
+
+		if strings.HasPrefix(vm.MountPath, "/etc/nginx") {
+			result = append(result, corev1.VolumeMount{
+				Name:      vm.Name,
+				ReadOnly:  vm.ReadOnly,
+				MountPath: "/mnt/" + vm.Name + vm.MountPath,
+				SubPath:   "", // NOTE(ravilock): K8s does not support ephemeral containers with volume mounts that have subpaths.
+			})
+			continue
+		}
+		// NOTE(ravilock): K8s does not support ephemeral containers with volume mounts that have subpaths.
+		if vm.SubPath != "" {
 			continue
 		}
 		result = append(result, vm)
