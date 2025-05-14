@@ -302,7 +302,7 @@ func (m *k8sRpaasManager) initShellDebugContainer(ctx context.Context, instance 
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
 	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, instancePod.Spec.EphemeralContainers...)
-	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, *debugContainer)
+	instancePodWithDebug.Spec.EphemeralContainers = append(instancePodWithDebug.Spec.EphemeralContainers, *debugContainer)
 	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod)
 	return err
 }
@@ -337,7 +337,7 @@ func (m *k8sRpaasManager) getDebugContainer(ctx context.Context, args *CommonTer
 	}
 	instancePodWithDebug := instancePod.DeepCopy()
 	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, instancePod.Spec.EphemeralContainers...)
-	instancePodWithDebug.Spec.EphemeralContainers = append([]corev1.EphemeralContainer{}, *debugContainer)
+	instancePodWithDebug.Spec.EphemeralContainers = append(instancePodWithDebug.Spec.EphemeralContainers, *debugContainer)
 	err = m.patchEphemeralContainers(ctx, instancePodWithDebug, instancePod)
 	return debugContainerName, err
 }
