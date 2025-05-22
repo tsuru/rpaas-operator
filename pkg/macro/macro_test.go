@@ -83,3 +83,13 @@ location / {
 	require.Error(t, err)
 	require.Equal(t, "Invalid macro \"CORS\": unknown argument \"maxAgee\"", err.Error())
 }
+
+func TestExpandWithConfuseMacro(t *testing.T) {
+	_, err := macro.ExpandWithOptions(
+		`
+map $request_method $is_options {
+    default 0;
+    OPTIONS 1;
+}`, macro.ExpandOptions{IgnoreSyntaxErrors: false})
+	require.NoError(t, err)
+}
