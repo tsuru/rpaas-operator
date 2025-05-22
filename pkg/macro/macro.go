@@ -57,8 +57,6 @@ func register(macro *Macro) {
 	macros[macro.Name] = macro
 }
 
-var detectMacroRegex = regexp.MustCompile(`^(\s+)?([A-Z_]+)(.*);$`)
-
 func Expand(input string) (string, error) {
 	return ExpandWithOptions(input, ExpandOptions{
 		IgnoreSyntaxErrors: true,
@@ -72,6 +70,20 @@ type ExpandOptions struct {
 func ExpandWithOptions(input string, opts ExpandOptions) (string, error) {
 	lines := strings.Split(input, "\n")
 	var output strings.Builder
+
+	allMacros := []string{}
+	for name := range macros {
+		allMacros = append(allMacros, strings.ToUpper(name))
+	}
+
+	if len(allMacros) == 0 {
+		return input, nil
+	}
+
+	detectMacroRegex, err := regexp.Compile(fmt.Sprintf(`^(\s+)?(%s)(.*);$`, strings.Join(allMacros, "|")))
+	if err != nil {
+		return "", errors.Wrap(err, "Failed to compile regex")
+	}
 
 	for _, line := range lines {
 		matches := detectMacroRegex.FindStringSubmatch(line)
