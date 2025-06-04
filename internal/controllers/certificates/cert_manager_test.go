@@ -680,6 +680,82 @@ wg4cGbIbBPs=
 				assert.Equal(t, "e644183deec75208c5fc53b4afb98e471ee290c7e7e10c5b95caff6851346132", util.SHA256(s.Data["tls.key"]))
 			},
 		},
+		"when subject X509 fields are set, should create certificate with them": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance-subject",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					CertificateSubject: &v1alpha1.CertificateSubject{
+						Organizations:       []string{"My Org"},
+						OrganizationalUnits: []string{"My OU"},
+						Provinces:           []string{"My Province"},
+						Localities:          []string{"My Locality"},
+						Countries:           []string{"My Country"},
+						PostalCodes:         []string{"12345"},
+						StreetAddresses:     []string{"123 My Street"},
+						SerialNumber:        "1234567890",
+					},
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
+						CertManager: &v1alpha1.CertManager{
+							Issuer:   "issuer-1",
+							DNSNames: []string{"my-instance-subject.example.com"},
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				var cert cmv1.Certificate
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-%s-%s", instance.Name, CertManagerCertificateName, "issuer-1"),
+					Namespace: instance.Namespace,
+				}, &cert)
+				require.NoError(t, err)
+
+				assert.Equal(t, []metav1.OwnerReference{
+					{
+						APIVersion:         "extensions.tsuru.io/v1alpha1",
+						Kind:               "RpaasInstance",
+						Name:               "my-instance-subject",
+						Controller:         func(b bool) *bool { return &b }(true),
+						BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+					},
+				}, cert.OwnerReferences)
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-subject",
+				}, cert.Labels)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: cert.Name,
+					CommonName: "my-instance-subject.example.com",
+					DNSNames:   []string{"my-instance-subject.example.com"},
+					Subject: &cmv1.X509Subject{
+						Organizations:       []string{"My Org"},
+						OrganizationalUnits: []string{"My OU"},
+						Provinces:           []string{"My Province"},
+						Localities:          []string{"My Locality"},
+						Countries:           []string{"My Country"},
+						PostalCodes:         []string{"12345"},
+						StreetAddresses:     []string{"123 My Street"},
+						SerialNumber:        "1234567890",
+					},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance-subject",
+						},
+					},
+				}, cert.Spec)
+			},
+		},
 	}
 
 	for name, tt := range tests {

@@ -228,6 +228,20 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		commonName = req.DNSNames[0]
 	}
 
+	subject := &cmv1.X509Subject{}
+	if instance.Spec.CertificateSubject != nil {
+		subject.Organizations = instance.Spec.CertificateSubject.Organizations
+		subject.Countries = instance.Spec.CertificateSubject.Countries
+		subject.Localities = instance.Spec.CertificateSubject.Localities
+		subject.Provinces = instance.Spec.CertificateSubject.Provinces
+		subject.StreetAddresses = instance.Spec.CertificateSubject.StreetAddresses
+		subject.PostalCodes = instance.Spec.CertificateSubject.PostalCodes
+		subject.SerialNumber = instance.Spec.CertificateSubject.SerialNumber
+		subject.OrganizationalUnits = instance.Spec.CertificateSubject.OrganizationalUnits
+	} else {
+		subject = nil
+	}
+
 	return &cmv1.Certificate{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      CertManagerCertificateNameForInstance(instance.Name, req),
@@ -246,6 +260,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 			DNSNames:    req.DNSNames,
 			IPAddresses: req.IPAddresses,
 			CommonName:  commonName,
+			Subject:     subject,
 			SecretName:  CertManagerCertificateNameForInstance(instance.Name, req),
 			SecretTemplate: &cmv1.CertificateSecretTemplate{
 				Labels: map[string]string{
