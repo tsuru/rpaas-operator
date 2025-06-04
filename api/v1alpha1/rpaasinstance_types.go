@@ -62,6 +62,11 @@ type RpaasInstanceSpec struct {
 	// +optional
 	TLS []nginxv1alpha1.NginxTLS `json:"tls,omitempty"`
 
+	// CertificateSubject contains the certificate subject information.
+	// This field is used to set the subject of the TLS certificate.
+	// +optional
+	CertificateSubject *CertificateSubject `json:"certificateSubject,omitempty"`
+
 	// Service to expose the nginx instance
 	// +optional
 	Service *nginxv1alpha1.NginxService `json:"service,omitempty"`
@@ -186,6 +191,17 @@ func (r *CertManager) RequiredName() string {
 		return r.Name
 	}
 	return fmt.Sprintf("cert-manager-%s", strings.ToLower(strings.ReplaceAll(r.Issuer, ".", "-")))
+}
+
+type CertificateSubject struct {
+	Organizations       []string `json:"organizations,omitempty"`
+	OrganizationalUnits []string `json:"organizationalUnits,omitempty"`
+	Countries           []string `json:"countries,omitempty"`
+	Localities          []string `json:"localities,omitempty"`
+	Provinces           []string `json:"provinces,omitempty"`
+	PostalCodes         []string `json:"postalCodes,omitempty"`
+	StreetAddresses     []string `json:"streetAddresses,omitempty"`
+	SerialNumber        string   `json:"serialNumber,omitempty"`
 }
 
 type AllowedUpstream struct {
