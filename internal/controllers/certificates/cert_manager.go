@@ -228,17 +228,13 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		commonName = req.DNSNames[0]
 	}
 
-	subject := &cmv1.X509Subject{}
-	privateKey := &cmv1.CertificatePrivateKey{}
 	var revisionHistoryLimit *int32
+	var subject *cmv1.X509Subject
+	var privateKey *cmv1.CertificatePrivateKey
 	if instance.Spec.CertificateSpec != nil {
 		subject = instance.Spec.CertificateSpec.Subject
 		privateKey = instance.Spec.CertificateSpec.PrivateKey
 		revisionHistoryLimit = instance.Spec.CertificateSpec.RevisionHistoryLimit
-	} else {
-		subject = nil
-		privateKey = nil
-		revisionHistoryLimit = nil
 	}
 
 	return &cmv1.Certificate{
