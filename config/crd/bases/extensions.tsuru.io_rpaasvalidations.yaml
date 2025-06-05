@@ -212,6 +212,42 @@ spec:
                   Blocks are configuration file fragments added to the generated nginx
                   config.
                 type: object
+              certificateSubject:
+                description: |-
+                  CertificateSubject contains the certificate subject information.
+                  This field is used to set the subject of the TLS certificate.
+                properties:
+                  countries:
+                    items:
+                      type: string
+                    type: array
+                  localities:
+                    items:
+                      type: string
+                    type: array
+                  organizationalUnits:
+                    items:
+                      type: string
+                    type: array
+                  organizations:
+                    items:
+                      type: string
+                    type: array
+                  postalCodes:
+                    items:
+                      type: string
+                    type: array
+                  provinces:
+                    items:
+                      type: string
+                    type: array
+                  serialNumber:
+                    type: string
+                  streetAddresses:
+                    items:
+                      type: string
+                    type: array
+                type: object
               configHistoryLimit:
                 description: The number of old Configs to retain to allow rollback.
                 type: integer
