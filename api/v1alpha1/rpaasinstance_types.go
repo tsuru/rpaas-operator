@@ -65,7 +65,7 @@ type RpaasInstanceSpec struct {
 
 	// CertificateSpec customize a relevant certificate.Spec object subset
 	// +optional
-	CertificateSpec *CertificateSpec `json:"certificateParams,omitempty"`
+	CertificateSpec *CertificateSpec `json:"certificateSpec,omitempty"`
 
 	// Service to expose the nginx instance
 	// +optional
