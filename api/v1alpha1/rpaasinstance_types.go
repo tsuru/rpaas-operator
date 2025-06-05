@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"strings"
 
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	kedav1alpha1 "github.com/kedacore/keda/v2/apis/keda/v1alpha1"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -62,10 +63,9 @@ type RpaasInstanceSpec struct {
 	// +optional
 	TLS []nginxv1alpha1.NginxTLS `json:"tls,omitempty"`
 
-	// CertificateSubject contains the certificate subject information.
-	// This field is used to set the subject of the TLS certificate.
+	// CertificateSpec customize a relevant certificate.Spec object subset
 	// +optional
-	CertificateSubject *CertificateSubject `json:"certificateSubject,omitempty"`
+	CertificateSpec *CertificateSpec `json:"certificateSpec,omitempty"`
 
 	// Service to expose the nginx instance
 	// +optional
@@ -193,15 +193,10 @@ func (r *CertManager) RequiredName() string {
 	return fmt.Sprintf("cert-manager-%s", strings.ToLower(strings.ReplaceAll(r.Issuer, ".", "-")))
 }
 
-type CertificateSubject struct {
-	Organizations       []string `json:"organizations,omitempty"`
-	OrganizationalUnits []string `json:"organizationalUnits,omitempty"`
-	Countries           []string `json:"countries,omitempty"`
-	Localities          []string `json:"localities,omitempty"`
-	Provinces           []string `json:"provinces,omitempty"`
-	PostalCodes         []string `json:"postalCodes,omitempty"`
-	StreetAddresses     []string `json:"streetAddresses,omitempty"`
-	SerialNumber        string   `json:"serialNumber,omitempty"`
+type CertificateSpec struct {
+	Subject              *cmv1.X509Subject           `json:"subject,omitempty"`
+	PrivateKey           *cmv1.CertificatePrivateKey `json:"privateKey,omitempty"`
+	RevisionHistoryLimit *int32                      `json:"revisionHistoryLimit,omitempty"`
 }
 
 type AllowedUpstream struct {

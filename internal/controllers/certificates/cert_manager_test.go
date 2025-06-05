@@ -687,15 +687,20 @@ wg4cGbIbBPs=
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					CertificateSubject: &v1alpha1.CertificateSubject{
-						Organizations:       []string{"My Org"},
-						OrganizationalUnits: []string{"My OU"},
-						Provinces:           []string{"My Province"},
-						Localities:          []string{"My Locality"},
-						Countries:           []string{"My Country"},
-						PostalCodes:         []string{"12345"},
-						StreetAddresses:     []string{"123 My Street"},
-						SerialNumber:        "1234567890",
+					CertificateSpec: &v1alpha1.CertificateSpec{
+						Subject: &cmv1.X509Subject{
+							Organizations:       []string{"My Org"},
+							OrganizationalUnits: []string{"My OU"},
+							Provinces:           []string{"My Province"},
+							Localities:          []string{"My Locality"},
+							Countries:           []string{"My Country"},
+							PostalCodes:         []string{"12345"},
+							StreetAddresses:     []string{"123 My Street"},
+						},
+						PrivateKey: &cmv1.CertificatePrivateKey{
+							RotationPolicy: "Always",
+						},
+						RevisionHistoryLimit: func(i int32) *int32 { return &i }(5),
 					},
 					DynamicCertificates: &v1alpha1.DynamicCertificates{
 						CertManager: &v1alpha1.CertManager{
@@ -745,8 +750,11 @@ wg4cGbIbBPs=
 						Countries:           []string{"My Country"},
 						PostalCodes:         []string{"12345"},
 						StreetAddresses:     []string{"123 My Street"},
-						SerialNumber:        "1234567890",
 					},
+					PrivateKey: &cmv1.CertificatePrivateKey{
+						RotationPolicy: "Always",
+					},
+					RevisionHistoryLimit: func(i int32) *int32 { return &i }(5),
 					SecretTemplate: &cmv1.CertificateSecretTemplate{
 						Labels: map[string]string{
 							"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",

@@ -228,18 +228,13 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 		commonName = req.DNSNames[0]
 	}
 
-	subject := &cmv1.X509Subject{}
-	if instance.Spec.CertificateSubject != nil {
-		subject.Organizations = instance.Spec.CertificateSubject.Organizations
-		subject.Countries = instance.Spec.CertificateSubject.Countries
-		subject.Localities = instance.Spec.CertificateSubject.Localities
-		subject.Provinces = instance.Spec.CertificateSubject.Provinces
-		subject.StreetAddresses = instance.Spec.CertificateSubject.StreetAddresses
-		subject.PostalCodes = instance.Spec.CertificateSubject.PostalCodes
-		subject.SerialNumber = instance.Spec.CertificateSubject.SerialNumber
-		subject.OrganizationalUnits = instance.Spec.CertificateSubject.OrganizationalUnits
-	} else {
-		subject = nil
+	var revisionHistoryLimit *int32
+	var subject *cmv1.X509Subject
+	var privateKey *cmv1.CertificatePrivateKey
+	if instance.Spec.CertificateSpec != nil {
+		subject = instance.Spec.CertificateSpec.Subject
+		privateKey = instance.Spec.CertificateSpec.PrivateKey
+		revisionHistoryLimit = instance.Spec.CertificateSpec.RevisionHistoryLimit
 	}
 
 	return &cmv1.Certificate{
@@ -256,12 +251,14 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 			},
 		},
 		Spec: cmv1.CertificateSpec{
-			IssuerRef:   *issuer,
-			DNSNames:    req.DNSNames,
-			IPAddresses: req.IPAddresses,
-			CommonName:  commonName,
-			Subject:     subject,
-			SecretName:  CertManagerCertificateNameForInstance(instance.Name, req),
+			IssuerRef:            *issuer,
+			DNSNames:             req.DNSNames,
+			IPAddresses:          req.IPAddresses,
+			CommonName:           commonName,
+			Subject:              subject,
+			PrivateKey:           privateKey,
+			RevisionHistoryLimit: revisionHistoryLimit,
+			SecretName:           CertManagerCertificateNameForInstance(instance.Name, req),
 			SecretTemplate: &cmv1.CertificateSecretTemplate{
 				Labels: map[string]string{
 					"rpaas.extensions.tsuru.io/certificate-name": req.RequiredName(),
