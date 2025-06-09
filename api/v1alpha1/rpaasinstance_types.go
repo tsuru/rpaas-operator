@@ -184,6 +184,11 @@ type CertManager struct {
 	// DNSNamesDefault when is set use the provided DNSName from DNS Zone field.
 	// +optional
 	DNSNamesDefault bool `json:"dnsNamesDefault,omitempty"`
+
+	// Ignore CertificateSpec which is a subset of cert-manager's Certificate.Spec.
+	// It is used to customize the certificate that will be created by cert-manager.
+	// +optional
+	IgnoreCertificateSpec bool `json:"ignoreCertificateSpec,omitempty"`
 }
 
 func (r *CertManager) RequiredName() string {
