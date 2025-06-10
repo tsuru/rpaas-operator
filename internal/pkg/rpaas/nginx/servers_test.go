@@ -69,6 +69,11 @@ func TestProduceServers(t *testing.T) {
 						ServerName:  "test.example.com",
 						Destination: "http://test.example.com",
 					},
+					{
+						Path:        "/",
+						ServerName:  "test1",
+						Destination: "http://test1",
+					},
 				},
 			},
 			expected: []*Server{
@@ -106,6 +111,20 @@ func TestProduceServers(t *testing.T) {
 							Path:        "/",
 							ServerName:  "test.example.com",
 							Destination: "http://test.example.com",
+						},
+					},
+				},
+				{
+					Name: "test1",
+					Locations: []v1alpha1.Location{
+						{
+							Path:        "/common",
+							Destination: "http://common.com",
+						},
+						{
+							Path:        "/",
+							ServerName:  "test1",
+							Destination: "http://test1",
 						},
 					},
 				},
