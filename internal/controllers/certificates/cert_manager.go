@@ -231,7 +231,7 @@ func newCertificate(instance *v1alpha1.RpaasInstance, issuer *cmmeta.ObjectRefer
 	var revisionHistoryLimit *int32
 	var subject *cmv1.X509Subject
 	var privateKey *cmv1.CertificatePrivateKey
-	if instance.Spec.CertificateSpec != nil {
+	if instance.Spec.CertificateSpec != nil && !req.IgnoreCertificateSpec {
 		subject = instance.Spec.CertificateSpec.Subject
 		privateKey = instance.Spec.CertificateSpec.PrivateKey
 		revisionHistoryLimit = instance.Spec.CertificateSpec.RevisionHistoryLimit

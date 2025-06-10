@@ -370,6 +370,11 @@ spec:
                         description: DNSNamesDefault when is set use the provided
                           DNSName from DNS Zone field.
                         type: boolean
+                      ignoreCertificateSpec:
+                        description: |-
+                          Ignore CertificateSpec which is a subset of cert-manager's Certificate.Spec.
+                          It is used to customize the certificate that will be created by cert-manager.
+                        type: boolean
                       ipAddresses:
                         description: IPAddresses is a list of IP addresses to be set
                           in Subject Alternative Names.
@@ -402,6 +407,11 @@ spec:
                         dnsNamesDefault:
                           description: DNSNamesDefault when is set use the provided
                             DNSName from DNS Zone field.
+                          type: boolean
+                        ignoreCertificateSpec:
+                          description: |-
+                            Ignore CertificateSpec which is a subset of cert-manager's Certificate.Spec.
+                            It is used to customize the certificate that will be created by cert-manager.
                           type: boolean
                         ipAddresses:
                           description: IPAddresses is a list of IP addresses to be

@@ -764,6 +764,78 @@ wg4cGbIbBPs=
 				}, cert.Spec)
 			},
 		},
+		"when subject X509 fields are set AND we ignore them, should create certificate without them": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance-subject",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					CertificateSpec: &v1alpha1.CertificateSpec{
+						Subject: &cmv1.X509Subject{
+							Organizations:       []string{"My Org"},
+							OrganizationalUnits: []string{"My OU"},
+							Provinces:           []string{"My Province"},
+							Localities:          []string{"My Locality"},
+							Countries:           []string{"My Country"},
+							PostalCodes:         []string{"12345"},
+							StreetAddresses:     []string{"123 My Street"},
+						},
+						PrivateKey: &cmv1.CertificatePrivateKey{
+							RotationPolicy: "Always",
+						},
+						RevisionHistoryLimit: func(i int32) *int32 { return &i }(5),
+					},
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
+						CertManager: &v1alpha1.CertManager{
+							Issuer:                "issuer-1",
+							DNSNames:              []string{"my-instance-subject.example.com"},
+							IgnoreCertificateSpec: true,
+						},
+					},
+				},
+			},
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				var cert cmv1.Certificate
+				err := cli.Get(context.TODO(), types.NamespacedName{
+					Name:      fmt.Sprintf("%s-%s-%s", instance.Name, CertManagerCertificateName, "issuer-1"),
+					Namespace: instance.Namespace,
+				}, &cert)
+				require.NoError(t, err)
+
+				assert.Equal(t, []metav1.OwnerReference{
+					{
+						APIVersion:         "extensions.tsuru.io/v1alpha1",
+						Kind:               "RpaasInstance",
+						Name:               "my-instance-subject",
+						Controller:         func(b bool) *bool { return &b }(true),
+						BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+					},
+				}, cert.OwnerReferences)
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-subject",
+				}, cert.Labels)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: cert.Name,
+					CommonName: "my-instance-subject.example.com",
+					DNSNames:   []string{"my-instance-subject.example.com"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-issuer-1",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance-subject",
+						},
+					},
+				}, cert.Spec)
+			},
+		},
 	}
 
 	for name, tt := range tests {
