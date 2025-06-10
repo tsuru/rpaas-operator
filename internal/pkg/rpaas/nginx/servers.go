@@ -149,6 +149,10 @@ func produceServers(spec *v1alpha1.RpaasInstanceSpec, nginxTLS []nginxv1alpha1.N
 			continue
 		}
 
+		if !strings.Contains(host, ".") {
+			continue
+		}
+
 		// find possible wildcard
 		possibleWildcard := "*." + strings.SplitN(host, ".", 2)[1]
 		if tls, ok := wildCardTLS[possibleWildcard]; ok {
