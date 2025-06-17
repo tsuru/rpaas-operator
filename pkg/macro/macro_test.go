@@ -32,7 +32,7 @@ more_set_headers 'Strict-Transport-Security: max-age=31536000; includeSubDomains
 
 location / {
 	if ($http_origin ~* ((facebook\.com)|(google\.com))$ ) {
-	    set $origin_response $http_origin;
+	    set $cors_origin_response $http_origin;
 	    set $cors 'true';
 	}
 
@@ -41,7 +41,7 @@ location / {
 	}
 
 	if ($cors = "true") {
-	    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
+	    more_set_headers 'Access-Control-Allow-Origin: $cors_origin_response';
 	    more_set_headers 'Access-Control-Allow-Credentials: true';
 	    more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
 	    more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
@@ -49,7 +49,7 @@ location / {
 	}
 
 	if ($cors = "trueoptions") {
-	    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
+	    more_set_headers 'Access-Control-Allow-Origin: $cors_origin_response';
 	    more_set_headers 'Access-Control-Allow-Credentials: true';
 	    more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
 	    more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
