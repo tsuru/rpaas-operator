@@ -41,14 +41,17 @@ func TestExecuteCorsBasic(t *testing.T) {
 		"origins": "http://example.com",
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, `if ($http_origin ~* ((http://example\.com))$ ) { set $cors 'true'; }
+	assert.Equal(t, `if ($http_origin ~* ((http://example\.com))$ ) {
+    set $origin_response $http_origin;
+    set $cors 'true';
+}
 
 if ($request_method = 'OPTIONS') {
 	set $cors ${cors}options;
 }
 
 if ($cors = "true") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Credentials: true';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
@@ -56,7 +59,7 @@ if ($cors = "true") {
 }
 
 if ($cors = "trueoptions") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Credentials: true';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
@@ -73,14 +76,17 @@ func TestExecuteCorsWithArg(t *testing.T) {
 		"http://example.com",
 	}, nil)
 	assert.NoError(t, err)
-	assert.Equal(t, `if ($http_origin ~* ((http://example\.com))$ ) { set $cors 'true'; }
+	assert.Equal(t, `if ($http_origin ~* ((http://example\.com))$ ) {
+    set $origin_response $http_origin;
+    set $cors 'true';
+}
 
 if ($request_method = 'OPTIONS') {
 	set $cors ${cors}options;
 }
 
 if ($cors = "true") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Credentials: true';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
@@ -88,7 +94,7 @@ if ($cors = "true") {
 }
 
 if ($cors = "trueoptions") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Credentials: true';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
@@ -105,7 +111,7 @@ func TestExecuteCorsWildcard(t *testing.T) {
 		"origins": "*",
 	})
 	assert.NoError(t, err)
-	assert.Equal(t, `set $http_origin *;
+	assert.Equal(t, `set $origin_response *;
 set $cors 'true';
 
 if ($request_method = 'OPTIONS') {
@@ -113,7 +119,7 @@ if ($request_method = 'OPTIONS') {
 }
 
 if ($cors = "true") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Credentials: true';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
@@ -121,7 +127,7 @@ if ($cors = "true") {
 }
 
 if ($cors = "trueoptions") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Credentials: true';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization';
@@ -144,21 +150,24 @@ func TestExecuteCorsFullFeatured(t *testing.T) {
 	})
 	assert.NoError(t, err)
 	assert.Equal(t,
-		`if ($http_origin ~* ((http://example\.com)|(https://facebook\.com)|(http://[A-Za-z0-9\-]+\.example\.com))$ ) { set $cors 'true'; }
+		`if ($http_origin ~* ((http://example\.com)|(https://facebook\.com)|(http://[A-Za-z0-9\-]+\.example\.com))$ ) {
+    set $origin_response $http_origin;
+    set $cors 'true';
+}
 
 if ($request_method = 'OPTIONS') {
 	set $cors ${cors}options;
 }
 
 if ($cors = "true") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization, X-Custom-Header';
     more_set_headers 'Access-Control-Max-Age: 7200';
 }
 
 if ($cors = "trueoptions") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     more_set_headers 'Access-Control-Allow-Methods: GET, POST, PUT, PATCH';
     more_set_headers 'Access-Control-Allow-Headers: Content-Type, Authorization, X-Custom-Header';
     more_set_headers 'Access-Control-Max-Age: 7200';

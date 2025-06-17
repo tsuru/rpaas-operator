@@ -35,7 +35,7 @@ if ($request_method = 'OPTIONS') {
 }
 
 if ($cors = "true") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     {{- if .AllowCredentials }}
     more_set_headers 'Access-Control-Allow-Credentials: {{ .AllowCredentials }}';
 	{{- end }}
@@ -45,7 +45,7 @@ if ($cors = "true") {
 }
 
 if ($cors = "trueoptions") {
-    more_set_headers 'Access-Control-Allow-Origin: $http_origin';
+    more_set_headers 'Access-Control-Allow-Origin: $origin_response';
     {{- if .AllowCredentials }}
     more_set_headers 'Access-Control-Allow-Credentials: {{ .AllowCredentials }}';
 	{{- end }}
@@ -68,7 +68,7 @@ func buildCorsOriginRegex(origin string) string {
 		corsOrigins[i] = strings.TrimSpace(origin)
 	}
 	if len(corsOrigins) == 1 && corsOrigins[0] == "*" {
-		return "set $http_origin *;\nset $cors 'true';"
+		return "set $origin_response *;\nset $cors 'true';"
 	}
 
 	var originsRegex string = "if ($http_origin ~* ("
@@ -82,7 +82,7 @@ func buildCorsOriginRegex(origin string) string {
 			}
 		}
 	}
-	originsRegex = originsRegex + ")$ ) { set $cors 'true'; }"
+	originsRegex = originsRegex + ")$ ) {\n    set $origin_response $http_origin;\n    set $cors 'true';\n}"
 	return originsRegex
 }
 
