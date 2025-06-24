@@ -68,7 +68,7 @@ func ReconcileCertManager(ctx context.Context, client client.Client, instance, i
 		}
 
 		if !isCertificateReady(&cert) {
-			continue
+			return nil, fmt.Errorf("certificate %q for instance %q is not ready", strings.Join(cert.Spec.DNSNames, ", "), instance.Name)
 		}
 
 		certManagerCerts = append(certManagerCerts, cert)
