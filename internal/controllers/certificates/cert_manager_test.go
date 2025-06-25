@@ -7,6 +7,7 @@ package certificates
 import (
 	"context"
 	"fmt"
+	"strings"
 	"testing"
 
 	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
@@ -179,10 +180,17 @@ wg4cGbIbBPs=
 		},
 	}
 
+	type certificateStatus struct {
+		Name      string
+		Namespace string
+		Status    cmv1.CertificateStatus
+	}
+
 	tests := map[string]struct {
-		instance      *v1alpha1.RpaasInstance
-		assert        func(*testing.T, client.Client, *v1alpha1.RpaasInstance)
-		expectedError string
+		instance          *v1alpha1.RpaasInstance
+		certificateStatus []certificateStatus
+		assert            func(*testing.T, client.Client, *v1alpha1.RpaasInstance)
+		expectedError     string
 	}{
 		"when cert manager fields are set, should create certificate": {
 			instance: &v1alpha1.RpaasInstance{
@@ -196,6 +204,20 @@ wg4cGbIbBPs=
 							Issuer:      "issuer-1",
 							DNSNames:    []string{"my-instance.example.com"},
 							IPAddresses: []string{"169.196.1.100"},
+						},
+					},
+				},
+			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-cert-manager-issuer-1",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
 						},
 					},
 				},
@@ -266,6 +288,44 @@ wg4cGbIbBPs=
 								Name:     "cert-03",
 								Issuer:   "issuer-2",
 								DNSNames: []string{"my-instance3.example.org"},
+							},
+						},
+					},
+				},
+			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-cert-01",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
+						},
+					},
+				},
+				{
+					Name:      "my-instance-cert-02",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
+						},
+					},
+				},
+				{
+					Name:      "my-instance-cert-03",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
 							},
 						},
 					},
@@ -366,6 +426,151 @@ wg4cGbIbBPs=
 			},
 		},
 
+		"when many cert manager requests are set and one is not Ready, should halt reconcile": {
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
+						CertManagerRequests: []v1alpha1.CertManager{
+							{
+								Name:     "cert-01",
+								Issuer:   "issuer-1",
+								DNSNames: []string{"my-instance.example.com"},
+							},
+							{
+								Name:     "cert-02",
+								Issuer:   "issuer-1",
+								DNSNames: []string{"my-instance2.example.com"},
+							},
+							{
+								Name:     "cert-03",
+								Issuer:   "issuer-2",
+								DNSNames: []string{"my-instance3.example.org"},
+							},
+						},
+					},
+				},
+			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-cert-01",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
+						},
+					},
+				},
+				{
+					Name:      "my-instance-cert-02",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionFalse,
+							},
+						},
+					},
+				},
+			},
+			expectedError: `certificate "my-instance2.example.com" for instance "my-instance" is not ready`,
+			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
+				var certList cmv1.CertificateList
+
+				err := cli.List(context.TODO(), &certList)
+				require.NoError(t, err)
+
+				certs := []cmv1.Certificate{}
+				for _, cert := range certList.Items {
+					if cert.Labels["rpaas.extensions.tsuru.io/instance-name"] == "my-instance" {
+						certs = append(certs, cert)
+					}
+				}
+
+				require.Len(t, certs, 2)
+
+				for _, cert := range certs {
+					assert.Equal(t, []metav1.OwnerReference{
+						{
+							APIVersion:         "extensions.tsuru.io/v1alpha1",
+							Kind:               "RpaasInstance",
+							Name:               "my-instance",
+							Controller:         func(b bool) *bool { return &b }(true),
+							BlockOwnerDeletion: func(b bool) *bool { return &b }(true),
+						},
+					}, cert.ObjectMeta.OwnerReferences)
+				}
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-01",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+				}, certs[0].Labels)
+
+				assert.Equal(t, map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-02",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+				}, certs[1].Labels)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: "my-instance-cert-01",
+					CommonName: "my-instance.example.com",
+					DNSNames:   []string{"my-instance.example.com"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-01",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
+				}, certs[0].Spec)
+				assert.Equal(t, cmv1.CertificateStatus{
+					Conditions: []cmv1.CertificateCondition{
+						{
+							Type:   cmv1.CertificateConditionReady,
+							Status: cmmeta.ConditionTrue,
+						},
+					},
+				}, certs[0].Status)
+
+				assert.Equal(t, cmv1.CertificateSpec{
+					IssuerRef: cmmeta.ObjectReference{
+						Name:  "issuer-1",
+						Group: "cert-manager.io",
+						Kind:  "Issuer",
+					},
+					SecretName: "my-instance-cert-02",
+					CommonName: "my-instance2.example.com",
+					DNSNames:   []string{"my-instance2.example.com"},
+					SecretTemplate: &cmv1.CertificateSecretTemplate{
+						Labels: map[string]string{
+							"rpaas.extensions.tsuru.io/certificate-name": "cert-02",
+							"rpaas.extensions.tsuru.io/instance-name":    "my-instance",
+						},
+					},
+				}, certs[1].Spec)
+				assert.Equal(t, cmv1.CertificateStatus{
+					Conditions: []cmv1.CertificateCondition{
+						{
+							Type:   cmv1.CertificateConditionReady,
+							Status: cmmeta.ConditionFalse,
+						},
+					},
+				}, certs[1].Status)
+
+			},
+		},
+
 		"when take over existing certificate using cert manager": {
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
@@ -386,6 +591,20 @@ wg4cGbIbBPs=
 						{
 							SecretName: "my-instance-take-over-old",
 							Hosts:      []string{"my-instance.example.com"},
+						},
+					},
+				},
+			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-take-over-test-my-instance-take-over",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
 						},
 					},
 				},
@@ -472,6 +691,20 @@ wg4cGbIbBPs=
 					},
 				},
 			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-cert-manager-issuer-1",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
@@ -526,6 +759,20 @@ wg4cGbIbBPs=
 							Issuer:      "cluster-issuer-1",
 							DNSNames:    []string{"my-instance-2.example.com", "app1.example.com"},
 							IPAddresses: []string{"2001:db8:dead:beef::"},
+						},
+					},
+				},
+			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-2-cert-manager-cluster-issuer-1",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
 						},
 					},
 				},
@@ -629,6 +876,7 @@ wg4cGbIbBPs=
 				},
 			},
 			expectedError: `there is no "not-found-issuer" certificate issuer`,
+			assert:        func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {},
 		},
 
 		"when certificate is ready, should update the rpaasinstance's certificate secret with newer one": {
@@ -646,6 +894,20 @@ wg4cGbIbBPs=
 						CertManager: &v1alpha1.CertManager{
 							Issuer:   "issuer-1",
 							DNSNames: []string{"my-instance-3.example.com"},
+						},
+					},
+				},
+			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-3-cert-manager-issuer-1",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
 						},
 					},
 				},
@@ -706,6 +968,20 @@ wg4cGbIbBPs=
 						CertManager: &v1alpha1.CertManager{
 							Issuer:   "issuer-1",
 							DNSNames: []string{"my-instance-subject.example.com"},
+						},
+					},
+				},
+			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-subject-cert-manager-issuer-1",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
 						},
 					},
 				},
@@ -795,6 +1071,20 @@ wg4cGbIbBPs=
 					},
 				},
 			},
+			certificateStatus: []certificateStatus{
+				{
+					Name:      "my-instance-subject-cert-manager-issuer-1",
+					Namespace: "rpaasv2",
+					Status: cmv1.CertificateStatus{
+						Conditions: []cmv1.CertificateCondition{
+							{
+								Type:   cmv1.CertificateConditionReady,
+								Status: cmmeta.ConditionTrue,
+							},
+						},
+					},
+				},
+			},
 			assert: func(t *testing.T, cli client.Client, instance *v1alpha1.RpaasInstance) {
 				var cert cmv1.Certificate
 				err := cli.Get(context.TODO(), types.NamespacedName{
@@ -838,6 +1128,17 @@ wg4cGbIbBPs=
 		},
 	}
 
+	isCertificateNotReadyError := func(err error) bool {
+		if err == nil {
+			return false
+		}
+
+		errMsg := err.Error()
+		return strings.Contains(errMsg, "certificate") &&
+			strings.Contains(errMsg, "for instance") &&
+			strings.Contains(errMsg, "is not ready")
+	}
+
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			allResources := append([]k8sruntime.Object{}, tt.instance)
@@ -850,8 +1151,32 @@ wg4cGbIbBPs=
 
 			_, err := ReconcileCertManager(context.TODO(), cli, tt.instance, tt.instance)
 
+			if tt.expectedError != "" && !isCertificateNotReadyError(err) {
+				assert.EqualError(t, err, tt.expectedError)
+				return
+			}
+
+			for _, certStatus := range tt.certificateStatus {
+				_, err = ReconcileCertManager(context.TODO(), cli, tt.instance, tt.instance)
+				if !isCertificateNotReadyError(err) {
+					require.NoError(t, err)
+				}
+				cert := &cmv1.Certificate{}
+				err = cli.Get(context.TODO(), types.NamespacedName{
+					Name:      certStatus.Name,
+					Namespace: certStatus.Namespace,
+				}, cert)
+				require.NoError(t, err)
+				cert.Status = certStatus.Status
+				err = cli.Status().Update(context.TODO(), cert)
+				require.NoError(t, err)
+			}
+
+			_, err = ReconcileCertManager(context.TODO(), cli, tt.instance, tt.instance)
+
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
+				tt.assert(t, cli, tt.instance)
 				return
 			}
 

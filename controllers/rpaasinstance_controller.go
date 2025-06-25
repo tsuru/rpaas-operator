@@ -111,6 +111,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 
 	certManagerCertificates, err := certificates.ReconcileCertManager(ctx, r.Client, instance, instanceMergedWithFlavors)
 	if err != nil {
+		r.EventRecorder.Eventf(instance, corev1.EventTypeWarning, "RpaasInstanceCertificateError", err.Error())
 		return reportError(err)
 	}
 
