@@ -212,6 +212,26 @@ type AllowedUpstream struct {
 type Bind struct {
 	Name string `json:"name"`
 	Host string `json:"host"`
+	// Canary contains the names of other Binds that participate in traffic distribution
+	// based on their individual TrafficShapingPolicy configurations
+	Canary               []string             `json:"canary,omitempty"`
+	TrafficShapingPolicy TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`
+	LoadBalancing        string               `json:"loadBalance,omitempty"`
+}
+
+type TrafficShapingPolicy struct {
+	// Weight-based routing: only ONE Bind in a canary group can have weight > 0
+	Weight      int `json:"weight"`
+	WeightTotal int `json:"weightTotal,omitempty"`
+
+	// Header on which to redirect requests to this backend
+	Header string `json:"header"`
+	// HeaderValue on which to redirect requests to this backend
+	HeaderValue string `json:"headerValue"`
+	// HeaderPattern the header value match pattern, support exact, regex.
+	HeaderPattern string `json:"headerPattern"`
+	// Cookie on which to redirect requests to this backend
+	Cookie string `json:"cookie"`
 }
 
 type BlockType string
