@@ -43,6 +43,16 @@ type RpaasInstanceSpec struct {
 	// +optional
 	Binds []Bind `json:"binds,omitempty"`
 
+	// UpstreamOptions is the list of upstream options to be applied to the
+	// instance. Each upstream option defines a primary bind and canary binds
+	// with a traffic shaping policy and a load balancing algorithm.
+	// The primary bind is the main bind for the upstream, while canary binds
+	// are used to distribute traffic based on the defined traffic shaping policy.
+	// The load balancing algorithm is used to distribute traffic among the
+	// upstreams.
+	// +optional
+	UpstreamOptions []UpstreamOptions `json:"upstreamOptions,omitempty"`
+
 	// Blocks are configuration file fragments added to the generated nginx
 	// config.
 	Blocks map[BlockType]Value `json:"blocks,omitempty"`
