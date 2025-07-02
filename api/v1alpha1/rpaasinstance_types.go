@@ -212,11 +212,29 @@ type AllowedUpstream struct {
 type Bind struct {
 	Name string `json:"name"`
 	Host string `json:"host"`
-	// Canary contains the names of other Binds that participate in traffic distribution
+}
+
+type LoadBalanceAlgorithm string
+
+const (
+	LoadBalanceRoundRobin           LoadBalanceAlgorithm = "round_robin"       // Round Robin
+	LoadBalanceConsistentHash       LoadBalanceAlgorithm = "chash"             // Consistent Hashing
+	LoadBalanceConsistentHashSubset LoadBalanceAlgorithm = "chashsubset"       // Consistent Hashing with Subsetting
+	LoadBalanceEWMA                 LoadBalanceAlgorithm = "ewma"              // Exponentially Weighted Moving Average
+	LoadBalanceStickyBalanced       LoadBalanceAlgorithm = "sticky_balanced"   // Sticky Balanced
+	LoadBalanceStickyPersistent     LoadBalanceAlgorithm = "sticky_persistent" // Sticky Persistent
+)
+
+type UpstreamOptions struct {
+	// Main bind for this upstream
+	PrimaryBind string `json:"bind"`
+	// CanaryBinds contains the names of other Binds that participate in traffic distribution
 	// based on their individual TrafficShapingPolicy configurations
-	Canary               []string             `json:"canary,omitempty"`
+	CanaryBinds []string `json:"canary,omitempty"`
+	// TrafficShapingPolicy defines the traffic shaping policy for this upstream.
 	TrafficShapingPolicy TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`
-	LoadBalancing        string               `json:"loadBalance,omitempty"`
+	// LoadBalance defines the load balancing algorithm to be used for this upstream.
+	LoadBalance LoadBalanceAlgorithm `json:"loadBalance,omitempty"`
 }
 
 type TrafficShapingPolicy struct {
