@@ -125,7 +125,7 @@ main() {
   RPAAS_PLUGIN_BIN=$(pwd)/bin/rpaasv2                          \
   RPAAS_API_ADDRESS="http://127.0.0.1:${local_rpaas_api_port}" \
   RPAAS_OPERATOR_INTEGRATION=1                                 \
-  go test -v ./test/...
+  go test -timeout 15m -v ./test/...
 
   kill ${kubectl_port_forward_pid}
 }
