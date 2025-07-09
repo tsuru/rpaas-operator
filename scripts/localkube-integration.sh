@@ -33,6 +33,9 @@ function onerror() {
   echo "RPAAS API LOGS:"
   ${KUBECTL} logs -n ${NAMESPACE} deploy/rpaas-api|| true
   echo
+  echo "CERT MANAGER LOGS:"
+  ${KUBECTL} logs -n ${NAMESPACE} deploy/cert-manager || true
+  echo
 
   [[ -n ${kubectl_port_forward_pid} ]] && kill ${kubectl_port_forward_pid}
 }
