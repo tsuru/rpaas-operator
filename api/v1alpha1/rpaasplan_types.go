@@ -59,12 +59,13 @@ type NginxConfig struct {
 
 	UpstreamKeepalive int `json:"upstreamKeepalive,omitempty"`
 
-	CacheEnabled     *bool              `json:"cacheEnabled,omitempty"`
-	CacheInactive    string             `json:"cacheInactive,omitempty"`
-	CacheLoaderFiles int                `json:"cacheLoaderFiles,omitempty"`
-	CachePath        string             `json:"cachePath,omitempty"`
-	CacheSize        *resource.Quantity `json:"cacheSize,omitempty"`
-	CacheZoneSize    *resource.Quantity `json:"cacheZoneSize,omitempty"`
+	CacheEnabled       *bool              `json:"cacheEnabled,omitempty"`
+	CacheInactive      string             `json:"cacheInactive,omitempty"`
+	CacheLoaderFiles   int                `json:"cacheLoaderFiles,omitempty"`
+	CachePath          string             `json:"cachePath,omitempty"`
+	CacheSize          *resource.Quantity `json:"cacheSize,omitempty"`
+	CacheZoneSize      *resource.Quantity `json:"cacheZoneSize,omitempty"`
+	CacheZonePurgeName string             `json:"cacheZonePurgeName,omitempty"`
 
 	LogFormat            string            `json:"logFormat,omitempty"`
 	LogFormatEscape      string            `json:"logFormatEscape,omitempty"`

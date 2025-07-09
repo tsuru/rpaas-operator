@@ -29,6 +29,7 @@ const (
 	defaultPurgeTimeout       = time.Duration(1 * time.Second)
 	defaultPurgeLocation      = "/purge"
 	defaultPurgeLocationMatch = "^/purge/(.+)"
+	defaultPurgeZoneName      = "rpaas"
 	defaultVTSLocationMatch   = "/status"
 )
 
@@ -54,6 +55,13 @@ func NewNginxManager() NginxManager {
 
 func purgeLocationMatch() string {
 	return defaultPurgeLocationMatch
+}
+
+func purgeZone(zone string) string {
+	if zone != "" {
+		return zone
+	}
+	return defaultPurgeZoneName
 }
 
 func vtsLocationMatch() string {
