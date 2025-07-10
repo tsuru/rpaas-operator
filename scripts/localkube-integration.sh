@@ -36,6 +36,9 @@ function onerror() {
   echo "CERT MANAGER LOGS:"
   ${KUBECTL} logs -n ${NAMESPACE} deploy/cert-manager || true
   echo
+  echo "ALL CLUSTER OBJECTS:"
+  ${KUBECTL} api-resources --verbs=list --namespaced -o name | xargs -n 1 ${KUBECTL} get --show-kind --ignore-not-found --all-namespaces
+  echo
 
   [[ -n ${kubectl_port_forward_pid} ]] && kill ${kubectl_port_forward_pid}
 }
