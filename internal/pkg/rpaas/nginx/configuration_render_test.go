@@ -96,6 +96,29 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 				assert.Regexp(t, `proxy_cache rpaas;`, result)
 			},
 		},
+		{
+			name: "with cache enabled and custom purge zone name",
+			data: ConfigurationData{
+				Config: &v1alpha1.NginxConfig{
+					CacheEnabled:       v1alpha1.Bool(true),
+					CachePath:          "/path/to/cache/dir",
+					CacheZoneSize:      &size100MB,
+					CacheZonePurgeName: "my_cache_zone_purge",
+				},
+				Instance: &v1alpha1.RpaasInstance{},
+			},
+			assertion: func(t *testing.T, result string) {
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:104857600;`, result)
+				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
+				assert.Regexp(t, `server {
+\s+listen 8800;
+\s+location ~ \^/purge/\(\.\+\) {
+\s+proxy_cache_purge my_cache_zone_purge \$1\$is_args\$args;
+\s+}
+\s+}`, result)
+				assert.Regexp(t, `proxy_cache rpaas;`, result)
+			},
+		},
 
 		{
 			name: "with cache enabled and custom loader_files, inactive, and max cache size",

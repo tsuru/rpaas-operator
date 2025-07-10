@@ -268,6 +268,7 @@ var internalTemplateFuncs = template.FuncMap(map[string]interface{}{
 	"proxyProtocolHTTPPort":   proxyProtocolHTTPPort,
 	"proxyProtocolHTTPSPort":  proxyProtocolHTTPSPort,
 	"purgeLocationMatch":      purgeLocationMatch,
+	"purgeZone":               purgeZone,
 	"vtsLocationMatch":        vtsLocationMatch,
 	"contains":                strings.Contains,
 	"hasPrefix":               strings.HasPrefix,
@@ -465,7 +466,7 @@ http {
 
         {{- if boolValue $config.CacheEnabled }}
         location ~ {{ purgeLocationMatch }} {
-            proxy_cache_purge rpaas $1$is_args$args;
+            proxy_cache_purge {{ purgeZone $config.CacheZonePurgeName }} $1$is_args$args;
         }
         {{- end }}
 

@@ -25,13 +25,26 @@ readonly CHART_VERSION_RPAAS_API=${CHART_VERSION_RPAAS_API:-0.7.2}
 function onerror() {
   echo
   echo "RPAAS OPERATOR LOGS:"
+  echo "========================================"
   ${KUBECTL} logs -n ${NAMESPACE} deploy/rpaas-operator || true
   echo
   echo "NGINX OPERATOR LOGS:"
+  echo "========================================"
   ${KUBECTL} logs -n ${NAMESPACE} deploy/rpaas-operator-nginx-operator || true
   echo
   echo "RPAAS API LOGS:"
+  echo "========================================"
   ${KUBECTL} logs -n ${NAMESPACE} deploy/rpaas-api|| true
+  echo
+  echo "CERT MANAGER LOGS:"
+  echo "========================================"
+  ${KUBECTL} logs -n ${NAMESPACE} deploy/cert-manager || true
+  echo
+  echo "MY-INSTANCE NGINX LOGS:"
+  ${KUBECTL} get namespaces | grep rpaasoperator-full- | awk '{print $1}' | xargs -I {} bash -c 'echo "=== Namespace: {} ==="; '${KUBECTL}' logs -n {} deploy/my-instance'
+  echo "ALL CLUSTER OBJECTS:"
+  echo "========================================"
+  ${KUBECTL} api-resources --verbs=list --namespaced -o name | xargs -n 1 ${KUBECTL} get --show-kind --ignore-not-found --all-namespaces
   echo
 
   [[ -n ${kubectl_port_forward_pid} ]] && kill ${kubectl_port_forward_pid}
