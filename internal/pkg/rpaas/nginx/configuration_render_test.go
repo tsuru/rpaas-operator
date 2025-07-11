@@ -121,7 +121,7 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 		},
 
 		{
-			name: "with cache enabled and custom loader_files, inactive, and max cache size",
+			name: "with cache enabled and custom loader_files, inactive, extra args and max cache size",
 			data: ConfigurationData{
 				Config: &v1alpha1.NginxConfig{
 					CacheEnabled:     v1alpha1.Bool(true),
@@ -130,11 +130,12 @@ func TestRpaasConfigurationRenderer_Render(t *testing.T) {
 					CacheLoaderFiles: 1000,
 					CacheSize:        &size300MB,
 					CacheZoneSize:    &size100MB,
+					CacheExtraArgs:   "manager_files=2000",
 				},
 				Instance: &v1alpha1.RpaasInstance{},
 			},
 			assertion: func(t *testing.T, result string) {
-				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:104857600 inactive=12h max_size=314572800 loader_files=1000;`, result)
+				assert.Regexp(t, `proxy_cache_path /path/to/cache/dir/nginx levels=1:2 keys_zone=rpaas:104857600 inactive=12h max_size=314572800 loader_files=1000 manager_files=2000;`, result)
 				assert.Regexp(t, `proxy_temp_path /path/to/cache/dir/nginx_tmp 1 2;`, result)
 				assert.Regexp(t, `server {
 \s+listen 8800;

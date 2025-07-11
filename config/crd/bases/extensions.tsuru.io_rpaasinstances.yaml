@@ -642,6 +642,8 @@ spec:
                     properties:
                       cacheEnabled:
                         type: boolean
+                      cacheExtraArgs:
+                        type: string
                       cacheInactive:
                         type: string
                       cacheLoaderFiles:

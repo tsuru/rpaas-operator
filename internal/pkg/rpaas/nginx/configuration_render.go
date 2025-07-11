@@ -389,7 +389,8 @@ http {
     proxy_cache_path {{ $config.CachePath }}/nginx levels=1:2 keys_zone=rpaas:{{ k8sQuantityToNginx $config.CacheZoneSize }}
         {{- with $config.CacheInactive }} inactive={{ . }}{{ end }}
         {{- with $config.CacheSize }} max_size={{ k8sQuantityToNginx . }}{{ end }}
-        {{- with $config.CacheLoaderFiles }} loader_files={{ . }}{{ end }};
+        {{- with $config.CacheLoaderFiles }} loader_files={{ . }}{{ end }}
+        {{- with $config.CacheExtraArgs }} {{ . }}{{ end }};
 
     proxy_temp_path {{ $config.CachePath }}/nginx_tmp 1 2;
     {{- end }}

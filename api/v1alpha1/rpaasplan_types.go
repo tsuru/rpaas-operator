@@ -63,6 +63,7 @@ type NginxConfig struct {
 	CacheInactive      string             `json:"cacheInactive,omitempty"`
 	CacheLoaderFiles   int                `json:"cacheLoaderFiles,omitempty"`
 	CachePath          string             `json:"cachePath,omitempty"`
+	CacheExtraArgs     string             `json:"cacheExtraArgs,omitempty"`
 	CacheSize          *resource.Quantity `json:"cacheSize,omitempty"`
 	CacheZoneSize      *resource.Quantity `json:"cacheZoneSize,omitempty"`
 	CacheZonePurgeName string             `json:"cacheZonePurgeName,omitempty"`
