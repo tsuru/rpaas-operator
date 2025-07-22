@@ -83,8 +83,10 @@ const (
 	debugShellContainerName = "tsuru-shell"
 )
 
-var _ RpaasManager = &k8sRpaasManager{}
-var nameSuffixFunc = utilrand.String
+var (
+	_              RpaasManager = &k8sRpaasManager{}
+	nameSuffixFunc              = utilrand.String
+)
 
 var podAllowedReasonsToFail = map[string]bool{
 	"shutdown":     true,
@@ -772,6 +774,32 @@ func (m *k8sRpaasManager) Start(ctx context.Context, instanceName string) error 
 	originalInstance := instance.DeepCopy()
 	instance.Spec.Shutdown = false
 	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) Restart(ctx context.Context, instanceName string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+
+	rpaasDeployment, err := m.kcs.
+		AppsV1().
+		Deployments(instance.Namespace).
+		Get(ctx, instance.Name, metav1.GetOptions{})
+	if err != nil {
+		return err
+	}
+
+	if rpaasDeployment.Spec.Paused {
+		return errors.New("can't restart RPaaS instance because it's deployment is paused, please contact the support team")
+	}
+	if rpaasDeployment.Spec.Template.Annotations == nil {
+		rpaasDeployment.Spec.Template.Annotations = make(map[string]string)
+	}
+	rpaasDeployment.Spec.Template.Annotations["kubectl.kubernetes.io/restartedAt"] = time.Now().Format(time.RFC3339)
+
+	_, err = m.kcs.AppsV1().Deployments(instance.Namespace).Update(ctx, rpaasDeployment, metav1.UpdateOptions{})
+	return err
 }
 
 func (m *k8sRpaasManager) Stop(ctx context.Context, instanceName string) error {

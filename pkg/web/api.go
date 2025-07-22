@@ -237,6 +237,7 @@ func newEcho(targetFactory target.Factory) *echo.Echo {
 	group.DELETE("/:instance/bind", serviceUnbindUnit)
 	group.POST("/:instance/scale", scale)
 	group.POST("/:instance/start", start)
+	group.POST("/:instance/restart", restart)
 	group.POST("/:instance/stop", stop)
 	group.GET("/:instance/info", instanceInfo)
 	group.POST("/:instance/certificate", updateCertificate)

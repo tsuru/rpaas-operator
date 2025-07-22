@@ -157,6 +157,7 @@ type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, error)
 	Scale(ctx context.Context, args ScaleArgs) error
+	Restart(ctx context.Context, instance string) error
 	Start(ctx context.Context, instance string) error
 	Stop(ctx context.Context, instance string) error
 	Info(ctx context.Context, args InfoArgs) (*types.InstanceInfo, error)
