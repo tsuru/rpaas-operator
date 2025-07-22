@@ -13,7 +13,7 @@ import (
 func NewCmdRestart() *cli.Command {
 	return &cli.Command{
 		Name:  "restart",
-		Usage: "Restarts instance if the current state is shutdown",
+		Usage: "Restarts instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
