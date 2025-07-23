@@ -42,6 +42,18 @@ func start(c echo.Context) error {
 	return c.NoContent(http.StatusOK)
 }
 
+func restart(c echo.Context) error {
+	ctx := c.Request().Context()
+	manager, err := getManager(ctx)
+	if err != nil {
+		return err
+	}
+	if err = manager.Restart(ctx, c.Param("instance")); err != nil {
+		return err
+	}
+	return c.NoContent(http.StatusOK)
+}
+
 func stop(c echo.Context) error {
 	ctx := c.Request().Context()
 	manager, err := getManager(ctx)

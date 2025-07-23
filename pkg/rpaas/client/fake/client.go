@@ -20,6 +20,7 @@ type FakeClient struct {
 	FakeGetFlavors              func(instance string) ([]types.Flavor, error)
 	FakeScale                   func(args client.ScaleArgs) error
 	FakeStart                   func(instance string) error
+	FakeRestart                 func(instance string) error
 	FakeStop                    func(instance string) error
 	FakeUpdateCertificate       func(args client.UpdateCertificateArgs) error
 	FakeDeleteCertificate       func(args client.DeleteCertificateArgs) error
@@ -87,6 +88,14 @@ func (f *FakeClient) Scale(ctx context.Context, args client.ScaleArgs) error {
 func (f *FakeClient) Start(ctx context.Context, instance string) error {
 	if f.FakeStart != nil {
 		return f.FakeStart(instance)
+	}
+
+	return nil
+}
+
+func (f *FakeClient) Restart(ctx context.Context, instance string) error {
+	if f.FakeRestart != nil {
+		return f.FakeRestart(instance)
 	}
 
 	return nil
@@ -186,12 +195,14 @@ func (f *FakeClient) AddAccessControlList(ctx context.Context, instance, host st
 	}
 	return nil
 }
+
 func (f *FakeClient) ListAccessControlList(ctx context.Context, instance string) ([]types.AllowedUpstream, error) {
 	if f.FakeListAccessControlList != nil {
 		return f.FakeListAccessControlList(instance)
 	}
 	return nil, nil
 }
+
 func (f *FakeClient) RemoveAccessControlList(ctx context.Context, instance, host string, port int) error {
 	if f.FakeRemoveAccessControlList != nil {
 		return f.FakeRemoveAccessControlList(instance, host, port)
