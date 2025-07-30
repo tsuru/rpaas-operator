@@ -165,6 +165,13 @@ type BindAppArgs struct {
 	EventID          string   `form:"eventid"`
 }
 
+type UpstreamOptionsArgs struct {
+	PrimaryBind          string                       `json:"bind" form:"bind"`
+	CanaryBinds          []string                     `json:"canary,omitempty" form:"canary"`
+	TrafficShapingPolicy v1alpha1.TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty" form:"trafficShapingPolicy"`
+	LoadBalance          v1alpha1.LoadBalanceAlgorithm `json:"loadBalance,omitempty" form:"loadBalance"`
+}
+
 type CacheManager interface {
 	PurgeCache(host, path string, port int32, preservePath bool, extraHeaders http.Header) (bool, error)
 }
@@ -282,6 +289,10 @@ type RpaasManager interface {
 	AddUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error
 	GetUpstreams(ctx context.Context, name string) ([]v1alpha1.AllowedUpstream, error)
 	DeleteUpstream(ctx context.Context, instance string, upstream v1alpha1.AllowedUpstream) error
+	GetUpstreamOptions(ctx context.Context, instanceName string) ([]v1alpha1.UpstreamOptions, error)
+	AddUpstreamOptions(ctx context.Context, instanceName string, args UpstreamOptionsArgs) error
+	UpdateUpstreamOptions(ctx context.Context, instanceName string, args UpstreamOptionsArgs) error
+	DeleteUpstreamOptions(ctx context.Context, instanceName, primaryBind string) error
 
 	GetCertManagerRequests(ctx context.Context, instanceName string) ([]clientTypes.CertManager, error)
 	UpdateCertManagerRequest(ctx context.Context, instanceName string, in clientTypes.CertManager) error

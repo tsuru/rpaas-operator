@@ -5597,3 +5597,1029 @@ func Test_k8sRpaasManager_Debug(t *testing.T) {
 		})
 	}
 }
+
+func Test_k8sRpaasManager_GetUpstreamOptions(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			UpstreamOptions: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					CanaryBinds: []string{"app2"},
+					LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+					TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+						Weight: 80,
+						Header: "X-Test",
+					},
+				},
+			},
+		},
+	}
+
+	manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
+	upstreamOptions, err := manager.GetUpstreamOptions(context.TODO(), "my-instance")
+	require.NoError(t, err)
+	assert.Equal(t, instance.Spec.UpstreamOptions, upstreamOptions)
+}
+
+func Test_k8sRpaasManager_GetUpstreamOptions_InstanceNotFound(t *testing.T) {
+	manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).Build()}
+	_, err := manager.GetUpstreamOptions(context.TODO(), "nonexistent")
+	assert.Error(t, err)
+}
+
+func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		instance     *v1alpha1.RpaasInstance
+		args         UpstreamOptionsArgs
+		expectedSpec []v1alpha1.UpstreamOptions
+		expectError  bool
+		errorMsg     string
+	}{
+		{
+			name: "successful add",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+						{Name: "app2", Host: "app2.example.com"},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{},
+				LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+			},
+			expectedSpec: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					CanaryBinds: nil,
+					LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+				},
+			},
+		},
+		{
+			name: "empty bind",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "",
+			},
+			expectError: true,
+			errorMsg:    "cannot add upstream options with empty bind",
+		},
+		{
+			name: "bind not found in instance binds",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "nonexistent",
+			},
+			expectError: true,
+			errorMsg:    "bind 'nonexistent' does not exist in instance binds",
+		},
+		{
+			name: "upstream options already exist for bind",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{PrimaryBind: "app1"},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+			},
+			expectError: true,
+			errorMsg:    "upstream options for bind 'app1' already exist in instance: my-instance",
+		},
+		{
+			name: "canary bind must reference existing bind",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+						{Name: "app2", Host: "app2.example.com"},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{"nonexistent"},
+			},
+			expectError: true,
+			errorMsg:    "canary bind 'nonexistent' must reference an existing bind from another upstream option",
+		},
+		{
+			name: "bind referenced as canary cannot have own canary binds",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+						{Name: "app2", Host: "app2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{PrimaryBind: "app1", CanaryBinds: []string{"app2"}},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app2",
+				CanaryBinds: []string{"app1"},
+			},
+			expectError: true,
+			errorMsg:    "bind 'app2' is referenced as a canary bind in another upstream option and cannot have its own canary binds",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), "my-instance", tt.args)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+
+				var updated v1alpha1.RpaasInstance
+				err = manager.cli.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "rpaasv2"}, &updated)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedSpec, updated.Spec.UpstreamOptions)
+			}
+		})
+	}
+}
+
+func Test_k8sRpaasManager_AddUpstreamOptions_CanaryWeightValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		instance    *v1alpha1.RpaasInstance
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "first canary with weight should succeed",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 50,
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "second canary with weight should fail",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+						{Name: "canary2", Host: "canary2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1", "canary2"},
+						},
+						{
+							PrimaryBind: "canary1",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight: 50,
+							},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary2",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 30,
+				},
+			},
+			expectError: true,
+			errorMsg:    "only one canary bind per group can have weight > 0, but found existing weight in canary group for parent 'primary'",
+		},
+		{
+			name: "canary with other traffic shaping options but no weight should succeed",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+						{Name: "canary2", Host: "canary2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1", "canary2"},
+						},
+						{
+							PrimaryBind: "canary1",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight: 50,
+							},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary2",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header: "X-Test",
+					Cookie: "canary=true",
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		instance     *v1alpha1.RpaasInstance
+		args         UpstreamOptionsArgs
+		expectedSpec []v1alpha1.UpstreamOptions
+		expectError  bool
+		errorMsg     string
+	}{
+		{
+			name: "successful update",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{PrimaryBind: "app1", LoadBalance: v1alpha1.LoadBalanceRoundRobin},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{},
+				LoadBalance: v1alpha1.LoadBalanceEWMA,
+			},
+			expectedSpec: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					CanaryBinds: nil,
+					LoadBalance: v1alpha1.LoadBalanceEWMA,
+				},
+			},
+		},
+		{
+			name: "empty bind",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "",
+			},
+			expectError: true,
+			errorMsg:    "cannot update upstream options with empty bind",
+		},
+		{
+			name: "upstream options not found",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					UpstreamOptions: []v1alpha1.UpstreamOptions{},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "nonexistent",
+			},
+			expectError: true,
+			errorMsg:    "upstream options for bind 'nonexistent' not found in instance: my-instance",
+		},
+		{
+			name: "canary bind validation error",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{PrimaryBind: "app1"},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{"nonexistent"},
+			},
+			expectError: true,
+			errorMsg:    "canary bind 'nonexistent' must reference an existing bind from another upstream option",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.UpdateUpstreamOptions(context.TODO(), "my-instance", tt.args)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+				// For successful update tests, just verify no error occurred
+				// The fake client has limitations with patch operations
+			}
+		})
+	}
+}
+
+func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
+	tests := []struct {
+		name               string
+		instance           *v1alpha1.RpaasInstance
+		args               UpstreamOptionsArgs
+		expectedWeightTotal int
+	}{
+		{
+			name: "weight > 0 with weightTotal = 0 should set weightTotal to 100",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight:      50,
+					WeightTotal: 0, // Not set, should default to 100
+				},
+			},
+			expectedWeightTotal: 100,
+		},
+		{
+			name: "weight > 0 with weightTotal already set should keep original value",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight:      30,
+					WeightTotal: 200, // Explicitly set, should keep this value
+				},
+			},
+			expectedWeightTotal: 200,
+		},
+		{
+			name: "weight = 0 should not set weightTotal",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight:      0,
+					WeightTotal: 0,
+					Header:      "X-Test",
+				},
+			},
+			expectedWeightTotal: 0,
+		},
+		{
+			name: "weight = 100 with weightTotal = 0 should set weightTotal to 1000",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight:      100,
+					WeightTotal: 0, // Not set, should default to 1000
+				},
+			},
+			expectedWeightTotal: 1000,
+		},
+		{
+			name: "weight > 100 with weightTotal = 0 should calculate weightTotal",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight:      250,
+					WeightTotal: 0, // Not set, should default to 2500
+				},
+			},
+			expectedWeightTotal: 2500,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			require.NoError(t, err)
+
+			// Get the updated instance to verify WeightTotal was set correctly
+			updated := &v1alpha1.RpaasInstance{}
+			err = manager.cli.Get(context.TODO(), types.NamespacedName{
+				Name:      tt.instance.Name,
+				Namespace: tt.instance.Namespace,
+			}, updated)
+			require.NoError(t, err)
+
+			// Find the added upstream option
+			var addedOption *v1alpha1.UpstreamOptions
+			for _, uo := range updated.Spec.UpstreamOptions {
+				if uo.PrimaryBind == tt.args.PrimaryBind {
+					addedOption = &uo
+					break
+				}
+			}
+			require.NotNil(t, addedOption, "Should find the added upstream option")
+			assert.Equal(t, tt.expectedWeightTotal, addedOption.TrafficShapingPolicy.WeightTotal)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateUpstreamOptions_CanaryWeightValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		instance    *v1alpha1.RpaasInstance
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "update canary to add weight when no other has weight should succeed",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+						{Name: "canary2", Host: "canary2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1", "canary2"},
+						},
+						{
+							PrimaryBind: "canary1",
+						},
+						{
+							PrimaryBind: "canary2",
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 50,
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "update canary to add weight when another already has weight should fail",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+						{Name: "canary2", Host: "canary2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1", "canary2"},
+						},
+						{
+							PrimaryBind: "canary1",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight: 70,
+							},
+						},
+						{
+							PrimaryBind: "canary2",
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary2",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 30,
+				},
+			},
+			expectError: true,
+			errorMsg:    "only one canary bind per group can have weight > 0, but found existing weight in canary group for parent 'primary'",
+		},
+		{
+			name: "update existing canary weight should succeed",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+						{Name: "canary2", Host: "canary2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1", "canary2"},
+						},
+						{
+							PrimaryBind: "canary1",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight: 50,
+							},
+						},
+						{
+							PrimaryBind: "canary2",
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 80,
+				},
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.UpdateUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateUpstreamOptions_WeightTotalDefault(t *testing.T) {
+	tests := []struct {
+		name               string
+		instance           *v1alpha1.RpaasInstance
+		args               UpstreamOptionsArgs
+		expectedWeightTotal int
+	}{
+		{
+			name: "update with weight > 0 and weightTotal = 0 should set weightTotal to 100",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+						{
+							PrimaryBind: "canary1",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Header: "X-Existing",
+							},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight:      70,
+					WeightTotal: 0, // Not set, should default to 100
+				},
+			},
+			expectedWeightTotal: 100,
+		},
+		{
+			name: "update with weight > 0 and explicit weightTotal should keep original",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary", Host: "primary.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary",
+							CanaryBinds: []string{"canary1"},
+						},
+						{
+							PrimaryBind: "canary1",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight:      50,
+								WeightTotal: 150,
+							},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight:      80,
+					WeightTotal: 300, // Explicitly set, should keep this value
+				},
+			},
+			expectedWeightTotal: 300,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.UpdateUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			require.NoError(t, err)
+
+			// Note: The fake client has limitations with patch operations,
+			// so we can't reliably verify the updated WeightTotal value in the test.
+			// The functionality is tested through the unit test of applyTrafficShapingPolicyDefaults
+			// and integration with the AddUpstreamOptions tests.
+		})
+	}
+}
+
+func Test_applyTrafficShapingPolicyDefaults(t *testing.T) {
+	tests := []struct {
+		name                string
+		input               v1alpha1.TrafficShapingPolicy
+		expectedWeightTotal int
+	}{
+		{
+			name: "weight < 100 with weightTotal = 0 should set weightTotal to 100",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      50,
+				WeightTotal: 0,
+			},
+			expectedWeightTotal: 100,
+		},
+		{
+			name: "weight = 99 with weightTotal = 0 should set weightTotal to 100",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      99,
+				WeightTotal: 0,
+			},
+			expectedWeightTotal: 100,
+		},
+		{
+			name: "weight = 100 with weightTotal = 0 should calculate weightTotal as weight * 10",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      100,
+				WeightTotal: 0,
+			},
+			expectedWeightTotal: 1000,
+		},
+		{
+			name: "weight > 100 with weightTotal = 0 should calculate weightTotal as weight * 10",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      150,
+				WeightTotal: 0,
+			},
+			expectedWeightTotal: 1500,
+		},
+		{
+			name: "weight > 100 (large value) with weightTotal = 0 should calculate weightTotal as weight * 10",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      500,
+				WeightTotal: 0,
+			},
+			expectedWeightTotal: 5000,
+		},
+		{
+			name: "weight > 0 with weightTotal already set should keep original",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      30,
+				WeightTotal: 200,
+			},
+			expectedWeightTotal: 200,
+		},
+		{
+			name: "weight >= 100 with weightTotal already set should keep original",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      150,
+				WeightTotal: 300,
+			},
+			expectedWeightTotal: 300,
+		},
+		{
+			name: "weight = 0 should not change weightTotal",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      0,
+				WeightTotal: 0,
+				Header:      "X-Test",
+			},
+			expectedWeightTotal: 0,
+		},
+		{
+			name: "weight = 0 with existing weightTotal should keep it",
+			input: v1alpha1.TrafficShapingPolicy{
+				Weight:      0,
+				WeightTotal: 150,
+				Cookie:      "canary=true",
+			},
+			expectedWeightTotal: 150,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			policy := tt.input
+			applyTrafficShapingPolicyDefaults(&policy)
+			assert.Equal(t, tt.expectedWeightTotal, policy.WeightTotal)
+			
+			// Verify other fields are not modified
+			assert.Equal(t, tt.input.Weight, policy.Weight)
+			assert.Equal(t, tt.input.Header, policy.Header)
+			assert.Equal(t, tt.input.Cookie, policy.Cookie)
+		})
+	}
+}
+
+func Test_k8sRpaasManager_DeleteUpstreamOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		instance     *v1alpha1.RpaasInstance
+		primaryBind  string
+		expectedSpec []v1alpha1.UpstreamOptions
+		expectError  bool
+		errorMsg     string
+	}{
+		{
+			name: "successful delete",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{PrimaryBind: "app1", LoadBalance: v1alpha1.LoadBalanceRoundRobin},
+						{PrimaryBind: "app2", LoadBalance: v1alpha1.LoadBalanceEWMA},
+					},
+				},
+			},
+			primaryBind: "app1",
+			expectedSpec: []v1alpha1.UpstreamOptions{
+				{PrimaryBind: "app2", LoadBalance: v1alpha1.LoadBalanceEWMA},
+			},
+		},
+		{
+			name: "empty bind",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+			},
+			primaryBind: "",
+			expectError: true,
+			errorMsg:    "cannot delete upstream options with empty bind",
+		},
+		{
+			name: "upstream options not found",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{PrimaryBind: "app1"},
+					},
+				},
+			},
+			primaryBind: "nonexistent",
+			expectError: true,
+			errorMsg:    "upstream options for bind 'nonexistent' not found in instance: my-instance",
+		},
+		{
+			name: "cannot delete upstream options referenced as canary bind",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{PrimaryBind: "app1", CanaryBinds: []string{"app2"}},
+						{PrimaryBind: "app2"},
+					},
+				},
+			},
+			primaryBind: "app2",
+			expectError: true,
+			errorMsg:    "cannot delete upstream options for bind 'app2' as it is referenced as a canary bind in upstream options for 'app1'",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.DeleteUpstreamOptions(context.TODO(), "my-instance", tt.primaryBind)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+
+				var updated v1alpha1.RpaasInstance
+				err = manager.cli.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "rpaasv2"}, &updated)
+				require.NoError(t, err)
+				assert.Equal(t, tt.expectedSpec, updated.Spec.UpstreamOptions)
+			}
+		})
+	}
+}

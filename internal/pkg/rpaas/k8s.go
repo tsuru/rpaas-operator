@@ -1484,6 +1484,76 @@ func (m *k8sRpaasManager) validateFlavors(ctx context.Context, instance *v1alpha
 	return nil
 }
 
+func (m *k8sRpaasManager) validateCanaryWeightRule(upstreamOptions []v1alpha1.UpstreamOptions, currentPrimaryBind string, currentWeight int, operation string) error {
+	// Find all canary binds that reference the same parent as currentPrimaryBind
+	var parentPrimaryBind string
+	var canaryGroup []string
+
+	// Find the parent bind for currentPrimaryBind
+	for _, uo := range upstreamOptions {
+		for _, canaryBind := range uo.CanaryBinds {
+			if canaryBind == currentPrimaryBind {
+				parentPrimaryBind = uo.PrimaryBind
+				break
+			}
+		}
+		if parentPrimaryBind != "" {
+			break
+		}
+	}
+
+	if parentPrimaryBind == "" {
+		// This shouldn't happen if validation is correct, but just in case
+		return nil
+	}
+
+	// Find all canary binds in the same group (same parent bind)
+	for _, uo := range upstreamOptions {
+		if uo.PrimaryBind == parentPrimaryBind {
+			canaryGroup = uo.CanaryBinds
+			break
+		}
+	}
+
+	// Count existing weights in the canary group
+	weightsCount := 0
+	for _, canaryBind := range canaryGroup {
+		// Skip the current bind being processed for update operations
+		if operation == "update" && canaryBind == currentPrimaryBind {
+			continue
+		}
+
+		// Find the upstream options for this canary bind
+		for _, uo := range upstreamOptions {
+			if uo.PrimaryBind == canaryBind && uo.TrafficShapingPolicy.Weight > 0 {
+				weightsCount++
+				break
+			}
+		}
+	}
+
+	// For add/update operations, check if adding this weight would violate the rule
+	if currentWeight > 0 && weightsCount >= 1 {
+		return &ValidationError{Msg: fmt.Sprintf("only one canary bind per group can have weight > 0, but found existing weight in canary group for parent '%s'", parentPrimaryBind)}
+	}
+
+	return nil
+}
+
+func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
+	// Set WeightTotal based on Weight if not set and Weight is greater than 0
+	if policy.Weight > 0 && policy.WeightTotal == 0 {
+		if policy.Weight < 100 {
+			// For weights < 100, use 100 as total (standard percentage)
+			policy.WeightTotal = 100
+		} else {
+			// For weights >= 100, calculate weightTotal so that weight represents ~10% of total
+			// This ensures weight/weightTotal gives a reasonable percentage
+			policy.WeightTotal = policy.Weight * 10
+		}
+	}
+}
+
 func diffFlavors(existing, updated []string) (added, removed []string) {
 	for _, f := range updated {
 		if !contains(existing, f) {
@@ -2602,6 +2672,231 @@ func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName strin
 	}
 
 	instance.Spec.AllowedUpstreams = upstreams
+	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) GetUpstreamOptions(ctx context.Context, instanceName string) ([]v1alpha1.UpstreamOptions, error) {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return nil, err
+	}
+
+	return instance.Spec.UpstreamOptions, nil
+}
+
+func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName string, args UpstreamOptionsArgs) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	originalInstance := instance.DeepCopy()
+
+	if args.PrimaryBind == "" {
+		return &ValidationError{Msg: "cannot add upstream options with empty bind"}
+	}
+
+	// Check if the bind exists in the instance binds
+	bindExists := false
+	for _, bind := range instance.Spec.Binds {
+		if bind.Name == args.PrimaryBind {
+			bindExists = true
+			break
+		}
+	}
+	if !bindExists {
+		return &ValidationError{Msg: fmt.Sprintf("bind '%s' does not exist in instance binds", args.PrimaryBind)}
+	}
+
+	// Check if upstream options for this bind already exist
+	for _, uo := range instance.Spec.UpstreamOptions {
+		if uo.PrimaryBind == args.PrimaryBind {
+			return &ConflictError{Msg: fmt.Sprintf("upstream options for bind '%s' already exist in instance: %s", args.PrimaryBind, instanceName)}
+		}
+	}
+
+	// Check if this bind is already referenced as a canary bind
+	// If so, it cannot have its own canary binds
+	isReferencedAsCanary := false
+	for _, uo := range instance.Spec.UpstreamOptions {
+		for _, canaryBind := range uo.CanaryBinds {
+			if canaryBind == args.PrimaryBind {
+				isReferencedAsCanary = true
+				break
+			}
+		}
+		if isReferencedAsCanary {
+			break
+		}
+	}
+
+	if isReferencedAsCanary && len(args.CanaryBinds) > 0 {
+		return &ValidationError{Msg: fmt.Sprintf("bind '%s' is referenced as a canary bind in another upstream option and cannot have its own canary binds", args.PrimaryBind)}
+	}
+
+	// Validate canary binds - they should reference existing binds from other UpstreamOptions
+	for _, canaryBind := range args.CanaryBinds {
+		canaryBindExists := false
+		for _, uo := range instance.Spec.UpstreamOptions {
+			if uo.PrimaryBind == canaryBind {
+				canaryBindExists = true
+				break
+			}
+		}
+		if !canaryBindExists {
+			return &ValidationError{Msg: fmt.Sprintf("canary bind '%s' must reference an existing bind from another upstream option", canaryBind)}
+		}
+	}
+
+	// TrafficShapingPolicy validation: only for canary bind leaf nodes
+	isLeafNode := isReferencedAsCanary && len(args.CanaryBinds) == 0
+	hasTrafficShapingPolicy := args.TrafficShapingPolicy.Weight > 0 || args.TrafficShapingPolicy.Header != "" || args.TrafficShapingPolicy.Cookie != ""
+
+	if hasTrafficShapingPolicy && !isLeafNode {
+		return &ValidationError{Msg: fmt.Sprintf("TrafficShapingPolicy can only be set for canary bind leaf nodes (bind '%s' is not a leaf node)", args.PrimaryBind)}
+	}
+
+	// Validate canary weight rule: only one canary per group can have weight > 0
+	if args.TrafficShapingPolicy.Weight > 0 && isLeafNode {
+		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, "add"); err != nil {
+			return err
+		}
+	}
+
+	// Apply defaults to TrafficShapingPolicy
+	applyTrafficShapingPolicyDefaults(&args.TrafficShapingPolicy)
+
+	upstreamOptions := v1alpha1.UpstreamOptions{
+		PrimaryBind:          args.PrimaryBind,
+		CanaryBinds:          args.CanaryBinds,
+		TrafficShapingPolicy: args.TrafficShapingPolicy,
+		LoadBalance:          args.LoadBalance,
+	}
+
+	instance.Spec.UpstreamOptions = append(instance.Spec.UpstreamOptions, upstreamOptions)
+	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceName string, args UpstreamOptionsArgs) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	originalInstance := instance.DeepCopy()
+
+	if args.PrimaryBind == "" {
+		return &ValidationError{Msg: "cannot update upstream options with empty bind"}
+	}
+
+	// Check if this bind is referenced as a canary bind in other upstream options
+	// If so, it cannot have its own canary binds
+	isReferencedAsCanary := false
+	for _, uo := range instance.Spec.UpstreamOptions {
+		if uo.PrimaryBind == args.PrimaryBind {
+			continue // Skip the current upstream option being updated
+		}
+		for _, canaryBind := range uo.CanaryBinds {
+			if canaryBind == args.PrimaryBind {
+				isReferencedAsCanary = true
+				break
+			}
+		}
+		if isReferencedAsCanary {
+			break
+		}
+	}
+
+	if isReferencedAsCanary && len(args.CanaryBinds) > 0 {
+		return &ValidationError{Msg: fmt.Sprintf("bind '%s' is referenced as a canary bind in another upstream option and cannot have its own canary binds", args.PrimaryBind)}
+	}
+
+	// Validate canary binds - they should reference existing binds from other UpstreamOptions
+	for _, canaryBind := range args.CanaryBinds {
+		canaryBindExists := false
+		for _, uo := range instance.Spec.UpstreamOptions {
+			if uo.PrimaryBind == canaryBind && uo.PrimaryBind != args.PrimaryBind {
+				canaryBindExists = true
+				break
+			}
+		}
+		if !canaryBindExists {
+			return &ValidationError{Msg: fmt.Sprintf("canary bind '%s' must reference an existing bind from another upstream option", canaryBind)}
+		}
+	}
+
+	// TrafficShapingPolicy validation: only for canary bind leaf nodes
+	isLeafNode := isReferencedAsCanary && len(args.CanaryBinds) == 0
+	hasTrafficShapingPolicy := args.TrafficShapingPolicy.Weight > 0 || args.TrafficShapingPolicy.Header != "" || args.TrafficShapingPolicy.Cookie != ""
+
+	if hasTrafficShapingPolicy && !isLeafNode {
+		return &ValidationError{Msg: fmt.Sprintf("TrafficShapingPolicy can only be set for canary bind leaf nodes (bind '%s' is not a leaf node)", args.PrimaryBind)}
+	}
+
+	// Validate canary weight rule: only one canary per group can have weight > 0
+	if args.TrafficShapingPolicy.Weight > 0 && isLeafNode {
+		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, "update"); err != nil {
+			return err
+		}
+	}
+
+	// Apply defaults to TrafficShapingPolicy
+	applyTrafficShapingPolicyDefaults(&args.TrafficShapingPolicy)
+
+	// Find and update the upstream options for the given bind
+	// Note: PrimaryBind is immutable, only update other fields
+	found := false
+	for i, uo := range instance.Spec.UpstreamOptions {
+		if uo.PrimaryBind == args.PrimaryBind {
+			found = true
+			// Keep the original PrimaryBind, only update mutable fields
+			instance.Spec.UpstreamOptions[i].CanaryBinds = args.CanaryBinds
+			instance.Spec.UpstreamOptions[i].TrafficShapingPolicy = args.TrafficShapingPolicy
+			instance.Spec.UpstreamOptions[i].LoadBalance = args.LoadBalance
+			break
+		}
+	}
+
+	if !found {
+		return &NotFoundError{Msg: fmt.Sprintf("upstream options for bind '%s' not found in instance: %s", args.PrimaryBind, instanceName)}
+	}
+
+	return m.patchInstance(ctx, originalInstance, instance)
+}
+
+func (m *k8sRpaasManager) DeleteUpstreamOptions(ctx context.Context, instanceName, primaryBind string) error {
+	instance, err := m.GetInstance(ctx, instanceName)
+	if err != nil {
+		return err
+	}
+	originalInstance := instance.DeepCopy()
+
+	if primaryBind == "" {
+		return &ValidationError{Msg: "cannot delete upstream options with empty bind"}
+	}
+
+	// Check if this bind is referenced as a canary bind in other upstream options
+	for _, uo := range instance.Spec.UpstreamOptions {
+		for _, canaryBind := range uo.CanaryBinds {
+			if canaryBind == primaryBind {
+				return &ValidationError{Msg: fmt.Sprintf("cannot delete upstream options for bind '%s' as it is referenced as a canary bind in upstream options for '%s'", primaryBind, uo.PrimaryBind)}
+			}
+		}
+	}
+
+	found := false
+	upstreamOptions := instance.Spec.UpstreamOptions
+	for i, uo := range upstreamOptions {
+		if uo.PrimaryBind == primaryBind {
+			found = true
+			upstreamOptions = append(upstreamOptions[:i], upstreamOptions[i+1:]...)
+			break
+		}
+	}
+
+	if !found {
+		return &NotFoundError{Msg: fmt.Sprintf("upstream options for bind '%s' not found in instance: %s", primaryBind, instanceName)}
+	}
+
+	instance.Spec.UpstreamOptions = upstreamOptions
 	return m.patchInstance(ctx, originalInstance, instance)
 }
 
