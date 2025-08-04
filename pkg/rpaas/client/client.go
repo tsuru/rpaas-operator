@@ -153,6 +153,40 @@ type UpdateCertManagerArgs struct {
 	Instance string
 }
 
+type ListUpstreamOptionsArgs struct {
+	Instance string
+}
+
+type AddUpstreamOptionsArgs struct {
+	Instance             string
+	PrimaryBind          string
+	CanaryBinds          []string
+	TrafficShapingPolicy TrafficShapingPolicy
+	LoadBalance          string
+}
+
+type UpdateUpstreamOptionsArgs struct {
+	Instance             string
+	PrimaryBind          string
+	CanaryBinds          []string
+	TrafficShapingPolicy TrafficShapingPolicy
+	LoadBalance          string
+}
+
+type TrafficShapingPolicy struct {
+	Weight        int    `json:"weight,omitempty"`
+	WeightTotal   int    `json:"weightTotal,omitempty"`
+	Header        string `json:"header,omitempty"`
+	HeaderValue   string `json:"headerValue,omitempty"`
+	HeaderPattern string `json:"headerPattern,omitempty"`
+	Cookie        string `json:"cookie,omitempty"`
+}
+
+type DeleteUpstreamOptionsArgs struct {
+	Instance    string
+	PrimaryBind string
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, error)
@@ -192,6 +226,11 @@ type Client interface {
 	GetMetadata(ctx context.Context, instance string) (*types.Metadata, error)
 	SetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error
 	UnsetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error
+
+	ListUpstreamOptions(ctx context.Context, args ListUpstreamOptionsArgs) ([]types.UpstreamOptions, error)
+	AddUpstreamOptions(ctx context.Context, args AddUpstreamOptionsArgs) error
+	UpdateUpstreamOptions(ctx context.Context, args UpdateUpstreamOptionsArgs) error
+	DeleteUpstreamOptions(ctx context.Context, args DeleteUpstreamOptionsArgs) error
 }
 
 type wsWriter struct {
