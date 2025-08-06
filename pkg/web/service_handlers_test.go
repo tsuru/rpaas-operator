@@ -739,7 +739,7 @@ func Test_updateUpstreamOptions(t *testing.T) {
 		{
 			name:         "successful update",
 			instanceName: "my-instance",
-			requestBody:  `{"bind":"app1","canary":[],"loadBalance":"ewma","trafficShapingPolicy":{"weight":90}}`,
+			requestBody:  `{"canary":[],"loadBalance":"ewma","trafficShapingPolicy":{"weight":90}}`,
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
 				FakeUpdateUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
@@ -781,7 +781,7 @@ func Test_updateUpstreamOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/upstream-options", srv.URL, tt.instanceName)
+			path := fmt.Sprintf("%s/resources/%s/upstream-options/app1", srv.URL, tt.instanceName)
 			request, err := http.NewRequest(http.MethodPut, path, strings.NewReader(tt.requestBody))
 			require.NoError(t, err)
 			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
@@ -803,7 +803,7 @@ func Test_deleteUpstreamOptions(t *testing.T) {
 		{
 			name:         "successful delete",
 			instanceName: "my-instance",
-			requestBody:  "bind=app1",
+			requestBody:  "",
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
 				FakeDeleteUpstreamOptions: func(instanceName, primaryBind string) error {
@@ -816,7 +816,7 @@ func Test_deleteUpstreamOptions(t *testing.T) {
 		{
 			name:         "not found error",
 			instanceName: "my-instance",
-			requestBody:  "bind=nonexistent",
+			requestBody:  "",
 			expectedCode: http.StatusNotFound,
 			manager: &fake.RpaasManager{
 				FakeDeleteUpstreamOptions: func(instanceName, primaryBind string) error {
@@ -827,7 +827,7 @@ func Test_deleteUpstreamOptions(t *testing.T) {
 		{
 			name:         "validation error",
 			instanceName: "my-instance",
-			requestBody:  "bind=app2",
+			requestBody:  "",
 			expectedCode: http.StatusBadRequest,
 			manager: &fake.RpaasManager{
 				FakeDeleteUpstreamOptions: func(instanceName, primaryBind string) error {
@@ -841,10 +841,17 @@ func Test_deleteUpstreamOptions(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			srv := newTestingServer(t, tt.manager)
 			defer srv.Close()
-			path := fmt.Sprintf("%s/resources/%s/upstream-options", srv.URL, tt.instanceName)
-			request, err := http.NewRequest(http.MethodDelete, path, strings.NewReader(tt.requestBody))
+			var path string
+			switch tt.name {
+			case "successful delete":
+				path = fmt.Sprintf("%s/resources/%s/upstream-options/app1", srv.URL, tt.instanceName)
+			case "not found error":
+				path = fmt.Sprintf("%s/resources/%s/upstream-options/nonexistent", srv.URL, tt.instanceName)
+			case "validation error":
+				path = fmt.Sprintf("%s/resources/%s/upstream-options/app2", srv.URL, tt.instanceName)
+			}
+			request, err := http.NewRequest(http.MethodDelete, path, nil)
 			require.NoError(t, err)
-			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationForm)
 			rsp, err := srv.Client().Do(request)
 			require.NoError(t, err)
 			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
