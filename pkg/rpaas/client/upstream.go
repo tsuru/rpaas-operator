@@ -53,11 +53,11 @@ func (c *client) AddUpstreamOptions(ctx context.Context, args AddUpstreamOptions
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/upstream-options", args.Instance)
-	
+
 	body := map[string]interface{}{
 		"bind":                 args.PrimaryBind,
-		"canary":              args.CanaryBinds,
-		"loadBalance":         args.LoadBalance,
+		"canary":               args.CanaryBinds,
+		"loadBalance":          args.LoadBalance,
 		"trafficShapingPolicy": args.TrafficShapingPolicy,
 	}
 
@@ -96,10 +96,10 @@ func (c *client) UpdateUpstreamOptions(ctx context.Context, args UpdateUpstreamO
 	}
 
 	pathName := fmt.Sprintf("/resources/%s/upstream-options/%s", args.Instance, args.PrimaryBind)
-	
+
 	body := map[string]interface{}{
-		"canary":              args.CanaryBinds,
-		"loadBalance":         args.LoadBalance,
+		"canary":               args.CanaryBinds,
+		"loadBalance":          args.LoadBalance,
 		"trafficShapingPolicy": args.TrafficShapingPolicy,
 	}
 

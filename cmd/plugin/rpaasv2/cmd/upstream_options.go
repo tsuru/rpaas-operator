@@ -95,9 +95,9 @@ func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientType
 		var trafficPolicy string
 		if uo.TrafficShapingPolicy.Weight > 0 {
 			trafficPolicy = fmt.Sprintf("Weight: %d/%d", uo.TrafficShapingPolicy.Weight, uo.TrafficShapingPolicy.WeightTotal)
-		} else if uo.TrafficShapingPolicy.Header != "" {
+		} else if strings.TrimSpace(uo.TrafficShapingPolicy.Header) != "" {
 			trafficPolicy = fmt.Sprintf("Header: %s=%s (%s)", uo.TrafficShapingPolicy.Header, uo.TrafficShapingPolicy.HeaderValue, uo.TrafficShapingPolicy.HeaderPattern)
-		} else if uo.TrafficShapingPolicy.Cookie != "" {
+		} else if strings.TrimSpace(uo.TrafficShapingPolicy.Cookie) != "" {
 			trafficPolicy = fmt.Sprintf("Cookie: %s", uo.TrafficShapingPolicy.Cookie)
 		} else {
 			trafficPolicy = "-"

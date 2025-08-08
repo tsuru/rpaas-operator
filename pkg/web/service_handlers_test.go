@@ -824,17 +824,6 @@ func Test_deleteUpstreamOptions(t *testing.T) {
 				},
 			},
 		},
-		{
-			name:         "validation error",
-			instanceName: "my-instance",
-			requestBody:  "",
-			expectedCode: http.StatusBadRequest,
-			manager: &fake.RpaasManager{
-				FakeDeleteUpstreamOptions: func(instanceName, primaryBind string) error {
-					return &rpaas.ValidationError{Msg: "cannot delete upstream options referenced as canary bind"}
-				},
-			},
-		},
 	}
 
 	for _, tt := range tests {

@@ -1540,6 +1540,15 @@ func (m *k8sRpaasManager) validateCanaryWeightRule(upstreamOptions []v1alpha1.Up
 	return nil
 }
 
+// hasTrafficShapingPolicyDefined checks if any field in TrafficShapingPolicy is set
+func hasTrafficShapingPolicyDefined(policy v1alpha1.TrafficShapingPolicy) bool {
+	return policy.Weight > 0 ||
+		strings.TrimSpace(policy.Header) != "" ||
+		strings.TrimSpace(policy.Cookie) != "" ||
+		strings.TrimSpace(policy.HeaderValue) != "" ||
+		strings.TrimSpace(policy.HeaderPattern) != ""
+}
+
 func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
 	// Set WeightTotal based on Weight if not set and Weight is greater than 0
 	if policy.Weight > 0 && policy.WeightTotal == 0 {
@@ -2749,7 +2758,7 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 
 	// TrafficShapingPolicy validation: only for canary bind leaf nodes
 	isLeafNode := isReferencedAsCanary && len(args.CanaryBinds) == 0
-	hasTrafficShapingPolicy := args.TrafficShapingPolicy.Weight > 0 || args.TrafficShapingPolicy.Header != "" || args.TrafficShapingPolicy.Cookie != ""
+	hasTrafficShapingPolicy := hasTrafficShapingPolicyDefined(args.TrafficShapingPolicy)
 
 	if hasTrafficShapingPolicy && !isLeafNode {
 		return &ValidationError{Msg: fmt.Sprintf("TrafficShapingPolicy can only be set for canary bind leaf nodes (bind '%s' is not a leaf node)", args.PrimaryBind)}
@@ -2825,7 +2834,7 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 
 	// TrafficShapingPolicy validation: only for canary bind leaf nodes
 	isLeafNode := isReferencedAsCanary && len(args.CanaryBinds) == 0
-	hasTrafficShapingPolicy := args.TrafficShapingPolicy.Weight > 0 || args.TrafficShapingPolicy.Header != "" || args.TrafficShapingPolicy.Cookie != ""
+	hasTrafficShapingPolicy := hasTrafficShapingPolicyDefined(args.TrafficShapingPolicy)
 
 	if hasTrafficShapingPolicy && !isLeafNode {
 		return &ValidationError{Msg: fmt.Sprintf("TrafficShapingPolicy can only be set for canary bind leaf nodes (bind '%s' is not a leaf node)", args.PrimaryBind)}
@@ -2873,23 +2882,29 @@ func (m *k8sRpaasManager) DeleteUpstreamOptions(ctx context.Context, instanceNam
 		return &ValidationError{Msg: "cannot delete upstream options with empty bind"}
 	}
 
-	// Check if this bind is referenced as a canary bind in other upstream options
+	// Remove the primary bind from UpstreamOptions and also remove any references to it as a canary bind
+	found := false
+	upstreamOptions := make([]v1alpha1.UpstreamOptions, 0, len(instance.Spec.UpstreamOptions))
+	
 	for _, uo := range instance.Spec.UpstreamOptions {
+		if uo.PrimaryBind == primaryBind {
+			// Found the bind to delete, skip adding it to the new slice
+			found = true
+			continue
+		}
+		
+		// For other upstream options, remove any references to the deleted bind in CanaryBinds
+		updatedCanaryBinds := make([]string, 0, len(uo.CanaryBinds))
 		for _, canaryBind := range uo.CanaryBinds {
-			if canaryBind == primaryBind {
-				return &ValidationError{Msg: fmt.Sprintf("cannot delete upstream options for bind '%s' as it is referenced as a canary bind in upstream options for '%s'", primaryBind, uo.PrimaryBind)}
+			if canaryBind != primaryBind {
+				updatedCanaryBinds = append(updatedCanaryBinds, canaryBind)
 			}
 		}
-	}
-
-	found := false
-	upstreamOptions := instance.Spec.UpstreamOptions
-	for i, uo := range upstreamOptions {
-		if uo.PrimaryBind == primaryBind {
-			found = true
-			upstreamOptions = append(upstreamOptions[:i], upstreamOptions[i+1:]...)
-			break
-		}
+		
+		// Create a copy of the upstream option with updated canary binds
+		updatedUO := uo
+		updatedUO.CanaryBinds = updatedCanaryBinds
+		upstreamOptions = append(upstreamOptions, updatedUO)
 	}
 
 	if !found {

@@ -191,10 +191,10 @@ type Bind struct {
 }
 
 type UpstreamOptions struct {
-	PrimaryBind          string                            `json:"bind"`
-	CanaryBinds          []string                          `json:"canary,omitempty"`
-	TrafficShapingPolicy v1alpha1.TrafficShapingPolicy     `json:"trafficShapingPolicy,omitempty"`
-	LoadBalance          v1alpha1.LoadBalanceAlgorithm     `json:"loadBalance,omitempty"`
+	PrimaryBind          string                        `json:"bind"`
+	CanaryBinds          []string                      `json:"canary,omitempty"`
+	TrafficShapingPolicy v1alpha1.TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`
+	LoadBalance          v1alpha1.LoadBalanceAlgorithm `json:"loadBalance,omitempty"`
 }
 
 type TrafficShapingPolicy struct {

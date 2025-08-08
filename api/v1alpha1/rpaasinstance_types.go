@@ -249,17 +249,17 @@ type UpstreamOptions struct {
 
 type TrafficShapingPolicy struct {
 	// Weight-based routing: only ONE Bind in a canary group can have weight > 0
-	Weight      int `json:"weight"`
+	Weight      int `json:"weight,omitempty"`
 	WeightTotal int `json:"weightTotal,omitempty"`
 
 	// Header on which to redirect requests to this backend
-	Header string `json:"header"`
+	Header string `json:"header,omitempty"`
 	// HeaderValue on which to redirect requests to this backend
-	HeaderValue string `json:"headerValue"`
+	HeaderValue string `json:"headerValue,omitempty"`
 	// HeaderPattern the header value match pattern, support exact, regex.
-	HeaderPattern string `json:"headerPattern"`
+	HeaderPattern string `json:"headerPattern,omitempty"`
 	// Cookie on which to redirect requests to this backend
-	Cookie string `json:"cookie"`
+	Cookie string `json:"cookie,omitempty"`
 }
 
 type BlockType string

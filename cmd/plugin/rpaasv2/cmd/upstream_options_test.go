@@ -92,11 +92,7 @@ func TestListUpstreamOptions(t *testing.T) {
 		],
 		"trafficShapingPolicy": {
 			"weight": 80,
-			"weightTotal": 100,
-			"header": "",
-			"headerValue": "",
-			"headerPattern": "",
-			"cookie": ""
+			"weightTotal": 100
 		},
 		"loadBalance": "round_robin"
 	}

@@ -6020,9 +6020,9 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 
 func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
 	tests := []struct {
-		name               string
-		instance           *v1alpha1.RpaasInstance
-		args               UpstreamOptionsArgs
+		name                string
+		instance            *v1alpha1.RpaasInstance
+		args                UpstreamOptionsArgs
 		expectedWeightTotal int
 	}{
 		{
@@ -6339,9 +6339,9 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_CanaryWeightValidation(t *testin
 
 func Test_k8sRpaasManager_UpdateUpstreamOptions_WeightTotalDefault(t *testing.T) {
 	tests := []struct {
-		name               string
-		instance           *v1alpha1.RpaasInstance
-		args               UpstreamOptionsArgs
+		name                string
+		instance            *v1alpha1.RpaasInstance
+		args                UpstreamOptionsArgs
 		expectedWeightTotal int
 	}{
 		{
@@ -6518,7 +6518,7 @@ func Test_applyTrafficShapingPolicyDefaults(t *testing.T) {
 			policy := tt.input
 			applyTrafficShapingPolicyDefaults(&policy)
 			assert.Equal(t, tt.expectedWeightTotal, policy.WeightTotal)
-			
+
 			// Verify other fields are not modified
 			assert.Equal(t, tt.input.Weight, policy.Weight)
 			assert.Equal(t, tt.input.Header, policy.Header)
@@ -6585,7 +6585,7 @@ func Test_k8sRpaasManager_DeleteUpstreamOptions(t *testing.T) {
 			errorMsg:    "upstream options for bind 'nonexistent' not found in instance: my-instance",
 		},
 		{
-			name: "cannot delete upstream options referenced as canary bind",
+			name: "delete upstream options referenced as canary bind and remove references",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -6599,8 +6599,9 @@ func Test_k8sRpaasManager_DeleteUpstreamOptions(t *testing.T) {
 				},
 			},
 			primaryBind: "app2",
-			expectError: true,
-			errorMsg:    "cannot delete upstream options for bind 'app2' as it is referenced as a canary bind in upstream options for 'app1'",
+			expectedSpec: []v1alpha1.UpstreamOptions{
+				{PrimaryBind: "app1", CanaryBinds: nil},
+			},
 		},
 	}
 
