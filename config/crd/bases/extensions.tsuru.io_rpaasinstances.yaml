@@ -6700,12 +6700,6 @@ spec:
                           type: integer
                         weightTotal:
                           type: integer
-                      required:
-                      - cookie
-                      - header
-                      - headerPattern
-                      - headerValue
-                      - weight
                       type: object
                   required:
                   - bind
