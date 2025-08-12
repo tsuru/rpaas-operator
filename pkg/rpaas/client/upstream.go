@@ -55,7 +55,7 @@ func (c *client) AddUpstreamOptions(ctx context.Context, args AddUpstreamOptions
 	pathName := fmt.Sprintf("/resources/%s/upstream-options", args.Instance)
 
 	body := map[string]interface{}{
-		"bind":                 args.PrimaryBind,
+		"app":                  args.PrimaryBind,
 		"canary":               args.CanaryBinds,
 		"loadBalance":          args.LoadBalance,
 		"trafficShapingPolicy": args.TrafficShapingPolicy,

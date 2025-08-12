@@ -6660,7 +6660,7 @@ spec:
                   upstreams.
                 items:
                   properties:
-                    bind:
+                    app:
                       description: Main bind for this upstream
                       type: string
                     canary:
@@ -6702,7 +6702,7 @@ spec:
                           type: integer
                       type: object
                   required:
-                  - bind
+                  - app
                   type: object
                 type: array
             type: object

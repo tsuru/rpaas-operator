@@ -675,7 +675,7 @@ func Test_addUpstreamOptions(t *testing.T) {
 		{
 			name:         "successful add",
 			instanceName: "my-instance",
-			requestBody:  `{"bind":"app1","canary":["app2"],"loadBalance":"round_robin","trafficShapingPolicy":{"weight":80}}`,
+			requestBody:  `{"app":"app1","canary":["app2"],"loadBalance":"round_robin","trafficShapingPolicy":{"weight":80}}`,
 			expectedCode: http.StatusCreated,
 			manager: &fake.RpaasManager{
 				FakeAddUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
@@ -703,11 +703,11 @@ func Test_addUpstreamOptions(t *testing.T) {
 		{
 			name:         "validation error",
 			instanceName: "my-instance",
-			requestBody:  `{"bind":"","canary":[]}`,
+			requestBody:  `{"app":"","canary":[]}`,
 			expectedCode: http.StatusBadRequest,
 			manager: &fake.RpaasManager{
 				FakeAddUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
-					return &rpaas.ValidationError{Msg: "cannot add upstream options with empty bind"}
+					return &rpaas.ValidationError{Msg: "cannot add upstream options with empty app"}
 				},
 			},
 		},

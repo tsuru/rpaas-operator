@@ -29,7 +29,7 @@ func TestGetUpstreamOptions(t *testing.T) {
 			name:         "get upstream options successfully",
 			instance:     "valid",
 			expectedCode: http.StatusOK,
-			expectedBody: `\[\{"bind":"bind1","canary":\["canary1"\],"trafficShapingPolicy":\{"weight":50,"weightTotal":100\},"loadBalance":"round_robin"\}\]`,
+			expectedBody: `\[\{"app":"bind1","canary":\["canary1"\],"trafficShapingPolicy":\{"weight":50,"weightTotal":100\},"loadBalance":"round_robin"\}\]`,
 			manager: &fake.RpaasManager{
 				FakeGetUpstreamOptions: func(instanceName string) ([]v1alpha1.UpstreamOptions, error) {
 					assert.Equal(t, "valid", instanceName)
@@ -101,7 +101,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 		{
 			name:         "add upstream options successfully",
 			instance:     "valid",
-			requestBody:  `{"bind":"bind1","canary":["canary1"],"trafficShapingPolicy":{"weight":50,"weightTotal":100},"loadBalance":"round_robin"}`,
+			requestBody:  `{"app":"bind1","canary":["canary1"],"trafficShapingPolicy":{"weight":50,"weightTotal":100},"loadBalance":"round_robin"}`,
 			expectedCode: http.StatusCreated,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
@@ -123,7 +123,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 		{
 			name:         "add upstream options with minimal fields",
 			instance:     "minimal",
-			requestBody:  `{"bind":"bind1"}`,
+			requestBody:  `{"app":"bind1"}`,
 			expectedCode: http.StatusCreated,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
@@ -155,7 +155,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 		{
 			name:         "add upstream options manager error",
 			instance:     "error",
-			requestBody:  `{"bind":"bind1"}`,
+			requestBody:  `{"app":"bind1"}`,
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: `{"message":"manager error"}`,
 			manager: &fake.RpaasManager{

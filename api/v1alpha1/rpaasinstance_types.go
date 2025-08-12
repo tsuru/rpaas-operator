@@ -237,7 +237,7 @@ const (
 
 type UpstreamOptions struct {
 	// Main bind for this upstream
-	PrimaryBind string `json:"bind"`
+	PrimaryBind string `json:"app"`
 	// CanaryBinds contains the names of other Binds that participate in traffic distribution
 	// based on their individual TrafficShapingPolicy configurations
 	CanaryBinds []string `json:"canary,omitempty"`

@@ -166,7 +166,7 @@ type BindAppArgs struct {
 }
 
 type UpstreamOptionsArgs struct {
-	PrimaryBind          string                        `json:"bind" form:"bind"`
+	PrimaryBind          string                        `json:"app" form:"app"`
 	CanaryBinds          []string                      `json:"canary,omitempty" form:"canary"`
 	TrafficShapingPolicy v1alpha1.TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty" form:"trafficShapingPolicy"`
 	LoadBalance          v1alpha1.LoadBalanceAlgorithm `json:"loadBalance,omitempty" form:"loadBalance"`

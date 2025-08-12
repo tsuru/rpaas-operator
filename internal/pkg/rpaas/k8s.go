@@ -2701,7 +2701,7 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 	originalInstance := instance.DeepCopy()
 
 	if args.PrimaryBind == "" {
-		return &ValidationError{Msg: "cannot add upstream options with empty bind"}
+		return &ValidationError{Msg: "cannot add upstream options with empty app"}
 	}
 
 	// Check if the bind exists in the instance binds
@@ -2793,7 +2793,7 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 	originalInstance := instance.DeepCopy()
 
 	if args.PrimaryBind == "" {
-		return &ValidationError{Msg: "cannot update upstream options with empty bind"}
+		return &ValidationError{Msg: "cannot update upstream options with empty app"}
 	}
 
 	// Check if this bind is referenced as a canary bind in other upstream options
@@ -2879,7 +2879,7 @@ func (m *k8sRpaasManager) DeleteUpstreamOptions(ctx context.Context, instanceNam
 	originalInstance := instance.DeepCopy()
 
 	if primaryBind == "" {
-		return &ValidationError{Msg: "cannot delete upstream options with empty bind"}
+		return &ValidationError{Msg: "cannot delete upstream options with empty app"}
 	}
 
 	// Remove the primary bind from UpstreamOptions and also remove any references to it as a canary bind

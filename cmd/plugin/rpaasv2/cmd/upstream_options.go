@@ -108,7 +108,7 @@ func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientType
 	}
 
 	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Primary Bind", "Canary Binds", "Load Balance", "Traffic Policy"})
+	table.SetHeader([]string{"Primary App", "Canary Apps", "Load Balance", "Traffic Policy"})
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
@@ -131,7 +131,7 @@ func NewCmdAddUpstreamOptions() *cli.Command {
 	return &cli.Command{
 		Name:    "add",
 		Aliases: []string{"create"},
-		Usage:   "Adds upstream options for a bind",
+		Usage:   "Adds upstream options for an app",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -145,9 +145,9 @@ func NewCmdAddUpstreamOptions() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:     "bind",
-				Aliases:  []string{"primary-bind", "b"},
-				Usage:    "the primary bind name",
+				Name:     "app",
+				Aliases:  []string{"bind", "primary-bind", "a"},
+				Usage:    "the primary app name",
 				Required: true,
 			},
 			&cli.StringSliceFlag{
@@ -207,7 +207,7 @@ func runAddUpstreamOptions(c *cli.Context) error {
 
 	args := rpaasclient.AddUpstreamOptionsArgs{
 		Instance:             c.String("instance"),
-		PrimaryBind:          c.String("bind"),
+		PrimaryBind:          c.String("app"),
 		CanaryBinds:          c.StringSlice("canary"),
 		TrafficShapingPolicy: trafficShapingPolicy,
 		LoadBalance:          c.String("load-balance"),
@@ -218,14 +218,14 @@ func runAddUpstreamOptions(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Upstream options added for bind %q.\n", args.PrimaryBind)
+	fmt.Fprintf(c.App.Writer, "Upstream options added for app %q.\n", args.PrimaryBind)
 	return nil
 }
 
 func NewCmdUpdateUpstreamOptions() *cli.Command {
 	return &cli.Command{
 		Name:  "update",
-		Usage: "Updates upstream options for a bind",
+		Usage: "Updates upstream options for an app",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -239,9 +239,9 @@ func NewCmdUpdateUpstreamOptions() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:     "bind",
-				Aliases:  []string{"primary-bind", "b"},
-				Usage:    "the primary bind name",
+				Name:     "app",
+				Aliases:  []string{"bind", "primary-bind", "a"},
+				Usage:    "the primary app name",
 				Required: true,
 			},
 			&cli.StringSliceFlag{
@@ -301,7 +301,7 @@ func runUpdateUpstreamOptions(c *cli.Context) error {
 
 	args := rpaasclient.UpdateUpstreamOptionsArgs{
 		Instance:             c.String("instance"),
-		PrimaryBind:          c.String("bind"),
+		PrimaryBind:          c.String("app"),
 		CanaryBinds:          c.StringSlice("canary"),
 		TrafficShapingPolicy: trafficShapingPolicy,
 		LoadBalance:          c.String("load-balance"),
@@ -312,7 +312,7 @@ func runUpdateUpstreamOptions(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Upstream options updated for bind %q.\n", args.PrimaryBind)
+	fmt.Fprintf(c.App.Writer, "Upstream options updated for app %q.\n", args.PrimaryBind)
 	return nil
 }
 
@@ -320,7 +320,7 @@ func NewCmdDeleteUpstreamOptions() *cli.Command {
 	return &cli.Command{
 		Name:    "delete",
 		Aliases: []string{"remove"},
-		Usage:   "Removes upstream options for a bind",
+		Usage:   "Removes upstream options for an app",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",
@@ -334,9 +334,9 @@ func NewCmdDeleteUpstreamOptions() *cli.Command {
 				Required: true,
 			},
 			&cli.StringFlag{
-				Name:     "bind",
-				Aliases:  []string{"primary-bind", "b"},
-				Usage:    "the primary bind name",
+				Name:     "app",
+				Aliases:  []string{"bind", "primary-bind", "a"},
+				Usage:    "the primary app name",
 				Required: true,
 			},
 		},
@@ -361,6 +361,6 @@ func runDeleteUpstreamOptions(c *cli.Context) error {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Upstream options removed for bind %q.\n", args.PrimaryBind)
+	fmt.Fprintf(c.App.Writer, "Upstream options removed for app %q.\n", args.PrimaryBind)
 	return nil
 }

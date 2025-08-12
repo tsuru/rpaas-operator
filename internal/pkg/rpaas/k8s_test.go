@@ -5668,7 +5668,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
 			},
 		},
 		{
-			name: "empty bind",
+			name: "empty app",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -5679,7 +5679,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
 				PrimaryBind: "",
 			},
 			expectError: true,
-			errorMsg:    "cannot add upstream options with empty bind",
+			errorMsg:    "cannot add upstream options with empty app",
 		},
 		{
 			name: "bind not found in instance binds",
@@ -5949,7 +5949,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 			},
 		},
 		{
-			name: "empty bind",
+			name: "empty app",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -5960,7 +5960,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 				PrimaryBind: "",
 			},
 			expectError: true,
-			errorMsg:    "cannot update upstream options with empty bind",
+			errorMsg:    "cannot update upstream options with empty app",
 		},
 		{
 			name: "upstream options not found",
@@ -6556,7 +6556,7 @@ func Test_k8sRpaasManager_DeleteUpstreamOptions(t *testing.T) {
 			},
 		},
 		{
-			name: "empty bind",
+			name: "empty app",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -6565,7 +6565,7 @@ func Test_k8sRpaasManager_DeleteUpstreamOptions(t *testing.T) {
 			},
 			primaryBind: "",
 			expectError: true,
-			errorMsg:    "cannot delete upstream options with empty bind",
+			errorMsg:    "cannot delete upstream options with empty app",
 		},
 		{
 			name: "upstream options not found",

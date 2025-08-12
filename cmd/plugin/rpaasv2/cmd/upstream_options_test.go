@@ -41,10 +41,10 @@ func TestListUpstreamOptions(t *testing.T) {
 		{
 			name: "when ListUpstreamOptions returns no error with empty result",
 			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
-			expected: `+--------------+--------------+--------------+----------------+
-| Primary Bind | Canary Binds | Load Balance | Traffic Policy |
-+--------------+--------------+--------------+----------------+
-+--------------+--------------+--------------+----------------+
+			expected: `+-------------+-------------+--------------+----------------+
+| Primary App | Canary Apps | Load Balance | Traffic Policy |
++-------------+-------------+--------------+----------------+
++-------------+-------------+--------------+----------------+
 `,
 			client: &fake.FakeClient{
 				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
@@ -57,11 +57,11 @@ func TestListUpstreamOptions(t *testing.T) {
 		{
 			name: "when ListUpstreamOptions returns upstream options",
 			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
-			expected: `+--------------+--------------+--------------+----------------+
-| Primary Bind | Canary Binds | Load Balance | Traffic Policy |
-+--------------+--------------+--------------+----------------+
-| app1         | app2         | round_robin  | Weight: 80/100 |
-+--------------+--------------+--------------+----------------+
+			expected: `+-------------+-------------+--------------+----------------+
+| Primary App | Canary Apps | Load Balance | Traffic Policy |
++-------------+-------------+--------------+----------------+
+| app1        | app2        | round_robin  | Weight: 80/100 |
++-------------+-------------+--------------+----------------+
 `,
 			client: &fake.FakeClient{
 				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
@@ -86,7 +86,7 @@ func TestListUpstreamOptions(t *testing.T) {
 			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance", "--raw-output"},
 			expected: `[
 	{
-		"bind": "app1",
+		"app": "app1",
 		"canary": [
 			"app2"
 		],
@@ -146,7 +146,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 	}{
 		{
 			name:          "when AddUpstreamOptions returns an error",
-			args:          []string{"./rpaasv2", "upstream", "add", "-i", "my-instance", "-b", "app1"},
+			args:          []string{"./rpaasv2", "upstream", "add", "-i", "my-instance", "-a", "app1"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
 				FakeAddUpstreamOptions: func(args rpaasclient.AddUpstreamOptionsArgs) error {
@@ -161,8 +161,8 @@ func TestAddUpstreamOptions(t *testing.T) {
 		},
 		{
 			name:     "when AddUpstreamOptions returns no error",
-			args:     []string{"./rpaasv2", "upstream", "add", "-i", "my-instance", "-b", "app1"},
-			expected: "Upstream options added for bind \"app1\".\n",
+			args:     []string{"./rpaasv2", "upstream", "add", "-i", "my-instance", "-a", "app1"},
+			expected: "Upstream options added for app \"app1\".\n",
 			client: &fake.FakeClient{
 				FakeAddUpstreamOptions: func(args rpaasclient.AddUpstreamOptionsArgs) error {
 					expected := rpaasclient.AddUpstreamOptionsArgs{
@@ -176,11 +176,11 @@ func TestAddUpstreamOptions(t *testing.T) {
 		},
 		{
 			name: "when AddUpstreamOptions with all options",
-			args: []string{"./rpaasv2", "upstream", "add", "-i", "my-instance", "-b", "app1",
+			args: []string{"./rpaasv2", "upstream", "add", "-i", "my-instance", "-a", "app1",
 				"--canary", "app2", "--canary", "app3", "--load-balance", "round_robin",
 				"--weight", "80", "--weight-total", "100", "--header", "X-Version",
 				"--header-value", "v2", "--header-pattern", "exact", "--cookie", "session"},
-			expected: "Upstream options added for bind \"app1\".\n",
+			expected: "Upstream options added for app \"app1\".\n",
 			client: &fake.FakeClient{
 				FakeAddUpstreamOptions: func(args rpaasclient.AddUpstreamOptionsArgs) error {
 					expected := rpaasclient.AddUpstreamOptionsArgs{
@@ -232,7 +232,7 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 	}{
 		{
 			name:          "when UpdateUpstreamOptions returns an error",
-			args:          []string{"./rpaasv2", "upstream", "update", "-i", "my-instance", "-b", "app1"},
+			args:          []string{"./rpaasv2", "upstream", "update", "-i", "my-instance", "-a", "app1"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
 				FakeUpdateUpstreamOptions: func(args rpaasclient.UpdateUpstreamOptionsArgs) error {
@@ -247,8 +247,8 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 		},
 		{
 			name:     "when UpdateUpstreamOptions returns no error",
-			args:     []string{"./rpaasv2", "upstream", "update", "-i", "my-instance", "-b", "app1"},
-			expected: "Upstream options updated for bind \"app1\".\n",
+			args:     []string{"./rpaasv2", "upstream", "update", "-i", "my-instance", "-a", "app1"},
+			expected: "Upstream options updated for app \"app1\".\n",
 			client: &fake.FakeClient{
 				FakeUpdateUpstreamOptions: func(args rpaasclient.UpdateUpstreamOptionsArgs) error {
 					expected := rpaasclient.UpdateUpstreamOptionsArgs{
@@ -290,7 +290,7 @@ func TestDeleteUpstreamOptions(t *testing.T) {
 	}{
 		{
 			name:          "when DeleteUpstreamOptions returns an error",
-			args:          []string{"./rpaasv2", "upstream", "delete", "-i", "my-instance", "-b", "app1"},
+			args:          []string{"./rpaasv2", "upstream", "delete", "-i", "my-instance", "-a", "app1"},
 			expectedError: "some error",
 			client: &fake.FakeClient{
 				FakeDeleteUpstreamOptions: func(args rpaasclient.DeleteUpstreamOptionsArgs) error {
@@ -305,8 +305,8 @@ func TestDeleteUpstreamOptions(t *testing.T) {
 		},
 		{
 			name:     "when DeleteUpstreamOptions returns no error",
-			args:     []string{"./rpaasv2", "upstream", "delete", "-i", "my-instance", "-b", "app1"},
-			expected: "Upstream options removed for bind \"app1\".\n",
+			args:     []string{"./rpaasv2", "upstream", "delete", "-i", "my-instance", "-a", "app1"},
+			expected: "Upstream options removed for app \"app1\".\n",
 			client: &fake.FakeClient{
 				FakeDeleteUpstreamOptions: func(args rpaasclient.DeleteUpstreamOptionsArgs) error {
 					expected := rpaasclient.DeleteUpstreamOptionsArgs{

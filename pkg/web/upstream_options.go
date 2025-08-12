@@ -66,10 +66,10 @@ func updateUpstreamOptions(c echo.Context) error {
 		return err
 	}
 
-	// Set the bind from URL parameter, not from request body
-	args.PrimaryBind = c.Param("bind")
+	// Set the app from URL parameter, not from request body
+	args.PrimaryBind = c.Param("app")
 	if args.PrimaryBind == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "bind parameter is required")
+		return echo.NewHTTPError(http.StatusBadRequest, "app parameter is required")
 	}
 
 	if err = manager.UpdateUpstreamOptions(ctx, c.Param("instance"), args); err != nil {
@@ -86,9 +86,9 @@ func deleteUpstreamOptions(c echo.Context) error {
 		return err
 	}
 
-	primaryBind := c.Param("bind")
+	primaryBind := c.Param("app")
 	if primaryBind == "" {
-		return echo.NewHTTPError(http.StatusBadRequest, "bind parameter is required")
+		return echo.NewHTTPError(http.StatusBadRequest, "app parameter is required")
 	}
 
 	if err = manager.DeleteUpstreamOptions(ctx, c.Param("instance"), primaryBind); err != nil {
