@@ -126,7 +126,7 @@ func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientType
 
 		loadBalance := string(uo.LoadBalance)
 		if loadBalance == "" {
-			loadBalance = "-"
+			loadBalance = "round_robin"
 		}
 
 		// Get formatted traffic policies (can be multiple lines)
@@ -144,7 +144,7 @@ func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientType
 	}
 
 	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Primary App", "Canary Apps", "Load Balance", "Traffic Policies"})
+	table.SetHeader([]string{"Primary App", "Canary App", "Load Balance", "Traffic Policies"})
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
@@ -189,7 +189,7 @@ func NewCmdAddUpstreamOptions() *cli.Command {
 			&cli.StringSliceFlag{
 				Name:    "canary",
 				Aliases: []string{"canary-binds", "c"},
-				Usage:   "canary bind names (can be specified multiple times)",
+				Usage:   "canary bind name (only one canary per upstream is allowed)",
 			},
 			&cli.StringFlag{
 				Name:    "load-balance",
@@ -283,7 +283,7 @@ func NewCmdUpdateUpstreamOptions() *cli.Command {
 			&cli.StringSliceFlag{
 				Name:    "canary",
 				Aliases: []string{"canary-binds", "c"},
-				Usage:   "canary bind names (can be specified multiple times)",
+				Usage:   "canary bind name (only one canary per upstream is allowed)",
 			},
 			&cli.StringFlag{
 				Name:    "load-balance",

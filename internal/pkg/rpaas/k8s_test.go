@@ -6059,10 +6059,10 @@ func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T
 			},
 			args: UpstreamOptionsArgs{
 				PrimaryBind: "app1",
-				CanaryBinds: []string{"canary1", "canary2"}, // Both have weight - should fail
+				CanaryBinds: []string{"canary1", "canary2"}, // Multiple canary binds - should fail
 			},
 			expectError: true,
-			errorMsg:    "only one canary bind per group can have weight > 0, but found weight in multiple canary binds",
+			errorMsg:    "only one canary bind is allowed per upstream",
 		},
 	}
 
@@ -6366,6 +6366,107 @@ func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
 			assert.Equal(t, tt.expectedWeightTotal, addedOption.TrafficShapingPolicy.WeightTotal)
 		})
 	}
+}
+
+func Test_k8sRpaasManager_AddUpstreamOptions_SingleCanaryValidation(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "primary", Host: "primary.example.com"},
+				{Name: "canary1", Host: "canary1.example.com"},
+				{Name: "canary2", Host: "canary2.example.com"},
+			},
+		},
+	}
+
+	manager := &k8sRpaasManager{
+		cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build(),
+	}
+
+	// Test adding upstream options with multiple canary binds should fail
+	args := UpstreamOptionsArgs{
+		PrimaryBind: "primary",
+		CanaryBinds: []string{"canary1", "canary2"},
+	}
+
+	err := manager.AddUpstreamOptions(context.TODO(), "my-instance", args)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "only one canary bind is allowed per upstream")
+}
+
+func Test_k8sRpaasManager_UpdateUpstreamOptions_SingleCanaryValidation(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "primary", Host: "primary.example.com"},
+				{Name: "canary1", Host: "canary1.example.com"},
+				{Name: "canary2", Host: "canary2.example.com"},
+			},
+			UpstreamOptions: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "primary",
+					CanaryBinds: []string{},
+				},
+			},
+		},
+	}
+
+	manager := &k8sRpaasManager{
+		cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build(),
+	}
+
+	// Test updating upstream options with multiple canary binds should fail
+	args := UpstreamOptionsArgs{
+		PrimaryBind: "primary",
+		CanaryBinds: []string{"canary1", "canary2"},
+	}
+
+	err := manager.UpdateUpstreamOptions(context.TODO(), "my-instance", args)
+	assert.Error(t, err)
+	assert.Contains(t, err.Error(), "only one canary bind is allowed per upstream")
+}
+
+func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceDefault(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "app1", Host: "app1.example.com"},
+			},
+		},
+	}
+
+	manager := &k8sRpaasManager{
+		cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build(),
+	}
+
+	// Test adding upstream options without specifying load balance
+	args := UpstreamOptionsArgs{
+		PrimaryBind: "app1",
+		// LoadBalance not specified - should default to round_robin
+	}
+
+	err := manager.AddUpstreamOptions(context.TODO(), "my-instance", args)
+	require.NoError(t, err)
+
+	// Verify the default was applied
+	var updated v1alpha1.RpaasInstance
+	err = manager.cli.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "rpaasv2"}, &updated)
+	require.NoError(t, err)
+	
+	require.Len(t, updated.Spec.UpstreamOptions, 1)
+	assert.Equal(t, v1alpha1.LoadBalanceRoundRobin, updated.Spec.UpstreamOptions[0].LoadBalance)
 }
 
 func Test_k8sRpaasManager_UpdateUpstreamOptions_CanaryWeightValidation(t *testing.T) {

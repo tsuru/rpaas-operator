@@ -1555,6 +1555,16 @@ func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
 	}
 }
 
+func applyUpstreamOptionsDefaults(args *UpstreamOptionsArgs) {
+	// Set default load balance algorithm to round_robin if not specified
+	if args.LoadBalance == "" {
+		args.LoadBalance = v1alpha1.LoadBalanceRoundRobin
+	}
+	
+	// Apply traffic shaping policy defaults
+	applyTrafficShapingPolicyDefaults(&args.TrafficShapingPolicy)
+}
+
 func diffFlavors(existing, updated []string) (added, removed []string) {
 	for _, f := range updated {
 		if !contains(existing, f) {
@@ -2734,6 +2744,11 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 		return &ValidationError{Msg: fmt.Sprintf("bind '%s' is referenced as a canary bind in another upstream option and cannot have its own canary binds", args.PrimaryBind)}
 	}
 
+	// Validate canary binds count - only one canary per upstream is allowed
+	if len(args.CanaryBinds) > 1 {
+		return &ValidationError{Msg: fmt.Sprintf("only one canary bind is allowed per upstream, but %d were provided", len(args.CanaryBinds))}
+	}
+
 	// Validate canary binds - they should reference existing binds from other UpstreamOptions
 	// and check for weight conflicts when adding canary binds
 	canaryBindsWithWeight := []string{}
@@ -2772,8 +2787,8 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 		}
 	}
 
-	// Apply defaults to TrafficShapingPolicy
-	applyTrafficShapingPolicyDefaults(&args.TrafficShapingPolicy)
+	// Apply defaults to UpstreamOptions
+	applyUpstreamOptionsDefaults(&args)
 
 	upstreamOptions := v1alpha1.UpstreamOptions{
 		PrimaryBind:          args.PrimaryBind,
@@ -2819,6 +2834,11 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 		return &ValidationError{Msg: fmt.Sprintf("bind '%s' is referenced as a canary bind in another upstream option and cannot have its own canary binds", args.PrimaryBind)}
 	}
 
+	// Validate canary binds count - only one canary per upstream is allowed
+	if len(args.CanaryBinds) > 1 {
+		return &ValidationError{Msg: fmt.Sprintf("only one canary bind is allowed per upstream, but %d were provided", len(args.CanaryBinds))}
+	}
+
 	// Validate canary binds - they should reference existing binds from other UpstreamOptions
 	// and check for weight conflicts when adding/updating canary binds
 	canaryBindsWithWeight := []string{}
@@ -2857,8 +2877,8 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 		}
 	}
 
-	// Apply defaults to TrafficShapingPolicy
-	applyTrafficShapingPolicyDefaults(&args.TrafficShapingPolicy)
+	// Apply defaults to UpstreamOptions
+	applyUpstreamOptionsDefaults(&args)
 
 	// Find and update the upstream options for the given bind
 	// Note: PrimaryBind is immutable, only update other fields

@@ -239,7 +239,8 @@ type UpstreamOptions struct {
 	// Main bind for this upstream
 	PrimaryBind string `json:"app"`
 	// CanaryBinds contains the names of other Binds that participate in traffic distribution
-	// based on their individual TrafficShapingPolicy configurations
+	// based on their individual TrafficShapingPolicy configurations.
+	// Currently limited to one canary per upstream.
 	CanaryBinds []string `json:"canary,omitempty"`
 	// TrafficShapingPolicy defines the traffic shaping policy for this upstream.
 	TrafficShapingPolicy TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`

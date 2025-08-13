@@ -41,10 +41,10 @@ func TestListUpstreamOptions(t *testing.T) {
 		{
 			name: "when ListUpstreamOptions returns no error with empty result",
 			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
-			expected: `+-------------+-------------+--------------+------------------+
-| Primary App | Canary Apps | Load Balance | Traffic Policies |
-+-------------+-------------+--------------+------------------+
-+-------------+-------------+--------------+------------------+
+			expected: `+-------------+------------+--------------+------------------+
+| Primary App | Canary App | Load Balance | Traffic Policies |
++-------------+------------+--------------+------------------+
++-------------+------------+--------------+------------------+
 `,
 			client: &fake.FakeClient{
 				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
@@ -57,11 +57,11 @@ func TestListUpstreamOptions(t *testing.T) {
 		{
 			name: "when ListUpstreamOptions returns upstream options",
 			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
-			expected: `+-------------+-------------+--------------+------------------+
-| Primary App | Canary Apps | Load Balance | Traffic Policies |
-+-------------+-------------+--------------+------------------+
-| app1        | app2        | round_robin  | Weight: 80/100   |
-+-------------+-------------+--------------+------------------+
+			expected: `+-------------+------------+--------------+------------------+
+| Primary App | Canary App | Load Balance | Traffic Policies |
++-------------+------------+--------------+------------------+
+| app1        | app2       | round_robin  | Weight: 80/100   |
++-------------+------------+--------------+------------------+
 `,
 			client: &fake.FakeClient{
 				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
@@ -84,12 +84,12 @@ func TestListUpstreamOptions(t *testing.T) {
 		{
 			name: "when ListUpstreamOptions returns upstream options with multiple traffic policies",
 			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
-			expected: `+-------------+-------------+--------------+---------------------------+
-| Primary App | Canary Apps | Load Balance | Traffic Policies          |
-+-------------+-------------+--------------+---------------------------+
-| app1        | app2        | round_robin  | Weight: 50/100;           |
-|             |             |              | Header: X-test=v1 (exact) |
-+-------------+-------------+--------------+---------------------------+
+			expected: `+-------------+------------+--------------+---------------------------+
+| Primary App | Canary App | Load Balance | Traffic Policies          |
++-------------+------------+--------------+---------------------------+
+| app1        | app2       | round_robin  | Weight: 50/100;           |
+|             |            |              | Header: X-test=v1 (exact) |
++-------------+------------+--------------+---------------------------+
 `,
 			client: &fake.FakeClient{
 				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
