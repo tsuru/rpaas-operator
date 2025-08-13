@@ -13,6 +13,7 @@ import (
 	"github.com/olekukonko/tablewriter"
 	"github.com/urfave/cli/v2"
 
+	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
@@ -78,6 +79,42 @@ func runListUpstreamOptions(c *cli.Context) error {
 	return nil
 }
 
+func formatTrafficShapingPolicies(policy v1alpha1.TrafficShapingPolicy) []string {
+	var policies []string
+
+	// Add weight policy if present
+	if policy.Weight > 0 {
+		policies = append(policies, fmt.Sprintf("Weight: %d/%d;", policy.Weight, policy.WeightTotal))
+	}
+
+	// Add header policy if present
+	if strings.TrimSpace(policy.Header) != "" {
+		pattern := policy.HeaderPattern
+		if pattern == "" {
+			pattern = "exact"
+		}
+		policies = append(policies, fmt.Sprintf("Header: %s=%s (%s);", policy.Header, policy.HeaderValue, pattern))
+	}
+
+	// Add cookie policy if present
+	if strings.TrimSpace(policy.Cookie) != "" {
+		policies = append(policies, fmt.Sprintf("Cookie: %s", policy.Cookie))
+	}
+
+	// Return formatted policies or "None" if no policies
+	if len(policies) == 0 {
+		return []string{"None"}
+	}
+
+	// Remove trailing semicolon from last policy
+	if len(policies) > 0 && strings.HasSuffix(policies[len(policies)-1], ";") {
+		lastPolicy := policies[len(policies)-1]
+		policies[len(policies)-1] = strings.TrimSuffix(lastPolicy, ";")
+	}
+
+	return policies
+}
+
 func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientTypes.UpstreamOptions) {
 	data := [][]string{}
 
@@ -92,23 +129,22 @@ func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientType
 			loadBalance = "-"
 		}
 
-		var trafficPolicy string
-		if uo.TrafficShapingPolicy.Weight > 0 {
-			trafficPolicy = fmt.Sprintf("Weight: %d/%d", uo.TrafficShapingPolicy.Weight, uo.TrafficShapingPolicy.WeightTotal)
-		} else if strings.TrimSpace(uo.TrafficShapingPolicy.Header) != "" {
-			trafficPolicy = fmt.Sprintf("Header: %s=%s (%s)", uo.TrafficShapingPolicy.Header, uo.TrafficShapingPolicy.HeaderValue, uo.TrafficShapingPolicy.HeaderPattern)
-		} else if strings.TrimSpace(uo.TrafficShapingPolicy.Cookie) != "" {
-			trafficPolicy = fmt.Sprintf("Cookie: %s", uo.TrafficShapingPolicy.Cookie)
-		} else {
-			trafficPolicy = "-"
-		}
+		// Get formatted traffic policies (can be multiple lines)
+		trafficPolicies := formatTrafficShapingPolicies(uo.TrafficShapingPolicy)
 
-		row := []string{uo.PrimaryBind, canaryBinds, loadBalance, trafficPolicy}
+		// Add the first row with all data
+		row := []string{uo.PrimaryBind, canaryBinds, loadBalance, trafficPolicies[0]}
 		data = append(data, row)
+
+		// Add additional rows for extra traffic policies (with empty cells for other columns)
+		for i := 1; i < len(trafficPolicies); i++ {
+			additionalRow := []string{"", "", "", trafficPolicies[i]}
+			data = append(data, additionalRow)
+		}
 	}
 
 	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Primary App", "Canary Apps", "Load Balance", "Traffic Policy"})
+	table.SetHeader([]string{"Primary App", "Canary Apps", "Load Balance", "Traffic Policies"})
 	table.SetAutoWrapText(false)
 	table.SetAutoFormatHeaders(false)
 	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
@@ -353,7 +389,7 @@ func runDeleteUpstreamOptions(c *cli.Context) error {
 
 	args := rpaasclient.DeleteUpstreamOptionsArgs{
 		Instance:    c.String("instance"),
-		PrimaryBind: c.String("bind"),
+		PrimaryBind: c.String("app"),
 	}
 
 	err = client.DeleteUpstreamOptions(c.Context, args)
