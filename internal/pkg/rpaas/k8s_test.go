@@ -5913,6 +5913,173 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryWeightValidation(t *testing.T
 	}
 }
 
+func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T) {
+	tests := []struct {
+		name        string
+		instance    *v1alpha1.RpaasInstance
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "primary upstream cannot have weight when it has canary binds",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "host1.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "canary1", // canary1 must exist as upstream option first
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{"canary1"},
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 50, // This should fail - primary cannot have weight with canary binds
+				},
+			},
+			expectError: true,
+			errorMsg:    "primary upstream 'app1' cannot have weight traffic shaping when it has canary binds",
+		},
+		{
+			name: "primary upstream can have non-weight traffic shaping with canary binds",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "host1.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "canary1", // canary1 must exist as upstream option first
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{"canary1"},
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:      "X-Test",
+					HeaderValue: "canary",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "canary upstream can have weight traffic shaping",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "host1.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "app1",
+							CanaryBinds: []string{"canary1"},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 80, // This should succeed - canary can have weight
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "standalone upstream can have weight traffic shaping",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "host1.example.com"},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Weight: 100, // This should succeed - standalone upstream can have weight
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "cannot add multiple canary binds with weight to same group",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "host1.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+						{Name: "canary2", Host: "canary2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "canary1",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight: 50, // canary1 has weight
+							},
+						},
+						{
+							PrimaryBind: "canary2",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight: 30, // canary2 also has weight
+							},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{"canary1", "canary2"}, // Both have weight - should fail
+			},
+			expectError: true,
+			errorMsg:    "only one canary bind per group can have weight > 0, but found weight in multiple canary binds",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			if tt.expectError {
+				assert.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				assert.NoError(t, err)
+			}
+		})
+	}
+}
+
 func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 	tests := []struct {
 		name         string

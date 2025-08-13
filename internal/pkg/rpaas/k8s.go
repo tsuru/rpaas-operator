@@ -1540,14 +1540,6 @@ func (m *k8sRpaasManager) validateCanaryWeightRule(upstreamOptions []v1alpha1.Up
 	return nil
 }
 
-// hasTrafficShapingPolicyDefined checks if any field in TrafficShapingPolicy is set
-func hasTrafficShapingPolicyDefined(policy v1alpha1.TrafficShapingPolicy) bool {
-	return policy.Weight > 0 ||
-		strings.TrimSpace(policy.Header) != "" ||
-		strings.TrimSpace(policy.Cookie) != "" ||
-		strings.TrimSpace(policy.HeaderValue) != "" ||
-		strings.TrimSpace(policy.HeaderPattern) != ""
-}
 
 func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
 	// Set WeightTotal based on Weight if not set and Weight is greater than 0
@@ -2743,11 +2735,17 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 	}
 
 	// Validate canary binds - they should reference existing binds from other UpstreamOptions
+	// and check for weight conflicts when adding canary binds
+	canaryBindsWithWeight := []string{}
 	for _, canaryBind := range args.CanaryBinds {
 		canaryBindExists := false
 		for _, uo := range instance.Spec.UpstreamOptions {
 			if uo.PrimaryBind == canaryBind {
 				canaryBindExists = true
+				// Check if this canary bind has weight defined
+				if uo.TrafficShapingPolicy.Weight > 0 {
+					canaryBindsWithWeight = append(canaryBindsWithWeight, canaryBind)
+				}
 				break
 			}
 		}
@@ -2755,17 +2753,20 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 			return &ValidationError{Msg: fmt.Sprintf("canary bind '%s' must reference an existing bind from another upstream option", canaryBind)}
 		}
 	}
-
-	// TrafficShapingPolicy validation: only for canary bind leaf nodes
-	isLeafNode := isReferencedAsCanary && len(args.CanaryBinds) == 0
-	hasTrafficShapingPolicy := hasTrafficShapingPolicyDefined(args.TrafficShapingPolicy)
-
-	if hasTrafficShapingPolicy && !isLeafNode {
-		return &ValidationError{Msg: fmt.Sprintf("TrafficShapingPolicy can only be set for canary bind leaf nodes (bind '%s' is not a leaf node)", args.PrimaryBind)}
+	
+	// Validate that only one canary bind in the group has weight > 0
+	if len(canaryBindsWithWeight) > 1 {
+		return &ValidationError{Msg: fmt.Sprintf("only one canary bind per group can have weight > 0, but found weight in multiple canary binds: %v", canaryBindsWithWeight)}
 	}
 
-	// Validate canary weight rule: only one canary per group can have weight > 0
-	if args.TrafficShapingPolicy.Weight > 0 && isLeafNode {
+	// New traffic shaping validation rules:
+	// 1. Primary upstream cannot have weight when it has canary binds
+	if len(args.CanaryBinds) > 0 && args.TrafficShapingPolicy.Weight > 0 {
+		return &ValidationError{Msg: fmt.Sprintf("primary upstream '%s' cannot have weight traffic shaping when it has canary binds", args.PrimaryBind)}
+	}
+
+	// 2. If this is a canary bind, validate weight rule: only one canary per group can have weight > 0
+	if args.TrafficShapingPolicy.Weight > 0 && isReferencedAsCanary {
 		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, "add"); err != nil {
 			return err
 		}
@@ -2819,11 +2820,17 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 	}
 
 	// Validate canary binds - they should reference existing binds from other UpstreamOptions
+	// and check for weight conflicts when adding/updating canary binds
+	canaryBindsWithWeight := []string{}
 	for _, canaryBind := range args.CanaryBinds {
 		canaryBindExists := false
 		for _, uo := range instance.Spec.UpstreamOptions {
 			if uo.PrimaryBind == canaryBind && uo.PrimaryBind != args.PrimaryBind {
 				canaryBindExists = true
+				// Check if this canary bind has weight defined
+				if uo.TrafficShapingPolicy.Weight > 0 {
+					canaryBindsWithWeight = append(canaryBindsWithWeight, canaryBind)
+				}
 				break
 			}
 		}
@@ -2831,17 +2838,20 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 			return &ValidationError{Msg: fmt.Sprintf("canary bind '%s' must reference an existing bind from another upstream option", canaryBind)}
 		}
 	}
-
-	// TrafficShapingPolicy validation: only for canary bind leaf nodes
-	isLeafNode := isReferencedAsCanary && len(args.CanaryBinds) == 0
-	hasTrafficShapingPolicy := hasTrafficShapingPolicyDefined(args.TrafficShapingPolicy)
-
-	if hasTrafficShapingPolicy && !isLeafNode {
-		return &ValidationError{Msg: fmt.Sprintf("TrafficShapingPolicy can only be set for canary bind leaf nodes (bind '%s' is not a leaf node)", args.PrimaryBind)}
+	
+	// Validate that only one canary bind in the group has weight > 0
+	if len(canaryBindsWithWeight) > 1 {
+		return &ValidationError{Msg: fmt.Sprintf("only one canary bind per group can have weight > 0, but found weight in multiple canary binds: %v", canaryBindsWithWeight)}
 	}
 
-	// Validate canary weight rule: only one canary per group can have weight > 0
-	if args.TrafficShapingPolicy.Weight > 0 && isLeafNode {
+	// New traffic shaping validation rules:
+	// 1. Primary upstream cannot have weight when it has canary binds
+	if len(args.CanaryBinds) > 0 && args.TrafficShapingPolicy.Weight > 0 {
+		return &ValidationError{Msg: fmt.Sprintf("primary upstream '%s' cannot have weight traffic shaping when it has canary binds", args.PrimaryBind)}
+	}
+
+	// 2. If this is a canary bind, validate weight rule: only one canary per group can have weight > 0
+	if args.TrafficShapingPolicy.Weight > 0 && isReferencedAsCanary {
 		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, "update"); err != nil {
 			return err
 		}
