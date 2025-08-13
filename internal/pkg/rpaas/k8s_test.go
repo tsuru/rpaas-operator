@@ -5948,10 +5948,10 @@ func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T
 				},
 			},
 			expectError: true,
-			errorMsg:    "primary upstream 'app1' cannot have weight traffic shaping when it has canary binds",
+			errorMsg:    "primary upstream 'app1' cannot have traffic shaping policy when it has canary binds",
 		},
 		{
-			name: "primary upstream can have non-weight traffic shaping with canary binds",
+			name: "primary upstream cannot have header traffic shaping with canary binds",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -5977,7 +5977,8 @@ func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T
 					HeaderValue: "canary",
 				},
 			},
-			expectError: false,
+			expectError: true,
+			errorMsg:    "primary upstream 'app1' cannot have traffic shaping policy when it has canary binds",
 		},
 		{
 			name: "canary upstream can have weight traffic shaping",
@@ -6003,6 +6004,29 @@ func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T
 				PrimaryBind: "canary1",
 				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
 					Weight: 80, // This should succeed - canary can have weight
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "primary upstream can have traffic shaping when no canary binds",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "host1.example.com"},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				CanaryBinds: []string{}, // No canary binds - traffic shaping should be allowed
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:      "X-Test",
+					HeaderValue: "production",
 				},
 			},
 			expectError: false,

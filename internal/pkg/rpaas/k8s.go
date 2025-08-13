@@ -1555,6 +1555,12 @@ func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
 	}
 }
 
+func hasTrafficShapingPolicy(policy v1alpha1.TrafficShapingPolicy) bool {
+	return policy.Weight > 0 ||
+		   strings.TrimSpace(policy.Header) != "" ||
+		   strings.TrimSpace(policy.Cookie) != ""
+}
+
 func applyUpstreamOptionsDefaults(args *UpstreamOptionsArgs) {
 	// Set default load balance algorithm to round_robin if not specified
 	if args.LoadBalance == "" {
@@ -2775,9 +2781,9 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 	}
 
 	// New traffic shaping validation rules:
-	// 1. Primary upstream cannot have weight when it has canary binds
-	if len(args.CanaryBinds) > 0 && args.TrafficShapingPolicy.Weight > 0 {
-		return &ValidationError{Msg: fmt.Sprintf("primary upstream '%s' cannot have weight traffic shaping when it has canary binds", args.PrimaryBind)}
+	// 1. Primary upstream cannot have any traffic shaping policy when it has canary binds
+	if len(args.CanaryBinds) > 0 && hasTrafficShapingPolicy(args.TrafficShapingPolicy) {
+		return &ValidationError{Msg: fmt.Sprintf("primary upstream '%s' cannot have traffic shaping policy when it has canary binds", args.PrimaryBind)}
 	}
 
 	// 2. If this is a canary bind, validate weight rule: only one canary per group can have weight > 0
@@ -2865,9 +2871,9 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 	}
 
 	// New traffic shaping validation rules:
-	// 1. Primary upstream cannot have weight when it has canary binds
-	if len(args.CanaryBinds) > 0 && args.TrafficShapingPolicy.Weight > 0 {
-		return &ValidationError{Msg: fmt.Sprintf("primary upstream '%s' cannot have weight traffic shaping when it has canary binds", args.PrimaryBind)}
+	// 1. Primary upstream cannot have any traffic shaping policy when it has canary binds
+	if len(args.CanaryBinds) > 0 && hasTrafficShapingPolicy(args.TrafficShapingPolicy) {
+		return &ValidationError{Msg: fmt.Sprintf("primary upstream '%s' cannot have traffic shaping policy when it has canary binds", args.PrimaryBind)}
 	}
 
 	// 2. If this is a canary bind, validate weight rule: only one canary per group can have weight > 0
