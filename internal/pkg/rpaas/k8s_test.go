@@ -6916,3 +6916,97 @@ func Test_k8sRpaasManager_DeleteUpstreamOptions(t *testing.T) {
 		})
 	}
 }
+
+func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *testing.T) {
+	tests := []struct {
+		name        string
+		instance    *v1alpha1.RpaasInstance
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "should prevent using same bind as canary in multiple upstreams",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "teste", Host: "teste.example.com"},
+						{Name: "canary", Host: "canary.example.com"},
+						{Name: "canary-2", Host: "canary-2.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "teste",
+							CanaryBinds: []string{"canary"},
+						},
+						{
+							PrimaryBind: "canary",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight:      10,
+								WeightTotal: 100,
+								Header:      "X-teste",
+								HeaderValue: "lerolero",
+								HeaderPattern: "exact",
+							},
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary-2",
+				CanaryBinds: []string{"canary"}, // This should fail - 'canary' is already used as canary in upstream 'teste'
+			},
+			expectError: true,
+			errorMsg:    "bind 'canary' is already used as canary bind in upstream 'teste' and cannot be used as canary in multiple upstreams",
+		},
+		{
+			name: "should fail when bind is already used as canary elsewhere",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary1", Host: "primary1.example.com"},
+						{Name: "primary2", Host: "primary2.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary1",
+							CanaryBinds: []string{"canary1"},
+						},
+						{
+							PrimaryBind: "canary1", // canary1 has its own upstream options
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "primary2",
+				CanaryBinds: []string{"canary1"}, // This should fail - 'canary1' is already used as canary
+			},
+			expectError: true,
+			errorMsg:    "bind 'canary1' is already used as canary bind in upstream 'primary1' and cannot be used as canary in multiple upstreams",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

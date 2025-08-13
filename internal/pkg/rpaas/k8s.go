@@ -2773,6 +2773,15 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 		if !canaryBindExists {
 			return &ValidationError{Msg: fmt.Sprintf("canary bind '%s' must reference an existing bind from another upstream option", canaryBind)}
 		}
+
+		// Validate that a bind cannot be used as canary if it's already referenced as canary elsewhere
+		for _, uo := range instance.Spec.UpstreamOptions {
+			for _, existingCanary := range uo.CanaryBinds {
+				if existingCanary == canaryBind {
+					return &ValidationError{Msg: fmt.Sprintf("bind '%s' is already used as canary bind in upstream '%s' and cannot be used as canary in multiple upstreams", canaryBind, uo.PrimaryBind)}
+				}
+			}
+		}
 	}
 	
 	// Validate that only one canary bind in the group has weight > 0
@@ -2862,6 +2871,18 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 		}
 		if !canaryBindExists {
 			return &ValidationError{Msg: fmt.Sprintf("canary bind '%s' must reference an existing bind from another upstream option", canaryBind)}
+		}
+
+		// Validate that a bind cannot be used as canary if it's already referenced as canary elsewhere
+		for _, uo := range instance.Spec.UpstreamOptions {
+			if uo.PrimaryBind == args.PrimaryBind {
+				continue // Skip the current upstream being updated
+			}
+			for _, existingCanary := range uo.CanaryBinds {
+				if existingCanary == canaryBind {
+					return &ValidationError{Msg: fmt.Sprintf("bind '%s' is already used as canary bind in upstream '%s' and cannot be used as canary in multiple upstreams", canaryBind, uo.PrimaryBind)}
+				}
+			}
 		}
 	}
 	
