@@ -6306,7 +6306,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
 			expectedWeightTotal: 0,
 		},
 		{
-			name: "weight = 100 with weightTotal = 0 should set weightTotal to 1000",
+			name: "weight = 100 with weightTotal = 0 should set weightTotal to 100",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -6329,10 +6329,10 @@ func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
 				PrimaryBind: "canary1",
 				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
 					Weight:      100,
-					WeightTotal: 0, // Not set, should default to 1000
+					WeightTotal: 0, // Not set, should default to 100
 				},
 			},
-			expectedWeightTotal: 1000,
+			expectedWeightTotal: 100,
 		},
 		{
 			name: "weight > 100 with weightTotal = 0 should calculate weightTotal",
@@ -6747,12 +6747,12 @@ func Test_applyTrafficShapingPolicyDefaults(t *testing.T) {
 			expectedWeightTotal: 100,
 		},
 		{
-			name: "weight = 100 with weightTotal = 0 should calculate weightTotal as weight * 10",
+			name: "weight = 100 with weightTotal = 0 should set weightTotal to 100",
 			input: v1alpha1.TrafficShapingPolicy{
 				Weight:      100,
 				WeightTotal: 0,
 			},
-			expectedWeightTotal: 1000,
+			expectedWeightTotal: 100,
 		},
 		{
 			name: "weight > 100 with weightTotal = 0 should calculate weightTotal as weight * 10",
@@ -7065,7 +7065,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			
+
 			var err error
 			// Use UpdateUpstreamOptions for the bidirectional test case since upstream already exists
 			if strings.Contains(tt.name, "bidirectional") {

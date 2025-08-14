@@ -1543,11 +1543,12 @@ func (m *k8sRpaasManager) validateCanaryWeightRule(upstreamOptions []v1alpha1.Up
 func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
 	// Set WeightTotal based on Weight if not set and Weight is greater than 0
 	if policy.Weight > 0 && policy.WeightTotal == 0 {
-		if policy.Weight < 100 {
-			// For weights < 100, use 100 as total (standard percentage)
+		if policy.Weight <= 100 {
+			// For weights <= 100, use 100 as total (standard percentage)
+			// This allows weight = 100 to mean 100% (100/100)
 			policy.WeightTotal = 100
 		} else {
-			// For weights >= 100, calculate weightTotal so that weight represents ~10% of total
+			// For weights > 100, calculate weightTotal so that weight represents ~10% of total
 			// This ensures weight/weightTotal gives a reasonable percentage
 			policy.WeightTotal = policy.Weight * 10
 		}
