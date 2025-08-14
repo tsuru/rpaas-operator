@@ -7083,3 +7083,180 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *
 		})
 	}
 }
+
+
+func Test_k8sRpaasManager_AddUpstreamOptions_HeaderMutualExclusion(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "app1", Host: "app1.example.com"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "should allow only header-value",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:      "X-Version",
+					HeaderValue: "v2",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "should allow only header-pattern",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:        "X-Version",
+					HeaderPattern: "v[0-9]+",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "should reject both header-value and header-pattern",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:        "X-Version",
+					HeaderValue:   "v2",
+					HeaderPattern: "v[0-9]+",
+				},
+			},
+			expectError: true,
+			errorMsg:    "header-value and header-pattern are mutually exclusive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateUpstreamOptions_HeaderMutualExclusion(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "app1", Host: "app1.example.com"},
+			},
+			UpstreamOptions: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+						Header:        "X-Old-Header",
+						HeaderPattern: "old-pattern",
+					},
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "should allow updating to header-value only (clears pattern)",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:      "X-Version",
+					HeaderValue: "v2",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "should allow updating to header-pattern only (clears value)",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:        "X-Version",
+					HeaderPattern: "v[0-9]+",
+				},
+			},
+			expectError: false,
+		},
+		{
+			name: "should reject both header-value and header-pattern",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header:        "X-Version",
+					HeaderValue:   "v2",
+					HeaderPattern: "v[0-9]+",
+				},
+			},
+			expectError: true,
+			errorMsg:    "header-value and header-pattern are mutually exclusive",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
+			err := manager.UpdateUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+
+				// For successful updates, verify mutual exclusion was applied
+				updated := &v1alpha1.RpaasInstance{}
+				err = manager.cli.Get(context.TODO(), types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				}, updated)
+				require.NoError(t, err)
+
+				// Find the updated upstream option
+				var updatedOption *v1alpha1.UpstreamOptions
+				for _, uo := range updated.Spec.UpstreamOptions {
+					if uo.PrimaryBind == tt.args.PrimaryBind {
+						updatedOption = &uo
+						break
+					}
+				}
+				require.NotNil(t, updatedOption)
+
+				// Check mutual exclusion: only one should be set
+				if strings.TrimSpace(tt.args.TrafficShapingPolicy.HeaderValue) != "" {
+					assert.Equal(t, tt.args.TrafficShapingPolicy.HeaderValue, updatedOption.TrafficShapingPolicy.HeaderValue)
+					assert.Empty(t, updatedOption.TrafficShapingPolicy.HeaderPattern)
+				} else if strings.TrimSpace(tt.args.TrafficShapingPolicy.HeaderPattern) != "" {
+					assert.Equal(t, tt.args.TrafficShapingPolicy.HeaderPattern, updatedOption.TrafficShapingPolicy.HeaderPattern)
+					assert.Empty(t, updatedOption.TrafficShapingPolicy.HeaderValue)
+				}
+			}
+		})
+	}
+}

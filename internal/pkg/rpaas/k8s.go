@@ -2810,6 +2810,11 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 		}
 	}
 
+	// Validate that header-value and header-pattern are mutually exclusive
+	if strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue) != "" && strings.TrimSpace(args.TrafficShapingPolicy.HeaderPattern) != "" {
+		return &ValidationError{Msg: "header-value and header-pattern are mutually exclusive, please specify only one"}
+	}
+
 	// Apply defaults to UpstreamOptions
 	applyUpstreamOptionsDefaults(&args)
 
@@ -2921,6 +2926,20 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, "update"); err != nil {
 			return err
 		}
+	}
+
+	// Validate that header-value and header-pattern are mutually exclusive
+	if strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue) != "" && strings.TrimSpace(args.TrafficShapingPolicy.HeaderPattern) != "" {
+		return &ValidationError{Msg: "header-value and header-pattern are mutually exclusive, please specify only one"}
+	}
+
+	// For update operations: implement mutual exclusion - if one is provided, clear the other
+	if strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue) != "" {
+		// HeaderValue provided, clear HeaderPattern
+		args.TrafficShapingPolicy.HeaderPattern = ""
+	} else if strings.TrimSpace(args.TrafficShapingPolicy.HeaderPattern) != "" {
+		// HeaderPattern provided, clear HeaderValue
+		args.TrafficShapingPolicy.HeaderValue = ""
 	}
 
 	// Apply defaults to UpstreamOptions

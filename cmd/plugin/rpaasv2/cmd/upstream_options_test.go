@@ -105,7 +105,7 @@ func TestListUpstreamOptions(t *testing.T) {
 								WeightTotal:   100,
 								Header:        "X-test",
 								HeaderValue:   "v1",
-								HeaderPattern: "exact",
+								HeaderPattern: "", // Empty pattern means exact match
 							},
 						},
 					}, nil
@@ -210,7 +210,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 			args: []string{"./rpaasv2", "upstream", "add", "-i", "my-instance", "-a", "app1",
 				"--canary", "app2", "--canary", "app3", "--load-balance", "round_robin",
 				"--weight", "80", "--weight-total", "100", "--header", "X-Version",
-				"--header-value", "v2", "--header-pattern", "exact", "--cookie", "session"},
+				"--header-value", "v2", "--cookie", "session"},
 			expected: "Upstream options added for app \"app1\".\n",
 			client: &fake.FakeClient{
 				FakeAddUpstreamOptions: func(args rpaasclient.AddUpstreamOptionsArgs) error {
@@ -224,7 +224,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 							WeightTotal:   100,
 							Header:        "X-Version",
 							HeaderValue:   "v2",
-							HeaderPattern: "exact",
+							HeaderPattern: "", // Removed as it's mutually exclusive with HeaderValue
 							Cookie:        "session",
 						},
 					}

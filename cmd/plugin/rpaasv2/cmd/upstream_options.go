@@ -89,11 +89,18 @@ func formatTrafficShapingPolicies(policy v1alpha1.TrafficShapingPolicy) []string
 
 	// Add header policy if present
 	if strings.TrimSpace(policy.Header) != "" {
-		pattern := policy.HeaderPattern
-		if pattern == "" {
-			pattern = "exact"
+		var headerDisplay string
+		if strings.TrimSpace(policy.HeaderValue) != "" {
+			// Exact match using header-value
+			headerDisplay = fmt.Sprintf("Header: %s=%s (exact);", policy.Header, policy.HeaderValue)
+		} else if strings.TrimSpace(policy.HeaderPattern) != "" {
+			// Pattern/regex match using header-pattern
+			headerDisplay = fmt.Sprintf("Header: %s=%s (regex);", policy.Header, policy.HeaderPattern)
+		} else {
+			// Header without value or pattern (shouldn't happen, but handle gracefully)
+			headerDisplay = fmt.Sprintf("Header: %s (exact);", policy.Header)
 		}
-		policies = append(policies, fmt.Sprintf("Header: %s=%s (%s);", policy.Header, policy.HeaderValue, pattern))
+		policies = append(policies, headerDisplay)
 	}
 
 	// Add cookie policy if present
@@ -116,9 +123,15 @@ func formatTrafficShapingPolicies(policy v1alpha1.TrafficShapingPolicy) []string
 }
 
 func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientTypes.UpstreamOptions) {
-	data := [][]string{}
+	table := tablewriter.NewWriter(w)
+	table.SetHeader([]string{"Primary App", "Canary App", "Load Balance", "Traffic Policies"})
+	table.SetAutoWrapText(false)
+	table.SetAutoFormatHeaders(false)
+	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
+	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT})
+	table.SetRowSeparator("-")
 
-	for _, uo := range upstreamOptions {
+	for i, uo := range upstreamOptions {
 		canaryBinds := strings.Join(uo.CanaryBinds, ", ")
 		if canaryBinds == "" {
 			canaryBinds = "-"
@@ -134,22 +147,20 @@ func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientType
 
 		// Add the first row with all data
 		row := []string{uo.PrimaryBind, canaryBinds, loadBalance, trafficPolicies[0]}
-		data = append(data, row)
+		table.Append(row)
 
 		// Add additional rows for extra traffic policies (with empty cells for other columns)
-		for i := 1; i < len(trafficPolicies); i++ {
-			additionalRow := []string{"", "", "", trafficPolicies[i]}
-			data = append(data, additionalRow)
+		for j := 1; j < len(trafficPolicies); j++ {
+			additionalRow := []string{"", "", "", trafficPolicies[j]}
+			table.Append(additionalRow)
+		}
+
+		// Add separator between different upstream options (except for the last one)
+		if i < len(upstreamOptions)-1 {
+			table.Append([]string{"", "", "", ""})
 		}
 	}
 
-	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Primary App", "Canary App", "Load Balance", "Traffic Policies"})
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT})
-	table.AppendBulk(data)
 	table.Render()
 }
 
@@ -232,12 +243,19 @@ func runAddUpstreamOptions(c *cli.Context) error {
 		return err
 	}
 
+	// Validate that header-value and header-pattern are mutually exclusive
+	headerValue := c.String("header-value")
+	headerPattern := c.String("header-pattern")
+	if headerValue != "" && headerPattern != "" {
+		return fmt.Errorf("header-value and header-pattern are mutually exclusive, please specify only one")
+	}
+
 	trafficShapingPolicy := rpaasclient.TrafficShapingPolicy{
 		Weight:        c.Int("weight"),
 		WeightTotal:   c.Int("weight-total"),
 		Header:        c.String("header"),
-		HeaderValue:   c.String("header-value"),
-		HeaderPattern: c.String("header-pattern"),
+		HeaderValue:   headerValue,
+		HeaderPattern: headerPattern,
 		Cookie:        c.String("cookie"),
 	}
 
@@ -326,12 +344,24 @@ func runUpdateUpstreamOptions(c *cli.Context) error {
 		return err
 	}
 
+	// Handle mutually exclusive header-value and header-pattern
+	headerValue := c.String("header-value")
+	headerPattern := c.String("header-pattern")
+	
+	// If both are provided, reject the request
+	if headerValue != "" && headerPattern != "" {
+		return fmt.Errorf("header-value and header-pattern are mutually exclusive, please specify only one")
+	}
+	
+	// For update operations: if one is provided, the other should be cleared
+	// This logic will be handled in the API layer to ensure the other field is set to empty
+
 	trafficShapingPolicy := rpaasclient.TrafficShapingPolicy{
 		Weight:        c.Int("weight"),
 		WeightTotal:   c.Int("weight-total"),
 		Header:        c.String("header"),
-		HeaderValue:   c.String("header-value"),
-		HeaderPattern: c.String("header-pattern"),
+		HeaderValue:   headerValue,
+		HeaderPattern: headerPattern,
 		Cookie:        c.String("cookie"),
 	}
 
