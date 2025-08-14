@@ -1540,7 +1540,6 @@ func (m *k8sRpaasManager) validateCanaryWeightRule(upstreamOptions []v1alpha1.Up
 	return nil
 }
 
-
 func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
 	// Set WeightTotal based on Weight if not set and Weight is greater than 0
 	if policy.Weight > 0 && policy.WeightTotal == 0 {
@@ -1557,8 +1556,8 @@ func applyTrafficShapingPolicyDefaults(policy *v1alpha1.TrafficShapingPolicy) {
 
 func hasTrafficShapingPolicy(policy v1alpha1.TrafficShapingPolicy) bool {
 	return policy.Weight > 0 ||
-		   strings.TrimSpace(policy.Header) != "" ||
-		   strings.TrimSpace(policy.Cookie) != ""
+		strings.TrimSpace(policy.Header) != "" ||
+		strings.TrimSpace(policy.Cookie) != ""
 }
 
 func applyUpstreamOptionsDefaults(args *UpstreamOptionsArgs) {
@@ -1566,7 +1565,7 @@ func applyUpstreamOptionsDefaults(args *UpstreamOptionsArgs) {
 	if args.LoadBalance == "" {
 		args.LoadBalance = v1alpha1.LoadBalanceRoundRobin
 	}
-	
+
 	// Apply traffic shaping policy defaults
 	applyTrafficShapingPolicyDefaults(&args.TrafficShapingPolicy)
 }
@@ -2782,8 +2781,16 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 				}
 			}
 		}
+
+		// Validate that a bind cannot be used as canary if it has its own canary binds (prevent chaining)
+		for _, uo := range instance.Spec.UpstreamOptions {
+			if uo.PrimaryBind == canaryBind && len(uo.CanaryBinds) > 0 {
+				return &ValidationError{Msg: fmt.Sprintf("bind '%s' cannot be used as canary because it has its own canary binds, which would create a chain", canaryBind)}
+			}
+		}
+
 	}
-	
+
 	// Validate that only one canary bind in the group has weight > 0
 	if len(canaryBindsWithWeight) > 1 {
 		return &ValidationError{Msg: fmt.Sprintf("only one canary bind per group can have weight > 0, but found weight in multiple canary binds: %v", canaryBindsWithWeight)}
@@ -2884,8 +2891,19 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 				}
 			}
 		}
+
+		// Validate that a bind cannot be used as canary if it has its own canary binds (prevent chaining)
+		for _, uo := range instance.Spec.UpstreamOptions {
+			if uo.PrimaryBind == args.PrimaryBind {
+				continue // Skip the current upstream being updated
+			}
+			if uo.PrimaryBind == canaryBind && len(uo.CanaryBinds) > 0 {
+				return &ValidationError{Msg: fmt.Sprintf("bind '%s' cannot be used as canary because it has its own canary binds, which would create a chain", canaryBind)}
+			}
+		}
+
 	}
-	
+
 	// Validate that only one canary bind in the group has weight > 0
 	if len(canaryBindsWithWeight) > 1 {
 		return &ValidationError{Msg: fmt.Sprintf("only one canary bind per group can have weight > 0, but found weight in multiple canary binds: %v", canaryBindsWithWeight)}
@@ -2942,14 +2960,14 @@ func (m *k8sRpaasManager) DeleteUpstreamOptions(ctx context.Context, instanceNam
 	// Remove the primary bind from UpstreamOptions and also remove any references to it as a canary bind
 	found := false
 	upstreamOptions := make([]v1alpha1.UpstreamOptions, 0, len(instance.Spec.UpstreamOptions))
-	
+
 	for _, uo := range instance.Spec.UpstreamOptions {
 		if uo.PrimaryBind == primaryBind {
 			// Found the bind to delete, skip adding it to the new slice
 			found = true
 			continue
 		}
-		
+
 		// For other upstream options, remove any references to the deleted bind in CanaryBinds
 		updatedCanaryBinds := make([]string, 0, len(uo.CanaryBinds))
 		for _, canaryBind := range uo.CanaryBinds {
@@ -2957,7 +2975,7 @@ func (m *k8sRpaasManager) DeleteUpstreamOptions(ctx context.Context, instanceNam
 				updatedCanaryBinds = append(updatedCanaryBinds, canaryBind)
 			}
 		}
-		
+
 		// Create a copy of the upstream option with updated canary binds
 		updatedUO := uo
 		updatedUO.CanaryBinds = updatedCanaryBinds

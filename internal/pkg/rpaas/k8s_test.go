@@ -12,6 +12,7 @@ import (
 	"io"
 	"net/http"
 	"regexp"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -6488,7 +6489,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceDefault(t *testing.T) {
 	var updated v1alpha1.RpaasInstance
 	err = manager.cli.Get(context.TODO(), types.NamespacedName{Name: "my-instance", Namespace: "rpaasv2"}, &updated)
 	require.NoError(t, err)
-	
+
 	require.Len(t, updated.Spec.UpstreamOptions, 1)
 	assert.Equal(t, v1alpha1.LoadBalanceRoundRobin, updated.Spec.UpstreamOptions[0].LoadBalance)
 }
@@ -6946,10 +6947,10 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *
 						{
 							PrimaryBind: "canary",
 							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
-								Weight:      10,
-								WeightTotal: 100,
-								Header:      "X-teste",
-								HeaderValue: "lerolero",
+								Weight:        10,
+								WeightTotal:   100,
+								Header:        "X-teste",
+								HeaderValue:   "lerolero",
 								HeaderPattern: "exact",
 							},
 						},
@@ -6994,12 +6995,84 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *
 			expectError: true,
 			errorMsg:    "bind 'canary1' is already used as canary bind in upstream 'primary1' and cannot be used as canary in multiple upstreams",
 		},
+		{
+			name: "should fail when trying to create bidirectional canary relationship",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "primary1", Host: "primary1.example.com"},
+						{Name: "primary2", Host: "primary2.example.com"},
+						{Name: "canary1", Host: "canary1.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "primary1",
+							CanaryBinds: []string{"canary1"},
+						},
+						{
+							PrimaryBind: "canary1", // canary1 has its own upstream options
+						},
+						{
+							PrimaryBind: "primary2", // primary2 has its own upstream options
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "canary1",
+				CanaryBinds: []string{"primary2"}, // This should fail - would create bidirectional relationship
+			},
+			expectError: true,
+			errorMsg:    "bind 'canary1' is referenced as a canary bind in another upstream option and cannot have its own canary binds",
+		},
+		{
+			name: "should fail when trying to create canary chain (app2 -> app1 -> canary)",
+			instance: &v1alpha1.RpaasInstance{
+				ObjectMeta: metav1.ObjectMeta{
+					Name:      "my-instance",
+					Namespace: "rpaasv2",
+				},
+				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+						{Name: "app2", Host: "app2.example.com"},
+						{Name: "canary", Host: "canary.example.com"},
+					},
+					UpstreamOptions: []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "app1",
+							CanaryBinds: []string{"canary"}, // app1 -> canary
+						},
+						{
+							PrimaryBind: "canary", // canary has its own upstream options
+						},
+					},
+				},
+			},
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app2",
+				CanaryBinds: []string{"app1"}, // This should fail - app2 -> app1 -> canary (chain)
+			},
+			expectError: true,
+			errorMsg:    "bind 'app1' cannot be used as canary because it has its own canary binds, which would create a chain",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			
+			var err error
+			// Use UpdateUpstreamOptions for the bidirectional test case since upstream already exists
+			if strings.Contains(tt.name, "bidirectional") {
+				err = manager.UpdateUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			} else {
+				err = manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			}
 
 			if tt.expectError {
 				require.Error(t, err)
