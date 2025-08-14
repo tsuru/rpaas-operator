@@ -221,11 +221,11 @@ func NewCmdAddUpstreamOptions() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:  "header-value",
-				Usage: "header value for header-based routing",
+				Usage: "exact header value for header-based routing (mutually exclusive with header-pattern)",
 			},
 			&cli.StringFlag{
 				Name:  "header-pattern",
-				Usage: "header pattern (exact, regex) for header-based routing",
+				Usage: "regex header pattern for header-based routing (mutually exclusive with header-value)",
 			},
 			&cli.StringFlag{
 				Name:  "cookie",
@@ -322,11 +322,11 @@ func NewCmdUpdateUpstreamOptions() *cli.Command {
 			},
 			&cli.StringFlag{
 				Name:  "header-value",
-				Usage: "header value for header-based routing",
+				Usage: "exact header value for header-based routing (mutually exclusive with header-pattern)",
 			},
 			&cli.StringFlag{
 				Name:  "header-pattern",
-				Usage: "header pattern (exact, regex) for header-based routing",
+				Usage: "regex header pattern for header-based routing (mutually exclusive with header-value)",
 			},
 			&cli.StringFlag{
 				Name:  "cookie",
