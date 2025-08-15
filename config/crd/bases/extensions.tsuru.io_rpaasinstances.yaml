@@ -6666,13 +6666,21 @@ spec:
                     canary:
                       description: |-
                         CanaryBinds contains the names of other Binds that participate in traffic distribution
-                        based on their individual TrafficShapingPolicy configurations
+                        based on their individual TrafficShapingPolicy configurations.
+                        Currently limited to one canary per upstream.
                       items:
                         type: string
                       type: array
                     loadBalance:
                       description: LoadBalance defines the load balancing algorithm
                         to be used for this upstream.
+                      type: string
+                    loadBalanceHashKey:
+                      description: |-
+                        LoadBalanceHashKey defines the nginx variable, text value or any combination thereof
+                        to use for consistent hashing when LoadBalance is "chash".
+                        Required when LoadBalance is "chash", ignored otherwise.
+                        Examples: "$remote_addr", "$request_uri", "$http_x_user_id", "$cookie_session", "$remote_addr$request_uri"
                       type: string
                     trafficShapingPolicy:
                       description: TrafficShapingPolicy defines the traffic shaping
