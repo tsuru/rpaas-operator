@@ -82,12 +82,7 @@ func runListUpstreamOptions(c *cli.Context) error {
 func formatTrafficShapingPolicies(policy v1alpha1.TrafficShapingPolicy) []string {
 	var policies []string
 
-	// Add weight policy if present
-	if policy.Weight > 0 {
-		policies = append(policies, fmt.Sprintf("Weight: %d/%d;", policy.Weight, policy.WeightTotal))
-	}
-
-	// Add header policy if present
+	// Add header policy if present (highest precedence)
 	if strings.TrimSpace(policy.Header) != "" {
 		var headerDisplay string
 		if strings.TrimSpace(policy.HeaderValue) != "" {
@@ -103,9 +98,14 @@ func formatTrafficShapingPolicies(policy v1alpha1.TrafficShapingPolicy) []string
 		policies = append(policies, headerDisplay)
 	}
 
-	// Add cookie policy if present
+	// Add cookie policy if present (medium precedence)
 	if strings.TrimSpace(policy.Cookie) != "" {
-		policies = append(policies, fmt.Sprintf("Cookie: %s", policy.Cookie))
+		policies = append(policies, fmt.Sprintf("Cookie: %s;", policy.Cookie))
+	}
+
+	// Add weight policy if present (lowest precedence)
+	if policy.Weight > 0 {
+		policies = append(policies, fmt.Sprintf("Weight: %d/%d", policy.Weight, policy.WeightTotal))
 	}
 
 	// Return formatted policies or "None" if no policies

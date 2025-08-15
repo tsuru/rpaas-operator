@@ -7084,7 +7084,6 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *
 	}
 }
 
-
 func Test_k8sRpaasManager_AddUpstreamOptions_HeaderMutualExclusion(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
@@ -7260,7 +7259,6 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_HeaderMutualExclusion(t *testing
 		})
 	}
 }
-
 
 func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceHashKeyValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
@@ -7449,7 +7447,6 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceHashKeyValidation(t *
 		})
 	}
 }
-
 
 func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
