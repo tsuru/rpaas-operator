@@ -7260,3 +7260,382 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_HeaderMutualExclusion(t *testing
 		})
 	}
 }
+
+
+func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceHashKeyValidation(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "app1", Host: "app1.example.com"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "should allow round_robin without hash key",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+			},
+			expectError: false,
+		},
+		{
+			name: "should allow ewma without hash key",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceEWMA,
+			},
+			expectError: false,
+		},
+		{
+			name: "should require hash key for chash",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceConsistentHash,
+			},
+			expectError: true,
+			errorMsg:    "loadBalanceHashKey is required when loadBalance is \"chash\"",
+		},
+		{
+			name: "should allow chash with hash key",
+			args: UpstreamOptionsArgs{
+				PrimaryBind:        "app1",
+				LoadBalance:        v1alpha1.LoadBalanceConsistentHash,
+				LoadBalanceHashKey: "$remote_addr",
+			},
+			expectError: false,
+		},
+		{
+			name: "should reject hash key for non-chash algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind:        "app1",
+				LoadBalance:        v1alpha1.LoadBalanceRoundRobin,
+				LoadBalanceHashKey: "$remote_addr",
+			},
+			expectError: true,
+			errorMsg:    "loadBalanceHashKey is only valid when loadBalance is \"chash\"",
+		},
+		{
+			name: "should reject hash key for ewma algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind:        "app1",
+				LoadBalance:        v1alpha1.LoadBalanceEWMA,
+				LoadBalanceHashKey: "$remote_addr",
+			},
+			expectError: true,
+			errorMsg:    "loadBalanceHashKey is only valid when loadBalance is \"chash\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceHashKeyValidation(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "app1", Host: "app1.example.com"},
+			},
+			UpstreamOptions: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "should allow updating to chash with hash key",
+			args: UpstreamOptionsArgs{
+				PrimaryBind:        "app1",
+				LoadBalance:        v1alpha1.LoadBalanceConsistentHash,
+				LoadBalanceHashKey: "$http_x_user_id",
+			},
+			expectError: false,
+		},
+		{
+			name: "should reject updating to chash without hash key",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceConsistentHash,
+			},
+			expectError: true,
+			errorMsg:    "loadBalanceHashKey is required when loadBalance is \"chash\"",
+		},
+		{
+			name: "should allow updating to round_robin and clear hash key",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+			},
+			expectError: false,
+		},
+		{
+			name: "should reject hash key with non-chash algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind:        "app1",
+				LoadBalance:        v1alpha1.LoadBalanceEWMA,
+				LoadBalanceHashKey: "$remote_addr",
+			},
+			expectError: true,
+			errorMsg:    "loadBalanceHashKey is only valid when loadBalance is \"chash\"",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
+			err := manager.UpdateUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+
+				// For successful updates, verify the hash key was set correctly
+				updated := &v1alpha1.RpaasInstance{}
+				err = manager.cli.Get(context.TODO(), types.NamespacedName{
+					Name:      instance.Name,
+					Namespace: instance.Namespace,
+				}, updated)
+				require.NoError(t, err)
+
+				// Find the updated upstream option
+				var updatedOption *v1alpha1.UpstreamOptions
+				for _, uo := range updated.Spec.UpstreamOptions {
+					if uo.PrimaryBind == tt.args.PrimaryBind {
+						updatedOption = &uo
+						break
+					}
+				}
+				require.NotNil(t, updatedOption)
+
+				// Verify the fields were updated correctly
+				assert.Equal(t, tt.args.LoadBalance, updatedOption.LoadBalance)
+				assert.Equal(t, tt.args.LoadBalanceHashKey, updatedOption.LoadBalanceHashKey)
+			}
+		})
+	}
+}
+
+
+func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceValidation(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "app1", Host: "app1.example.com"},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "should allow valid round_robin algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+			},
+			expectError: false,
+		},
+		{
+			name: "should allow valid chash algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind:        "app1",
+				LoadBalance:        v1alpha1.LoadBalanceConsistentHash,
+				LoadBalanceHashKey: "$remote_addr",
+			},
+			expectError: false,
+		},
+		{
+			name: "should allow valid ewma algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceEWMA,
+			},
+			expectError: false,
+		},
+		{
+			name: "should reject invalid algorithm - least_conn",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "least_conn",
+			},
+			expectError: true,
+			errorMsg:    "invalid loadBalance algorithm: least_conn. Valid values are: round_robin, chash, ewma",
+		},
+		{
+			name: "should reject invalid algorithm - ip_hash",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "ip_hash",
+			},
+			expectError: true,
+			errorMsg:    "invalid loadBalance algorithm: ip_hash. Valid values are: round_robin, chash, ewma",
+		},
+		{
+			name: "should reject invalid algorithm - random",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "random",
+			},
+			expectError: true,
+			errorMsg:    "invalid loadBalance algorithm: random. Valid values are: round_robin, chash, ewma",
+		},
+		{
+			name: "should reject invalid algorithm - hash",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "hash",
+			},
+			expectError: true,
+			errorMsg:    "invalid loadBalance algorithm: hash. Valid values are: round_robin, chash, ewma",
+		},
+		{
+			name: "should reject completely invalid algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "invalid_algorithm",
+			},
+			expectError: true,
+			errorMsg:    "invalid loadBalance algorithm: invalid_algorithm. Valid values are: round_robin, chash, ewma",
+		},
+		{
+			name: "should allow empty load balance (uses default)",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "",
+			},
+			expectError: false,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
+			err := manager.AddUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}
+
+func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceValidation(t *testing.T) {
+	instance := &v1alpha1.RpaasInstance{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      "my-instance",
+			Namespace: "rpaasv2",
+		},
+		Spec: v1alpha1.RpaasInstanceSpec{
+			Binds: []v1alpha1.Bind{
+				{Name: "app1", Host: "app1.example.com"},
+			},
+			UpstreamOptions: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+				},
+			},
+		},
+	}
+
+	tests := []struct {
+		name        string
+		args        UpstreamOptionsArgs
+		expectError bool
+		errorMsg    string
+	}{
+		{
+			name: "should allow updating to valid ewma algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceEWMA,
+			},
+			expectError: false,
+		},
+		{
+			name: "should allow updating to valid chash algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind:        "app1",
+				LoadBalance:        v1alpha1.LoadBalanceConsistentHash,
+				LoadBalanceHashKey: "$http_x_user_id",
+			},
+			expectError: false,
+		},
+		{
+			name: "should reject updating to invalid algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "least_conn",
+			},
+			expectError: true,
+			errorMsg:    "invalid loadBalance algorithm: least_conn. Valid values are: round_robin, chash, ewma",
+		},
+		{
+			name: "should reject updating to another invalid algorithm",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				LoadBalance: "sticky_balanced",
+			},
+			expectError: true,
+			errorMsg:    "invalid loadBalance algorithm: sticky_balanced. Valid values are: round_robin, chash, ewma",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
+			err := manager.UpdateUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			if tt.expectError {
+				require.Error(t, err)
+				assert.Contains(t, err.Error(), tt.errorMsg)
+			} else {
+				require.NoError(t, err)
+			}
+		})
+	}
+}

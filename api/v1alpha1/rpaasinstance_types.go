@@ -227,12 +227,9 @@ type Bind struct {
 type LoadBalanceAlgorithm string
 
 const (
-	LoadBalanceRoundRobin           LoadBalanceAlgorithm = "round_robin"       // Round Robin
-	LoadBalanceConsistentHash       LoadBalanceAlgorithm = "chash"             // Consistent Hashing
-	LoadBalanceConsistentHashSubset LoadBalanceAlgorithm = "chashsubset"       // Consistent Hashing with Subsetting
-	LoadBalanceEWMA                 LoadBalanceAlgorithm = "ewma"              // Exponentially Weighted Moving Average
-	LoadBalanceStickyBalanced       LoadBalanceAlgorithm = "sticky_balanced"   // Sticky Balanced
-	LoadBalanceStickyPersistent     LoadBalanceAlgorithm = "sticky_persistent" // Sticky Persistent
+	LoadBalanceRoundRobin     LoadBalanceAlgorithm = "round_robin" // Round Robin
+	LoadBalanceConsistentHash LoadBalanceAlgorithm = "chash"       // Consistent Hashing
+	LoadBalanceEWMA           LoadBalanceAlgorithm = "ewma"        // Exponentially Weighted Moving Average
 )
 
 type UpstreamOptions struct {
@@ -246,6 +243,11 @@ type UpstreamOptions struct {
 	TrafficShapingPolicy TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`
 	// LoadBalance defines the load balancing algorithm to be used for this upstream.
 	LoadBalance LoadBalanceAlgorithm `json:"loadBalance,omitempty"`
+	// LoadBalanceHashKey defines the nginx variable, text value or any combination thereof
+	// to use for consistent hashing when LoadBalance is "chash".
+	// Required when LoadBalance is "chash", ignored otherwise.
+	// Examples: "$remote_addr", "$request_uri", "$http_x_user_id", "$cookie_session", "$remote_addr$request_uri"
+	LoadBalanceHashKey string `json:"loadBalanceHashKey,omitempty"`
 }
 
 type TrafficShapingPolicy struct {

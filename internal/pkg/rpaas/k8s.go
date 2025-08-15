@@ -2815,6 +2815,37 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 		return &ValidationError{Msg: "header-value and header-pattern are mutually exclusive, please specify only one"}
 	}
 
+	// Validate that LoadBalance algorithm is one of the supported values
+	if args.LoadBalance != "" {
+		validAlgorithms := []v1alpha1.LoadBalanceAlgorithm{
+			v1alpha1.LoadBalanceRoundRobin,
+			v1alpha1.LoadBalanceConsistentHash,
+			v1alpha1.LoadBalanceEWMA,
+		}
+
+		isValid := false
+		for _, valid := range validAlgorithms {
+			if args.LoadBalance == valid {
+				isValid = true
+				break
+			}
+		}
+
+		if !isValid {
+			return &ValidationError{Msg: fmt.Sprintf("invalid loadBalance algorithm: %s. Valid values are: round_robin, chash, ewma", args.LoadBalance)}
+		}
+	}
+
+	// Validate that LoadBalanceHashKey is required when LoadBalance is "chash"
+	if args.LoadBalance == v1alpha1.LoadBalanceConsistentHash && strings.TrimSpace(args.LoadBalanceHashKey) == "" {
+		return &ValidationError{Msg: "loadBalanceHashKey is required when loadBalance is \"chash\""}
+	}
+
+	// Validate that LoadBalanceHashKey is not provided for non-chash algorithms
+	if args.LoadBalance != v1alpha1.LoadBalanceConsistentHash && strings.TrimSpace(args.LoadBalanceHashKey) != "" {
+		return &ValidationError{Msg: "loadBalanceHashKey is only valid when loadBalance is \"chash\""}
+	}
+
 	// Apply defaults to UpstreamOptions
 	applyUpstreamOptionsDefaults(&args)
 
@@ -2823,6 +2854,7 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 		CanaryBinds:          args.CanaryBinds,
 		TrafficShapingPolicy: args.TrafficShapingPolicy,
 		LoadBalance:          args.LoadBalance,
+		LoadBalanceHashKey:   args.LoadBalanceHashKey,
 	}
 
 	instance.Spec.UpstreamOptions = append(instance.Spec.UpstreamOptions, upstreamOptions)
@@ -2933,6 +2965,37 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 		return &ValidationError{Msg: "header-value and header-pattern are mutually exclusive, please specify only one"}
 	}
 
+	// Validate that LoadBalance algorithm is one of the supported values
+	if args.LoadBalance != "" {
+		validAlgorithms := []v1alpha1.LoadBalanceAlgorithm{
+			v1alpha1.LoadBalanceRoundRobin,
+			v1alpha1.LoadBalanceConsistentHash,
+			v1alpha1.LoadBalanceEWMA,
+		}
+
+		isValid := false
+		for _, valid := range validAlgorithms {
+			if args.LoadBalance == valid {
+				isValid = true
+				break
+			}
+		}
+
+		if !isValid {
+			return &ValidationError{Msg: fmt.Sprintf("invalid loadBalance algorithm: %s. Valid values are: round_robin, chash, ewma", args.LoadBalance)}
+		}
+	}
+
+	// Validate that LoadBalanceHashKey is required when LoadBalance is "chash"
+	if args.LoadBalance == v1alpha1.LoadBalanceConsistentHash && strings.TrimSpace(args.LoadBalanceHashKey) == "" {
+		return &ValidationError{Msg: "loadBalanceHashKey is required when loadBalance is \"chash\""}
+	}
+
+	// Validate that LoadBalanceHashKey is not provided for non-chash algorithms
+	if args.LoadBalance != v1alpha1.LoadBalanceConsistentHash && strings.TrimSpace(args.LoadBalanceHashKey) != "" {
+		return &ValidationError{Msg: "loadBalanceHashKey is only valid when loadBalance is \"chash\""}
+	}
+
 	// For update operations: implement mutual exclusion - if one is provided, clear the other
 	if strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue) != "" {
 		// HeaderValue provided, clear HeaderPattern
@@ -2955,6 +3018,7 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 			instance.Spec.UpstreamOptions[i].CanaryBinds = args.CanaryBinds
 			instance.Spec.UpstreamOptions[i].TrafficShapingPolicy = args.TrafficShapingPolicy
 			instance.Spec.UpstreamOptions[i].LoadBalance = args.LoadBalance
+			instance.Spec.UpstreamOptions[i].LoadBalanceHashKey = args.LoadBalanceHashKey
 			break
 		}
 	}

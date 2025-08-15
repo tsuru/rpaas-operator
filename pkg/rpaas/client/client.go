@@ -163,6 +163,7 @@ type AddUpstreamOptionsArgs struct {
 	CanaryBinds          []string
 	TrafficShapingPolicy TrafficShapingPolicy
 	LoadBalance          string
+	LoadBalanceHashKey   string
 }
 
 type UpdateUpstreamOptionsArgs struct {
@@ -171,6 +172,7 @@ type UpdateUpstreamOptionsArgs struct {
 	CanaryBinds          []string
 	TrafficShapingPolicy TrafficShapingPolicy
 	LoadBalance          string
+	LoadBalanceHashKey   string
 }
 
 type TrafficShapingPolicy struct {

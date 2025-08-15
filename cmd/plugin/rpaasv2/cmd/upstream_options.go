@@ -205,7 +205,11 @@ func NewCmdAddUpstreamOptions() *cli.Command {
 			&cli.StringFlag{
 				Name:    "load-balance",
 				Aliases: []string{"lb"},
-				Usage:   "load balancing algorithm (round_robin, least_conn, ip_hash, random, hash)",
+				Usage:   "load balancing algorithm (round_robin, chash, ewma)",
+			},
+			&cli.StringFlag{
+				Name:  "load-balance-hash-key",
+				Usage: "nginx variable, text value or combination for consistent hashing (required when load-balance is chash)",
 			},
 			&cli.IntFlag{
 				Name:  "weight",
@@ -265,6 +269,7 @@ func runAddUpstreamOptions(c *cli.Context) error {
 		CanaryBinds:          c.StringSlice("canary"),
 		TrafficShapingPolicy: trafficShapingPolicy,
 		LoadBalance:          c.String("load-balance"),
+		LoadBalanceHashKey:   c.String("load-balance-hash-key"),
 	}
 
 	err = client.AddUpstreamOptions(c.Context, args)
@@ -306,7 +311,11 @@ func NewCmdUpdateUpstreamOptions() *cli.Command {
 			&cli.StringFlag{
 				Name:    "load-balance",
 				Aliases: []string{"lb"},
-				Usage:   "load balancing algorithm (round_robin, least_conn, ip_hash, random, hash)",
+				Usage:   "load balancing algorithm (round_robin, chash, ewma)",
+			},
+			&cli.StringFlag{
+				Name:  "load-balance-hash-key",
+				Usage: "nginx variable, text value or combination for consistent hashing (required when load-balance is chash)",
 			},
 			&cli.IntFlag{
 				Name:  "weight",
@@ -347,12 +356,12 @@ func runUpdateUpstreamOptions(c *cli.Context) error {
 	// Handle mutually exclusive header-value and header-pattern
 	headerValue := c.String("header-value")
 	headerPattern := c.String("header-pattern")
-	
+
 	// If both are provided, reject the request
 	if headerValue != "" && headerPattern != "" {
 		return fmt.Errorf("header-value and header-pattern are mutually exclusive, please specify only one")
 	}
-	
+
 	// For update operations: if one is provided, the other should be cleared
 	// This logic will be handled in the API layer to ensure the other field is set to empty
 
@@ -371,6 +380,7 @@ func runUpdateUpstreamOptions(c *cli.Context) error {
 		CanaryBinds:          c.StringSlice("canary"),
 		TrafficShapingPolicy: trafficShapingPolicy,
 		LoadBalance:          c.String("load-balance"),
+		LoadBalanceHashKey:   c.String("load-balance-hash-key"),
 	}
 
 	err = client.UpdateUpstreamOptions(c.Context, args)
