@@ -58,6 +58,7 @@ func (c *client) AddUpstreamOptions(ctx context.Context, args AddUpstreamOptions
 		"app":                  args.PrimaryBind,
 		"canary":               args.CanaryBinds,
 		"loadBalance":          args.LoadBalance,
+		"loadBalanceHashKey":   args.LoadBalanceHashKey,
 		"trafficShapingPolicy": args.TrafficShapingPolicy,
 	}
 
@@ -100,6 +101,7 @@ func (c *client) UpdateUpstreamOptions(ctx context.Context, args UpdateUpstreamO
 	body := map[string]interface{}{
 		"canary":               args.CanaryBinds,
 		"loadBalance":          args.LoadBalance,
+		"loadBalanceHashKey":   args.LoadBalanceHashKey,
 		"trafficShapingPolicy": args.TrafficShapingPolicy,
 	}
 
