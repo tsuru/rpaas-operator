@@ -61,7 +61,7 @@ const (
 )
 
 var (
-	defaultRotateTLSSessionTicketsImage = "bitnami/kubectl:latest"
+	defaultRotateTLSSessionTicketsImage = "tsuru/kubectl:latest"
 
 	sessionTicketsVolumeName      = "tls-session-tickets"
 	sessionTicketsVolumeMountPath = "/etc/nginx/tickets"

@@ -381,7 +381,7 @@ type TLSSessionTicket struct {
 
 	// Image is the container image name used to execute the session ticket
 	// rotation job. It requires either "bash", "base64", "openssl" and "kubectl"
-	// programs be installed into. Defaults to "bitnami/kubectl:latest".
+	// programs be installed into. Defaults to "tsuru/kubectl:latest".
 	// +optional
 	Image string `json:"image,omitempty"`
 }

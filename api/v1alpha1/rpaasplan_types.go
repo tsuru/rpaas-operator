@@ -102,7 +102,7 @@ type CacheSnapshotSyncSpec struct {
 	Schedule string `json:"schedule,omitempty"`
 
 	// Container is the image used to sync the containers
-	// default is bitnami/kubectl:latest
+	// default is tsuru/kubectl:latest
 	Image string `json:"image,omitempty"`
 
 	// CmdPodToPVC is used to customize command used to sync memory cache (POD) to persistent storage (PVC)
