@@ -6634,6 +6634,70 @@ spec:
                         type: integer
                     type: object
                 type: object
+              upstreamOptions:
+                description: |-
+                  UpstreamOptions is the list of upstream options to be applied to the
+                  instance. Each upstream option defines a primary bind and canary binds
+                  with a traffic shaping policy and a load balancing algorithm.
+                  The primary bind is the main bind for the upstream, while canary binds
+                  are used to distribute traffic based on the defined traffic shaping policy.
+                  The load balancing algorithm is used to distribute traffic among the
+                  upstreams.
+                items:
+                  properties:
+                    app:
+                      description: Main bind for this upstream
+                      type: string
+                    canary:
+                      description: |-
+                        CanaryBinds contains the names of other Binds that participate in traffic distribution
+                        based on their individual TrafficShapingPolicy configurations.
+                        Currently limited to one canary per upstream.
+                      items:
+                        type: string
+                      type: array
+                    loadBalance:
+                      description: LoadBalance defines the load balancing algorithm
+                        to be used for this upstream.
+                      type: string
+                    loadBalanceHashKey:
+                      description: |-
+                        LoadBalanceHashKey defines the nginx variable, text value or any combination thereof
+                        to use for consistent hashing when LoadBalance is "chash".
+                        Required when LoadBalance is "chash", ignored otherwise.
+                        Examples: "$remote_addr", "$request_uri", "$http_x_user_id", "$cookie_session", "$remote_addr$request_uri"
+                      type: string
+                    trafficShapingPolicy:
+                      description: TrafficShapingPolicy defines the traffic shaping
+                        policy for this upstream.
+                      properties:
+                        cookie:
+                          description: Cookie on which to redirect requests to this
+                            backend
+                          type: string
+                        header:
+                          description: Header on which to redirect requests to this
+                            backend
+                          type: string
+                        headerPattern:
+                          description: HeaderPattern the header value match pattern,
+                            support exact, regex.
+                          type: string
+                        headerValue:
+                          description: HeaderValue on which to redirect requests to
+                            this backend
+                          type: string
+                        weight:
+                          description: 'Weight-based routing: only ONE Bind in a canary
+                            group can have weight > 0'
+                          type: integer
+                        weightTotal:
+                          type: integer
+                      type: object
+                  required:
+                  - app
+                  type: object
+                type: array
             type: object
           status:
             description: RpaasValidationStatus defines the observed state of RpaasValidation

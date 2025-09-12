@@ -58,6 +58,10 @@ type RpaasManager struct {
 	FakeAddUpstream              func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 	FakeGetUpstreams             func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
 	FakeDeleteUpstream           func(instanceName string, upstream v1alpha1.AllowedUpstream) error
+	FakeGetUpstreamOptions       func(instanceName string) ([]v1alpha1.UpstreamOptions, error)
+	FakeAddUpstreamOptions       func(instanceName string, args rpaas.UpstreamOptionsArgs) error
+	FakeUpdateUpstreamOptions    func(instanceName string, args rpaas.UpstreamOptionsArgs) error
+	FakeDeleteUpstreamOptions    func(instanceName, primaryBind string) error
 	FakeGetCertManagerRequests   func(instanceName string) ([]clientTypes.CertManager, error)
 	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
 	FakeGetMetadata              func(instanceName string) (*clientTypes.Metadata, error)
@@ -338,6 +342,34 @@ func (m *RpaasManager) GetUpstreams(ctx context.Context, instanceName string) ([
 func (m *RpaasManager) DeleteUpstream(ctx context.Context, instance string, upstream v1alpha1.AllowedUpstream) error {
 	if m.FakeDeleteUpstream != nil {
 		return m.FakeDeleteUpstream(instance, upstream)
+	}
+	return nil
+}
+
+func (m *RpaasManager) GetUpstreamOptions(ctx context.Context, instanceName string) ([]v1alpha1.UpstreamOptions, error) {
+	if m.FakeGetUpstreamOptions != nil {
+		return m.FakeGetUpstreamOptions(instanceName)
+	}
+	return nil, nil
+}
+
+func (m *RpaasManager) AddUpstreamOptions(ctx context.Context, instanceName string, args rpaas.UpstreamOptionsArgs) error {
+	if m.FakeAddUpstreamOptions != nil {
+		return m.FakeAddUpstreamOptions(instanceName, args)
+	}
+	return nil
+}
+
+func (m *RpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceName string, args rpaas.UpstreamOptionsArgs) error {
+	if m.FakeUpdateUpstreamOptions != nil {
+		return m.FakeUpdateUpstreamOptions(instanceName, args)
+	}
+	return nil
+}
+
+func (m *RpaasManager) DeleteUpstreamOptions(ctx context.Context, instanceName, primaryBind string) error {
+	if m.FakeDeleteUpstreamOptions != nil {
+		return m.FakeDeleteUpstreamOptions(instanceName, primaryBind)
 	}
 	return nil
 }

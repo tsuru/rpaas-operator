@@ -41,6 +41,7 @@ func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.App) {
 		NewCmdCertificates(),
 		NewCmdBlocks(),
 		NewCmdRoutes(),
+		NewCmdUpstreamOptions(),
 		NewCmdInfo(),
 		NewCmdAutoscale(),
 		NewCmdDebug(),
