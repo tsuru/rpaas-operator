@@ -52,8 +52,8 @@ type FakeClient struct {
 	FakeDeleteCertManagerByName   func(instance, name string) error
 	FakeDeleteCertManagerByIssuer func(instance, issuer string) error
 	FakeListUpstreamOptions       func(args client.ListUpstreamOptionsArgs) ([]types.UpstreamOptions, error)
-	FakeAddUpstreamOptions        func(args client.AddUpstreamOptionsArgs) error
-	FakeUpdateUpstreamOptions     func(args client.UpdateUpstreamOptionsArgs) error
+	FakeAddUpstreamOptions        func(args client.UpstreamOptionsArgs) error
+	FakeUpdateUpstreamOptions     func(args client.UpstreamOptionsArgs) error
 	FakeDeleteUpstreamOptions     func(args client.DeleteUpstreamOptionsArgs) error
 }
 
@@ -334,7 +334,7 @@ func (f *FakeClient) ListUpstreamOptions(ctx context.Context, args client.ListUp
 	return nil, nil
 }
 
-func (f *FakeClient) AddUpstreamOptions(ctx context.Context, args client.AddUpstreamOptionsArgs) error {
+func (f *FakeClient) AddUpstreamOptions(ctx context.Context, args client.UpstreamOptionsArgs) error {
 	if f.FakeAddUpstreamOptions != nil {
 		return f.FakeAddUpstreamOptions(args)
 	}
@@ -342,7 +342,7 @@ func (f *FakeClient) AddUpstreamOptions(ctx context.Context, args client.AddUpst
 	return nil
 }
 
-func (f *FakeClient) UpdateUpstreamOptions(ctx context.Context, args client.UpdateUpstreamOptionsArgs) error {
+func (f *FakeClient) UpdateUpstreamOptions(ctx context.Context, args client.UpstreamOptionsArgs) error {
 	if f.FakeUpdateUpstreamOptions != nil {
 		return f.FakeUpdateUpstreamOptions(args)
 	}

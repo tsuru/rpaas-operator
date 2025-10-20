@@ -263,7 +263,7 @@ func runAddUpstreamOptions(c *cli.Context) error {
 		Cookie:        c.String("cookie"),
 	}
 
-	args := rpaasclient.AddUpstreamOptionsArgs{
+	args := rpaasclient.UpstreamOptionsArgs{
 		Instance:             c.String("instance"),
 		PrimaryBind:          c.String("app"),
 		CanaryBinds:          c.StringSlice("canary"),
@@ -374,7 +374,7 @@ func runUpdateUpstreamOptions(c *cli.Context) error {
 		Cookie:        c.String("cookie"),
 	}
 
-	args := rpaasclient.UpdateUpstreamOptionsArgs{
+	args := rpaasclient.UpstreamOptionsArgs{
 		Instance:             c.String("instance"),
 		PrimaryBind:          c.String("app"),
 		CanaryBinds:          c.StringSlice("canary"),

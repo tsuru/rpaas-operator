@@ -43,7 +43,7 @@ func (c *client) ListUpstreamOptions(ctx context.Context, args ListUpstreamOptio
 	return upstreamOptions, nil
 }
 
-func (c *client) AddUpstreamOptions(ctx context.Context, args AddUpstreamOptionsArgs) error {
+func (c *client) AddUpstreamOptions(ctx context.Context, args UpstreamOptionsArgs) error {
 	if args.Instance == "" {
 		return ErrMissingInstance
 	}
@@ -87,7 +87,7 @@ func (c *client) AddUpstreamOptions(ctx context.Context, args AddUpstreamOptions
 	return nil
 }
 
-func (c *client) UpdateUpstreamOptions(ctx context.Context, args UpdateUpstreamOptionsArgs) error {
+func (c *client) UpdateUpstreamOptions(ctx context.Context, args UpstreamOptionsArgs) error {
 	if args.Instance == "" {
 		return ErrMissingInstance
 	}

@@ -157,16 +157,7 @@ type ListUpstreamOptionsArgs struct {
 	Instance string
 }
 
-type AddUpstreamOptionsArgs struct {
-	Instance             string
-	PrimaryBind          string
-	CanaryBinds          []string
-	TrafficShapingPolicy TrafficShapingPolicy
-	LoadBalance          string
-	LoadBalanceHashKey   string
-}
-
-type UpdateUpstreamOptionsArgs struct {
+type UpstreamOptionsArgs struct {
 	Instance             string
 	PrimaryBind          string
 	CanaryBinds          []string
@@ -230,8 +221,8 @@ type Client interface {
 	UnsetMetadata(ctx context.Context, instance string, metadata *types.Metadata) error
 
 	ListUpstreamOptions(ctx context.Context, args ListUpstreamOptionsArgs) ([]types.UpstreamOptions, error)
-	AddUpstreamOptions(ctx context.Context, args AddUpstreamOptionsArgs) error
-	UpdateUpstreamOptions(ctx context.Context, args UpdateUpstreamOptionsArgs) error
+	AddUpstreamOptions(ctx context.Context, args UpstreamOptionsArgs) error
+	UpdateUpstreamOptions(ctx context.Context, args UpstreamOptionsArgs) error
 	DeleteUpstreamOptions(ctx context.Context, args DeleteUpstreamOptionsArgs) error
 }
 
