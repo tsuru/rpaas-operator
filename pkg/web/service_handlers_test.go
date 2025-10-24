@@ -836,8 +836,6 @@ func Test_deleteUpstreamOptions(t *testing.T) {
 				path = fmt.Sprintf("%s/resources/%s/upstream-options/app1", srv.URL, tt.instanceName)
 			case "not found error":
 				path = fmt.Sprintf("%s/resources/%s/upstream-options/nonexistent", srv.URL, tt.instanceName)
-			case "validation error":
-				path = fmt.Sprintf("%s/resources/%s/upstream-options/app2", srv.URL, tt.instanceName)
 			}
 			request, err := http.NewRequest(http.MethodDelete, path, nil)
 			require.NoError(t, err)
