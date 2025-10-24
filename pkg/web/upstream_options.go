@@ -43,7 +43,7 @@ func addUpstreamOptions(c echo.Context) error {
 		return err
 	}
 
-	if err = manager.AddUpstreamOptions(ctx, c.Param("instance"), args); err != nil {
+	if err = manager.EnsureUpstreamOptions(ctx, c.Param("instance"), args); err != nil {
 		return err
 	}
 
@@ -72,7 +72,7 @@ func updateUpstreamOptions(c echo.Context) error {
 		return echo.NewHTTPError(http.StatusBadRequest, "app parameter is required")
 	}
 
-	if err = manager.UpdateUpstreamOptions(ctx, c.Param("instance"), args); err != nil {
+	if err = manager.EnsureUpstreamOptions(ctx, c.Param("instance"), args); err != nil {
 		return err
 	}
 

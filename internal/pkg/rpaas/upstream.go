@@ -75,7 +75,7 @@ func (m *k8sRpaasManager) GetUpstreamOptions(ctx context.Context, instanceName s
 	return instance.Spec.UpstreamOptions, nil
 }
 
-func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName string, args UpstreamOptionsArgs) error {
+func (m *k8sRpaasManager) EnsureUpstreamOptions(ctx context.Context, instanceName string, args UpstreamOptionsArgs) error {
 	instance, err := m.GetInstance(ctx, instanceName)
 	if err != nil {
 		return err
@@ -100,9 +100,13 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 	}
 
 	// Check if upstream options for this bind already exist
-	for _, uo := range instance.Spec.UpstreamOptions {
+	upstreamExists := false
+	upstreamIndex := -1
+	for i, uo := range instance.Spec.UpstreamOptions {
 		if uo.PrimaryBind == args.PrimaryBind {
-			return &ConflictError{Msg: fmt.Sprintf("upstream options for bind '%s' already exist in instance: %s", args.PrimaryBind, instanceName)}
+			upstreamExists = true
+			upstreamIndex = i
+			break
 		}
 	}
 
@@ -110,76 +114,7 @@ func (m *k8sRpaasManager) AddUpstreamOptions(ctx context.Context, instanceName s
 	// If so, it cannot have its own canary binds
 	isReferencedAsCanary := false
 	for _, uo := range instance.Spec.UpstreamOptions {
-		for _, canaryBind := range uo.CanaryBinds {
-			if canaryBind == args.PrimaryBind {
-				isReferencedAsCanary = true
-				break
-			}
-		}
-		if isReferencedAsCanary {
-			break
-		}
-	}
-
-	if isReferencedAsCanary && len(args.CanaryBinds) > 0 {
-		return &ValidationError{Msg: fmt.Sprintf("bind '%s' is referenced as a canary bind in another upstream option and cannot have its own canary binds", args.PrimaryBind)}
-	}
-
-	// Validate canary binds using shared function
-	_, err = validateCanaryBinds(instance.Spec.UpstreamOptions, args, "")
-	if err != nil {
-		return err
-	}
-
-	// Traffic shaping validations using shared function
-	if err := validateTrafficShapingOptions(args); err != nil {
-		return err
-	}
-
-	// If this is a canary bind, validate weight rule: only one canary per group can have weight > 0
-	if args.TrafficShapingPolicy.Weight > 0 && isReferencedAsCanary {
-		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, "add"); err != nil {
-			return err
-		}
-	}
-
-	// Load balance validations using shared function
-	if err := validateLoadBalanceOptions(args); err != nil {
-		return err
-	}
-
-	// Apply defaults to UpstreamOptions
-	applyUpstreamOptionsDefaults(&args)
-
-	upstreamOptions := v1alpha1.UpstreamOptions{
-		PrimaryBind:          args.PrimaryBind,
-		CanaryBinds:          args.CanaryBinds,
-		TrafficShapingPolicy: args.TrafficShapingPolicy,
-		LoadBalance:          args.LoadBalance,
-		LoadBalanceHashKey:   args.LoadBalanceHashKey,
-	}
-
-	instance.Spec.UpstreamOptions = append(instance.Spec.UpstreamOptions, upstreamOptions)
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
-func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceName string, args UpstreamOptionsArgs) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-
-	// Common validations
-	if err := validateUpstreamOptionsArgs(args); err != nil {
-		return err
-	}
-
-	// Check if this bind is referenced as a canary bind in other upstream options
-	// If so, it cannot have its own canary binds
-	isReferencedAsCanary := false
-	for _, uo := range instance.Spec.UpstreamOptions {
-		if uo.PrimaryBind == args.PrimaryBind {
+		if upstreamExists && uo.PrimaryBind == args.PrimaryBind {
 			continue // Skip the current upstream option being updated
 		}
 		for _, canaryBind := range uo.CanaryBinds {
@@ -197,8 +132,12 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 		return &ValidationError{Msg: fmt.Sprintf("bind '%s' is referenced as a canary bind in another upstream option and cannot have its own canary binds", args.PrimaryBind)}
 	}
 
-	// Validate canary binds using shared function (skip current upstream being updated)
-	_, err = validateCanaryBinds(instance.Spec.UpstreamOptions, args, args.PrimaryBind)
+	// Validate canary binds using shared function
+	skipPrimaryBind := ""
+	if upstreamExists {
+		skipPrimaryBind = args.PrimaryBind
+	}
+	_, err = validateCanaryBinds(instance.Spec.UpstreamOptions, args, skipPrimaryBind)
 	if err != nil {
 		return err
 	}
@@ -210,7 +149,11 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 
 	// If this is a canary bind, validate weight rule: only one canary per group can have weight > 0
 	if args.TrafficShapingPolicy.Weight > 0 && isReferencedAsCanary {
-		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, "update"); err != nil {
+		operation := "add"
+		if upstreamExists {
+			operation = "update"
+		}
+		if err := m.validateCanaryWeightRule(instance.Spec.UpstreamOptions, args.PrimaryBind, args.TrafficShapingPolicy.Weight, operation); err != nil {
 			return err
 		}
 	}
@@ -221,34 +164,33 @@ func (m *k8sRpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceNam
 	}
 
 	// For update operations: implement mutual exclusion - if one is provided, clear the other
-	if strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue) != "" {
-		// HeaderValue provided, clear HeaderPattern
-		args.TrafficShapingPolicy.HeaderPattern = ""
-	} else if strings.TrimSpace(args.TrafficShapingPolicy.HeaderPattern) != "" {
-		// HeaderPattern provided, clear HeaderValue
-		args.TrafficShapingPolicy.HeaderValue = ""
+	if upstreamExists {
+		if strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue) != "" {
+			// HeaderValue provided, clear HeaderPattern
+			args.TrafficShapingPolicy.HeaderPattern = ""
+		} else if strings.TrimSpace(args.TrafficShapingPolicy.HeaderPattern) != "" {
+			// HeaderPattern provided, clear HeaderValue
+			args.TrafficShapingPolicy.HeaderValue = ""
+		}
 	}
 
 	// Apply defaults to UpstreamOptions
 	applyUpstreamOptionsDefaults(&args)
 
-	// Find and update the upstream options for the given bind
-	// Note: PrimaryBind is immutable, only update other fields
-	found := false
-	for i, uo := range instance.Spec.UpstreamOptions {
-		if uo.PrimaryBind == args.PrimaryBind {
-			found = true
-			// Keep the original PrimaryBind, only update mutable fields
-			instance.Spec.UpstreamOptions[i].CanaryBinds = args.CanaryBinds
-			instance.Spec.UpstreamOptions[i].TrafficShapingPolicy = args.TrafficShapingPolicy
-			instance.Spec.UpstreamOptions[i].LoadBalance = args.LoadBalance
-			instance.Spec.UpstreamOptions[i].LoadBalanceHashKey = args.LoadBalanceHashKey
-			break
-		}
+	upstreamOptions := v1alpha1.UpstreamOptions{
+		PrimaryBind:          args.PrimaryBind,
+		CanaryBinds:          args.CanaryBinds,
+		TrafficShapingPolicy: args.TrafficShapingPolicy,
+		LoadBalance:          args.LoadBalance,
+		LoadBalanceHashKey:   args.LoadBalanceHashKey,
 	}
 
-	if !found {
-		return &NotFoundError{Msg: fmt.Sprintf("upstream options for bind '%s' not found in instance: %s", args.PrimaryBind, instanceName)}
+	if upstreamExists {
+		// Update existing upstream options
+		instance.Spec.UpstreamOptions[upstreamIndex] = upstreamOptions
+	} else {
+		// Add new upstream options
+		instance.Spec.UpstreamOptions = append(instance.Spec.UpstreamOptions, upstreamOptions)
 	}
 
 	return m.patchInstance(ctx, originalInstance, instance)

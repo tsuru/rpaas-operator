@@ -678,7 +678,7 @@ func Test_addUpstreamOptions(t *testing.T) {
 			requestBody:  `{"app":"app1","canary":["app2"],"loadBalance":"round_robin","trafficShapingPolicy":{"weight":80}}`,
 			expectedCode: http.StatusCreated,
 			manager: &fake.RpaasManager{
-				FakeAddUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					assert.Equal(t, "my-instance", instanceName)
 					expected := rpaas.UpstreamOptionsArgs{
 						PrimaryBind: "app1",
@@ -706,7 +706,7 @@ func Test_addUpstreamOptions(t *testing.T) {
 			requestBody:  `{"app":"","canary":[]}`,
 			expectedCode: http.StatusBadRequest,
 			manager: &fake.RpaasManager{
-				FakeAddUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					return &rpaas.ValidationError{Msg: "cannot add upstream options with empty app"}
 				},
 			},
@@ -742,7 +742,7 @@ func Test_updateUpstreamOptions(t *testing.T) {
 			requestBody:  `{"canary":[],"loadBalance":"ewma","trafficShapingPolicy":{"weight":90}}`,
 			expectedCode: http.StatusOK,
 			manager: &fake.RpaasManager{
-				FakeUpdateUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					assert.Equal(t, "my-instance", instanceName)
 					expected := rpaas.UpstreamOptionsArgs{
 						PrimaryBind: "app1",
@@ -770,7 +770,7 @@ func Test_updateUpstreamOptions(t *testing.T) {
 			requestBody:  `{"bind":"nonexistent"}`,
 			expectedCode: http.StatusNotFound,
 			manager: &fake.RpaasManager{
-				FakeUpdateUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					return &rpaas.NotFoundError{Msg: "upstream options for bind 'nonexistent' not found"}
 				},
 			},

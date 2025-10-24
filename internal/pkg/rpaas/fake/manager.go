@@ -59,8 +59,7 @@ type RpaasManager struct {
 	FakeGetUpstreams             func(instanceName string) ([]v1alpha1.AllowedUpstream, error)
 	FakeDeleteUpstream           func(instanceName string, upstream v1alpha1.AllowedUpstream) error
 	FakeGetUpstreamOptions       func(instanceName string) ([]v1alpha1.UpstreamOptions, error)
-	FakeAddUpstreamOptions       func(instanceName string, args rpaas.UpstreamOptionsArgs) error
-	FakeUpdateUpstreamOptions    func(instanceName string, args rpaas.UpstreamOptionsArgs) error
+	FakeEnsureUpstreamOptions    func(instanceName string, args rpaas.UpstreamOptionsArgs) error
 	FakeDeleteUpstreamOptions    func(instanceName, primaryBind string) error
 	FakeGetCertManagerRequests   func(instanceName string) ([]clientTypes.CertManager, error)
 	FakeUpdateCertManagerRequest func(instanceName string, in clientTypes.CertManager) error
@@ -353,16 +352,9 @@ func (m *RpaasManager) GetUpstreamOptions(ctx context.Context, instanceName stri
 	return nil, nil
 }
 
-func (m *RpaasManager) AddUpstreamOptions(ctx context.Context, instanceName string, args rpaas.UpstreamOptionsArgs) error {
-	if m.FakeAddUpstreamOptions != nil {
-		return m.FakeAddUpstreamOptions(instanceName, args)
-	}
-	return nil
-}
-
-func (m *RpaasManager) UpdateUpstreamOptions(ctx context.Context, instanceName string, args rpaas.UpstreamOptionsArgs) error {
-	if m.FakeUpdateUpstreamOptions != nil {
-		return m.FakeUpdateUpstreamOptions(instanceName, args)
+func (m *RpaasManager) EnsureUpstreamOptions(ctx context.Context, instanceName string, args rpaas.UpstreamOptionsArgs) error {
+	if m.FakeEnsureUpstreamOptions != nil {
+		return m.FakeEnsureUpstreamOptions(instanceName, args)
 	}
 	return nil
 }

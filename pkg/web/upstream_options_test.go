@@ -105,7 +105,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 			expectedCode: http.StatusCreated,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
-				FakeAddUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					assert.Equal(t, "valid", instanceName)
 					assert.Equal(t, rpaas.UpstreamOptionsArgs{
 						PrimaryBind: "bind1",
@@ -127,7 +127,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 			expectedCode: http.StatusCreated,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
-				FakeAddUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					assert.Equal(t, "minimal", instanceName)
 					assert.Equal(t, rpaas.UpstreamOptionsArgs{
 						PrimaryBind: "bind1",
@@ -159,7 +159,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: `{"message":"manager error"}`,
 			manager: &fake.RpaasManager{
-				FakeAddUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					return fmt.Errorf("manager error")
 				},
 			},
@@ -206,7 +206,7 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 			expectedCode: http.StatusOK,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
-				FakeUpdateUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					assert.Equal(t, "valid", instanceName)
 					assert.Equal(t, rpaas.UpstreamOptionsArgs{
 						PrimaryBind: "bind1",
@@ -229,7 +229,7 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 			expectedCode: http.StatusOK,
 			expectedBody: "",
 			manager: &fake.RpaasManager{
-				FakeUpdateUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					assert.Equal(t, "partial", instanceName)
 					assert.Equal(t, rpaas.UpstreamOptionsArgs{
 						PrimaryBind: "bind2",
@@ -265,7 +265,7 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 			expectedCode: http.StatusInternalServerError,
 			expectedBody: `{"message":"manager error"}`,
 			manager: &fake.RpaasManager{
-				FakeUpdateUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
 					return fmt.Errorf("manager error")
 				},
 			},

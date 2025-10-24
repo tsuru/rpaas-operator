@@ -51,7 +51,7 @@ func Test_k8sRpaasManager_GetUpstreamOptions_InstanceNotFound(t *testing.T) {
 	assert.Error(t, err)
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     *v1alpha1.RpaasInstance
@@ -121,7 +121,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
 			errorMsg:    "bind 'nonexistent' does not exist in instance binds",
 		},
 		{
-			name: "upstream options already exist for bind",
+			name: "upstream options already exist for bind - should update",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
@@ -132,15 +132,21 @@ func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
 						{Name: "app1", Host: "app1.example.com"},
 					},
 					UpstreamOptions: []v1alpha1.UpstreamOptions{
-						{PrimaryBind: "app1"},
+						{PrimaryBind: "app1", LoadBalance: v1alpha1.LoadBalanceEWMA},
 					},
 				},
 			},
 			args: UpstreamOptionsArgs{
 				PrimaryBind: "app1",
+				LoadBalance: v1alpha1.LoadBalanceRoundRobin,
 			},
-			expectError: true,
-			errorMsg:    "upstream options for bind 'app1' already exist in instance: my-instance",
+			expectedSpec: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+				},
+			},
+			expectError: false,
 		},
 		{
 			name: "canary bind must reference existing bind",
@@ -192,7 +198,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), "my-instance", tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), "my-instance", tt.args)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -209,7 +215,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_CanaryWeightValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_CanaryWeightValidation(t *testing.T) {
 	tests := []struct {
 		name        string
 		instance    *v1alpha1.RpaasInstance
@@ -322,7 +328,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryWeightValidation(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -333,7 +339,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryWeightValidation(t *testing.T
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_NewTrafficShapingRules(t *testing.T) {
 	tests := []struct {
 		name        string
 		instance    *v1alpha1.RpaasInstance
@@ -513,7 +519,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -524,7 +530,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_NewTrafficShapingRules(t *testing.T
 	}
 }
 
-func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_Update(t *testing.T) {
 	tests := []struct {
 		name         string
 		instance     *v1alpha1.RpaasInstance
@@ -541,6 +547,9 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+					},
 					UpstreamOptions: []v1alpha1.UpstreamOptions{
 						{PrimaryBind: "app1", LoadBalance: v1alpha1.LoadBalanceRoundRobin},
 					},
@@ -574,13 +583,14 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 			errorMsg:    "cannot process upstream options with empty app",
 		},
 		{
-			name: "upstream options not found",
+			name: "bind not found in instance",
 			instance: &v1alpha1.RpaasInstance{
 				ObjectMeta: metav1.ObjectMeta{
 					Name:      "my-instance",
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{},
 					UpstreamOptions: []v1alpha1.UpstreamOptions{},
 				},
 			},
@@ -588,7 +598,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 				PrimaryBind: "nonexistent",
 			},
 			expectError: true,
-			errorMsg:    "upstream options for bind 'nonexistent' not found in instance: my-instance",
+			errorMsg:    "bind 'nonexistent' does not exist in instance binds",
 		},
 		{
 			name: "canary bind validation error",
@@ -598,6 +608,9 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
+					Binds: []v1alpha1.Bind{
+						{Name: "app1", Host: "app1.example.com"},
+					},
 					UpstreamOptions: []v1alpha1.UpstreamOptions{
 						{PrimaryBind: "app1"},
 					},
@@ -615,7 +628,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.UpdateUpstreamOptions(context.TODO(), "my-instance", tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), "my-instance", tt.args)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -629,7 +642,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_WeightTotalDefault(t *testing.T) {
 	tests := []struct {
 		name                string
 		instance            *v1alpha1.RpaasInstance
@@ -787,7 +800,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
 			require.NoError(t, err)
 
 			// Get the updated instance to verify WeightTotal was set correctly
@@ -812,7 +825,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_WeightTotalDefault(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_SingleCanaryValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_SingleCanaryValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -837,12 +850,12 @@ func Test_k8sRpaasManager_AddUpstreamOptions_SingleCanaryValidation(t *testing.T
 		CanaryBinds: []string{"canary1", "canary2"},
 	}
 
-	err := manager.AddUpstreamOptions(context.TODO(), "my-instance", args)
+	err := manager.EnsureUpstreamOptions(context.TODO(), "my-instance", args)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "only one canary bind is allowed per upstream")
 }
 
-func Test_k8sRpaasManager_UpdateUpstreamOptions_SingleCanaryValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_Update_SingleCanaryValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -873,12 +886,12 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_SingleCanaryValidation(t *testin
 		CanaryBinds: []string{"canary1", "canary2"},
 	}
 
-	err := manager.UpdateUpstreamOptions(context.TODO(), "my-instance", args)
+	err := manager.EnsureUpstreamOptions(context.TODO(), "my-instance", args)
 	assert.Error(t, err)
 	assert.Contains(t, err.Error(), "only one canary bind is allowed per upstream")
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceDefault(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_LoadBalanceDefault(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -901,7 +914,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceDefault(t *testing.T) {
 		// LoadBalance not specified - should default to round_robin
 	}
 
-	err := manager.AddUpstreamOptions(context.TODO(), "my-instance", args)
+	err := manager.EnsureUpstreamOptions(context.TODO(), "my-instance", args)
 	require.NoError(t, err)
 
 	// Verify the default was applied
@@ -913,7 +926,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceDefault(t *testing.T) {
 	assert.Equal(t, v1alpha1.LoadBalanceRoundRobin, updated.Spec.UpstreamOptions[0].LoadBalance)
 }
 
-func Test_k8sRpaasManager_UpdateUpstreamOptions_CanaryWeightValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_Update_CanaryWeightValidation(t *testing.T) {
 	tests := []struct {
 		name        string
 		instance    *v1alpha1.RpaasInstance
@@ -1038,7 +1051,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_CanaryWeightValidation(t *testin
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.UpdateUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
 			if tt.expectError {
 				assert.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -1049,7 +1062,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_CanaryWeightValidation(t *testin
 	}
 }
 
-func Test_k8sRpaasManager_UpdateUpstreamOptions_WeightTotalDefault(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_Update_WeightTotalDefault(t *testing.T) {
 	tests := []struct {
 		name                string
 		instance            *v1alpha1.RpaasInstance
@@ -1132,13 +1145,13 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_WeightTotalDefault(t *testing.T)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
-			err := manager.UpdateUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
 			require.NoError(t, err)
 
 			// Note: The fake client has limitations with patch operations,
 			// so we can't reliably verify the updated WeightTotal value in the test.
 			// The functionality is tested through the unit test of applyTrafficShapingPolicyDefaults
-			// and integration with the AddUpstreamOptions tests.
+			// and integration with the EnsureUpstreamOptions tests.
 		})
 	}
 }
@@ -1337,7 +1350,7 @@ func Test_k8sRpaasManager_DeleteUpstreamOptions(t *testing.T) {
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_CanaryBindDuplicationValidation(t *testing.T) {
 	tests := []struct {
 		name        string
 		instance    *v1alpha1.RpaasInstance
@@ -1485,13 +1498,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(tt.instance).Build()}
 
-			var err error
-			// Use UpdateUpstreamOptions for the bidirectional test case since upstream already exists
-			if strings.Contains(tt.name, "bidirectional") {
-				err = manager.UpdateUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
-			} else {
-				err = manager.AddUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
-			}
+			err := manager.EnsureUpstreamOptions(context.TODO(), tt.instance.Name, tt.args)
 
 			if tt.expectError {
 				require.Error(t, err)
@@ -1503,7 +1510,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_CanaryBindDuplicationValidation(t *
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_HeaderMutualExclusion(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_HeaderMutualExclusion(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -1562,7 +1569,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_HeaderMutualExclusion(t *testing.T)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), instance.Name, tt.args)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -1573,7 +1580,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_HeaderMutualExclusion(t *testing.T)
 	}
 }
 
-func Test_k8sRpaasManager_UpdateUpstreamOptions_HeaderMutualExclusion(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_Update_HeaderMutualExclusion(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -1641,7 +1648,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_HeaderMutualExclusion(t *testing
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
-			err := manager.UpdateUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), instance.Name, tt.args)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -1679,7 +1686,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_HeaderMutualExclusion(t *testing
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceHashKeyValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_LoadBalanceHashKeyValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -1757,7 +1764,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceHashKeyValidation(t *tes
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), instance.Name, tt.args)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -1768,7 +1775,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceHashKeyValidation(t *tes
 	}
 }
 
-func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceHashKeyValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_Update_LoadBalanceHashKeyValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -1834,7 +1841,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceHashKeyValidation(t *
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
-			err := manager.UpdateUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), instance.Name, tt.args)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -1867,7 +1874,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceHashKeyValidation(t *
 	}
 }
 
-func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_LoadBalanceValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -1969,7 +1976,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceValidation(t *testing.T)
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
-			err := manager.AddUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), instance.Name, tt.args)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
@@ -1980,7 +1987,7 @@ func Test_k8sRpaasManager_AddUpstreamOptions_LoadBalanceValidation(t *testing.T)
 	}
 }
 
-func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceValidation(t *testing.T) {
+func Test_k8sRpaasManager_EnsureUpstreamOptions_Update_LoadBalanceValidation(t *testing.T) {
 	instance := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
 			Name:      "my-instance",
@@ -2045,7 +2052,7 @@ func Test_k8sRpaasManager_UpdateUpstreamOptions_LoadBalanceValidation(t *testing
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			manager := &k8sRpaasManager{cli: fake.NewClientBuilder().WithScheme(newScheme()).WithRuntimeObjects(instance).Build()}
-			err := manager.UpdateUpstreamOptions(context.TODO(), instance.Name, tt.args)
+			err := manager.EnsureUpstreamOptions(context.TODO(), instance.Name, tt.args)
 			if tt.expectError {
 				require.Error(t, err)
 				assert.Contains(t, err.Error(), tt.errorMsg)
