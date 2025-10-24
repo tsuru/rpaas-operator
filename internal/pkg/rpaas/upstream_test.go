@@ -590,7 +590,7 @@ func Test_k8sRpaasManager_EnsureUpstreamOptions_Update(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Binds: []v1alpha1.Bind{},
+					Binds:           []v1alpha1.Bind{},
 					UpstreamOptions: []v1alpha1.UpstreamOptions{},
 				},
 			},
