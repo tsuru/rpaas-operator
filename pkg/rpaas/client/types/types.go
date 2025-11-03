@@ -190,6 +190,13 @@ type Bind struct {
 	Upstreams []string `json:"upstreams,omitempty"`
 }
 
+type UpstreamOptions struct {
+	PrimaryBind          string                        `json:"app"`
+	CanaryBinds          []string                      `json:"canary,omitempty"`
+	TrafficShapingPolicy v1alpha1.TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`
+	LoadBalance          v1alpha1.LoadBalanceAlgorithm `json:"loadBalance,omitempty"`
+}
+
 func NewBinds(k8sBinds []v1alpha1.Bind) []Bind {
 	if k8sBinds == nil {
 		return nil

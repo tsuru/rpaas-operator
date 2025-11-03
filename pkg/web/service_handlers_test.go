@@ -591,3 +591,257 @@ func Test_serviceStatus(t *testing.T) {
 		})
 	}
 }
+
+func Test_getUpstreamOptions(t *testing.T) {
+	tests := []struct {
+		name             string
+		instanceName     string
+		expectedCode     int
+		expectedResponse []v1alpha1.UpstreamOptions
+		manager          rpaas.RpaasManager
+	}{
+		{
+			name:         "successful get",
+			instanceName: "my-instance",
+			expectedCode: http.StatusOK,
+			expectedResponse: []v1alpha1.UpstreamOptions{
+				{
+					PrimaryBind: "app1",
+					CanaryBinds: []string{"app2"},
+					LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+					TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+						Weight: 80,
+						Header: "X-Test",
+					},
+				},
+			},
+			manager: &fake.RpaasManager{
+				FakeGetUpstreamOptions: func(instanceName string) ([]v1alpha1.UpstreamOptions, error) {
+					assert.Equal(t, "my-instance", instanceName)
+					return []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "app1",
+							CanaryBinds: []string{"app2"},
+							LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight: 80,
+								Header: "X-Test",
+							},
+						},
+					}, nil
+				},
+			},
+		},
+		{
+			name:         "instance not found",
+			instanceName: "nonexistent",
+			expectedCode: http.StatusNotFound,
+			manager: &fake.RpaasManager{
+				FakeGetUpstreamOptions: func(instanceName string) ([]v1alpha1.UpstreamOptions, error) {
+					return nil, rpaas.NotFoundError{Msg: "instance not found"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/upstream-options", srv.URL, tt.instanceName)
+			request, err := http.NewRequest(http.MethodGet, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+
+			if tt.expectedCode == http.StatusOK {
+				var result []v1alpha1.UpstreamOptions
+				require.NoError(t, json.Unmarshal([]byte(bodyContent(rsp)), &result))
+				assert.Equal(t, tt.expectedResponse, result)
+			}
+		})
+	}
+}
+
+func Test_addUpstreamOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		instanceName string
+		requestBody  string
+		expectedCode int
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "successful add",
+			instanceName: "my-instance",
+			requestBody:  `{"app":"app1","canary":["app2"],"loadBalance":"round_robin","trafficShapingPolicy":{"weight":80}}`,
+			expectedCode: http.StatusCreated,
+			manager: &fake.RpaasManager{
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+					assert.Equal(t, "my-instance", instanceName)
+					expected := rpaas.UpstreamOptionsArgs{
+						PrimaryBind: "app1",
+						CanaryBinds: []string{"app2"},
+						LoadBalance: v1alpha1.LoadBalanceRoundRobin,
+						TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+							Weight: 80,
+						},
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "empty request body",
+			instanceName: "my-instance",
+			requestBody:  "",
+			expectedCode: http.StatusBadRequest,
+			manager:      &fake.RpaasManager{},
+		},
+		{
+			name:         "validation error",
+			instanceName: "my-instance",
+			requestBody:  `{"app":"","canary":[]}`,
+			expectedCode: http.StatusBadRequest,
+			manager: &fake.RpaasManager{
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+					return &rpaas.ValidationError{Msg: "cannot add upstream options with empty app"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/upstream-options", srv.URL, tt.instanceName)
+			request, err := http.NewRequest(http.MethodPost, path, strings.NewReader(tt.requestBody))
+			require.NoError(t, err)
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+		})
+	}
+}
+
+func Test_updateUpstreamOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		instanceName string
+		requestBody  string
+		expectedCode int
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "successful update",
+			instanceName: "my-instance",
+			requestBody:  `{"canary":[],"loadBalance":"ewma","trafficShapingPolicy":{"weight":90}}`,
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+					assert.Equal(t, "my-instance", instanceName)
+					expected := rpaas.UpstreamOptionsArgs{
+						PrimaryBind: "app1",
+						CanaryBinds: []string{},
+						LoadBalance: v1alpha1.LoadBalanceEWMA,
+						TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+							Weight: 90,
+						},
+					}
+					assert.Equal(t, expected, args)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "empty request body",
+			instanceName: "my-instance",
+			requestBody:  "",
+			expectedCode: http.StatusBadRequest,
+			manager:      &fake.RpaasManager{},
+		},
+		{
+			name:         "not found error",
+			instanceName: "my-instance",
+			requestBody:  `{"bind":"nonexistent"}`,
+			expectedCode: http.StatusNotFound,
+			manager: &fake.RpaasManager{
+				FakeEnsureUpstreamOptions: func(instanceName string, args rpaas.UpstreamOptionsArgs) error {
+					return &rpaas.NotFoundError{Msg: "upstream options for bind 'nonexistent' not found"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			path := fmt.Sprintf("%s/resources/%s/upstream-options/app1", srv.URL, tt.instanceName)
+			request, err := http.NewRequest(http.MethodPut, path, strings.NewReader(tt.requestBody))
+			require.NoError(t, err)
+			request.Header.Set(echo.HeaderContentType, echo.MIMEApplicationJSON)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+		})
+	}
+}
+
+func Test_deleteUpstreamOptions(t *testing.T) {
+	tests := []struct {
+		name         string
+		instanceName string
+		requestBody  string
+		expectedCode int
+		manager      rpaas.RpaasManager
+	}{
+		{
+			name:         "successful delete",
+			instanceName: "my-instance",
+			requestBody:  "",
+			expectedCode: http.StatusOK,
+			manager: &fake.RpaasManager{
+				FakeDeleteUpstreamOptions: func(instanceName, primaryBind string) error {
+					assert.Equal(t, "my-instance", instanceName)
+					assert.Equal(t, "app1", primaryBind)
+					return nil
+				},
+			},
+		},
+		{
+			name:         "not found error",
+			instanceName: "my-instance",
+			requestBody:  "",
+			expectedCode: http.StatusNotFound,
+			manager: &fake.RpaasManager{
+				FakeDeleteUpstreamOptions: func(instanceName, primaryBind string) error {
+					return &rpaas.NotFoundError{Msg: "upstream options not found"}
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv := newTestingServer(t, tt.manager)
+			defer srv.Close()
+			var path string
+			switch tt.name {
+			case "successful delete":
+				path = fmt.Sprintf("%s/resources/%s/upstream-options/app1", srv.URL, tt.instanceName)
+			case "not found error":
+				path = fmt.Sprintf("%s/resources/%s/upstream-options/nonexistent", srv.URL, tt.instanceName)
+			}
+			request, err := http.NewRequest(http.MethodDelete, path, nil)
+			require.NoError(t, err)
+			rsp, err := srv.Client().Do(request)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, rsp.StatusCode)
+		})
+	}
+}

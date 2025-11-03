@@ -2551,60 +2551,6 @@ func publicKeySize(publicKey interface{}) (keySize int) {
 	return
 }
 
-func (m *k8sRpaasManager) AddUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-
-	if upstream.Host == "" {
-		return &ValidationError{Msg: "cannot add an upstream with empty host"}
-	}
-
-	for _, u := range instance.Spec.AllowedUpstreams {
-		if u.Host == upstream.Host && u.Port == upstream.Port {
-			return &ConflictError{Msg: fmt.Sprintf("upstream already present in instance: %s", instanceName)}
-		}
-	}
-	instance.Spec.AllowedUpstreams = append(instance.Spec.AllowedUpstreams, upstream)
-
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
-func (m *k8sRpaasManager) GetUpstreams(ctx context.Context, instanceName string) ([]v1alpha1.AllowedUpstream, error) {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return nil, err
-	}
-
-	return instance.Spec.AllowedUpstreams, nil
-}
-
-func (m *k8sRpaasManager) DeleteUpstream(ctx context.Context, instanceName string, upstream v1alpha1.AllowedUpstream) error {
-	instance, err := m.GetInstance(ctx, instanceName)
-	if err != nil {
-		return err
-	}
-	originalInstance := instance.DeepCopy()
-
-	found := false
-	upstreams := instance.Spec.AllowedUpstreams
-	for i, u := range upstreams {
-		if u.Port == upstream.Port && strings.Compare(u.Host, upstream.Host) == 0 {
-			found = true
-			upstreams = append(upstreams[:i], upstreams[i+1:]...)
-			break
-		}
-	}
-	if !found {
-		return &NotFoundError{Msg: fmt.Sprintf("upstream not found inside list of allowed upstreams of %s", instanceName)}
-	}
-
-	instance.Spec.AllowedUpstreams = upstreams
-	return m.patchInstance(ctx, originalInstance, instance)
-}
-
 func hasIntersection(a []string, b []string) bool {
 	for _, x := range a {
 		for _, y := range b {

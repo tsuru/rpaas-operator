@@ -43,6 +43,16 @@ type RpaasInstanceSpec struct {
 	// +optional
 	Binds []Bind `json:"binds,omitempty"`
 
+	// UpstreamOptions is the list of upstream options to be applied to the
+	// instance. Each upstream option defines a primary bind and canary binds
+	// with a traffic shaping policy and a load balancing algorithm.
+	// The primary bind is the main bind for the upstream, while canary binds
+	// are used to distribute traffic based on the defined traffic shaping policy.
+	// The load balancing algorithm is used to distribute traffic among the
+	// upstreams.
+	// +optional
+	UpstreamOptions []UpstreamOptions `json:"upstreamOptions,omitempty"`
+
 	// Blocks are configuration file fragments added to the generated nginx
 	// config.
 	Blocks map[BlockType]Value `json:"blocks,omitempty"`
@@ -212,6 +222,47 @@ type AllowedUpstream struct {
 type Bind struct {
 	Name string `json:"name"`
 	Host string `json:"host"`
+}
+
+type LoadBalanceAlgorithm string
+
+const (
+	LoadBalanceRoundRobin     LoadBalanceAlgorithm = "round_robin" // Round Robin
+	LoadBalanceConsistentHash LoadBalanceAlgorithm = "chash"       // Consistent Hashing
+	LoadBalanceEWMA           LoadBalanceAlgorithm = "ewma"        // Exponentially Weighted Moving Average
+)
+
+type UpstreamOptions struct {
+	// Main bind for this upstream
+	PrimaryBind string `json:"app"`
+	// CanaryBinds contains the names of other Binds that participate in traffic distribution
+	// based on their individual TrafficShapingPolicy configurations.
+	// Currently limited to one canary per upstream.
+	CanaryBinds []string `json:"canary,omitempty"`
+	// TrafficShapingPolicy defines the traffic shaping policy for this upstream.
+	TrafficShapingPolicy TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`
+	// LoadBalance defines the load balancing algorithm to be used for this upstream.
+	LoadBalance LoadBalanceAlgorithm `json:"loadBalance,omitempty"`
+	// LoadBalanceHashKey defines the nginx variable, text value or any combination thereof
+	// to use for consistent hashing when LoadBalance is "chash".
+	// Required when LoadBalance is "chash", ignored otherwise.
+	// Examples: "$remote_addr", "$request_uri", "$http_x_user_id", "$cookie_session", "$remote_addr$request_uri"
+	LoadBalanceHashKey string `json:"loadBalanceHashKey,omitempty"`
+}
+
+type TrafficShapingPolicy struct {
+	// Weight-based routing: only ONE Bind in a canary group can have weight > 0
+	Weight      int `json:"weight,omitempty"`
+	WeightTotal int `json:"weightTotal,omitempty"`
+
+	// Header on which to redirect requests to this backend
+	Header string `json:"header,omitempty"`
+	// HeaderValue on which to redirect requests to this backend
+	HeaderValue string `json:"headerValue,omitempty"`
+	// HeaderPattern the header value match pattern, support exact, regex.
+	HeaderPattern string `json:"headerPattern,omitempty"`
+	// Cookie on which to redirect requests to this backend
+	Cookie string `json:"cookie,omitempty"`
 }
 
 type BlockType string
