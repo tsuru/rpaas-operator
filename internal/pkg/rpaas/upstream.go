@@ -402,6 +402,15 @@ func validateTrafficShapingOptions(args UpstreamOptionsArgs) error {
 		return &ValidationError{Msg: fmt.Sprintf("primary upstream '%s' cannot have traffic shaping policy when it has canary binds", args.PrimaryBind)}
 	}
 
+	// Validate that when header is specified, at least one of header-value or header-pattern must be provided
+	if strings.TrimSpace(args.TrafficShapingPolicy.Header) != "" {
+		headerValue := strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue)
+		headerPattern := strings.TrimSpace(args.TrafficShapingPolicy.HeaderPattern)
+		if headerValue == "" && headerPattern == "" {
+			return &ValidationError{Msg: "when header is specified, either header-value or header-pattern must be provided"}
+		}
+	}
+
 	// Validate that header-value and header-pattern are mutually exclusive
 	if strings.TrimSpace(args.TrafficShapingPolicy.HeaderValue) != "" && strings.TrimSpace(args.TrafficShapingPolicy.HeaderPattern) != "" {
 		return &ValidationError{Msg: "header-value and header-pattern are mutually exclusive, please specify only one"}

@@ -317,8 +317,9 @@ func Test_k8sRpaasManager_EnsureUpstreamOptions_CanaryWeightValidation(t *testin
 			args: UpstreamOptionsArgs{
 				PrimaryBind: "canary2",
 				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
-					Header: "X-Test",
-					Cookie: "canary=true",
+					Header:      "X-Test",
+					HeaderValue: "canary",
+					Cookie:      "canary=true",
 				},
 			},
 			expectError: false,
@@ -733,6 +734,7 @@ func Test_k8sRpaasManager_EnsureUpstreamOptions_WeightTotalDefault(t *testing.T)
 					Weight:      0,
 					WeightTotal: 0,
 					Header:      "X-Test",
+					HeaderValue: "canary",
 				},
 			},
 			expectedWeightTotal: 0,
@@ -1564,6 +1566,17 @@ func Test_k8sRpaasManager_EnsureUpstreamOptions_HeaderMutualExclusion(t *testing
 			expectError: true,
 			errorMsg:    "header-value and header-pattern are mutually exclusive",
 		},
+		{
+			name: "should reject header without header-value or header-pattern",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header: "X-Version",
+				},
+			},
+			expectError: true,
+			errorMsg:    "when header is specified, either header-value or header-pattern must be provided",
+		},
 	}
 
 	for _, tt := range tests {
@@ -1642,6 +1655,17 @@ func Test_k8sRpaasManager_EnsureUpstreamOptions_Update_HeaderMutualExclusion(t *
 			},
 			expectError: true,
 			errorMsg:    "header-value and header-pattern are mutually exclusive",
+		},
+		{
+			name: "should reject header without header-value or header-pattern on update",
+			args: UpstreamOptionsArgs{
+				PrimaryBind: "app1",
+				TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+					Header: "X-Version",
+				},
+			},
+			expectError: true,
+			errorMsg:    "when header is specified, either header-value or header-pattern must be provided",
 		},
 	}
 
