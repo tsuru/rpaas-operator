@@ -70,6 +70,29 @@ func TestGetUpstreamOptions(t *testing.T) {
 				},
 			},
 		},
+		{
+			name:         "get upstream options with hash key",
+			instance:     "valid",
+			expectedCode: http.StatusOK,
+			expectedBody: `\[\{"app":"bind1","canary":\["canary1"\],"trafficShapingPolicy":\{"weight":50,"weightTotal":100\},"loadBalance":"chash","loadBalanceHashKey":"\$remote_addr"\}\]`,
+			manager: &fake.RpaasManager{
+				FakeGetUpstreamOptions: func(instanceName string) ([]v1alpha1.UpstreamOptions, error) {
+					assert.Equal(t, "valid", instanceName)
+					return []v1alpha1.UpstreamOptions{
+						{
+							PrimaryBind: "bind1",
+							CanaryBinds: []string{"canary1"},
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight:      50,
+								WeightTotal: 100,
+							},
+							LoadBalance:        v1alpha1.LoadBalanceConsistentHash,
+							LoadBalanceHashKey: "$remote_addr",
+						},
+					}, nil
+				},
+			},
+		},
 	}
 
 	for _, tt := range tests {

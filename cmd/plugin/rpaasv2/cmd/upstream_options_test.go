@@ -113,6 +113,86 @@ func TestListUpstreamOptions(t *testing.T) {
 			},
 		},
 		{
+			name: "when ListUpstreamOptions returns consistent hash load balance with simple hash key",
+			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
+			expected: `+-------------+------------+---------------------------+------------------+
+| Primary App | Canary App | Load Balance              | Traffic Policies |
++-------------+------------+---------------------------+------------------+
+| app1        | app2       | chash (key: $remote_addr) | Weight: 80/100   |
++-------------+------------+---------------------------+------------------+
+`,
+			client: &fake.FakeClient{
+				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
+					expected := rpaasclient.ListUpstreamOptionsArgs{Instance: "my-instance"}
+					assert.Equal(t, expected, args)
+					return []clientTypes.UpstreamOptions{
+						{
+							PrimaryBind:        "app1",
+							CanaryBinds:        []string{"app2"},
+							LoadBalance:        v1alpha1.LoadBalanceConsistentHash,
+							LoadBalanceHashKey: "$remote_addr",
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight:      80,
+								WeightTotal: 100,
+							},
+						},
+					}, nil
+				},
+			},
+		},
+		{
+			name: "when ListUpstreamOptions returns consistent hash with complex hash key",
+			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
+			expected: `+-------------+------------+---------------------------------------+------------------+
+| Primary App | Canary App | Load Balance                          | Traffic Policies |
++-------------+------------+---------------------------------------+------------------+
+| backend     | canary     | chash (key: $remote_addr$request_uri) | None             |
++-------------+------------+---------------------------------------+------------------+
+`,
+			client: &fake.FakeClient{
+				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
+					expected := rpaasclient.ListUpstreamOptionsArgs{Instance: "my-instance"}
+					assert.Equal(t, expected, args)
+					return []clientTypes.UpstreamOptions{
+						{
+							PrimaryBind:        "backend",
+							CanaryBinds:        []string{"canary"},
+							LoadBalance:        v1alpha1.LoadBalanceConsistentHash,
+							LoadBalanceHashKey: "$remote_addr$request_uri",
+						},
+					}, nil
+				},
+			},
+		},
+		{
+			name: "when ListUpstreamOptions returns EWMA load balance (hash key should be ignored)",
+			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance"},
+			expected: `+-------------+------------+--------------+------------------+
+| Primary App | Canary App | Load Balance | Traffic Policies |
++-------------+------------+--------------+------------------+
+| backend     | canary     | ewma         | Weight: 50/100   |
++-------------+------------+--------------+------------------+
+`,
+			client: &fake.FakeClient{
+				FakeListUpstreamOptions: func(args rpaasclient.ListUpstreamOptionsArgs) ([]clientTypes.UpstreamOptions, error) {
+					expected := rpaasclient.ListUpstreamOptionsArgs{Instance: "my-instance"}
+					assert.Equal(t, expected, args)
+					return []clientTypes.UpstreamOptions{
+						{
+							PrimaryBind:        "backend",
+							CanaryBinds:        []string{"canary"},
+							LoadBalance:        v1alpha1.LoadBalanceEWMA,
+							LoadBalanceHashKey: "$remote_addr", // Should be ignored since LoadBalance is not chash
+							TrafficShapingPolicy: v1alpha1.TrafficShapingPolicy{
+								Weight:      50,
+								WeightTotal: 100,
+							},
+						},
+					}, nil
+				},
+			},
+		},
+		{
 			name: "when ListUpstreamOptions returns JSON format",
 			args: []string{"./rpaasv2", "upstream", "list", "-i", "my-instance", "--raw-output"},
 			expected: `[

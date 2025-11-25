@@ -195,6 +195,7 @@ type UpstreamOptions struct {
 	CanaryBinds          []string                      `json:"canary,omitempty"`
 	TrafficShapingPolicy v1alpha1.TrafficShapingPolicy `json:"trafficShapingPolicy,omitempty"`
 	LoadBalance          v1alpha1.LoadBalanceAlgorithm `json:"loadBalance,omitempty"`
+	LoadBalanceHashKey   string                        `json:"loadBalanceHashKey,omitempty"`
 }
 
 func NewBinds(k8sBinds []v1alpha1.Bind) []Bind {

@@ -122,6 +122,20 @@ func formatTrafficShapingPolicies(policy v1alpha1.TrafficShapingPolicy) []string
 	return policies
 }
 
+func formatLoadBalanceWithHashKey(loadBalance v1alpha1.LoadBalanceAlgorithm, hashKey string) string {
+	algorithm := string(loadBalance)
+	if algorithm == "" {
+		algorithm = "round_robin"
+	}
+
+	// If it's chash and a hash key is provided, show it in a readable format
+	if algorithm == "chash" && strings.TrimSpace(hashKey) != "" {
+		return fmt.Sprintf("%s (key: %s)", algorithm, hashKey)
+	}
+
+	return algorithm
+}
+
 func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientTypes.UpstreamOptions) {
 	table := tablewriter.NewWriter(w)
 	table.SetHeader([]string{"Primary App", "Canary App", "Load Balance", "Traffic Policies"})
@@ -137,10 +151,8 @@ func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientType
 			canaryBinds = "-"
 		}
 
-		loadBalance := string(uo.LoadBalance)
-		if loadBalance == "" {
-			loadBalance = "round_robin"
-		}
+		// Format load balance with hash key if applicable
+		loadBalance := formatLoadBalanceWithHashKey(uo.LoadBalance, uo.LoadBalanceHashKey)
 
 		// Get formatted traffic policies (can be multiple lines)
 		trafficPolicies := formatTrafficShapingPolicies(uo.TrafficShapingPolicy)
