@@ -112,11 +112,7 @@ func (c *client) PurgeCacheBulk(ctx context.Context, args PurgeCacheBulkArgs) ([
 
 	var items []purgeItem
 	for _, item := range args.Items {
-		items = append(items, purgeItem{
-			Path:         item.Path,
-			PreservePath: item.PreservePath,
-			ExtraHeaders: item.ExtraHeaders,
-		})
+		items = append(items, purgeItem(item))
 	}
 
 	jsonData, err := json.Marshal(items)
