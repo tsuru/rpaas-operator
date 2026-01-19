@@ -180,6 +180,30 @@ type DeleteUpstreamOptionsArgs struct {
 	PrimaryBind string
 }
 
+type PurgeCacheArgs struct {
+	Instance     string
+	Path         string
+	PreservePath bool
+	ExtraHeaders map[string][]string
+}
+
+type PurgeCacheBulkArgs struct {
+	Instance string
+	Items    []PurgeCacheItem
+}
+
+type PurgeCacheItem struct {
+	Path         string
+	PreservePath bool
+	ExtraHeaders map[string][]string
+}
+
+type PurgeBulkResult struct {
+	Path            string `json:"path"`
+	InstancesPurged int    `json:"instances_purged,omitempty"`
+	Error           string `json:"error,omitempty"`
+}
+
 type Client interface {
 	GetPlans(ctx context.Context, instance string) ([]types.Plan, error)
 	GetFlavors(ctx context.Context, instance string) ([]types.Flavor, error)
@@ -224,6 +248,9 @@ type Client interface {
 	AddUpstreamOptions(ctx context.Context, args UpstreamOptionsArgs) error
 	UpdateUpstreamOptions(ctx context.Context, args UpstreamOptionsArgs) error
 	DeleteUpstreamOptions(ctx context.Context, args DeleteUpstreamOptionsArgs) error
+
+	PurgeCache(ctx context.Context, args PurgeCacheArgs) (int, error)
+	PurgeCacheBulk(ctx context.Context, args PurgeCacheBulkArgs) ([]PurgeBulkResult, error)
 }
 
 type wsWriter struct {

@@ -55,6 +55,8 @@ type FakeClient struct {
 	FakeAddUpstreamOptions        func(args client.UpstreamOptionsArgs) error
 	FakeUpdateUpstreamOptions     func(args client.UpstreamOptionsArgs) error
 	FakeDeleteUpstreamOptions     func(args client.DeleteUpstreamOptionsArgs) error
+	FakePurgeCache                func(args client.PurgeCacheArgs) (int, error)
+	FakePurgeCacheBulk            func(args client.PurgeCacheBulkArgs) ([]client.PurgeBulkResult, error)
 }
 
 func (f *FakeClient) Info(ctx context.Context, args client.InfoArgs) (*types.InstanceInfo, error) {
@@ -356,4 +358,20 @@ func (f *FakeClient) DeleteUpstreamOptions(ctx context.Context, args client.Dele
 	}
 
 	return nil
+}
+
+func (f *FakeClient) PurgeCache(ctx context.Context, args client.PurgeCacheArgs) (int, error) {
+	if f.FakePurgeCache != nil {
+		return f.FakePurgeCache(args)
+	}
+
+	return 0, nil
+}
+
+func (f *FakeClient) PurgeCacheBulk(ctx context.Context, args client.PurgeCacheBulkArgs) ([]client.PurgeBulkResult, error) {
+	if f.FakePurgeCacheBulk != nil {
+		return f.FakePurgeCacheBulk(args)
+	}
+
+	return nil, nil
 }
