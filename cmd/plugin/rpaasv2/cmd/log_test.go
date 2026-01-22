@@ -4,6 +4,8 @@
 
 package cmd
 
+import "context"
+
 import (
 	"bytes"
 	"fmt"
@@ -68,7 +70,7 @@ func TestLog(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)

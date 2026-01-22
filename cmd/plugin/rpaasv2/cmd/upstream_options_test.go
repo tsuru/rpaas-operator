@@ -4,6 +4,8 @@
 
 package cmd
 
+import "context"
+
 import (
 	"bytes"
 	"fmt"
@@ -234,7 +236,7 @@ func TestListUpstreamOptions(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)
@@ -264,6 +266,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 					expected := rpaasclient.UpstreamOptionsArgs{
 						Instance:    "my-instance",
 						PrimaryBind: "app1",
+						CanaryBinds: []string{},
 					}
 					assert.Equal(t, expected, args)
 					return fmt.Errorf("some error")
@@ -279,6 +282,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 					expected := rpaasclient.UpstreamOptionsArgs{
 						Instance:    "my-instance",
 						PrimaryBind: "app1",
+						CanaryBinds: []string{},
 					}
 					assert.Equal(t, expected, args)
 					return nil
@@ -320,7 +324,7 @@ func TestAddUpstreamOptions(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)
@@ -350,6 +354,7 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 					expected := rpaasclient.UpstreamOptionsArgs{
 						Instance:    "my-instance",
 						PrimaryBind: "app1",
+						CanaryBinds: []string{},
 					}
 					assert.Equal(t, expected, args)
 					return fmt.Errorf("some error")
@@ -365,6 +370,7 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 					expected := rpaasclient.UpstreamOptionsArgs{
 						Instance:    "my-instance",
 						PrimaryBind: "app1",
+						CanaryBinds: []string{},
 					}
 					assert.Equal(t, expected, args)
 					return nil
@@ -378,7 +384,7 @@ func TestUpdateUpstreamOptions(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)
@@ -436,7 +442,7 @@ func TestDeleteUpstreamOptions(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)

@@ -1,8 +1,8 @@
 module github.com/tsuru/rpaas-operator
 
-go 1.21
+go 1.22
 
-toolchain go1.21.0
+toolchain go1.24.5
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2
@@ -33,11 +33,11 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.10.0
 	github.com/stern/stern v1.20.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d
 	github.com/tsuru/nginx-operator v0.15.2-0.20240515194244-a38b4b58e866
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
-	github.com/urfave/cli/v2 v2.3.0
+	github.com/urfave/cli/v3 v3.6.2
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
 	golang.org/x/mod v0.9.0
 	golang.org/x/net v0.12.0
@@ -66,7 +66,6 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/docker/docker v20.10.20+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect

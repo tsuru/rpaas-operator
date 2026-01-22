@@ -5,9 +5,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func NewCmdRestart() *cli.Command {
@@ -32,17 +33,17 @@ func NewCmdRestart() *cli.Command {
 	}
 }
 
-func runRestart(c *cli.Context) error {
-	client, err := getClient(c)
+func runRestart(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = client.Restart(c.Context, c.String("instance"))
+	err = client.Restart(ctx, cmd.String("instance"))
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Restarting instance %s\n", formatInstanceName(c))
+	fmt.Fprintf(cmd.Root().Writer, "Restarting instance %s\n", formatInstanceName(cmd))
 	return nil
 }

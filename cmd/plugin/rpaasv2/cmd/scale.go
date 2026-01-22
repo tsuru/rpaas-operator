@@ -5,9 +5,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
@@ -41,30 +42,30 @@ func NewCmdScale() *cli.Command {
 	}
 }
 
-func runScale(c *cli.Context) error {
-	client, err := getClient(c)
+func runScale(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	scale := rpaasclient.ScaleArgs{
-		Instance: c.String("instance"),
-		Replicas: int32(c.Int("replicas")),
+		Instance: cmd.String("instance"),
+		Replicas: int32(cmd.Int("replicas")),
 	}
-	err = client.Scale(c.Context, scale)
+	err = client.Scale(ctx, scale)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "%s scaled to %d replica(s)\n", formatInstanceName(c), scale.Replicas)
+	fmt.Fprintf(cmd.Root().Writer, "%s scaled to %d replica(s)\n", formatInstanceName(cmd), scale.Replicas)
 	return nil
 }
 
-func formatInstanceName(c *cli.Context) string {
+func formatInstanceName(cmd *cli.Command) string {
 	var prefix string
-	if service := c.String("service"); service != "" {
+	if service := cmd.String("service"); service != "" {
 		prefix = fmt.Sprintf("%s/", service)
 	}
 
-	return fmt.Sprintf("%s%s", prefix, c.String("instance"))
+	return fmt.Sprintf("%s%s", prefix, cmd.String("instance"))
 }

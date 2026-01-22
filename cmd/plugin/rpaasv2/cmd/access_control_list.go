@@ -6,11 +6,12 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
@@ -19,7 +20,7 @@ func NewCmdAccessControlList() *cli.Command {
 	return &cli.Command{
 		Name:  "acl",
 		Usage: "Manages ACL of rpaas instances",
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			NewCmdAddAccessControlList(),
 			NewCmdListAccessControlList(),
 			NewCmdRemoveAccessControlList(),
@@ -51,7 +52,7 @@ func NewCmdAddAccessControlList() *cli.Command {
 				Required: true,
 			},
 
-			&cli.StringFlag{
+			&cli.IntFlag{
 				Name:     "port",
 				Aliases:  []string{"p"},
 				Usage:    "The number of destination port",
@@ -110,7 +111,7 @@ func NewCmdRemoveAccessControlList() *cli.Command {
 				Required: true,
 			},
 
-			&cli.StringFlag{
+			&cli.IntFlag{
 				Name:     "port",
 				Aliases:  []string{"p"},
 				Usage:    "The number of destination port",
@@ -122,57 +123,57 @@ func NewCmdRemoveAccessControlList() *cli.Command {
 	}
 }
 
-func runAddAccessControlList(c *cli.Context) error {
-	client, err := getClient(c)
+func runAddAccessControlList(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	instance := c.String("instance")
-	host := c.String("host")
-	port := c.Int("port")
+	instance := cmd.String("instance")
+	host := cmd.String("host")
+	port := int(cmd.Int("port"))
 
-	err = client.AddAccessControlList(c.Context, instance, host, port)
+	err = client.AddAccessControlList(ctx, instance, host, port)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Successfully added %s:%d to %s ACL.\n", host, port, formatInstanceName(c))
+	fmt.Fprintf(cmd.Root().Writer, "Successfully added %s:%d to %s ACL.\n", host, port, formatInstanceName(cmd))
 	return nil
 }
 
-func runListAccessControlList(c *cli.Context) error {
-	client, err := getClient(c)
+func runListAccessControlList(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	instance := c.String("instance")
-	acls, err := client.ListAccessControlList(c.Context, instance)
+	instance := cmd.String("instance")
+	acls, err := client.ListAccessControlList(ctx, instance)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprint(c.App.Writer, writeAccessControlListOnTableFormat(acls))
+	fmt.Fprint(cmd.Root().Writer, writeAccessControlListOnTableFormat(acls))
 	return nil
 }
 
-func runRemoveAccessControlList(c *cli.Context) error {
-	client, err := getClient(c)
+func runRemoveAccessControlList(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	instance := c.String("instance")
-	host := c.String("host")
-	port := c.Int("port")
+	instance := cmd.String("instance")
+	host := cmd.String("host")
+	port := int(cmd.Int("port"))
 
-	err = client.RemoveAccessControlList(c.Context, instance, host, port)
+	err = client.RemoveAccessControlList(ctx, instance, host, port)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Successfully removed %s:%d from %s ACL.\n", host, port, formatInstanceName(c))
+	fmt.Fprintf(cmd.Root().Writer, "Successfully removed %s:%d from %s ACL.\n", host, port, formatInstanceName(cmd))
 	return nil
 }
 

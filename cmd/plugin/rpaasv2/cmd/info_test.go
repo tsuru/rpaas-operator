@@ -4,6 +4,8 @@
 
 package cmd
 
+import "context"
+
 import (
 	"bytes"
 	"fmt"
@@ -762,7 +764,7 @@ Pods: (current: 2 / desired: 3)
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

@@ -5,6 +5,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -12,7 +13,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -22,7 +23,7 @@ func NewCmdRoutes() *cli.Command {
 	return &cli.Command{
 		Name:  "routes",
 		Usage: "Manages application-layer routing (NGINX locations)",
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			NewCmdDeleteRoute(),
 			NewCmdListRoutes(),
 			NewCmdUpdateRoute(),
@@ -64,27 +65,27 @@ func NewCmdDeleteRoute() *cli.Command {
 	}
 }
 
-func runDeleteRoute(c *cli.Context) error {
-	client, err := getClient(c)
+func runDeleteRoute(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	serverName := c.String("server-name")
+	serverName := cmd.String("server-name")
 	args := rpaasclient.DeleteRouteArgs{
-		Instance:   c.String("instance"),
+		Instance:   cmd.String("instance"),
 		ServerName: serverName,
-		Path:       c.String("path"),
+		Path:       cmd.String("path"),
 	}
-	err = client.DeleteRoute(c.Context, args)
+	err = client.DeleteRoute(ctx, args)
 	if err != nil {
 		return err
 	}
 
 	if serverName == "" {
-		fmt.Fprintf(c.App.Writer, "Route %q deleted.\n", args.Path)
+		fmt.Fprintf(cmd.Root().Writer, "Route %q deleted.\n", args.Path)
 	} else {
-		fmt.Fprintf(c.App.Writer, "Route %q deleted for server name %q.\n", args.Path, serverName)
+		fmt.Fprintf(cmd.Root().Writer, "Route %q deleted for server name %q.\n", args.Path, serverName)
 	}
 
 	return nil
@@ -118,23 +119,23 @@ func NewCmdListRoutes() *cli.Command {
 	}
 }
 
-func runListRoutes(c *cli.Context) error {
-	client, err := getClient(c)
+func runListRoutes(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	args := rpaasclient.ListRoutesArgs{Instance: c.String("instance")}
-	routes, err := client.ListRoutes(c.Context, args)
+	args := rpaasclient.ListRoutesArgs{Instance: cmd.String("instance")}
+	routes, err := client.ListRoutes(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	if c.Bool("raw-output") {
-		return writeRoutesOnJSONFormat(c.App.Writer, routes)
+	if cmd.Bool("raw-output") {
+		return writeRoutesOnJSONFormat(cmd.Root().Writer, routes)
 	}
 
-	writeRoutesOnTableFormat(c.App.Writer, routes)
+	writeRoutesOnTableFormat(cmd.Root().Writer, routes)
 	return nil
 }
 
@@ -230,10 +231,11 @@ func NewCmdUpdateRoute() *cli.Command {
 				Name:  "https-only",
 				Usage: "indicates whether should only be accessed over TLS (requires that destination be set)",
 			},
-			&cli.PathFlag{
-				Name:    "content",
-				Aliases: []string{"content-file", "c"},
-				Usage:   "path in the system to the NGINX configuration (should not be combined with destination)",
+			&cli.StringFlag{
+				Name:      "content",
+				Aliases:   []string{"content-file", "c"},
+				Usage:     "path in the system to the NGINX configuration (should not be combined with destination)",
+				TakesFile: true,
 			},
 		},
 		Before: setupClient,
@@ -241,41 +243,41 @@ func NewCmdUpdateRoute() *cli.Command {
 	}
 }
 
-func runUpdateRoute(c *cli.Context) error {
-	client, err := getClient(c)
+func runUpdateRoute(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	content, err := fetchContentFile(c)
+	content, err := fetchContentFile(cmd)
 	if err != nil {
 		return err
 	}
 
-	serverName := c.String("server-name")
+	serverName := cmd.String("server-name")
 	args := rpaasclient.UpdateRouteArgs{
-		Instance:    c.String("instance"),
+		Instance:    cmd.String("instance"),
 		ServerName:  serverName,
-		Path:        c.String("path"),
-		Destination: c.String("destination"),
-		HTTPSOnly:   c.Bool("https-only"),
+		Path:        cmd.String("path"),
+		Destination: cmd.String("destination"),
+		HTTPSOnly:   cmd.Bool("https-only"),
 		Content:     string(content),
 	}
-	err = client.UpdateRoute(c.Context, args)
+	err = client.UpdateRoute(ctx, args)
 	if err != nil {
 		return err
 	}
 
 	if serverName == "" {
-		fmt.Fprintf(c.App.Writer, "Route %q updated.\n", args.Path)
+		fmt.Fprintf(cmd.Root().Writer, "Route %q updated.\n", args.Path)
 	} else {
-		fmt.Fprintf(c.App.Writer, "Route %q updated for server name %q.\n", args.Path, serverName)
+		fmt.Fprintf(cmd.Root().Writer, "Route %q updated for server name %q.\n", args.Path, serverName)
 	}
 	return nil
 }
 
-func fetchContentFile(c *cli.Context) ([]byte, error) {
-	contentFile := c.Path("content")
+func fetchContentFile(cmd *cli.Command) ([]byte, error) {
+	contentFile := cmd.String("content")
 	if contentFile == "" {
 		return nil, nil
 	}

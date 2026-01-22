@@ -4,6 +4,8 @@
 
 package cmd
 
+import "context"
+
 import (
 	"bytes"
 	"fmt"
@@ -31,9 +33,9 @@ func TestAddAcl(t *testing.T) {
 			expectedError: "some error",
 			client: &fake.FakeClient{
 				FakeAddAccessControlList: func(instance, host string, port int) error {
-					require.Equal(t, instance, "my-instance")
-					require.Equal(t, host, "some-host")
-					require.Equal(t, port, 80)
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "some-host", host)
+					assert.Equal(t, 80, port)
 					return fmt.Errorf("some error")
 				},
 			},
@@ -44,9 +46,9 @@ func TestAddAcl(t *testing.T) {
 			expected: "Successfully added some-host.com:80 to some-service/my-instance ACL.\n",
 			client: &fake.FakeClient{
 				FakeAddAccessControlList: func(instance, host string, port int) error {
-					require.Equal(t, instance, "my-instance")
-					require.Equal(t, host, "some-host.com")
-					require.Equal(t, port, 80)
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "some-host.com", host)
+					assert.Equal(t, 80, port)
 					return nil
 				},
 			},
@@ -58,7 +60,7 @@ func TestAddAcl(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -84,9 +86,9 @@ func TestRemoveAcl(t *testing.T) {
 			expectedError: "some error",
 			client: &fake.FakeClient{
 				FakeRemoveAccessControlList: func(instance, host string, port int) error {
-					require.Equal(t, instance, "my-instance")
-					require.Equal(t, host, "some-host")
-					require.Equal(t, port, 80)
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "some-host", host)
+					assert.Equal(t, 80, port)
 					return fmt.Errorf("some error")
 				},
 			},
@@ -97,9 +99,9 @@ func TestRemoveAcl(t *testing.T) {
 			expected: "Successfully removed some-host.com:80 from some-service/my-instance ACL.\n",
 			client: &fake.FakeClient{
 				FakeRemoveAccessControlList: func(instance, host string, port int) error {
-					require.Equal(t, instance, "my-instance")
-					require.Equal(t, host, "some-host.com")
-					require.Equal(t, port, 80)
+					assert.Equal(t, "my-instance", instance)
+					assert.Equal(t, "some-host.com", host)
+					assert.Equal(t, 80, port)
 					return nil
 				},
 			},
@@ -111,7 +113,7 @@ func TestRemoveAcl(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return
@@ -179,7 +181,7 @@ func TestListAcl(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.EqualError(t, err, tt.expectedError)
 				return

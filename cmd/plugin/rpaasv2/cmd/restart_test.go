@@ -4,6 +4,8 @@
 
 package cmd
 
+import "context"
+
 import (
 	"bytes"
 	"testing"
@@ -28,7 +30,7 @@ func TestRestart(t *testing.T) {
 	}
 
 	app := NewApp(stdout, stderr, client)
-	err := app.Run(args)
+	err := app.Run(context.Background(), args)
 	require.NoError(t, err)
 	assert.Equal(t, stdout.String(), "Restarting instance some-service/my-instance\n")
 }

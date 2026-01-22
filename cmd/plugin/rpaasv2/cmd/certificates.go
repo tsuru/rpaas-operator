@@ -5,13 +5,14 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -22,7 +23,7 @@ func NewCmdCertificates() *cli.Command {
 		Name:    "certificates",
 		Aliases: []string{"certificate"},
 		Usage:   "Manages TLS certificates",
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			NewCmdUpdateCertitifcate(),
 			NewCmdDeleteCertitifcate(),
 		},
@@ -50,15 +51,17 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 				Name:  "name",
 				Usage: "an identifier for the current certificate and key",
 			},
-			&cli.PathFlag{
-				Name:    "certificate",
-				Aliases: []string{"cert", "cert-file"},
-				Usage:   "path in the system where the certificate (in PEM format) is located",
+			&cli.StringFlag{
+				Name:      "certificate",
+				Aliases:   []string{"cert", "cert-file"},
+				Usage:     "path in the system where the certificate (in PEM format) is located",
+				TakesFile: true,
 			},
-			&cli.PathFlag{
-				Name:    "key",
-				Aliases: []string{"key-file"},
-				Usage:   "path in the system where the key (in PEM format) is located",
+			&cli.StringFlag{
+				Name:      "key",
+				Aliases:   []string{"key-file"},
+				Usage:     "path in the system where the key (in PEM format) is located",
+				TakesFile: true,
 			},
 			&cli.BoolFlag{
 				Name:  "cert-manager",
@@ -82,70 +85,70 @@ func NewCmdUpdateCertitifcate() *cli.Command {
 	}
 }
 
-func runUpdateCertificate(c *cli.Context) error {
-	client, err := getClient(c)
+func runUpdateCertificate(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	handled, err := updateCertManagerCertificate(c, client)
+	handled, err := updateCertManagerCertificate(ctx, cmd, client)
 	if err != nil || handled {
 		return err
 	}
 
-	certificate, err := os.ReadFile(c.Path("certificate"))
+	certificate, err := os.ReadFile(cmd.String("certificate"))
 	if err != nil {
 		return err
 	}
 
-	key, err := os.ReadFile(c.Path("key"))
+	key, err := os.ReadFile(cmd.String("key"))
 	if err != nil {
 		return err
 	}
 
-	name := c.String("name")
+	name := cmd.String("name")
 	if name == "" {
 		name = "default"
 	}
 
 	args := rpaasclient.UpdateCertificateArgs{
-		Instance:    c.String("instance"),
+		Instance:    cmd.String("instance"),
 		Name:        name,
 		Certificate: string(certificate),
 		Key:         string(key),
 	}
-	err = client.UpdateCertificate(c.Context, args)
+	err = client.UpdateCertificate(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "certificate %q updated in %s\n", args.Name, formatInstanceName(c))
+	fmt.Fprintf(cmd.Root().Writer, "certificate %q updated in %s\n", args.Name, formatInstanceName(cmd))
 	return nil
 }
 
-func updateCertManagerCertificate(c *cli.Context, client rpaasclient.Client) (bool, error) {
-	if !c.Bool("cert-manager") {
-		if c.String("issuer") != "" || len(c.StringSlice("dns")) > 0 || len(c.StringSlice("ip")) > 0 {
+func updateCertManagerCertificate(ctx context.Context, cmd *cli.Command, client rpaasclient.Client) (bool, error) {
+	if !cmd.Bool("cert-manager") {
+		if cmd.String("issuer") != "" || len(cmd.StringSlice("dns")) > 0 || len(cmd.StringSlice("ip")) > 0 {
 			return true, fmt.Errorf("issuer, DNS names and IP addresses require --cert-manager=true")
 		}
 
 		return false, nil
 	}
 
-	err := client.UpdateCertManager(c.Context, rpaasclient.UpdateCertManagerArgs{
-		Instance: c.String("instance"),
+	err := client.UpdateCertManager(ctx, rpaasclient.UpdateCertManagerArgs{
+		Instance: cmd.String("instance"),
 		CertManager: clientTypes.CertManager{
-			Name:        c.String("name"),
-			Issuer:      c.String("issuer"),
-			DNSNames:    c.StringSlice("dns"),
-			IPAddresses: c.StringSlice("ip"),
+			Name:        cmd.String("name"),
+			Issuer:      cmd.String("issuer"),
+			DNSNames:    cmd.StringSlice("dns"),
+			IPAddresses: cmd.StringSlice("ip"),
 		},
 	})
 	if err != nil {
 		return true, err
 	}
 
-	fmt.Fprintln(c.App.Writer, "cert manager certificate was updated")
+	fmt.Fprintln(cmd.Root().Writer, "cert manager certificate was updated")
 	return true, nil
 }
 
@@ -185,37 +188,37 @@ func NewCmdDeleteCertitifcate() *cli.Command {
 	}
 }
 
-func runDeleteCertificate(c *cli.Context) error {
-	client, err := getClient(c)
+func runDeleteCertificate(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	if c.Bool("cert-manager") {
-		if c.String("name") != "" {
-			err = client.DeleteCertManagerByName(c.Context, c.String("instance"), c.String("name"))
+	if cmd.Bool("cert-manager") {
+		if cmd.String("name") != "" {
+			err = client.DeleteCertManagerByName(ctx, cmd.String("instance"), cmd.String("name"))
 		} else {
-			err = client.DeleteCertManagerByIssuer(c.Context, c.String("instance"), c.String("issuer"))
+			err = client.DeleteCertManagerByIssuer(ctx, cmd.String("instance"), cmd.String("issuer"))
 		}
 
 		if err != nil {
 			return err
 		}
 
-		fmt.Fprintln(c.App.Writer, "cert manager integration was disabled")
+		fmt.Fprintln(cmd.Root().Writer, "cert manager integration was disabled")
 		return nil
 	}
 
 	args := rpaasclient.DeleteCertificateArgs{
-		Instance: c.String("instance"),
-		Name:     c.String("name"),
+		Instance: cmd.String("instance"),
+		Name:     cmd.String("name"),
 	}
-	err = client.DeleteCertificate(c.Context, args)
+	err = client.DeleteCertificate(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "certificate %q successfully deleted on %s\n", args.Name, formatInstanceName(c))
+	fmt.Fprintf(cmd.Root().Writer, "certificate %q successfully deleted on %s\n", args.Name, formatInstanceName(cmd))
 	return nil
 }
 

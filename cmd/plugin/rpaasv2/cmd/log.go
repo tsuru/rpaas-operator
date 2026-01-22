@@ -5,7 +5,9 @@
 package cmd
 
 import (
-	"github.com/urfave/cli/v2"
+	"context"
+
+	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
@@ -31,10 +33,11 @@ func NewCmdLogs() *cli.Command {
 				Aliases: []string{"p"},
 				Usage:   "specific pod to log from (default: all pods from instance)",
 			},
-			&cli.PathFlag{
-				Name:    "container",
-				Aliases: []string{"c"},
-				Usage:   "specific container to log from (default: all containers from pods)",
+			&cli.StringFlag{
+				Name:      "container",
+				Aliases:   []string{"c"},
+				Usage:     "specific container to log from (default: all containers from pods)",
+				TakesFile: true,
 			},
 			&cli.IntFlag{
 				Name:    "lines",
@@ -61,20 +64,20 @@ func NewCmdLogs() *cli.Command {
 	}
 }
 
-func runLogRpaas(c *cli.Context) error {
-	client, err := getClient(c)
+func runLogRpaas(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	return client.Log(c.Context, rpaasclient.LogArgs{
-		Out:       c.App.Writer,
-		Instance:  c.String("instance"),
-		Lines:     c.Int("lines"),
-		Since:     c.Duration("since"),
-		Follow:    c.Bool("follow"),
-		Pod:       c.String("pod"),
-		Container: c.String("container"),
-		Color:     !c.Bool("without-color"),
+	return client.Log(ctx, rpaasclient.LogArgs{
+		Out:       cmd.Root().Writer,
+		Instance:  cmd.String("instance"),
+		Lines:     int(cmd.Int("lines")),
+		Since:     cmd.Duration("since"),
+		Follow:    cmd.Bool("follow"),
+		Pod:       cmd.String("pod"),
+		Container: cmd.String("container"),
+		Color:     !cmd.Bool("without-color"),
 	})
 }

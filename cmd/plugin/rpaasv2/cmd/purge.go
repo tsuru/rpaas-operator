@@ -5,12 +5,13 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 )
@@ -46,10 +47,11 @@ func NewCmdPurge() *cli.Command {
 				Aliases: []string{"H"},
 				Usage:   "extra headers to be sent in the purge request (format: \"Key: Value\", only for single path purge)",
 			},
-			&cli.PathFlag{
-				Name:    "file",
-				Aliases: []string{"f"},
-				Usage:   "path to JSON file containing purge items (enables bulk mode)",
+			&cli.StringFlag{
+				Name:      "file",
+				Aliases:   []string{"f"},
+				Usage:     "path to JSON file containing purge items (enables bulk mode)",
+				TakesFile: true,
 			},
 		},
 		Before: setupClient,
@@ -79,29 +81,29 @@ Note: extra_headers values must be arrays, even for single values.`,
 	}
 }
 
-func runPurge(c *cli.Context) error {
-	filePath := c.Path("file")
+func runPurge(ctx context.Context, cmd *cli.Command) error {
+	filePath := cmd.String("file")
 
 	if filePath != "" {
-		return runPurgeBulk(c, filePath)
+		return runPurgeBulk(ctx, cmd, filePath)
 	}
 
-	return runPurgePath(c)
+	return runPurgePath(ctx, cmd)
 }
 
-func runPurgePath(c *cli.Context) error {
-	path := c.String("path")
+func runPurgePath(ctx context.Context, cmd *cli.Command) error {
+	path := cmd.String("path")
 	if path == "" {
 		return fmt.Errorf("either --path or --file must be provided")
 	}
 
-	client, err := getClient(c)
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	var extraHeaders map[string][]string
-	if headers := c.StringSlice("header"); len(headers) > 0 {
+	if headers := cmd.StringSlice("header"); len(headers) > 0 {
 		extraHeaders = make(map[string][]string)
 		for _, header := range headers {
 			parts := strings.SplitN(header, ":", 2)
@@ -115,23 +117,23 @@ func runPurgePath(c *cli.Context) error {
 	}
 
 	args := rpaasclient.PurgeCacheArgs{
-		Instance:     c.String("instance"),
+		Instance:     cmd.String("instance"),
 		Path:         path,
-		PreservePath: c.Bool("preserve-path"),
+		PreservePath: cmd.Bool("preserve-path"),
 		ExtraHeaders: extraHeaders,
 	}
 
-	count, err := client.PurgeCache(c.Context, args)
+	count, err := client.PurgeCache(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Object purged on %d servers\n", count)
+	fmt.Fprintf(cmd.Root().Writer, "Object purged on %d servers\n", count)
 	return nil
 }
 
-func runPurgeBulk(c *cli.Context, filePath string) error {
-	client, err := getClient(c)
+func runPurgeBulk(ctx context.Context, cmd *cli.Command, filePath string) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -166,11 +168,11 @@ func runPurgeBulk(c *cli.Context, filePath string) error {
 	}
 
 	args := rpaasclient.PurgeCacheBulkArgs{
-		Instance: c.String("instance"),
+		Instance: cmd.String("instance"),
 		Items:    purgeItems,
 	}
 
-	results, err := client.PurgeCacheBulk(c.Context, args)
+	results, err := client.PurgeCacheBulk(ctx, args)
 	if err != nil {
 		return err
 	}
@@ -179,9 +181,9 @@ func runPurgeBulk(c *cli.Context, filePath string) error {
 	for _, result := range results {
 		if result.Error != "" {
 			hasErrors = true
-			fmt.Fprintf(c.App.Writer, "Path %q: ERROR - %s\n", result.Path, result.Error)
+			fmt.Fprintf(cmd.Root().Writer, "Path %q: ERROR - %s\n", result.Path, result.Error)
 		} else {
-			fmt.Fprintf(c.App.Writer, "Path %q: purged on %d servers\n", result.Path, result.InstancesPurged)
+			fmt.Fprintf(cmd.Root().Writer, "Path %q: purged on %d servers\n", result.Path, result.InstancesPurged)
 		}
 	}
 

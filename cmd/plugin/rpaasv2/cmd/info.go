@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -15,7 +16,7 @@ import (
 
 	sprig "github.com/Masterminds/sprig/v3"
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/duration"
 
@@ -424,27 +425,27 @@ func translateTimestampSince(timestamp time.Time) string {
 	return duration.HumanDuration(time.Since(timestamp))
 }
 
-func runInfo(c *cli.Context) error {
-	client, err := getClient(c)
+func runInfo(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	info := rpaasclient.InfoArgs{
-		Instance: c.String("instance"),
-		Raw:      c.Bool("raw-output"),
+		Instance: cmd.String("instance"),
+		Raw:      cmd.Bool("raw-output"),
 	}
 
-	infoPayload, err := client.Info(c.Context, info)
+	infoPayload, err := client.Info(ctx, info)
 	if err != nil {
 		return err
 	}
 
 	if info.Raw {
-		return writeInfoOnJSONFormat(c.App.Writer, infoPayload)
+		return writeInfoOnJSONFormat(cmd.Root().Writer, infoPayload)
 	}
 
-	writer := newPagerWriter(c.App.Writer)
+	writer := newPagerWriter(cmd.Root().Writer)
 
 	err = instanceInfoTemplate.Execute(writer, infoPayload)
 	if err != nil {
