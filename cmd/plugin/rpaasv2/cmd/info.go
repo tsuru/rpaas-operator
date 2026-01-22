@@ -27,8 +27,9 @@ import (
 
 func NewCmdInfo() *cli.Command {
 	return &cli.Command{
-		Name:  "info",
-		Usage: "Shows an information summary about an instance",
+		Name:                  "info",
+		EnableShellCompletion: true,
+		Usage:                 "Shows an information summary about an instance",
 		Flags: []cli.Flag{
 			&cli.StringFlag{
 				Name:    "service",

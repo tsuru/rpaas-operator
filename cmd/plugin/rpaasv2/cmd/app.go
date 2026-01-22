@@ -28,10 +28,11 @@ func NewDefaultApp() *cli.Command {
 
 func NewApp(o, e io.Writer, client rpaasclient.Client) (app *cli.Command) {
 	app = &cli.Command{
-		Usage:     "Manipulates reverse proxy instances running on Reverse Proxy as a Service.",
-		Version:   version.Version,
-		ErrWriter: e,
-		Writer:    o,
+		Usage:                 "Manipulates reverse proxy instances running on Reverse Proxy as a Service.",
+		Version:               version.Version,
+		EnableShellCompletion: true,
+		ErrWriter:             e,
+		Writer:                o,
 		Commands: []*cli.Command{
 			NewCmdScale(),
 			NewCmdStart(),
