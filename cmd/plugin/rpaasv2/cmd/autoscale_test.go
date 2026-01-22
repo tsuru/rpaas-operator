@@ -4,10 +4,9 @@
 
 package cmd
 
-import "context"
-
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
