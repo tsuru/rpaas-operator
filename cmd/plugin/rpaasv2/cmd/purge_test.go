@@ -4,10 +4,9 @@
 
 package cmd
 
-import "context"
-
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"path/filepath"
