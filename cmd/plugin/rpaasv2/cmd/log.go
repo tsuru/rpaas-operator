@@ -38,7 +38,6 @@ func NewCmdLogs() *cli.Command {
 				Aliases: []string{"c"},
 				Usage:   "specific container to log from (default: all containers from pods)",
 			},
-			},
 			&cli.IntFlag{
 				Name:    "lines",
 				Aliases: []string{"l"},
