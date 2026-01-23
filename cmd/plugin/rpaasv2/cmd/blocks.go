@@ -5,13 +5,14 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"os"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	clientTypes "github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -21,7 +22,7 @@ func NewCmdBlocks() *cli.Command {
 	return &cli.Command{
 		Name:  "blocks",
 		Usage: "Manages raw NGINX configuration fragments",
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			NewCmdDeleteBlock(),
 			NewCmdListBlocks(),
 			NewCmdUpdateBlock(),
@@ -57,11 +58,12 @@ func NewCmdUpdateBlock() *cli.Command {
 				Usage:    "the NGINX context name wherein the fragment will be injected (supported values: root, http, server, lua-server, lua-worker)",
 				Required: true,
 			},
-			&cli.PathFlag{
-				Name:     "content",
-				Aliases:  []string{"content-file", "c"},
-				Usage:    "path in the system to the NGINX configuration",
-				Required: true,
+			&cli.StringFlag{
+				Name:      "content",
+				Aliases:   []string{"content-file", "c"},
+				Usage:     "path in the system to the NGINX configuration",
+				Required:  true,
+				TakesFile: true,
 			},
 			&cli.BoolFlag{
 				Name:  "extend",
@@ -73,35 +75,35 @@ func NewCmdUpdateBlock() *cli.Command {
 	}
 }
 
-func runUpdateBlock(c *cli.Context) error {
-	client, err := getClient(c)
+func runUpdateBlock(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	content, err := os.ReadFile(c.Path("content"))
+	content, err := os.ReadFile(cmd.String("content"))
 	if err != nil {
 		return err
 	}
 
-	serverName := c.String("server-name")
+	serverName := cmd.String("server-name")
 
 	args := rpaasclient.UpdateBlockArgs{
-		Instance:   c.String("instance"),
-		Name:       c.String("name"),
+		Instance:   cmd.String("instance"),
+		Name:       cmd.String("name"),
 		ServerName: serverName,
-		Extend:     c.Bool("extend"),
+		Extend:     cmd.Bool("extend"),
 		Content:    string(content),
 	}
-	err = client.UpdateBlock(c.Context, args)
+	err = client.UpdateBlock(ctx, args)
 	if err != nil {
 		return err
 	}
 
 	if serverName == "" {
-		fmt.Fprintf(c.App.Writer, "NGINX configuration fragment inserted at %q context\n", args.Name)
+		fmt.Fprintf(cmd.Root().Writer, "NGINX configuration fragment inserted at %q context\n", args.Name)
 	} else {
-		fmt.Fprintf(c.App.Writer, "NGINX configuration fragment inserted at %q context for server name %q\n", args.Name, serverName)
+		fmt.Fprintf(cmd.Root().Writer, "NGINX configuration fragment inserted at %q context for server name %q\n", args.Name, serverName)
 
 	}
 	return nil
@@ -141,28 +143,28 @@ func NewCmdDeleteBlock() *cli.Command {
 	}
 }
 
-func runDeleteBlock(c *cli.Context) error {
-	client, err := getClient(c)
+func runDeleteBlock(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	serverName := c.String("server-name")
+	serverName := cmd.String("server-name")
 
 	args := rpaasclient.DeleteBlockArgs{
-		Instance:   c.String("instance"),
-		Name:       c.String("name"),
+		Instance:   cmd.String("instance"),
+		Name:       cmd.String("name"),
 		ServerName: serverName,
 	}
-	err = client.DeleteBlock(c.Context, args)
+	err = client.DeleteBlock(ctx, args)
 	if err != nil {
 		return err
 	}
 
 	if serverName == "" {
-		fmt.Fprintf(c.App.Writer, "NGINX configuration at %q context removed\n", args.Name)
+		fmt.Fprintf(cmd.Root().Writer, "NGINX configuration at %q context removed\n", args.Name)
 	} else {
-		fmt.Fprintf(c.App.Writer, "NGINX configuration at %q context for server name %q removed\n", args.Name, serverName)
+		fmt.Fprintf(cmd.Root().Writer, "NGINX configuration at %q context for server name %q removed\n", args.Name, serverName)
 	}
 	return nil
 }
@@ -195,23 +197,23 @@ func NewCmdListBlocks() *cli.Command {
 	}
 }
 
-func runListBlocks(c *cli.Context) error {
-	client, err := getClient(c)
+func runListBlocks(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	args := rpaasclient.ListBlocksArgs{Instance: c.String("instance")}
-	blocks, err := client.ListBlocks(c.Context, args)
+	args := rpaasclient.ListBlocksArgs{Instance: cmd.String("instance")}
+	blocks, err := client.ListBlocks(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	if c.Bool("raw-output") {
-		return writeBlocksOnJSONFormat(c.App.Writer, blocks)
+	if cmd.Bool("raw-output") {
+		return writeBlocksOnJSONFormat(cmd.Root().Writer, blocks)
 	}
 
-	writeBlocksOnTableFormat(c.App.Writer, blocks)
+	writeBlocksOnTableFormat(cmd.Root().Writer, blocks)
 	return nil
 }
 

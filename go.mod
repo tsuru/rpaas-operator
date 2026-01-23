@@ -1,8 +1,8 @@
 module github.com/tsuru/rpaas-operator
 
-go 1.21
+go 1.24.0
 
-toolchain go1.21.0
+toolchain go1.24.5
 
 require (
 	github.com/Masterminds/sprig/v3 v3.2.2
@@ -33,15 +33,15 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.10.0
 	github.com/stern/stern v1.20.1
-	github.com/stretchr/testify v1.8.4
+	github.com/stretchr/testify v1.11.1
 	github.com/tsuru/go-tsuruclient v0.0.0-20230724221758-523def58dd2d
 	github.com/tsuru/nginx-operator v0.15.2-0.20240515194244-a38b4b58e866
 	github.com/uber/jaeger-client-go v2.25.0+incompatible
-	github.com/urfave/cli/v2 v2.3.0
+	github.com/urfave/cli/v3 v3.6.2
 	golang.org/x/exp v0.0.0-20220722155223-a9213eeb770e
-	golang.org/x/mod v0.9.0
-	golang.org/x/net v0.12.0
-	golang.org/x/term v0.10.0
+	golang.org/x/mod v0.32.0
+	golang.org/x/net v0.49.0
+	golang.org/x/term v0.39.0
 	golang.org/x/time v0.3.0
 	k8s.io/api v0.26.7
 	k8s.io/apimachinery v0.26.7
@@ -66,7 +66,6 @@ require (
 	github.com/blang/semver/v4 v4.0.0 // indirect
 	github.com/cespare/xxhash/v2 v2.2.0 // indirect
 	github.com/chai2010/gettext-go v1.0.2 // indirect
-	github.com/cpuguy83/go-md2man/v2 v2.0.2 // indirect
 	github.com/docker/docker v20.10.20+incompatible // indirect
 	github.com/docker/go-units v0.5.0 // indirect
 	github.com/emicklei/go-restful/v3 v3.10.1 // indirect
@@ -87,7 +86,7 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/btree v1.0.1 // indirect
 	github.com/google/gnostic v0.6.9 // indirect
-	github.com/google/go-cmp v0.5.9 // indirect
+	github.com/google/go-cmp v0.6.0 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
 	github.com/google/shlex v0.0.0-20191202100458-e7afc7fbc510 // indirect
 	github.com/google/uuid v1.3.0 // indirect
@@ -145,10 +144,11 @@ require (
 	go.uber.org/atomic v1.10.0 // indirect
 	go.uber.org/multierr v1.9.0 // indirect
 	go.uber.org/zap v1.24.0 // indirect
-	golang.org/x/crypto v0.11.0 // indirect
+	golang.org/x/crypto v0.47.0 // indirect
 	golang.org/x/oauth2 v0.10.0 // indirect
-	golang.org/x/sys v0.10.0 // indirect
-	golang.org/x/text v0.11.0 // indirect
+	golang.org/x/sys v0.40.0 // indirect
+	golang.org/x/text v0.33.0 // indirect
+	golang.org/x/tools v0.41.0 // indirect
 	gomodules.xyz/jsonpatch/v2 v2.2.0 // indirect
 	google.golang.org/appengine v1.6.7 // indirect
 	google.golang.org/protobuf v1.31.0 // indirect

@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -72,7 +73,7 @@ func TestDeleteExtraFiles(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			tt.assertion(t, stdout, stderr, err)
 		})
 	}
@@ -160,7 +161,7 @@ func TestAddExtraFiles(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			tt.assertion(t, stdout, stderr, err, f1.Name(), f2.Name())
 		})
 	}
@@ -248,7 +249,7 @@ func TestUpdateExtraFiles(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			tt.assertion(t, stdout, stderr, err, f1.Name(), f2.Name())
 		})
 	}
@@ -332,7 +333,7 @@ func TestListExtraFiles(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			tt.assertion(t, stdout, stderr, err)
 		})
 	}
@@ -384,7 +385,7 @@ func TestGetExtraFile(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)

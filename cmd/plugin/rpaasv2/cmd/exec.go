@@ -5,11 +5,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"os"
 
 	"github.com/gorilla/websocket"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 	"k8s.io/kubectl/pkg/util/term"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -58,8 +59,8 @@ func NewCmdExec() *cli.Command {
 	}
 }
 
-func runExec(c *cli.Context) error {
-	client, err := getClient(c)
+func runExec(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
@@ -70,12 +71,12 @@ func runExec(c *cli.Context) error {
 	}
 
 	args := rpaasclient.ExecArgs{
-		Command:        c.Args().Slice(),
-		Instance:       c.String("instance"),
-		Pod:            c.String("pod"),
-		Container:      c.String("container"),
-		Interactive:    c.Bool("interactive"),
-		TTY:            c.Bool("tty"),
+		Command:        cmd.Args().Slice(),
+		Instance:       cmd.String("instance"),
+		Pod:            cmd.String("pod"),
+		Container:      cmd.String("container"),
+		Interactive:    cmd.Bool("interactive"),
+		TTY:            cmd.Bool("tty"),
 		TerminalWidth:  width,
 		TerminalHeight: height,
 	}
@@ -86,11 +87,11 @@ func runExec(c *cli.Context) error {
 
 	tty := &term.TTY{
 		In:  args.In,
-		Out: c.App.Writer,
+		Out: cmd.Root().Writer,
 		Raw: args.TTY,
 	}
 	return tty.Safe(func() error {
-		conn, err := client.Exec(c.Context, args)
+		conn, err := client.Exec(ctx, args)
 		if err != nil {
 			return err
 		}
@@ -121,7 +122,7 @@ func runExec(c *cli.Context) error {
 
 				switch mtype {
 				case websocket.TextMessage, websocket.BinaryMessage:
-					c.App.Writer.Write(message)
+					cmd.Root().Writer.Write(message)
 				}
 			}
 		}()

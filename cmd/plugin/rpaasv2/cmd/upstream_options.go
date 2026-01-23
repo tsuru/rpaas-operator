@@ -5,13 +5,14 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -22,7 +23,7 @@ func NewCmdUpstreamOptions() *cli.Command {
 	return &cli.Command{
 		Name:  "upstream",
 		Usage: "Manages upstream options with traffic shaping and canary deployments",
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			NewCmdListUpstreamOptions(),
 			NewCmdAddUpstreamOptions(),
 			NewCmdUpdateUpstreamOptions(),
@@ -59,23 +60,23 @@ func NewCmdListUpstreamOptions() *cli.Command {
 	}
 }
 
-func runListUpstreamOptions(c *cli.Context) error {
-	client, err := getClient(c)
+func runListUpstreamOptions(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	args := rpaasclient.ListUpstreamOptionsArgs{Instance: c.String("instance")}
-	upstreamOptions, err := client.ListUpstreamOptions(c.Context, args)
+	args := rpaasclient.ListUpstreamOptionsArgs{Instance: cmd.String("instance")}
+	upstreamOptions, err := client.ListUpstreamOptions(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	if c.Bool("raw-output") {
-		return writeUpstreamOptionsOnJSONFormat(c.App.Writer, upstreamOptions)
+	if cmd.Bool("raw-output") {
+		return writeUpstreamOptionsOnJSONFormat(cmd.Root().Writer, upstreamOptions)
 	}
 
-	writeUpstreamOptionsOnTableFormat(c.App.Writer, upstreamOptions)
+	writeUpstreamOptionsOnTableFormat(cmd.Root().Writer, upstreamOptions)
 	return nil
 }
 
@@ -253,43 +254,43 @@ func NewCmdAddUpstreamOptions() *cli.Command {
 	}
 }
 
-func runAddUpstreamOptions(c *cli.Context) error {
-	client, err := getClient(c)
+func runAddUpstreamOptions(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	// Validate that header-value and header-pattern are mutually exclusive
-	headerValue := c.String("header-value")
-	headerPattern := c.String("header-pattern")
+	headerValue := cmd.String("header-value")
+	headerPattern := cmd.String("header-pattern")
 	if headerValue != "" && headerPattern != "" {
 		return fmt.Errorf("header-value and header-pattern are mutually exclusive, please specify only one")
 	}
 
 	trafficShapingPolicy := rpaasclient.TrafficShapingPolicy{
-		Weight:        c.Int("weight"),
-		WeightTotal:   c.Int("weight-total"),
-		Header:        c.String("header"),
+		Weight:        int(cmd.Int("weight")),
+		WeightTotal:   int(cmd.Int("weight-total")),
+		Header:        cmd.String("header"),
 		HeaderValue:   headerValue,
 		HeaderPattern: headerPattern,
-		Cookie:        c.String("cookie"),
+		Cookie:        cmd.String("cookie"),
 	}
 
 	args := rpaasclient.UpstreamOptionsArgs{
-		Instance:             c.String("instance"),
-		PrimaryBind:          c.String("app"),
-		CanaryBinds:          c.StringSlice("canary"),
+		Instance:             cmd.String("instance"),
+		PrimaryBind:          cmd.String("app"),
+		CanaryBinds:          cmd.StringSlice("canary"),
 		TrafficShapingPolicy: trafficShapingPolicy,
-		LoadBalance:          c.String("load-balance"),
-		LoadBalanceHashKey:   c.String("load-balance-hash-key"),
+		LoadBalance:          cmd.String("load-balance"),
+		LoadBalanceHashKey:   cmd.String("load-balance-hash-key"),
 	}
 
-	err = client.AddUpstreamOptions(c.Context, args)
+	err = client.AddUpstreamOptions(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Upstream options added for app %q.\n", args.PrimaryBind)
+	fmt.Fprintf(cmd.Root().Writer, "Upstream options added for app %q.\n", args.PrimaryBind)
 	return nil
 }
 
@@ -359,15 +360,15 @@ func NewCmdUpdateUpstreamOptions() *cli.Command {
 	}
 }
 
-func runUpdateUpstreamOptions(c *cli.Context) error {
-	client, err := getClient(c)
+func runUpdateUpstreamOptions(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	// Handle mutually exclusive header-value and header-pattern
-	headerValue := c.String("header-value")
-	headerPattern := c.String("header-pattern")
+	headerValue := cmd.String("header-value")
+	headerPattern := cmd.String("header-pattern")
 
 	// If both are provided, reject the request
 	if headerValue != "" && headerPattern != "" {
@@ -378,29 +379,29 @@ func runUpdateUpstreamOptions(c *cli.Context) error {
 	// This logic will be handled in the API layer to ensure the other field is set to empty
 
 	trafficShapingPolicy := rpaasclient.TrafficShapingPolicy{
-		Weight:        c.Int("weight"),
-		WeightTotal:   c.Int("weight-total"),
-		Header:        c.String("header"),
+		Weight:        int(cmd.Int("weight")),
+		WeightTotal:   int(cmd.Int("weight-total")),
+		Header:        cmd.String("header"),
 		HeaderValue:   headerValue,
 		HeaderPattern: headerPattern,
-		Cookie:        c.String("cookie"),
+		Cookie:        cmd.String("cookie"),
 	}
 
 	args := rpaasclient.UpstreamOptionsArgs{
-		Instance:             c.String("instance"),
-		PrimaryBind:          c.String("app"),
-		CanaryBinds:          c.StringSlice("canary"),
+		Instance:             cmd.String("instance"),
+		PrimaryBind:          cmd.String("app"),
+		CanaryBinds:          cmd.StringSlice("canary"),
 		TrafficShapingPolicy: trafficShapingPolicy,
-		LoadBalance:          c.String("load-balance"),
-		LoadBalanceHashKey:   c.String("load-balance-hash-key"),
+		LoadBalance:          cmd.String("load-balance"),
+		LoadBalanceHashKey:   cmd.String("load-balance-hash-key"),
 	}
 
-	err = client.UpdateUpstreamOptions(c.Context, args)
+	err = client.UpdateUpstreamOptions(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Upstream options updated for app %q.\n", args.PrimaryBind)
+	fmt.Fprintf(cmd.Root().Writer, "Upstream options updated for app %q.\n", args.PrimaryBind)
 	return nil
 }
 
@@ -433,22 +434,22 @@ func NewCmdDeleteUpstreamOptions() *cli.Command {
 	}
 }
 
-func runDeleteUpstreamOptions(c *cli.Context) error {
-	client, err := getClient(c)
+func runDeleteUpstreamOptions(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
 	args := rpaasclient.DeleteUpstreamOptionsArgs{
-		Instance:    c.String("instance"),
-		PrimaryBind: c.String("app"),
+		Instance:    cmd.String("instance"),
+		PrimaryBind: cmd.String("app"),
 	}
 
-	err = client.DeleteUpstreamOptions(c.Context, args)
+	err = client.DeleteUpstreamOptions(ctx, args)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Upstream options removed for app %q.\n", args.PrimaryBind)
+	fmt.Fprintf(cmd.Root().Writer, "Upstream options removed for app %q.\n", args.PrimaryBind)
 	return nil
 }

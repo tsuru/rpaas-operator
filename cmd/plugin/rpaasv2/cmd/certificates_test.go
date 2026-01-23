@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"testing"
@@ -138,9 +139,10 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 					assert.Equal(t, rpaasclient.UpdateCertManagerArgs{
 						Instance: "my-instance",
 						CertManager: types.CertManager{
-							Name:     "cert01",
-							Issuer:   "lets-encrypt",
-							DNSNames: []string{"my-instance.example.com"},
+							Name:        "cert01",
+							Issuer:      "lets-encrypt",
+							DNSNames:    []string{"my-instance.example.com"},
+							IPAddresses: []string{},
 						},
 					}, args)
 					return nil
@@ -167,7 +169,7 @@ EKTcWGekdmdDPsHloRNtsiCa697B2O9IFA==
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)
@@ -250,7 +252,7 @@ func TestDeleteCertificate(t *testing.T) {
 			stdout := &bytes.Buffer{}
 			stderr := &bytes.Buffer{}
 			app := NewApp(stdout, stderr, tt.client)
-			err := app.Run(tt.args)
+			err := app.Run(context.Background(), tt.args)
 			if tt.expectedError != "" {
 				assert.Error(t, err)
 				assert.EqualError(t, err, tt.expectedError)

@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"errors"
 	"testing"
 
@@ -77,7 +78,7 @@ Annotations:
 			args := append(baseArgs, "-i", tt.instance)
 
 			app := NewApp(stdout, stderr, client)
-			err := app.Run(args)
+			err := app.Run(context.Background(), args)
 
 			if tt.expectedErr != "" {
 				assert.EqualError(t, err, tt.expectedErr)
@@ -140,7 +141,7 @@ func TestSetMetadata(t *testing.T) {
 			args := append(baseArgs, tt.args...)
 
 			app := NewApp(stdout, stderr, client)
-			err := app.Run(args)
+			err := app.Run(context.Background(), args)
 
 			if tt.expectedErr != "" {
 				assert.EqualError(t, err, tt.expectedErr)
@@ -197,7 +198,7 @@ func TestUnsetMetadata(t *testing.T) {
 			args := append(baseArgs, tt.args...)
 
 			app := NewApp(stdout, stderr, client)
-			err := app.Run(args)
+			err := app.Run(context.Background(), args)
 
 			if tt.expectedErr != "" {
 				assert.EqualError(t, err, tt.expectedErr)

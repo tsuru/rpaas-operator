@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +29,7 @@ func TestStart(t *testing.T) {
 	}
 
 	app := NewApp(stdout, stderr, client)
-	err := app.Run(args)
+	err := app.Run(context.Background(), args)
 	require.NoError(t, err)
 	assert.Equal(t, stdout.String(), "Started instance some-service/my-instance\n")
 }

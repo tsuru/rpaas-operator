@@ -5,11 +5,12 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"strings"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
 )
@@ -18,7 +19,7 @@ func NewCmdMetadata() *cli.Command {
 	return &cli.Command{
 		Name:  "metadata",
 		Usage: "Manages metadata information of rpaasv2 instances",
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			NewCmdGetMetadata(),
 			NewCmdSetMetadata(),
 			NewCmdUnsetMetadata(),
@@ -73,22 +74,22 @@ func writeMetadata(w io.Writer, metadata *types.Metadata) {
 	}
 }
 
-func runGetMetadata(c *cli.Context) error {
-	client, err := getClient(c)
+func runGetMetadata(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	metadata, err := client.GetMetadata(c.Context, c.String("instance"))
+	metadata, err := client.GetMetadata(ctx, cmd.String("instance"))
 	if err != nil {
 		return err
 	}
 
-	if outputAsJSON := c.Bool("json"); outputAsJSON {
-		return writeJSON(c.App.Writer, metadata)
+	if outputAsJSON := cmd.Bool("json"); outputAsJSON {
+		return writeJSON(cmd.Root().Writer, metadata)
 	}
 
-	writeMetadata(c.App.Writer, metadata)
+	writeMetadata(cmd.Root().Writer, metadata)
 	return nil
 }
 
@@ -150,9 +151,9 @@ func createMetadata(meta []string, metaType string, isSet bool) (*types.Metadata
 	return metadata, nil
 }
 
-func runSetMetadata(c *cli.Context) error {
-	keyValues := c.Args().Slice()
-	metaType := c.String("type")
+func runSetMetadata(ctx context.Context, cmd *cli.Command) error {
+	keyValues := cmd.Args().Slice()
+	metaType := cmd.String("type")
 
 	if len(keyValues) == 0 {
 		return fmt.Errorf("at least one NAME=value pair is required")
@@ -167,17 +168,17 @@ func runSetMetadata(c *cli.Context) error {
 		return err
 	}
 
-	client, err := getClient(c)
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = client.SetMetadata(c.Context, c.String("instance"), metadata)
+	err = client.SetMetadata(ctx, cmd.String("instance"), metadata)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(c.App.Writer, "Metadata updated successfully")
+	fmt.Fprintln(cmd.Root().Writer, "Metadata updated successfully")
 
 	return nil
 }
@@ -211,9 +212,9 @@ func NewCmdUnsetMetadata() *cli.Command {
 	}
 }
 
-func runUnsetMetadata(c *cli.Context) error {
-	keys := c.Args().Slice()
-	metaType := c.String("type")
+func runUnsetMetadata(ctx context.Context, cmd *cli.Command) error {
+	keys := cmd.Args().Slice()
+	metaType := cmd.String("type")
 
 	if len(keys) == 0 {
 		return fmt.Errorf("at least one NAME is required")
@@ -225,17 +226,17 @@ func runUnsetMetadata(c *cli.Context) error {
 
 	metadata, _ := createMetadata(keys, metaType, false)
 
-	client, err := getClient(c)
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = client.UnsetMetadata(c.Context, c.String("instance"), metadata)
+	err = client.UnsetMetadata(ctx, cmd.String("instance"), metadata)
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(c.App.Writer, "Metadata removed successfully")
+	fmt.Fprintln(cmd.Root().Writer, "Metadata removed successfully")
 
 	return nil
 }

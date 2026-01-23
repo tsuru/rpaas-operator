@@ -6,13 +6,14 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"strings"
 	"unicode/utf8"
 
 	"github.com/olekukonko/tablewriter"
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -23,7 +24,7 @@ func NewCmdExtraFiles() *cli.Command {
 		Name:    "extra-files",
 		Aliases: []string{"files"},
 		Usage:   "Manages persistent files in the instance filesystem",
-		Subcommands: []*cli.Command{
+		Commands: []*cli.Command{
 			NewCmdAddExtraFiles(),
 			NewCmdUpdateExtraFiles(),
 			NewCmdDeleteExtraFiles(),
@@ -186,25 +187,25 @@ func prepareFiles(filePathList []string) ([]types.RpaasFile, error) {
 	return files, nil
 }
 
-func extraFilesSuccessMessage(c *cli.Context, prefix, suffix, instance string, files []string) {
-	fmt.Fprintf(c.App.Writer, "%s ", prefix)
-	fmt.Fprintf(c.App.Writer, "[%s]", strings.Join(files, ", "))
-	fmt.Fprintf(c.App.Writer, " %s %s\n", suffix, instance)
+func extraFilesSuccessMessage(cmd *cli.Command, prefix, suffix, instance string, files []string) {
+	fmt.Fprintf(cmd.Root().Writer, "%s ", prefix)
+	fmt.Fprintf(cmd.Root().Writer, "[%s]", strings.Join(files, ", "))
+	fmt.Fprintf(cmd.Root().Writer, " %s %s\n", suffix, instance)
 }
 
-func runAddExtraFiles(c *cli.Context) error {
-	client, err := getClient(c)
+func runAddExtraFiles(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	files, err := prepareFiles(c.StringSlice("file"))
+	files, err := prepareFiles(cmd.StringSlice("file"))
 	if err != nil {
 		return err
 	}
 
-	instance := c.String("instance")
-	err = client.AddExtraFiles(c.Context, rpaasclient.ExtraFilesArgs{
+	instance := cmd.String("instance")
+	err = client.AddExtraFiles(ctx, rpaasclient.ExtraFilesArgs{
 		Instance: instance,
 		Files:    files,
 	})
@@ -216,24 +217,24 @@ func runAddExtraFiles(c *cli.Context) error {
 	for _, file := range files {
 		fNames = append(fNames, file.Name)
 	}
-	extraFilesSuccessMessage(c, "Added", "to", instance, fNames)
+	extraFilesSuccessMessage(cmd, "Added", "to", instance, fNames)
 	return nil
 }
 
-func runUpdateExtraFiles(c *cli.Context) error {
-	client, err := getClient(c)
+func runUpdateExtraFiles(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	files, err := prepareFiles(c.StringSlice("file"))
+	files, err := prepareFiles(cmd.StringSlice("file"))
 	if err != nil {
 		return err
 	}
 
-	instance := c.String("instance")
-	err = client.UpdateExtraFiles(c.Context, rpaasclient.ExtraFilesArgs{
-		Instance: c.String("instance"),
+	instance := cmd.String("instance")
+	err = client.UpdateExtraFiles(ctx, rpaasclient.ExtraFilesArgs{
+		Instance: cmd.String("instance"),
 		Files:    files,
 	})
 	if err != nil {
@@ -244,19 +245,19 @@ func runUpdateExtraFiles(c *cli.Context) error {
 	for _, file := range files {
 		fNames = append(fNames, file.Name)
 	}
-	extraFilesSuccessMessage(c, "Updated", "on", instance, fNames)
+	extraFilesSuccessMessage(cmd, "Updated", "on", instance, fNames)
 	return nil
 }
 
-func runDeleteExtraFiles(c *cli.Context) error {
-	client, err := getClient(c)
+func runDeleteExtraFiles(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	files := c.StringSlice("file")
-	instance := c.String("instance")
-	err = client.DeleteExtraFiles(c.Context, rpaasclient.DeleteExtraFilesArgs{
+	files := cmd.StringSlice("file")
+	instance := cmd.String("instance")
+	err = client.DeleteExtraFiles(ctx, rpaasclient.DeleteExtraFilesArgs{
 		Instance: instance,
 		Files:    files,
 	})
@@ -264,7 +265,7 @@ func runDeleteExtraFiles(c *cli.Context) error {
 		return err
 	}
 
-	extraFilesSuccessMessage(c, "Removed", "from", instance, files)
+	extraFilesSuccessMessage(cmd, "Removed", "from", instance, files)
 	return nil
 }
 
@@ -293,46 +294,46 @@ func writeExtraFilesOnTableFormat(files []types.RpaasFile) string {
 	return buffer.String()
 }
 
-func runListExtraFiles(c *cli.Context) error {
-	client, err := getClient(c)
+func runListExtraFiles(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	showContent := c.Bool("show-content")
+	showContent := cmd.Bool("show-content")
 	args := rpaasclient.ListExtraFilesArgs{
-		Instance:    c.String("instance"),
+		Instance:    cmd.String("instance"),
 		ShowContent: showContent,
 	}
-	files, err := client.ListExtraFiles(c.Context, args)
+	files, err := client.ListExtraFiles(ctx, args)
 	if err != nil {
 		return err
 	}
 	switch showContent {
 	default:
 		for _, file := range files {
-			fmt.Fprintln(c.App.Writer, file.Name)
+			fmt.Fprintln(cmd.Root().Writer, file.Name)
 		}
 	case true:
-		fmt.Fprint(c.App.Writer, writeExtraFilesOnTableFormat(files))
+		fmt.Fprint(cmd.Root().Writer, writeExtraFilesOnTableFormat(files))
 	}
 	return nil
 }
 
-func runGetExtraFile(c *cli.Context) error {
-	client, err := getClient(c)
+func runGetExtraFile(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	file, err := client.GetExtraFile(c.Context, rpaasclient.GetExtraFileArgs{
-		Instance: c.String("instance"),
-		FileName: c.String("file"),
+	file, err := client.GetExtraFile(ctx, rpaasclient.GetExtraFileArgs{
+		Instance: cmd.String("instance"),
+		FileName: cmd.String("file"),
 	})
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintln(c.App.Writer, strings.TrimSuffix(string(file.Content), "\n"))
+	fmt.Fprintln(cmd.Root().Writer, strings.TrimSuffix(string(file.Content), "\n"))
 	return nil
 }

@@ -6,6 +6,7 @@ package cmd
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -134,7 +135,7 @@ max replicas: 100
 					args = append(args, tt.args...)
 
 					var stdout bytes.Buffer
-					err := NewApp(&stdout, io.Discard, nil).Run(args)
+					err := NewApp(&stdout, io.Discard, nil).Run(context.Background(), args)
 					if tt.expectedError != "" {
 						assert.EqualError(t, err, tt.expectedError)
 						return
@@ -187,7 +188,7 @@ func TestRemoveAutoscale(t *testing.T) {
 					args = append(args, tt.args...)
 
 					var stdout bytes.Buffer
-					err := NewApp(&stdout, io.Discard, nil).Run(args)
+					err := NewApp(&stdout, io.Discard, nil).Run(context.Background(), args)
 					if tt.expectedError != "" {
 						assert.EqualError(t, err, tt.expectedError)
 						return
@@ -305,7 +306,7 @@ func TestUpdateAutoscale(t *testing.T) {
 					args = append(args, tt.args...)
 
 					var stdout bytes.Buffer
-					err := NewApp(&stdout, io.Discard, nil).Run(args)
+					err := NewApp(&stdout, io.Discard, nil).Run(context.Background(), args)
 					if tt.expectedError != "" {
 						assert.EqualError(t, err, tt.expectedError)
 						return

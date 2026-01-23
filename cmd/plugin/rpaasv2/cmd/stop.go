@@ -5,9 +5,10 @@
 package cmd
 
 import (
+	"context"
 	"fmt"
 
-	"github.com/urfave/cli/v2"
+	"github.com/urfave/cli/v3"
 )
 
 func NewCmdStop() *cli.Command {
@@ -32,17 +33,17 @@ func NewCmdStop() *cli.Command {
 	}
 }
 
-func runStop(c *cli.Context) error {
-	client, err := getClient(c)
+func runStop(ctx context.Context, cmd *cli.Command) error {
+	client, err := getClient(ctx)
 	if err != nil {
 		return err
 	}
 
-	err = client.Stop(c.Context, c.String("instance"))
+	err = client.Stop(ctx, cmd.String("instance"))
 	if err != nil {
 		return err
 	}
 
-	fmt.Fprintf(c.App.Writer, "Shutting down instance %s\n", formatInstanceName(c))
+	fmt.Fprintf(cmd.Root().Writer, "Shutting down instance %s\n", formatInstanceName(cmd))
 	return nil
 }

@@ -102,7 +102,7 @@ controller-gen:
 ifeq (, $(shell which controller-gen))
 	@{ \
 	set -e ;\
-	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.15.0 ;\
+	go install sigs.k8s.io/controller-tools/cmd/controller-gen@v0.17.0 ;\
 	}
 CONTROLLER_GEN=$(GOBIN)/controller-gen
 else
