@@ -34,10 +34,10 @@ func NewCmdLogs() *cli.Command {
 				Usage:   "specific pod to log from (default: all pods from instance)",
 			},
 			&cli.StringFlag{
-				Name:      "container",
-				Aliases:   []string{"c"},
-				Usage:     "specific container to log from (default: all containers from pods)",
-				TakesFile: true,
+				Name:    "container",
+				Aliases: []string{"c"},
+				Usage:   "specific container to log from (default: all containers from pods)",
+			},
 			},
 			&cli.IntFlag{
 				Name:    "lines",
