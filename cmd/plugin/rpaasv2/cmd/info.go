@@ -80,33 +80,33 @@ var instanceInfoTemplate = template.Must(template.New("rpaasv2.instance.info").
 	Funcs(newFuncMap()).
 	Parse(`
 {{- $instance := . -}}
-Name: {{ .Name }}
+Name:         {{ .Name }}
 {{- with .Dashboard}}
-Dashboard: {{ . }}
+Dashboard:    {{ . }}
 {{- end }}
 {{- with .Description}}
-Description: {{ . }}
+Description:  {{ . }}
 {{- end }}
-Tags: {{ join ", " .Tags }}
+Tags:         {{ join ", " .Tags }}
 {{- with .Annotations}}
-Annotations: {{ join ", " . }}
+Annotations:  {{ join ", " . }}
 {{- end }}
-Team owner: {{ .Team }}
-Plan: {{ .Plan }}
+Team owner:   {{ .Team }}
+Plan:         {{ .Plan }}
 {{- with .Flavors}}
-Flavors: {{ join ", " . }}
+Flavors:      {{ join ", " . }}
 {{- end }}
 {{- with .Shutdown }}
-Shutdown: {{ . }}
+Shutdown:     {{ . }}
 {{- end }}
 {{- with .Cluster}}
-Cluster: {{ . }}
+Cluster:      {{ . }}
 {{- end }}
 {{- with .Pool }}
-Pool: {{ . }}
+Pool:         {{ . }}
 {{- end }}
 {{- with .Image}}
-Image: {{ . }}
+Image:        {{ . }}
 {{- end }}
 
 {{- with .PlanOverride }}{{ "\n" }}
@@ -121,7 +121,6 @@ Pods: (current: {{ len .Pods }}{{ if not .Autoscale }} / desired: {{ .Replicas }
 {{- end }}
 
 {{- with .Autoscale }}
-Autoscale:
 {{ formatAutoscale . }}
 {{- end }}
 

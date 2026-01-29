@@ -327,17 +327,17 @@ func TestInfo(t *testing.T) {
 					}, nil
 				},
 			},
-			expected: `Name: my-instance
-Dashboard: https://grafana.mycompany.io/my-instance
-Description: some description
-Tags: tag1, tag2, tag3
-Annotations: key1=val1, key2=val2, key3=val3
-Team owner: some-team
-Plan: basic
-Flavors: flavor1, flavor2, flavor-N
-Cluster: my-dedicated-cluster
-Pool: my-pool
-Image: tsuru/nginx-tsuru:1.26.3
+			expected: `Name:         my-instance
+Dashboard:    https://grafana.mycompany.io/my-instance
+Description:  some description
+Tags:         tag1, tag2, tag3
+Annotations:  key1=val1, key2=val2, key3=val3
+Team owner:   some-team
+Plan:         basic
+Flavors:      flavor1, flavor2, flavor-N
+Cluster:      my-dedicated-cluster
+Pool:         my-pool
+Image:        tsuru/nginx-tsuru:1.26.3
 
 Plan overrides:
 {
@@ -396,9 +396,7 @@ Errors:
 |                    |                              | uuid)                                        |
 +--------------------+------------------------------+----------------------------------------------+
 
-Autoscale:
-min replicas: 2
-max replicas: 5
+Autoscale: (min replicas: 2, max replicas: 5)
 +----------+-----------------+
 | Triggers | trigger details |
 +----------+-----------------+
@@ -588,14 +586,14 @@ Events:
 					}, nil
 				},
 			},
-			expected: `Name: my-instance
-Description: some description
-Tags: tag1, tag2, tag3
-Annotations: key1=val1, key2=val2, key3=val3
-Team owner: some-team
-Plan: basic
-Flavors: flavor1, flavor2, flavor-N
-Cluster: my-dedicated-cluster
+			expected: `Name:         my-instance
+Description:  some description
+Tags:         tag1, tag2, tag3
+Annotations:  key1=val1, key2=val2, key3=val3
+Team owner:   some-team
+Plan:         basic
+Flavors:      flavor1, flavor2, flavor-N
+Cluster:      my-dedicated-cluster
 
 Pods: (current: 2 / desired: 3)
 +------------------------------+---------------+-------------+----------+-----+------+--------+
@@ -685,14 +683,14 @@ Pods: (current: 2 / desired: 3)
 					}, nil
 				},
 			},
-			expected: `Name: my-instance
-Description: some description
-Tags: tag1, tag2, tag3
-Annotations: key1=val1, key2=val2, key3=val3
-Team owner: some-team
-Plan: basic
-Flavors: flavor1, flavor2, flavor-N
-Cluster: my-dedicated-cluster
+			expected: `Name:         my-instance
+Description:  some description
+Tags:         tag1, tag2, tag3
+Annotations:  key1=val1, key2=val2, key3=val3
+Team owner:   some-team
+Plan:         basic
+Flavors:      flavor1, flavor2, flavor-N
+Cluster:      my-dedicated-cluster
 
 Pods: (current: 2 / desired: 3)
 +------------------------------+---------------+-------------+----------+-----+
