@@ -647,6 +647,18 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ScheduledWindow"
+        stabilizationWindowSeconds:
+          description: "is the number of seconds for which past recommendations should be considered while scaling up or scaling down."
+          type: integer
+          example: 300
+        unitsPolicyValue:
+          description: "set a policy with (value: unitsPolicyValue, type: Pods, periodSeconds: 60s)"
+          type: integer
+          example: 3
+        percentPolicyValue:
+          description: "set a policy with (value: percentPolicyValue, type: Percent, periodSeconds: 60s)"
+          type: integer
+          example: 30
       required:
       - minReplicas
       - maxReplicas

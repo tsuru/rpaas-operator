@@ -800,26 +800,25 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 	var scalingDownRules *autoscalingv2.HPAScalingRules
 	if hasAutoscale && instance.Spec.Autoscale.Behavior != nil && instance.Spec.Autoscale.Behavior.ScaleDown != nil {
 		var scalingDown = instance.Spec.Autoscale.Behavior.ScaleDown
-		var policies []autoscalingv2.HPAScalingPolicy
+		scalingDownRules = &autoscalingv2.HPAScalingRules{}
 		if scalingDown.StabilizationWindowSeconds != nil {
 			scalingDownRules.StabilizationWindowSeconds = scalingDown.StabilizationWindowSeconds
 		}
 		if scalingDown.UnitsPolicyValue != nil {
 			policy := autoscalingv2.HPAScalingPolicy{
-				Type:  autoscalingv2.PodsScalingPolicy,
-				Value: *scalingDown.UnitsPolicyValue,
+				Type:          autoscalingv2.PodsScalingPolicy,
+				Value:         *scalingDown.UnitsPolicyValue,
+				PeriodSeconds: 60,
 			}
-			policies = append(policies, policy)
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
 		}
 		if scalingDown.PercentPolicyValue != nil {
 			policy := autoscalingv2.HPAScalingPolicy{
-				Type:  autoscalingv2.PercentScalingPolicy,
-				Value: *scalingDown.PercentPolicyValue,
+				Type:          autoscalingv2.PercentScalingPolicy,
+				Value:         *scalingDown.PercentPolicyValue,
+				PeriodSeconds: 60,
 			}
-			policies = append(policies, policy)
-		}
-		if policies != nil {
-			scalingDownRules.Policies = policies
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
 		}
 	}
 
@@ -1491,26 +1490,25 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 	var scalingDownRules *autoscalingv2.HPAScalingRules
 	if a := instance.Spec.Autoscale; a != nil && a.Behavior != nil && a.Behavior.ScaleDown != nil {
 		var scalingDown = instance.Spec.Autoscale.Behavior.ScaleDown
-		var policies []autoscalingv2.HPAScalingPolicy
+		scalingDownRules = &autoscalingv2.HPAScalingRules{}
 		if scalingDown.StabilizationWindowSeconds != nil {
 			scalingDownRules.StabilizationWindowSeconds = scalingDown.StabilizationWindowSeconds
 		}
 		if scalingDown.UnitsPolicyValue != nil {
 			policy := autoscalingv2.HPAScalingPolicy{
-				Type:  autoscalingv2.PodsScalingPolicy,
-				Value: *scalingDown.UnitsPolicyValue,
+				Type:          autoscalingv2.PodsScalingPolicy,
+				Value:         *scalingDown.UnitsPolicyValue,
+				PeriodSeconds: 60,
 			}
-			policies = append(policies, policy)
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
 		}
 		if scalingDown.PercentPolicyValue != nil {
 			policy := autoscalingv2.HPAScalingPolicy{
-				Type:  autoscalingv2.PercentScalingPolicy,
-				Value: *scalingDown.PercentPolicyValue,
+				Type:          autoscalingv2.PercentScalingPolicy,
+				Value:         *scalingDown.PercentPolicyValue,
+				PeriodSeconds: 60,
 			}
-			policies = append(policies, policy)
-		}
-		if policies != nil {
-			scalingDownRules.Policies = policies
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
 		}
 	}
 

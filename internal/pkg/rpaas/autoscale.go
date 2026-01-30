@@ -99,6 +99,13 @@ func (m *k8sRpaasManager) updateAutoscale(ctx context.Context, instance *v1alpha
 		TargetMemoryUtilizationPercentage: autoscale.Memory,
 		TargetRequestsPerSecond:           autoscale.Rps,
 		Schedules:                         sws,
+		Behavior: &v1alpha1.Behavior{
+			ScaleDown: &v1alpha1.ScaleDown{
+				StabilizationWindowSeconds: autoscale.StabilizationWindowSeconds,
+				UnitsPolicyValue:           autoscale.UnitsPolicyValue,
+				PercentPolicyValue:         autoscale.PercentPolicyValue,
+			},
+		},
 	}
 
 	return m.patchInstance(ctx, originalInstance, instance)

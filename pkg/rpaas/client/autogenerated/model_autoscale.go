@@ -32,6 +32,12 @@ type Autoscale struct {
 	Rps *int32 `json:"rps,omitempty"`
 	// Schedules are recurring or not time-windows where the instance can scale in/out regardless of traffic or resource utilization.
 	Schedules []ScheduledWindow `json:"schedules,omitempty"`
+	// is the number of seconds for which past recommendations should be considered while scaling up or scaling down.
+	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds,omitempty"`
+	// set a policy with (value: unitsPolicyValue, type: Pods, periodSeconds: 60s)
+	UnitsPolicyValue *int32 `json:"unitsPolicyValue,omitempty"`
+	// set a policy with (value: percentPolicyValue, type: Percent, periodSeconds: 60s)
+	PercentPolicyValue *int32 `json:"percentPolicyValue,omitempty"`
 }
 
 // NewAutoscale instantiates a new Autoscale object
@@ -229,6 +235,102 @@ func (o *Autoscale) SetSchedules(v []ScheduledWindow) {
 	o.Schedules = v
 }
 
+// GetStabilizationWindowSeconds returns the StabilizationWindowSeconds field value if set, zero value otherwise.
+func (o *Autoscale) GetStabilizationWindowSeconds() int32 {
+	if o == nil || IsNil(o.StabilizationWindowSeconds) {
+		var ret int32
+		return ret
+	}
+	return *o.StabilizationWindowSeconds
+}
+
+// GetStabilizationWindowSecondsOk returns a tuple with the StabilizationWindowSeconds field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *Autoscale) GetStabilizationWindowSecondsOk() (*int32, bool) {
+	if o == nil || IsNil(o.StabilizationWindowSeconds) {
+		return nil, false
+	}
+	return o.StabilizationWindowSeconds, true
+}
+
+// HasStabilizationWindowSeconds returns a boolean if a field has been set.
+func (o *Autoscale) HasStabilizationWindowSeconds() bool {
+	if o != nil && !IsNil(o.StabilizationWindowSeconds) {
+		return true
+	}
+
+	return false
+}
+
+// SetStabilizationWindowSeconds gets a reference to the given int32 and assigns it to the StabilizationWindowSeconds field.
+func (o *Autoscale) SetStabilizationWindowSeconds(v int32) {
+	o.StabilizationWindowSeconds = &v
+}
+
+// GetUnitsPolicyValue returns the UnitsPolicyValue field value if set, zero value otherwise.
+func (o *Autoscale) GetUnitsPolicyValue() int32 {
+	if o == nil || IsNil(o.UnitsPolicyValue) {
+		var ret int32
+		return ret
+	}
+	return *o.UnitsPolicyValue
+}
+
+// GetUnitsPolicyValueOk returns a tuple with the UnitsPolicyValue field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *Autoscale) GetUnitsPolicyValueOk() (*int32, bool) {
+	if o == nil || IsNil(o.UnitsPolicyValue) {
+		return nil, false
+	}
+	return o.UnitsPolicyValue, true
+}
+
+// HasUnitsPolicyValue returns a boolean if a field has been set.
+func (o *Autoscale) HasUnitsPolicyValue() bool {
+	if o != nil && !IsNil(o.UnitsPolicyValue) {
+		return true
+	}
+
+	return false
+}
+
+// SetUnitsPolicyValue gets a reference to the given int32 and assigns it to the UnitsPolicyValue field.
+func (o *Autoscale) SetUnitsPolicyValue(v int32) {
+	o.UnitsPolicyValue = &v
+}
+
+// GetPercentPolicyValue returns the PercentPolicyValue field value if set, zero value otherwise.
+func (o *Autoscale) GetPercentPolicyValue() int32 {
+	if o == nil || IsNil(o.PercentPolicyValue) {
+		var ret int32
+		return ret
+	}
+	return *o.PercentPolicyValue
+}
+
+// GetPercentPolicyValueOk returns a tuple with the PercentPolicyValue field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *Autoscale) GetPercentPolicyValueOk() (*int32, bool) {
+	if o == nil || IsNil(o.PercentPolicyValue) {
+		return nil, false
+	}
+	return o.PercentPolicyValue, true
+}
+
+// HasPercentPolicyValue returns a boolean if a field has been set.
+func (o *Autoscale) HasPercentPolicyValue() bool {
+	if o != nil && !IsNil(o.PercentPolicyValue) {
+		return true
+	}
+
+	return false
+}
+
+// SetPercentPolicyValue gets a reference to the given int32 and assigns it to the PercentPolicyValue field.
+func (o *Autoscale) SetPercentPolicyValue(v int32) {
+	o.PercentPolicyValue = &v
+}
+
 func (o Autoscale) MarshalJSON() ([]byte, error) {
 	toSerialize, err := o.ToMap()
 	if err != nil {
@@ -252,6 +354,15 @@ func (o Autoscale) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Schedules) {
 		toSerialize["schedules"] = o.Schedules
+	}
+	if !IsNil(o.StabilizationWindowSeconds) {
+		toSerialize["stabilizationWindowSeconds"] = o.StabilizationWindowSeconds
+	}
+	if !IsNil(o.UnitsPolicyValue) {
+		toSerialize["unitsPolicyValue"] = o.UnitsPolicyValue
+	}
+	if !IsNil(o.PercentPolicyValue) {
+		toSerialize["percentPolicyValue"] = o.PercentPolicyValue
 	}
 	return toSerialize, nil
 }

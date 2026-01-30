@@ -94,7 +94,7 @@ spec:
                                   type: Percent, periodSeconds: 60s)'
                                 format: int32
                                 type: integer
-                              stabilizationWindownSeconds:
+                              stabilizationWindowSeconds:
                                 description: |-
                                   StabilizationWindowSeconds is the number of seconds for which past
                                   recommendations should be considered while scaling up or scaling down.

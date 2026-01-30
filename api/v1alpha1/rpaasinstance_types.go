@@ -367,7 +367,7 @@ type ScaleDown struct {
 	// StabilizationWindowSeconds is the number of seconds for which past
 	// recommendations should be considered while scaling up or scaling down.
 	// +optional
-	StabilizationWindowSeconds *int32 `json:"stabilizationWindownSeconds,omitempty"`
+	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds,omitempty"`
 	// set a policy with (value: unitsPolicyValue, type: Pods, periodSeconds: 60s)
 	// +optional
 	UnitsPolicyValue *int32 `json:"unitsPolicyValue,omitempty"`
