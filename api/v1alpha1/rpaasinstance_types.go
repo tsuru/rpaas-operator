@@ -373,7 +373,7 @@ type ScaleDown struct {
 	UnitsPolicyValue *int32 `json:"unitsPolicyValue,omitempty"`
 	// set a policy with (value: percentPolicyValue, type: Percent, periodSeconds: 60s)
 	// +optional
-	PercentPolicyValue *int32 `json:"percentPolicyValue"`
+	PercentPolicyValue *int32 `json:"percentPolicyValue,omitempty"`
 }
 
 type ScheduledWindow struct {
