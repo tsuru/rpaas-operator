@@ -289,7 +289,6 @@ func (r *RpaasInstanceReconciler) reconcileSecretForSessionTickets(ctx context.C
 	if !reflect.DeepEqual(newData, secret.Data) {
 		secret.Data = newData
 		err = r.Client.Update(ctx, &secret)
-
 		if err != nil {
 			return false, err
 		}
@@ -782,14 +781,14 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 		deployName = deployments[0].Name
 	}
 
-	var min *int32
+	var minReplicas *int32
 	if instance.Spec.Autoscale != nil {
-		min = instance.Spec.Autoscale.MinReplicas
+		minReplicas = instance.Spec.Autoscale.MinReplicas
 	}
 
-	var max *int32
+	var maxReplicas *int32
 	if instance.Spec.Autoscale != nil {
-		max = &instance.Spec.Autoscale.MaxReplicas
+		maxReplicas = &instance.Spec.Autoscale.MaxReplicas
 	}
 
 	var pollingInterval *int32
@@ -820,8 +819,8 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 				Kind:       "Deployment",
 				Name:       deployName,
 			},
-			MinReplicaCount: min,
-			MaxReplicaCount: max,
+			MinReplicaCount: minReplicas,
+			MaxReplicaCount: maxReplicas,
 			PollingInterval: pollingInterval,
 			Triggers:        triggers,
 			Advanced: &kedav1alpha1.AdvancedConfig{
@@ -1406,7 +1405,7 @@ func buildHPAMetrics(instance *v1alpha1.RpaasInstance) []autoscalingv2.MetricSpe
 	var metrics []autoscalingv2.MetricSpec
 
 	if len(instance.Spec.PodTemplate.Containers) > 0 {
-		//only look at nginx container metrics if there are multiple containers
+		// only look at nginx container metrics if there are multiple containers
 		return buildNGNIXContainerMetrics(instance)
 	}
 
@@ -1541,7 +1540,6 @@ func genericMerge(dst interface{}, overrides ...interface{}) error {
 type rpaasMergoTransformers struct{}
 
 func (_ rpaasMergoTransformers) Transformer(t reflect.Type) func(reflect.Value, reflect.Value) error {
-
 	switch t {
 	case reflect.TypeOf(v1alpha1.Bool(true)):
 		return func(dst, src reflect.Value) error {

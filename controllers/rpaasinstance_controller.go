@@ -58,7 +58,6 @@ type RpaasInstanceReconciler struct {
 // +kubebuilder:rbac:groups=keda.sh,resources=scaledobjects,verbs=get;list;watch;create;update;delete
 
 func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-
 	instance, err := r.getRpaasInstance(ctx, req.NamespacedName)
 	if k8sErrors.IsNotFound(err) {
 		return reconcile.Result{}, nil
@@ -71,7 +70,7 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, err
 	}
 	var reservation SystemRolloutReservation
-	var reportError = func(err error) (ctrl.Result, error) {
+	reportError := func(err error) (ctrl.Result, error) {
 		if reservation != nil {
 			reservation.Cancel()
 		}

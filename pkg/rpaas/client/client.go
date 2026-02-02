@@ -94,24 +94,6 @@ type InfoArgs struct {
 	Raw      bool
 }
 
-type GetAutoscaleArgs struct {
-	Instance string
-	Raw      bool
-}
-
-type UpdateAutoscaleArgs struct {
-	Instance    string
-	MinReplicas *int32
-	MaxReplicas *int32
-	CPU         *int32
-	Memory      *int32
-	RPS         *int32
-}
-
-type RemoveAutoscaleArgs struct {
-	Instance string
-}
-
 type ExecArgs struct {
 	In             io.Reader
 	Command        []string

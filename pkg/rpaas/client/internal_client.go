@@ -62,16 +62,6 @@ func newErrUnexpectedStatusCodeFromResponse(r *http.Response) error {
 	return &ErrUnexpectedStatusCode{Status: r.StatusCode, Body: string(body)}
 }
 
-func IsNotFoundError(err error) bool {
-	if httpErr, ok := err.(*ErrUnexpectedStatusCode); ok {
-		if httpErr.Status == http.StatusNotFound {
-			return true
-		}
-	}
-
-	return false
-}
-
 type ClientOptions struct {
 	Timeout            time.Duration
 	InsecureSkipVerify bool
@@ -79,10 +69,6 @@ type ClientOptions struct {
 
 var DefaultClientOptions = ClientOptions{
 	Timeout: 10 * time.Second,
-}
-
-func NewClient(address, user, password string) (Client, error) {
-	return NewClientWithOptions(address, user, password, DefaultClientOptions)
 }
 
 func NewClientWithOptions(address, user, password string, opts ClientOptions) (Client, error) {

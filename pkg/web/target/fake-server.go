@@ -22,7 +22,6 @@ func (f *fakeServerFactory) Manager(ctx context.Context, header http.Header) (rp
 }
 
 func NewFakeServerFactory(runtimeObjects []runtime.Object) (Factory, error) {
-
 	scheme := extensionsruntime.NewScheme()
 	k8sClient := fake.NewClientBuilder().WithScheme(scheme).WithRuntimeObjects(runtimeObjects...).Build()
 
@@ -32,8 +31,4 @@ func NewFakeServerFactory(runtimeObjects []runtime.Object) (Factory, error) {
 	}
 
 	return &fakeServerFactory{manager: manager}, nil
-}
-
-func NewFakeFactory(manager rpaas.RpaasManager) Factory {
-	return &fakeServerFactory{manager: manager}
 }
