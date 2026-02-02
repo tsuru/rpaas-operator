@@ -693,7 +693,7 @@ func (r *RpaasInstanceReconciler) reconcileKEDA(ctx context.Context, instance *v
 
 func isAutoscaleValid(a *v1alpha1.RpaasInstanceAutoscaleSpec) bool {
 	return a != nil &&
-		(a.MinReplicas != nil && a.MaxReplicas > 0) &&
+		(a.MinReplicas != nil && *a.MinReplicas > 0 && a.MaxReplicas > 0) &&
 		(a.TargetCPUUtilizationPercentage != nil || a.TargetMemoryUtilizationPercentage != nil || a.TargetRequestsPerSecond != nil || len(a.Schedules) > 0)
 }
 

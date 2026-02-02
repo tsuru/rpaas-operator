@@ -497,6 +497,22 @@ func Test_isAutoscaleValid(t *testing.T) {
 			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{},
 		},
 
+		"Invalid minReplicas is null": {
+			isValid: false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MinReplicas: nil,
+				MaxReplicas: 1,
+			},
+		},
+
+		"Invalid minReplicas is 0": {
+			isValid: false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MinReplicas: func(n int32) *int32 { return &n }(0),
+				MaxReplicas: 1,
+			},
+		},
+
 		"Invalid minReplicas is greater than maxReplicas": {
 			isValid: false,
 			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
@@ -1436,7 +1452,7 @@ func Test_reconcileHPA(t *testing.T) {
 		"(native HPA controller) with scheduled windows": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas: func(n int32) *int32 { return &n }(0),
+					MinReplicas: func(n int32) *int32 { return &n }(1),
 					MaxReplicas: 10,
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 1, Start: "00 8 * * 1-5", End: "00 20 * * 1-5"},
@@ -2050,7 +2066,7 @@ func Test_reconcileHPA(t *testing.T) {
 		"(KEDA controller) with scheduled windows": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas: func(n int32) *int32 { return &n }(0),
+					MinReplicas: func(n int32) *int32 { return &n }(1),
 					MaxReplicas: 50,
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
@@ -2065,7 +2081,7 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			expectedChanged: true,
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(0)
+				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
 				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
@@ -3879,7 +3895,6 @@ func TestExternalAddresssesFromNginx(t *testing.T) {
 		IPs:       []string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4", "8.1.1.1", "8.1.1.2", "8.1.1.3", "8.1.1.4"},
 		Hostnames: []string{"host1", "host2", "host8", "host9"},
 	}, externalAddresses)
-
 }
 
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {
