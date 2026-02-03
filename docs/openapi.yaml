@@ -647,21 +647,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ScheduledWindow"
-        stabilizationWindowSeconds:
-          description: "is the number of seconds for which past recommendations should be considered while scaling up or scaling down."
-          type: integer
-          example: 300
-        unitsPolicyValue:
-          description: "set a policy with (value: unitsPolicyValue, type: Pods, periodSeconds: 60s)"
-          type: integer
-          example: 3
-        percentPolicyValue:
-          description: "set a policy with (value: percentPolicyValue, type: Percent, periodSeconds: 60s)"
-          type: integer
-          example: 30
+        behavior:
+          description: Behavior for the autoscale
+          $ref: "#/components/schemas/Behavior"
       required:
       - minReplicas
       - maxReplicas
+
+    Behavior:
+      type: object
+      properties:
+        scaleDown:
+          description: "how the autoscale should scale down"
+          $ref: "#/components/schemas/ScaleDown"
 
     BindApp:
       type: object
@@ -992,6 +990,22 @@ components:
         content:
           type: string
           example: ""
+
+    ScaleDown:
+      type: object
+      properties:
+        stabilizationWindowSeconds:
+          description: "is the number of seconds for which past recommendations should be considered while scaling up or scaling down."
+          type: integer
+          example: 300
+        unitsPolicyValue:
+          description: "set a policy with (value: unitsPolicyValue, type: Pods, periodSeconds: 60s)"
+          type: integer
+          example: 3
+        percentPolicyValue:
+          description: "set a policy with (value: percentPolicyValue, type: Percent, periodSeconds: 60s)"
+          type: integer
+          example: 30
 
     ScheduledWindow:
       type: object
