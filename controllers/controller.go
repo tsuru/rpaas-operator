@@ -797,10 +797,12 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 		pollingInterval = instance.Spec.Autoscale.KEDAOptions.PollingInterval
 	}
 
-	var scalingDownRules *autoscalingv2.HPAScalingRules
+	var behavior *autoscalingv2.HorizontalPodAutoscalerBehavior
 	if hasAutoscale && instance.Spec.Autoscale.Behavior != nil && instance.Spec.Autoscale.Behavior.ScaleDown != nil {
-		var scalingDown = instance.Spec.Autoscale.Behavior.ScaleDown
-		scalingDownRules = &autoscalingv2.HPAScalingRules{}
+		behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+		scalingDown := instance.Spec.Autoscale.Behavior.ScaleDown
+
+		scalingDownRules := &autoscalingv2.HPAScalingRules{}
 		if scalingDown.StabilizationWindowSeconds != nil {
 			scalingDownRules.StabilizationWindowSeconds = scalingDown.StabilizationWindowSeconds
 		}
@@ -820,6 +822,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 			}
 			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
 		}
+		behavior.ScaleDown = scalingDownRules
 	}
 
 	return &kedav1alpha1.ScaledObject{
@@ -851,10 +854,8 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 			Triggers:        triggers,
 			Advanced: &kedav1alpha1.AdvancedConfig{
 				HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-					Name: instance.Name,
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
-						ScaleDown: scalingDownRules,
-					},
+					Name:     instance.Name,
+					Behavior: behavior,
 				},
 			},
 		},
@@ -1487,10 +1488,12 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 		}
 	}
 
-	var scalingDownRules *autoscalingv2.HPAScalingRules
+	var behavior *autoscalingv2.HorizontalPodAutoscalerBehavior
 	if a := instance.Spec.Autoscale; a != nil && a.Behavior != nil && a.Behavior.ScaleDown != nil {
-		var scalingDown = instance.Spec.Autoscale.Behavior.ScaleDown
-		scalingDownRules = &autoscalingv2.HPAScalingRules{}
+		behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+		scalingDown := instance.Spec.Autoscale.Behavior.ScaleDown
+
+		scalingDownRules := &autoscalingv2.HPAScalingRules{}
 		if scalingDown.StabilizationWindowSeconds != nil {
 			scalingDownRules.StabilizationWindowSeconds = scalingDown.StabilizationWindowSeconds
 		}
@@ -1510,6 +1513,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 			}
 			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
 		}
+		behavior.ScaleDown = scalingDownRules
 	}
 
 	return &autoscalingv2.HorizontalPodAutoscaler{
@@ -1538,9 +1542,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 			MinReplicas: minReplicas,
 			MaxReplicas: maxReplicas,
 			Metrics:     metrics,
-			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
-				ScaleDown: scalingDownRules,
-			},
+			Behavior:    behavior,
 		},
 	}
 }

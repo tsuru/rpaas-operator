@@ -1148,9 +1148,6 @@ func Test_reconcileHPA(t *testing.T) {
 	t.Parallel()
 
 	baseExpectedHPA := &autoscalingv2.HorizontalPodAutoscaler{
-		Spec: autoscalingv2.HorizontalPodAutoscalerSpec{
-			Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
-		},
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "autoscaling/v2",
 			Kind:       "HorizontalPodAutoscaler",
@@ -1217,8 +1214,7 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			Advanced: &kedav1alpha1.AdvancedConfig{
 				HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-					Name:     "my-instance",
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+					Name: "my-instance",
 				},
 			},
 		},
@@ -1265,7 +1261,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1295,7 +1290,6 @@ func Test_reconcileHPA(t *testing.T) {
 								},
 							},
 						},
-						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 					}
 					return hpa
 				}(baseExpectedHPA.DeepCopy()),
@@ -1342,7 +1336,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1371,7 +1364,6 @@ func Test_reconcileHPA(t *testing.T) {
 								},
 							},
 						},
-						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 					}
 					return hpa
 				}(baseExpectedHPA.DeepCopy()),
@@ -1407,7 +1399,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1513,7 +1504,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1596,7 +1586,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1627,7 +1616,6 @@ func Test_reconcileHPA(t *testing.T) {
 								},
 							},
 						},
-						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 					}
 					return hpa
 				}(baseExpectedHPA.DeepCopy()),
@@ -1667,7 +1655,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1737,7 +1724,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1768,7 +1754,6 @@ func Test_reconcileHPA(t *testing.T) {
 								},
 							},
 						},
-						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 					}
 					return hpa
 				}(baseExpectedHPA.DeepCopy()),
@@ -1803,7 +1788,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -1931,8 +1915,7 @@ func Test_reconcileHPA(t *testing.T) {
 						PollingInterval: ptr.To(int32(5)),
 						Advanced: &kedav1alpha1.AdvancedConfig{
 							HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-								Name:     "my-instance",
-								Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+								Name: "my-instance",
 							},
 						},
 						Triggers: []kedav1alpha1.ScaleTriggers{
@@ -2067,7 +2050,6 @@ func Test_reconcileHPA(t *testing.T) {
 							},
 						},
 					},
-					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
 				}
 				return hpa
 			},
@@ -2289,8 +2271,7 @@ func Test_reconcileHPA(t *testing.T) {
 						PollingInterval: ptr.To(int32(5)),
 						Advanced: &kedav1alpha1.AdvancedConfig{
 							HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-								Name:     "my-instance",
-								Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{},
+								Name: "my-instance",
 							},
 						},
 						Triggers: []kedav1alpha1.ScaleTriggers{
