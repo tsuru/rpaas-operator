@@ -100,7 +100,7 @@ func Test_newNginx(t *testing.T) {
 
 		"with KEDA configs set but autoscale disabled": {
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Replicas = func(n int32) *int32 { return &n }(15)
+				i.Spec.Replicas = ptr.To[int32](15)
 				i.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
 						Enabled:                 true,
@@ -111,19 +111,19 @@ func Test_newNginx(t *testing.T) {
 				return i
 			},
 			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
-				n.Spec.Replicas = func(n int32) *int32 { return &n }(15)
+				n.Spec.Replicas = ptr.To[int32](15)
 				return n
 			},
 		},
 
 		"with Shutdown enabled": {
 			instance: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
-				i.Spec.Replicas = func(n int32) *int32 { return &n }(8)
+				i.Spec.Replicas = ptr.To[int32](8)
 				i.Spec.Shutdown = true
 				return i
 			},
 			expected: func(n *nginxv1alpha1.Nginx) *nginxv1alpha1.Nginx {
-				n.Spec.Replicas = func(n int32) *int32 { return &n }(0)
+				n.Spec.Replicas = ptr.To[int32](0)
 				return n
 			},
 		},
@@ -497,10 +497,26 @@ func Test_isAutoscaleValid(t *testing.T) {
 			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{},
 		},
 
+		"Invalid minReplicas is null": {
+			isValid: false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MinReplicas: nil,
+				MaxReplicas: 1,
+			},
+		},
+
+		"Invalid minReplicas is 0": {
+			isValid: false,
+			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
+				MinReplicas: ptr.To[int32](0),
+				MaxReplicas: 1,
+			},
+		},
+
 		"Invalid minReplicas is greater than maxReplicas": {
 			isValid: false,
 			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
-				MinReplicas: func(n int32) *int32 { return &n }(5),
+				MinReplicas: ptr.To[int32](5),
 				MaxReplicas: 1,
 			},
 		},
@@ -509,8 +525,8 @@ func Test_isAutoscaleValid(t *testing.T) {
 			isValid: true,
 			autoscale: v1alpha1.RpaasInstanceAutoscaleSpec{
 				MaxReplicas:                    8,
-				MinReplicas:                    func(n int32) *int32 { return &n }(2),
-				TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+				MinReplicas:                    ptr.To[int32](2),
+				TargetCPUUtilizationPercentage: ptr.To[int32](90),
 			},
 		},
 	}
@@ -542,8 +558,8 @@ func Test_isAutoscaleEnabled(t *testing.T) {
 				Shutdown: true,
 				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MaxReplicas:                    8,
-					MinReplicas:                    func(n int32) *int32 { return &n }(2),
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					MinReplicas:                    ptr.To[int32](2),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
 				},
 			},
 		},
@@ -554,8 +570,8 @@ func Test_isAutoscaleEnabled(t *testing.T) {
 				Shutdown: false,
 				Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MaxReplicas:                    4,
-					MinReplicas:                    func(n int32) *int32 { return &n }(2),
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(70),
+					MinReplicas:                    ptr.To[int32](2),
+					TargetCPUUtilizationPercentage: ptr.To[int32](70),
 				},
 			},
 		},
@@ -824,7 +840,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
 							DNS: &v1alpha1.DNSConfig{
 								Zone: "apps.example.com",
-								TTL:  func(n int32) *int32 { return &n }(300),
+								TTL:  ptr.To[int32](300),
 							},
 							PodTemplate: nginxv1alpha1.NginxPodTemplateSpec{
 								Annotations: map[string]string{
@@ -843,7 +859,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 						InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
 							DNS: &v1alpha1.DNSConfig{
 								Zone: "apps.test",
-								TTL:  func(n int32) *int32 { return &n }(30),
+								TTL:  ptr.To[int32](30),
 							},
 						},
 					},
@@ -856,7 +872,7 @@ func TestReconcileRpaasInstance_getRpaasInstance(t *testing.T) {
 			expected: func(i *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				i.Spec.DNS = &v1alpha1.DNSConfig{
 					Zone: "apps.test",
-					TTL:  func(n int32) *int32 { return &n }(30),
+					TTL:  ptr.To[int32](30),
 				}
 				i.Spec.PodTemplate = nginxv1alpha1.NginxPodTemplateSpec{
 					Annotations: map[string]string{
@@ -1218,9 +1234,9 @@ func Test_reconcileHPA(t *testing.T) {
 		"(native HPA controller) setting autoscaling params first time": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(5),
+					MinReplicas:                    ptr.To[int32](5),
 					MaxReplicas:                    100,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
 				}
 				return ri
 			},
@@ -1231,7 +1247,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(5),
+					MinReplicas: ptr.To[int32](5),
 					MaxReplicas: 100,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1240,7 +1256,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Name: "cpu",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 							},
 						},
@@ -1260,7 +1276,7 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MinReplicas: ptr.To[int32](1),
 						MaxReplicas: 10,
 						Metrics: []autoscalingv2.MetricSpec{
 							{
@@ -1269,7 +1285,7 @@ func Test_reconcileHPA(t *testing.T) {
 									Name: "cpu",
 									Target: autoscalingv2.MetricTarget{
 										Type:               autoscalingv2.UtilizationMetricType,
-										AverageUtilization: func(n int32) *int32 { return &n }(200),
+										AverageUtilization: ptr.To[int32](200),
 									},
 								},
 							},
@@ -1280,10 +1296,10 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                       func(n int32) *int32 { return &n }(2),
+					MinReplicas:                       ptr.To[int32](2),
 					MaxReplicas:                       100,
-					TargetCPUUtilizationPercentage:    func(n int32) *int32 { return &n }(90),
-					TargetMemoryUtilizationPercentage: func(n int32) *int32 { return &n }(70),
+					TargetCPUUtilizationPercentage:    ptr.To[int32](90),
+					TargetMemoryUtilizationPercentage: ptr.To[int32](70),
 				}
 				return ri
 			},
@@ -1296,7 +1312,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(2),
+					MinReplicas: ptr.To[int32](2),
 					MaxReplicas: 100,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1305,7 +1321,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Name: "cpu",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 							},
 						},
@@ -1315,7 +1331,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Name: "memory",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(70),
+									AverageUtilization: ptr.To[int32](70),
 								},
 							},
 						},
@@ -1419,9 +1435,9 @@ func Test_reconcileHPA(t *testing.T) {
 		"(native HPA controller) with RPS enabled": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:             func(n int32) *int32 { return &n }(2),
+					MinReplicas:             ptr.To[int32](2),
 					MaxReplicas:             500,
-					TargetRequestsPerSecond: func(n int32) *int32 { return &n }(50),
+					TargetRequestsPerSecond: ptr.To[int32](50),
 				}
 				return ri
 			},
@@ -1436,7 +1452,7 @@ func Test_reconcileHPA(t *testing.T) {
 		"(native HPA controller) with scheduled windows": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas: func(n int32) *int32 { return &n }(0),
+					MinReplicas: ptr.To[int32](1),
 					MaxReplicas: 10,
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 1, Start: "00 8 * * 1-5", End: "00 20 * * 1-5"},
@@ -1460,9 +1476,9 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				}
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    10,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(50),
+					TargetCPUUtilizationPercentage: ptr.To[int32](50),
 				}
 				return ri
 			},
@@ -1473,7 +1489,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MinReplicas: ptr.To[int32](1),
 					MaxReplicas: 10,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1483,7 +1499,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Container: "nginx",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 							},
 						},
@@ -1503,7 +1519,7 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MinReplicas: ptr.To[int32](1),
 						MaxReplicas: 10,
 						Metrics: []autoscalingv2.MetricSpec{
 							{
@@ -1513,7 +1529,7 @@ func Test_reconcileHPA(t *testing.T) {
 									Container: "nginx",
 									Target: autoscalingv2.MetricTarget{
 										Type:               autoscalingv2.UtilizationMetricType,
-										AverageUtilization: func(n int32) *int32 { return &n }(90),
+										AverageUtilization: ptr.To[int32](90),
 									},
 								},
 							},
@@ -1529,10 +1545,10 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				}
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                       func(n int32) *int32 { return &n }(1),
+					MinReplicas:                       ptr.To[int32](1),
 					MaxReplicas:                       10,
-					TargetCPUUtilizationPercentage:    func(n int32) *int32 { return &n }(50),
-					TargetMemoryUtilizationPercentage: func(n int32) *int32 { return &n }(60),
+					TargetCPUUtilizationPercentage:    ptr.To[int32](50),
+					TargetMemoryUtilizationPercentage: ptr.To[int32](60),
 				}
 				return ri
 			},
@@ -1544,7 +1560,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MinReplicas: ptr.To[int32](1),
 					MaxReplicas: 10,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1554,7 +1570,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Container: "nginx",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(50),
+									AverageUtilization: ptr.To[int32](50),
 								},
 							},
 						},
@@ -1565,7 +1581,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Container: "nginx",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(60),
+									AverageUtilization: ptr.To[int32](60),
 								},
 							},
 						},
@@ -1585,7 +1601,7 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MinReplicas: ptr.To[int32](1),
 						MaxReplicas: 10,
 						Metrics: []autoscalingv2.MetricSpec{
 							{
@@ -1595,7 +1611,7 @@ func Test_reconcileHPA(t *testing.T) {
 									Container: "nginx",
 									Target: autoscalingv2.MetricTarget{
 										Type:               autoscalingv2.UtilizationMetricType,
-										AverageUtilization: func(n int32) *int32 { return &n }(90),
+										AverageUtilization: ptr.To[int32](90),
 									},
 								},
 							},
@@ -1611,9 +1627,9 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				}
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    10,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
 				}
 				return ri
 			},
@@ -1624,7 +1640,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MinReplicas: ptr.To[int32](1),
 					MaxReplicas: 10,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1634,7 +1650,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Container: "nginx",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 							},
 						},
@@ -1654,7 +1670,7 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MinReplicas: ptr.To[int32](1),
 						MaxReplicas: 10,
 						Metrics: []autoscalingv2.MetricSpec{
 							{
@@ -1663,7 +1679,7 @@ func Test_reconcileHPA(t *testing.T) {
 									Name: "cpu",
 									Target: autoscalingv2.MetricTarget{
 										Type:               autoscalingv2.UtilizationMetricType,
-										AverageUtilization: func(n int32) *int32 { return &n }(90),
+										AverageUtilization: ptr.To[int32](90),
 									},
 								},
 							},
@@ -1679,9 +1695,9 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				}
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    10,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
 				}
 				return ri
 			},
@@ -1693,7 +1709,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MinReplicas: ptr.To[int32](1),
 					MaxReplicas: 10,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1703,7 +1719,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Container: "nginx",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 							},
 						},
@@ -1723,7 +1739,7 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicas: func(n int32) *int32 { return &n }(1),
+						MinReplicas: ptr.To[int32](1),
 						MaxReplicas: 10,
 						Metrics: []autoscalingv2.MetricSpec{
 							{
@@ -1733,7 +1749,7 @@ func Test_reconcileHPA(t *testing.T) {
 									Container: "nginx",
 									Target: autoscalingv2.MetricTarget{
 										Type:               autoscalingv2.UtilizationMetricType,
-										AverageUtilization: func(n int32) *int32 { return &n }(90),
+										AverageUtilization: ptr.To[int32](90),
 									},
 								},
 							},
@@ -1744,9 +1760,9 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    10,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
 				}
 				return ri
 			},
@@ -1758,7 +1774,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(1),
+					MinReplicas: ptr.To[int32](1),
 					MaxReplicas: 10,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -1767,7 +1783,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Name: "cpu",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(90),
+									AverageUtilization: ptr.To[int32](90),
 								},
 							},
 						},
@@ -1781,9 +1797,9 @@ func Test_reconcileHPA(t *testing.T) {
 		"(KEDA controller) with RPS enabled": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:             func(n int32) *int32 { return &n }(2),
+					MinReplicas:             ptr.To[int32](2),
 					MaxReplicas:             500,
-					TargetRequestsPerSecond: func(n int32) *int32 { return &n }(50),
+					TargetRequestsPerSecond: ptr.To[int32](50),
 					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
 						Enabled:                 true,
 						PrometheusServerAddress: "https://prometheus.example.com",
@@ -1793,8 +1809,8 @@ func Test_reconcileHPA(t *testing.T) {
 				return ri
 			},
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(2)
-				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(500)
+				so.Spec.MinReplicaCount = ptr.To[int32](2)
+				so.Spec.MaxReplicaCount = ptr.To[int32](500)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type: "prometheus",
@@ -1819,8 +1835,8 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicaCount: func(n int32) *int32 { return &n }(2),
-						MaxReplicaCount: func(n int32) *int32 { return &n }(500),
+						MinReplicaCount: ptr.To[int32](2),
+						MaxReplicaCount: ptr.To[int32](500),
 						Triggers: []kedav1alpha1.ScaleTriggers{
 							{
 								Type: "prometheus",
@@ -1838,10 +1854,10 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(5),
+					MinReplicas:                    ptr.To[int32](5),
 					MaxReplicas:                    42,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
-					TargetRequestsPerSecond:        func(n int32) *int32 { return &n }(100),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
+					TargetRequestsPerSecond:        ptr.To[int32](100),
 					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
 						Enabled:                 true,
 						PrometheusServerAddress: "https://prometheus.example.com",
@@ -1850,16 +1866,16 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind: "ClusterTriggerAuthentication",
 							Name: "prometheus-auth",
 						},
-						PollingInterval: func(n int32) *int32 { return &n }(5),
+						PollingInterval: ptr.To[int32](5),
 					},
 				}
 				return ri
 			},
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
 				so.ResourceVersion = "2" // second update
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(5)
-				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(42)
-				so.Spec.PollingInterval = func(n int32) *int32 { return &n }(5)
+				so.Spec.MinReplicaCount = ptr.To[int32](5)
+				so.Spec.MaxReplicaCount = ptr.To[int32](42)
+				so.Spec.PollingInterval = ptr.To[int32](5)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type:       "cpu",
@@ -2002,9 +2018,9 @@ func Test_reconcileHPA(t *testing.T) {
 		"(KEDA controller) KEDA controller enabled, but instance does not have RPS trigger": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(3),
+					MinReplicas:                    ptr.To[int32](3),
 					MaxReplicas:                    int32(100),
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(75),
+					TargetCPUUtilizationPercentage: ptr.To[int32](75),
 					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
 						Enabled:                 true,
 						PrometheusServerAddress: "https://prometheus.example.com",
@@ -2020,7 +2036,7 @@ func Test_reconcileHPA(t *testing.T) {
 						Kind:       "Deployment",
 						Name:       "my-instance",
 					},
-					MinReplicas: func(n int32) *int32 { return &n }(3),
+					MinReplicas: ptr.To[int32](3),
 					MaxReplicas: 100,
 					Metrics: []autoscalingv2.MetricSpec{
 						{
@@ -2029,7 +2045,7 @@ func Test_reconcileHPA(t *testing.T) {
 								Name: "cpu",
 								Target: autoscalingv2.MetricTarget{
 									Type:               autoscalingv2.UtilizationMetricType,
-									AverageUtilization: func(n int32) *int32 { return &n }(75),
+									AverageUtilization: ptr.To[int32](75),
 								},
 							},
 						},
@@ -2050,7 +2066,7 @@ func Test_reconcileHPA(t *testing.T) {
 		"(KEDA controller) with scheduled windows": {
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas: func(n int32) *int32 { return &n }(0),
+					MinReplicas: ptr.To[int32](1),
 					MaxReplicas: 50,
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
@@ -2065,8 +2081,8 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			expectedChanged: true,
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(0)
-				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.MinReplicaCount = ptr.To[int32](1)
+				so.Spec.MaxReplicaCount = ptr.To[int32](50)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type: "cron",
@@ -2099,9 +2115,9 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				}
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    50,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(50),
+					TargetCPUUtilizationPercentage: ptr.To[int32](50),
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
 						{MinReplicas: 10, Start: "00 22 * * 0", End: "00 01 * * 1", Timezone: "America/Sao_Paulo"},
@@ -2115,8 +2131,8 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			expectedChanged: true,
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
-				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.MinReplicaCount = ptr.To[int32](1)
+				so.Spec.MaxReplicaCount = ptr.To[int32](50)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type:       "cpu",
@@ -2158,8 +2174,8 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicaCount: func(n int32) *int32 { return &n }(1),
-						MaxReplicaCount: func(n int32) *int32 { return &n }(50),
+						MinReplicaCount: ptr.To[int32](1),
+						MaxReplicaCount: ptr.To[int32](50),
 						Triggers: []kedav1alpha1.ScaleTriggers{
 							{
 								Type:       "cpu",
@@ -2190,9 +2206,9 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				}
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    50,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(80),
+					TargetCPUUtilizationPercentage: ptr.To[int32](80),
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
 						{MinReplicas: 10, Start: "00 22 * * 0", End: "00 01 * * 1"},
@@ -2207,8 +2223,8 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
 				so.ResourceVersion = "2" // second update
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
-				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.MinReplicaCount = ptr.To[int32](1)
+				so.Spec.MaxReplicaCount = ptr.To[int32](50)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type:       "cpu",
@@ -2293,7 +2309,7 @@ func Test_reconcileHPA(t *testing.T) {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
 					MinReplicas:                    ptr.To(int32(2)),
 					MaxReplicas:                    500,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(50),
+					TargetCPUUtilizationPercentage: ptr.To[int32](50),
 					TargetRequestsPerSecond:        ptr.To(int32(50)),
 					KEDAOptions: &v1alpha1.AutoscaleKEDAOptions{
 						Enabled:                 true,
@@ -2348,8 +2364,8 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicaCount: func(n int32) *int32 { return &n }(1),
-						MaxReplicaCount: func(n int32) *int32 { return &n }(50),
+						MinReplicaCount: ptr.To[int32](1),
+						MaxReplicaCount: ptr.To[int32](50),
 						Triggers: []kedav1alpha1.ScaleTriggers{
 							{
 								Type:       "cpu",
@@ -2379,9 +2395,9 @@ func Test_reconcileHPA(t *testing.T) {
 					},
 				}
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    50,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
 					},
@@ -2395,8 +2411,8 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
 				so.ResourceVersion = "2" // second update
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
-				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.MinReplicaCount = ptr.To[int32](1)
+				so.Spec.MaxReplicaCount = ptr.To[int32](50)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type:       "cpu",
@@ -2429,8 +2445,8 @@ func Test_reconcileHPA(t *testing.T) {
 							Kind:       "Deployment",
 							Name:       "my-instance",
 						},
-						MinReplicaCount: func(n int32) *int32 { return &n }(1),
-						MaxReplicaCount: func(n int32) *int32 { return &n }(50),
+						MinReplicaCount: ptr.To[int32](1),
+						MaxReplicaCount: ptr.To[int32](50),
 						Triggers: []kedav1alpha1.ScaleTriggers{
 							{
 								Type:       "cpu",
@@ -2456,9 +2472,9 @@ func Test_reconcileHPA(t *testing.T) {
 			},
 			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
 				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
-					MinReplicas:                    func(n int32) *int32 { return &n }(1),
+					MinReplicas:                    ptr.To[int32](1),
 					MaxReplicas:                    50,
-					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					TargetCPUUtilizationPercentage: ptr.To[int32](90),
 					Schedules: []v1alpha1.ScheduledWindow{
 						{MinReplicas: 5, Start: "00 20 * * 2", End: "00 01 * * 3"},
 					},
@@ -2472,8 +2488,8 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 			expectedScaledObject: func(so *kedav1alpha1.ScaledObject) *kedav1alpha1.ScaledObject {
 				so.ResourceVersion = "2" // second update
-				so.Spec.MinReplicaCount = func(n int32) *int32 { return &n }(1)
-				so.Spec.MaxReplicaCount = func(n int32) *int32 { return &n }(50)
+				so.Spec.MinReplicaCount = ptr.To[int32](1)
+				so.Spec.MaxReplicaCount = ptr.To[int32](50)
 				so.Spec.Triggers = []kedav1alpha1.ScaleTriggers{
 					{
 						Type:       "cpu",
@@ -2571,7 +2587,7 @@ func Test_reconcilePDB(t *testing.T) {
 			},
 			Spec: v1alpha1.RpaasInstanceSpec{
 				EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
-				Replicas:                  func(n int32) *int32 { return &n }(1),
+				Replicas:                  ptr.To[int32](1),
 			},
 		},
 
@@ -2725,7 +2741,7 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
-					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Replicas:                  ptr.To[int32](10),
 				},
 			},
 			expectedChanged: true,
@@ -2795,10 +2811,10 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
-					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Replicas:                  ptr.To[int32](10),
 					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
 						MaxReplicas: int32(100),
-						MinReplicas: func(n int32) *int32 { return &n }(int32(50)),
+						MinReplicas: ptr.To[int32](50),
 					},
 				},
 			},
@@ -2869,10 +2885,10 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
-					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Replicas:                  ptr.To[int32](10),
 					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
 						MaxReplicas: int32(100),
-						MinReplicas: func(n int32) *int32 { return &n }(int32(50)),
+						MinReplicas: ptr.To[int32](50),
 					},
 				},
 			},
@@ -2942,10 +2958,10 @@ func Test_reconcilePDB(t *testing.T) {
 					Namespace: "rpaasv2",
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
-					Replicas: func(n int32) *int32 { return &n }(10),
+					Replicas: ptr.To[int32](10),
 					Autoscale: &v1alpha1.RpaasInstanceAutoscaleSpec{
 						MaxReplicas: int32(100),
-						MinReplicas: func(n int32) *int32 { return &n }(int32(50)),
+						MinReplicas: ptr.To[int32](50),
 					},
 				},
 			},
@@ -2983,7 +2999,7 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
-					Replicas:                  func(n int32) *int32 { return &n }(0),
+					Replicas:                  ptr.To[int32](0),
 				},
 			},
 			nginx: &nginxv1alpha1.Nginx{
@@ -3053,7 +3069,7 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(false),
-					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Replicas:                  ptr.To[int32](10),
 				},
 			},
 			nginx: &nginxv1alpha1.Nginx{
@@ -3090,7 +3106,7 @@ func Test_reconcilePDB(t *testing.T) {
 				},
 				Spec: v1alpha1.RpaasInstanceSpec{
 					EnablePodDisruptionBudget: func(b bool) *bool { return &b }(true),
-					Replicas:                  func(n int32) *int32 { return &n }(10),
+					Replicas:                  ptr.To[int32](10),
 				},
 			},
 			expectedChanged: false,
@@ -3770,7 +3786,7 @@ func Test_mergeServiceWithDNS(t *testing.T) {
 					Service: &nginxv1alpha1.NginxService{},
 					DNS: &v1alpha1.DNSConfig{
 						Zone: "apps.example.com",
-						TTL:  func(n int32) *int32 { return &n }(int32(600)),
+						TTL:  ptr.To[int32](600),
 					},
 				},
 			},
@@ -3797,7 +3813,7 @@ func Test_mergeServiceWithDNS(t *testing.T) {
 
 					DNS: &v1alpha1.DNSConfig{
 						Zone: "apps.example.com",
-						TTL:  func(n int32) *int32 { return &n }(int32(600)),
+						TTL:  ptr.To[int32](600),
 					},
 				},
 			},
@@ -3879,7 +3895,6 @@ func TestExternalAddresssesFromNginx(t *testing.T) {
 		IPs:       []string{"1.1.1.1", "1.1.1.2", "1.1.1.3", "1.1.1.4", "8.1.1.1", "8.1.1.2", "8.1.1.3", "8.1.1.4"},
 		Hostnames: []string{"host1", "host2", "host8", "host9"},
 	}, externalAddresses)
-
 }
 
 func newRpaasInstanceReconciler(objs ...runtime.Object) *RpaasInstanceReconciler {

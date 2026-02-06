@@ -618,7 +618,7 @@ components:
             It can be zero when set along with `rps` and/or `schedules` targets.
           type: integer
           example: 3
-          minimum: 0
+          minimum: 1
         maxReplicas:
           description: |
             The upper limit for the number of replicas to which the autoscaler can scale up.

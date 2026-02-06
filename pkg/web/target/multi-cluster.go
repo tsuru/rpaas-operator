@@ -117,7 +117,6 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 }
 
 func (m *multiClusterFactory) validationDisabled(name string) bool {
-
 	for _, cluster := range m.clusters {
 		if cluster.Name == name {
 			return cluster.DisableValidation
@@ -179,7 +178,6 @@ func (m *multiClusterFactory) getKubeConfig(name, address string) (*rest.Config,
 	}
 
 	return restConfig, nil
-
 }
 
 func (m *multiClusterFactory) readTokenFile(tokenFile string) (string, error) {

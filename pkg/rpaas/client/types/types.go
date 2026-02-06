@@ -34,14 +34,6 @@ type Route struct {
 	Content     string `json:"content,omitempty" form:"content,omitempty"`
 }
 
-type Autoscale struct {
-	MinReplicas *int32 `json:"minReplicas,omitempty" form:"min"`
-	MaxReplicas *int32 `json:"maxReplicas,omitempty" form:"max"`
-	CPU         *int32 `json:"cpu,omitempty" form:"cpu"`
-	Memory      *int32 `json:"memory,omitempty" form:"memory"`
-	RPS         *int32 `json:"rps,omitempty" form:"rps"`
-}
-
 type Flavor struct {
 	Name        string `json:"name"`
 	Description string `json:"description"`

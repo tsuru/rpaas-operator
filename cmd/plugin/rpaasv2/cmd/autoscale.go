@@ -47,10 +47,10 @@ rpaasv2 autoscale update -s my-service -i my-instance --min 2 --max 20 --rps 100
 # Combine the two targets above together:
 rpaasv2 autoscale update -s my-service -i my-instance --min 2 --max 20 --cpu 75 --rps 100
 
-# Set a scheduled window to scale up at least one replica every weekday from 8 AM until 8 PM.
+# Set a scheduled window to scale up at least three replicas every weekday from 8 AM until 8 PM, keep 2 replicas otherwise.
 rpaasv2 autoscale update -s my-service -i my-instance \
-	--min 0 --max 20 \
-	--schedule '{"minReplicas": 1, "start": "00 08 * * 1-5", "end": "00 20 * * 1-5"}'
+	--min 2 --max 20 \
+	--schedule '{"minReplicas": 3, "start": "00 08 * * 1-5", "end": "00 20 * * 1-5"}'
 
 # Set two scheduled windows:
 #	1) to scale up to max replicas every Tueday from 8 PM until at 0 PM (Wednesday)
@@ -74,7 +74,7 @@ rpaasv2 autoscale update -s my-service -i my-instance \
 			},
 			&cli.IntFlag{
 				Name:     "min",
-				Usage:    "the lower limit of replicas that can be reached",
+				Usage:    "the lower limit of replicas that can be reached (when set, minimum is 1)",
 				Required: false,
 			},
 			&cli.IntFlag{
