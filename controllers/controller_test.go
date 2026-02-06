@@ -1267,6 +1267,66 @@ func Test_reconcileHPA(t *testing.T) {
 			expectedChanged: true,
 		},
 
+		"(native HPA controller) setting autoscaling with scale down behavior": {
+			instance: func(ri *v1alpha1.RpaasInstance) *v1alpha1.RpaasInstance {
+				ri.Spec.Autoscale = &v1alpha1.RpaasInstanceAutoscaleSpec{
+					MinReplicas:                    func(n int32) *int32 { return &n }(5),
+					MaxReplicas:                    100,
+					TargetCPUUtilizationPercentage: func(n int32) *int32 { return &n }(90),
+					Behavior: &v1alpha1.Behavior{
+						ScaleDown: &v1alpha1.ScaleDown{
+							UnitsPolicyValue:           ptr.To(int32(5)),
+							PercentPolicyValue:         ptr.To(int32(50)),
+							StabilizationWindowSeconds: ptr.To(int32(20)),
+						},
+					},
+				}
+				return ri
+			},
+			expectedHPA: func(hpa *autoscalingv2.HorizontalPodAutoscaler) *autoscalingv2.HorizontalPodAutoscaler {
+				hpa.Spec = autoscalingv2.HorizontalPodAutoscalerSpec{
+					ScaleTargetRef: autoscalingv2.CrossVersionObjectReference{
+						APIVersion: "apps/v1",
+						Kind:       "Deployment",
+						Name:       "my-instance",
+					},
+					MinReplicas: func(n int32) *int32 { return &n }(5),
+					MaxReplicas: 100,
+					Metrics: []autoscalingv2.MetricSpec{
+						{
+							Type: autoscalingv2.ResourceMetricSourceType,
+							Resource: &autoscalingv2.ResourceMetricSource{
+								Name: "cpu",
+								Target: autoscalingv2.MetricTarget{
+									Type:               autoscalingv2.UtilizationMetricType,
+									AverageUtilization: func(n int32) *int32 { return &n }(90),
+								},
+							},
+						},
+					},
+					Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+						ScaleDown: &autoscalingv2.HPAScalingRules{
+							StabilizationWindowSeconds: ptr.To(int32(20)),
+							Policies: []autoscalingv2.HPAScalingPolicy{
+								{
+									Type:          autoscalingv2.PodsScalingPolicy,
+									Value:         5,
+									PeriodSeconds: 60,
+								},
+								{
+									Type:          autoscalingv2.PercentScalingPolicy,
+									Value:         50,
+									PeriodSeconds: 60,
+								},
+							},
+						},
+					},
+				}
+				return hpa
+			},
+			expectedChanged: true,
+		},
+
 		"(native HPA controller) updating autoscaling params": {
 			resources: []runtime.Object{
 				func(hpa *autoscalingv2.HorizontalPodAutoscaler) runtime.Object {
@@ -1868,6 +1928,13 @@ func Test_reconcileHPA(t *testing.T) {
 						},
 						PollingInterval: ptr.To[int32](5),
 					},
+					Behavior: &v1alpha1.Behavior{
+						ScaleDown: &v1alpha1.ScaleDown{
+							UnitsPolicyValue:           ptr.To(int32(5)),
+							PercentPolicyValue:         ptr.To(int32(50)),
+							StabilizationWindowSeconds: ptr.To(int32(20)),
+						},
+					},
 				}
 				return ri
 			},
@@ -1897,6 +1964,29 @@ func Test_reconcileHPA(t *testing.T) {
 						},
 					},
 				}
+				so.Spec.Advanced = &kedav1alpha1.AdvancedConfig{
+					HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
+						Name: "my-instance",
+						Behavior: &autoscalingv2.HorizontalPodAutoscalerBehavior{
+							ScaleDown: &autoscalingv2.HPAScalingRules{
+								StabilizationWindowSeconds: ptr.To(int32(20)),
+								Policies: []autoscalingv2.HPAScalingPolicy{
+									{
+										Type:          autoscalingv2.PodsScalingPolicy,
+										Value:         5,
+										PeriodSeconds: 60,
+									},
+									{
+										Type:          autoscalingv2.PercentScalingPolicy,
+										Value:         50,
+										PeriodSeconds: 60,
+									},
+								},
+							},
+						},
+					},
+				}
+
 				return so
 			},
 		},

@@ -21,19 +21,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  - configmaps
-  - secrets
-  - services
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - events
   verbs:
   - create
@@ -85,31 +72,6 @@ rules:
   - extensions.tsuru.io
   resources:
   - rpaasflavors
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - extensions.tsuru.io
-  resources:
-  - rpaasinstances
-  verbs:
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - extensions.tsuru.io
-  resources:
-  - rpaasinstances/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - extensions.tsuru.io
-  resources:
   - rpaasplans
   verbs:
   - get
@@ -118,6 +80,7 @@ rules:
 - apiGroups:
   - extensions.tsuru.io
   resources:
+  - rpaasinstances
   - rpaasvalidations
   verbs:
   - get
@@ -128,6 +91,7 @@ rules:
 - apiGroups:
   - extensions.tsuru.io
   resources:
+  - rpaasinstances/status
   - rpaasvalidations/status
   verbs:
   - get

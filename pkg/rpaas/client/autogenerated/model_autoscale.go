@@ -32,6 +32,7 @@ type Autoscale struct {
 	Rps *int32 `json:"rps,omitempty"`
 	// Schedules are recurring or not time-windows where the instance can scale in/out regardless of traffic or resource utilization.
 	Schedules []ScheduledWindow `json:"schedules,omitempty"`
+	Behavior  *Behavior         `json:"behavior,omitempty"`
 }
 
 // NewAutoscale instantiates a new Autoscale object
@@ -229,6 +230,38 @@ func (o *Autoscale) SetSchedules(v []ScheduledWindow) {
 	o.Schedules = v
 }
 
+// GetBehavior returns the Behavior field value if set, zero value otherwise.
+func (o *Autoscale) GetBehavior() Behavior {
+	if o == nil || IsNil(o.Behavior) {
+		var ret Behavior
+		return ret
+	}
+	return *o.Behavior
+}
+
+// GetBehaviorOk returns a tuple with the Behavior field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *Autoscale) GetBehaviorOk() (*Behavior, bool) {
+	if o == nil || IsNil(o.Behavior) {
+		return nil, false
+	}
+	return o.Behavior, true
+}
+
+// HasBehavior returns a boolean if a field has been set.
+func (o *Autoscale) HasBehavior() bool {
+	if o != nil && !IsNil(o.Behavior) {
+		return true
+	}
+
+	return false
+}
+
+// SetBehavior gets a reference to the given Behavior and assigns it to the Behavior field.
+func (o *Autoscale) SetBehavior(v Behavior) {
+	o.Behavior = &v
+}
+
 func (o Autoscale) MarshalJSON() ([]byte, error) {
 	toSerialize, err := o.ToMap()
 	if err != nil {
@@ -252,6 +285,9 @@ func (o Autoscale) ToMap() (map[string]interface{}, error) {
 	}
 	if !IsNil(o.Schedules) {
 		toSerialize["schedules"] = o.Schedules
+	}
+	if !IsNil(o.Behavior) {
+		toSerialize["behavior"] = o.Behavior
 	}
 	return toSerialize, nil
 }

@@ -239,7 +239,7 @@ func TestUpdateAutoscale(t *testing.T) {
 				var data map[string]any
 				err := json.NewDecoder(r.Body).Decode(&data)
 				require.NoError(t, err)
-				assert.Equal(t, map[string]any{"minReplicas": float64(0), "maxReplicas": float64(10), "cpu": float64(75)}, data)
+				assert.Equal(t, map[string]any{"minReplicas": float64(0), "maxReplicas": float64(10), "cpu": float64(75), "behavior": map[string]any{"scaleDown": map[string]any{}}}, data)
 
 				w.WriteHeader(http.StatusNoContent)
 			}),
@@ -260,6 +260,7 @@ func TestUpdateAutoscale(t *testing.T) {
 					"maxReplicas": float64(10),
 					"cpu":         float64(80),
 					"rps":         float64(100),
+					"behavior":    map[string]any{"scaleDown": map[string]any{}},
 				}
 				assert.Equal(t, expected, data)
 
@@ -284,6 +285,7 @@ func TestUpdateAutoscale(t *testing.T) {
 						map[string]any{"minReplicas": float64(1), "start": "00 08 * * 1-5", "end": "00 20 * * 1-5"},
 						map[string]any{"minReplicas": float64(3), "start": "00 12 * * 1-5", "end": "00 13 * * 1-5"},
 					},
+					"behavior": map[string]any{"scaleDown": map[string]any{}},
 				}
 				assert.Equal(t, expected, data)
 

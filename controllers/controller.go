@@ -714,7 +714,8 @@ func buildMetadataForScaledObject(instance *v1alpha1.RpaasInstance, value string
 
 func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) (*kedav1alpha1.ScaledObject, error) {
 	var triggers []kedav1alpha1.ScaleTriggers
-	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
+	var hasAutoscale bool = instance.Spec.Autoscale != nil
+	if hasAutoscale && instance.Spec.Autoscale.TargetCPUUtilizationPercentage != nil {
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 			Type:       "cpu",
 			MetricType: autoscalingv2.UtilizationMetricType,
@@ -722,7 +723,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 		})
 	}
 
-	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetMemoryUtilizationPercentage != nil {
+	if hasAutoscale && instance.Spec.Autoscale.TargetMemoryUtilizationPercentage != nil {
 		triggers = append(triggers, kedav1alpha1.ScaleTriggers{
 			Type:       "memory",
 			MetricType: autoscalingv2.UtilizationMetricType,
@@ -730,7 +731,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 		})
 	}
 
-	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.TargetRequestsPerSecond != nil {
+	if hasAutoscale && instance.Spec.Autoscale.TargetRequestsPerSecond != nil {
 		kopts := instance.Spec.Autoscale.KEDAOptions
 		if kopts == nil {
 			return nil, errors.New("keda options not provided")
@@ -757,7 +758,7 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 		})
 	}
 
-	if instance.Spec.Autoscale != nil {
+	if hasAutoscale {
 		for _, s := range instance.Spec.Autoscale.Schedules {
 			timezone := s.Timezone
 			if timezone == "" && instance.Spec.Autoscale.KEDAOptions != nil {
@@ -782,18 +783,49 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 	}
 
 	var minReplicas *int32
-	if instance.Spec.Autoscale != nil {
+	if hasAutoscale {
 		minReplicas = instance.Spec.Autoscale.MinReplicas
 	}
 
 	var maxReplicas *int32
-	if instance.Spec.Autoscale != nil {
+	if hasAutoscale {
 		maxReplicas = &instance.Spec.Autoscale.MaxReplicas
 	}
 
 	var pollingInterval *int32
-	if instance.Spec.Autoscale != nil && instance.Spec.Autoscale.KEDAOptions != nil {
+	if hasAutoscale && instance.Spec.Autoscale.KEDAOptions != nil {
 		pollingInterval = instance.Spec.Autoscale.KEDAOptions.PollingInterval
+	}
+
+	var behavior *autoscalingv2.HorizontalPodAutoscalerBehavior
+	if hasAutoscale && instance.Spec.Autoscale.Behavior != nil && instance.Spec.Autoscale.Behavior.ScaleDown != nil {
+		scalingDown := instance.Spec.Autoscale.Behavior.ScaleDown
+
+		scalingDownRules := &autoscalingv2.HPAScalingRules{}
+		if scalingDown.StabilizationWindowSeconds != nil {
+			scalingDownRules.StabilizationWindowSeconds = scalingDown.StabilizationWindowSeconds
+		}
+		if scalingDown.UnitsPolicyValue != nil {
+			policy := autoscalingv2.HPAScalingPolicy{
+				Type:          autoscalingv2.PodsScalingPolicy,
+				Value:         *scalingDown.UnitsPolicyValue,
+				PeriodSeconds: 60,
+			}
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
+		}
+		if scalingDown.PercentPolicyValue != nil {
+			policy := autoscalingv2.HPAScalingPolicy{
+				Type:          autoscalingv2.PercentScalingPolicy,
+				Value:         *scalingDown.PercentPolicyValue,
+				PeriodSeconds: 60,
+			}
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
+		}
+
+		if scalingDownRules.StabilizationWindowSeconds != nil || len(scalingDownRules.Policies) > 0 {
+			behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+			behavior.ScaleDown = scalingDownRules
+		}
 	}
 
 	return &kedav1alpha1.ScaledObject{
@@ -825,7 +857,8 @@ func newKEDAScaledObject(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.
 			Triggers:        triggers,
 			Advanced: &kedav1alpha1.AdvancedConfig{
 				HorizontalPodAutoscalerConfig: &kedav1alpha1.HorizontalPodAutoscalerConfig{
-					Name: instance.Name,
+					Name:     instance.Name,
+					Behavior: behavior,
 				},
 			},
 		},
@@ -1458,6 +1491,37 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 		}
 	}
 
+	var behavior *autoscalingv2.HorizontalPodAutoscalerBehavior
+	if a := instance.Spec.Autoscale; a != nil && a.Behavior != nil && a.Behavior.ScaleDown != nil {
+		scalingDown := instance.Spec.Autoscale.Behavior.ScaleDown
+
+		scalingDownRules := &autoscalingv2.HPAScalingRules{}
+		if scalingDown.StabilizationWindowSeconds != nil {
+			scalingDownRules.StabilizationWindowSeconds = scalingDown.StabilizationWindowSeconds
+		}
+		if scalingDown.UnitsPolicyValue != nil {
+			policy := autoscalingv2.HPAScalingPolicy{
+				Type:          autoscalingv2.PodsScalingPolicy,
+				Value:         *scalingDown.UnitsPolicyValue,
+				PeriodSeconds: 60,
+			}
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
+		}
+		if scalingDown.PercentPolicyValue != nil {
+			policy := autoscalingv2.HPAScalingPolicy{
+				Type:          autoscalingv2.PercentScalingPolicy,
+				Value:         *scalingDown.PercentPolicyValue,
+				PeriodSeconds: 60,
+			}
+			scalingDownRules.Policies = append(scalingDownRules.Policies, policy)
+		}
+
+		if scalingDownRules.StabilizationWindowSeconds != nil || len(scalingDownRules.Policies) > 0 {
+			behavior = &autoscalingv2.HorizontalPodAutoscalerBehavior{}
+			behavior.ScaleDown = scalingDownRules
+		}
+	}
+
 	return &autoscalingv2.HorizontalPodAutoscaler{
 		TypeMeta: metav1.TypeMeta{
 			Kind:       "HorizontalPodAutoscaler",
@@ -1484,6 +1548,7 @@ func newHPA(instance *v1alpha1.RpaasInstance, nginx *nginxv1alpha1.Nginx) *autos
 			MinReplicas: minReplicas,
 			MaxReplicas: maxReplicas,
 			Metrics:     metrics,
+			Behavior:    behavior,
 		},
 	}
 }

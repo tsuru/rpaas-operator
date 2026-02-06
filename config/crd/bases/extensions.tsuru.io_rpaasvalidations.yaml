@@ -3,7 +3,7 @@ apiVersion: apiextensions.k8s.io/v1
 kind: CustomResourceDefinition
 metadata:
   annotations:
-    controller-gen.kubebuilder.io/version: v0.15.0
+    controller-gen.kubebuilder.io/version: v0.17.0
   name: rpaasvalidations.extensions.tsuru.io
 spec:
   group: extensions.tsuru.io
@@ -58,6 +58,34 @@ spec:
                   Autoscale holds the infos used to configure the HorizontalPodAutoscaler
                   for this instance.
                 properties:
+                  behavior:
+                    description: Behavior configures the scaling behavior of the target
+                      in both
+                    properties:
+                      scaleDown:
+                        description: |-
+                          ScaleDown is scaling policy for scaling down, if not set, the default value
+                          is to allow to scale down to minReplicas pods, with a 300 second
+                          stabilization windown
+                        properties:
+                          percentPolicyValue:
+                            description: 'set a policy with (value: percentPolicyValue,
+                              type: Percent, periodSeconds: 60s)'
+                            format: int32
+                            type: integer
+                          stabilizationWindowSeconds:
+                            description: |-
+                              StabilizationWindowSeconds is the number of seconds for which past
+                              recommendations should be considered while scaling up or scaling down.
+                            format: int32
+                            type: integer
+                          unitsPolicyValue:
+                            description: 'set a policy with (value: unitsPolicyValue,
+                              type: Pods, periodSeconds: 60s)'
+                            format: int32
+                            type: integer
+                        type: object
+                    type: object
                   kedaOptions:
                     description: KEDAOptions defines the options used when creating
                       autoscaling resources via KEDA's API.
@@ -194,7 +222,6 @@ spec:
                               description: |-
                                 Name of the referent.
                                 More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?
                               type: string
                             optional:
                               description: Specify whether the ConfigMap or its key
@@ -370,7 +397,6 @@ spec:
                         description: |-
                           Issuer refers either to Issuer or ClusterIssuer resource.
 
-
                           NOTE: when there's no Issuer on this name, it tries using ClusterIssuer instead.
                         type: string
                       name:
@@ -408,7 +434,6 @@ spec:
                           description: |-
                             Issuer refers either to Issuer or ClusterIssuer resource.
 
-
                             NOTE: when there's no Issuer on this name, it tries using ClusterIssuer instead.
                           type: string
                         name:
@@ -423,7 +448,6 @@ spec:
                   EnablePodDisruptionBudget defines whether a PodDisruptionBudget should be attached
                   to Nginx or not. Defaults to disabled.
 
-
                   If enabled, PDB's min available is calculated as:
                    minAvailable = floor(N * 90%), where
                    N:
@@ -435,7 +459,6 @@ spec:
               extraFiles:
                 description: |-
                   ExtraFiles points to a ConfigMap where the files are stored.
-
 
                   Deprecated: ExtraFiles stores all files in a single ConfigMap. In other
                   words, they share the limit of 1MiB due to etcd limitations. In order to
@@ -474,7 +497,6 @@ spec:
                           description: |-
                             Name of the referent.
                             More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                            TODO: Add other useful fields. apiVersion, kind, uid?
                           type: string
                         optional:
                           description: Specify whether the ConfigMap or its key must
@@ -580,7 +602,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                                 optional:
                                   description: Specify whether the ConfigMap or its
@@ -720,10 +741,8 @@ spec:
                           Claims lists the names of resources, defined in spec.resourceClaims,
                           that are used by this container.
 
-
                           This is an alpha field and requires enabling the
                           DynamicResourceAllocation feature gate.
-
 
                           This field is immutable. It can only be set for containers.
                         items:
@@ -784,7 +803,6 @@ spec:
                                 description: |-
                                   Name of the referent.
                                   More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                  TODO: Add other useful fields. apiVersion, kind, uid?
                                 type: string
                               optional:
                                 description: Specify whether the ConfigMap or its
@@ -1704,7 +1722,6 @@ spec:
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
 
-
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
                               Unconfined - no profile should be applied.
@@ -1819,7 +1836,6 @@ spec:
                                         description: |-
                                           Name of the referent.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                       optional:
                                         description: Specify whether the ConfigMap
@@ -1882,7 +1898,6 @@ spec:
                                         description: |-
                                           Name of the referent.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                       optional:
                                         description: Specify whether the Secret or
@@ -1916,7 +1931,6 @@ spec:
                                     description: |-
                                       Name of the referent.
                                       More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind, uid?
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap must
@@ -1935,7 +1949,6 @@ spec:
                                     description: |-
                                       Name of the referent.
                                       More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind, uid?
                                     type: string
                                   optional:
                                     description: Specify whether the Secret must be
@@ -2195,10 +2208,10 @@ spec:
                                   format: int32
                                   type: integer
                                 service:
+                                  default: ""
                                   description: |-
                                     Service is the name of the service to place in the gRPC HealthCheckRequest
                                     (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
 
                                     If this is not specified, the default behavior is defined by gRPC.
                                   type: string
@@ -2408,10 +2421,10 @@ spec:
                                   format: int32
                                   type: integer
                                 service:
+                                  default: ""
                                   description: |-
                                     Service is the name of the service to place in the gRPC HealthCheckRequest
                                     (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
 
                                     If this is not specified, the default behavior is defined by gRPC.
                                   type: string
@@ -2537,10 +2550,8 @@ spec:
                                 Claims lists the names of resources, defined in spec.resourceClaims,
                                 that are used by this container.
 
-
                                 This is an alpha field and requires enabling the
                                 DynamicResourceAllocation feature gate.
-
 
                                 This field is immutable. It can only be set for containers.
                               items:
@@ -2714,7 +2725,6 @@ spec:
                                     type indicates which kind of seccomp profile will be applied.
                                     Valid options are:
 
-
                                     Localhost - a profile defined in a file on the node should be used.
                                     RuntimeDefault - the container runtime default profile should be used.
                                     Unconfined - no profile should be applied.
@@ -2799,10 +2809,10 @@ spec:
                                   format: int32
                                   type: integer
                                 service:
+                                  default: ""
                                   description: |-
                                     Service is the name of the service to place in the gRPC HealthCheckRequest
                                     (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
 
                                     If this is not specified, the default behavior is defined by gRPC.
                                   type: string
@@ -3110,7 +3120,6 @@ spec:
                                         description: |-
                                           Name of the referent.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                       optional:
                                         description: Specify whether the ConfigMap
@@ -3173,7 +3182,6 @@ spec:
                                         description: |-
                                           Name of the referent.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                       optional:
                                         description: Specify whether the Secret or
@@ -3207,7 +3215,6 @@ spec:
                                     description: |-
                                       Name of the referent.
                                       More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind, uid?
                                     type: string
                                   optional:
                                     description: Specify whether the ConfigMap must
@@ -3226,7 +3233,6 @@ spec:
                                     description: |-
                                       Name of the referent.
                                       More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                      TODO: Add other useful fields. apiVersion, kind, uid?
                                     type: string
                                   optional:
                                     description: Specify whether the Secret must be
@@ -3486,10 +3492,10 @@ spec:
                                   format: int32
                                   type: integer
                                 service:
+                                  default: ""
                                   description: |-
                                     Service is the name of the service to place in the gRPC HealthCheckRequest
                                     (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
 
                                     If this is not specified, the default behavior is defined by gRPC.
                                   type: string
@@ -3699,10 +3705,10 @@ spec:
                                   format: int32
                                   type: integer
                                 service:
+                                  default: ""
                                   description: |-
                                     Service is the name of the service to place in the gRPC HealthCheckRequest
                                     (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
 
                                     If this is not specified, the default behavior is defined by gRPC.
                                   type: string
@@ -3828,10 +3834,8 @@ spec:
                                 Claims lists the names of resources, defined in spec.resourceClaims,
                                 that are used by this container.
 
-
                                 This is an alpha field and requires enabling the
                                 DynamicResourceAllocation feature gate.
-
 
                                 This field is immutable. It can only be set for containers.
                               items:
@@ -4005,7 +4009,6 @@ spec:
                                     type indicates which kind of seccomp profile will be applied.
                                     Valid options are:
 
-
                                     Localhost - a profile defined in a file on the node should be used.
                                     RuntimeDefault - the container runtime default profile should be used.
                                     Unconfined - no profile should be applied.
@@ -4090,10 +4093,10 @@ spec:
                                   format: int32
                                   type: integer
                                 service:
+                                  default: ""
                                   description: |-
                                     Service is the name of the service to place in the gRPC HealthCheckRequest
                                     (see https://github.com/grpc/grpc/blob/master/doc/health-checking.md).
-
 
                                     If this is not specified, the default behavior is defined by gRPC.
                                   type: string
@@ -4345,11 +4348,9 @@ spec:
                           Some volume types allow the Kubelet to change the ownership of that volume
                           to be owned by the pod:
 
-
                           1. The owning GID will be the FSGroup
                           2. The setgid bit is set (new files created in the volume will be owned by FSGroup)
                           3. The permission bits are OR'd with rw-rw----
-
 
                           If unset, the Kubelet will not modify the ownership and permissions of any volume.
                           Note that this field cannot be set when spec.os.name is windows.
@@ -4436,7 +4437,6 @@ spec:
                             description: |-
                               type indicates which kind of seccomp profile will be applied.
                               Valid options are:
-
 
                               Localhost - a profile defined in a file on the node should be used.
                               RuntimeDefault - the container runtime default profile should be used.
@@ -4740,7 +4740,6 @@ spec:
                             Valid values are integers greater than 0.
                             When value is not nil, WhenUnsatisfiable must be DoNotSchedule.
 
-
                             For example, in a 3-zone cluster, MaxSkew is set to 2, MinDomains is set to 5 and pods with the same
                             labelSelector spread as 2/2/2:
                             | zone1 | zone2 | zone3 |
@@ -4749,7 +4748,6 @@ spec:
                             In this situation, new pod with the same labelSelector cannot be scheduled,
                             because computed skew will be 3(3 - 0) if new Pod is scheduled to any of the three zones,
                             it will violate MaxSkew.
-
 
                             This is a beta field and requires the MinDomainsInPodTopologySpread feature gate to be enabled (enabled by default).
                           format: int32
@@ -4761,7 +4759,6 @@ spec:
                             - Honor: only nodes matching nodeAffinity/nodeSelector are included in the calculations.
                             - Ignore: nodeAffinity/nodeSelector are ignored. All nodes are included in the calculations.
 
-
                             If this value is nil, the behavior is equivalent to the Honor policy.
                             This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
                           type: string
@@ -4772,7 +4769,6 @@ spec:
                             - Honor: nodes without taints, along with tainted nodes for which the incoming pod
                             has a toleration, are included.
                             - Ignore: node taints are ignored. All nodes are included.
-
 
                             If this value is nil, the behavior is equivalent to the Ignore policy.
                             This is a beta-level feature default enabled by the NodeInclusionPolicyInPodTopologySpread feature flag.
@@ -4879,7 +4875,6 @@ spec:
                                 Tip: Ensure that the filesystem type is supported by the host operating system.
                                 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#awselasticblockstore
-                                TODO: how do we prevent errors in the filesystem from compromising the machine
                               type: string
                             partition:
                               description: |-
@@ -4995,7 +4990,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -5034,7 +5028,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -5103,7 +5096,6 @@ spec:
                               description: |-
                                 Name of the referent.
                                 More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                TODO: Add other useful fields. apiVersion, kind, uid?
                               type: string
                             optional:
                               description: optional specify whether the ConfigMap
@@ -5139,7 +5131,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -5276,7 +5267,6 @@ spec:
                             The volume's lifecycle is tied to the pod that defines it - it will be created before the pod starts,
                             and deleted when the pod is removed.
 
-
                             Use this if:
                             a) the volume is only needed while the pod runs,
                             b) features of normal volumes like restoring from snapshot or capacity
@@ -5287,16 +5277,13 @@ spec:
                                information on the connection between this volume type
                                and PersistentVolumeClaim).
 
-
                             Use PersistentVolumeClaim or one of the vendor-specific
                             APIs for volumes that persist for longer than the lifecycle
                             of an individual pod.
 
-
                             Use CSI for light-weight local ephemeral volumes if the CSI driver is meant to
                             be used that way - see the documentation of the driver for
                             more information.
-
 
                             A pod can use both types of ephemeral volumes and
                             persistent volumes at the same time.
@@ -5311,7 +5298,6 @@ spec:
                                 entry. Pod validation will reject the pod if the concatenated name
                                 is not valid for a PVC (for example, too long).
 
-
                                 An existing PVC with that name that is not owned by the pod
                                 will *not* be used for the pod to avoid using an unrelated
                                 volume by mistake. Starting the pod is then blocked until
@@ -5321,10 +5307,8 @@ spec:
                                 this should not be necessary, but it may be useful when
                                 manually reconstructing a broken cluster.
 
-
                                 This field is read-only and no changes will be made by Kubernetes
                                 to the PVC after it has been created.
-
 
                                 Required, must not be nil.
                               properties:
@@ -5441,10 +5425,8 @@ spec:
                                             Claims lists the names of resources, defined in spec.resourceClaims,
                                             that are used by this container.
 
-
                                             This is an alpha field and requires enabling the
                                             DynamicResourceAllocation feature gate.
-
 
                                             This field is immutable. It can only be set for containers.
                                           items:
@@ -5564,7 +5546,6 @@ spec:
                                 fsType is the filesystem type to mount.
                                 Must be a filesystem type supported by the host operating system.
                                 Ex. "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
-                                TODO: how do we prevent errors in the filesystem from compromising the machine
                               type: string
                             lun:
                               description: 'lun is Optional: FC target lun number'
@@ -5627,7 +5608,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -5661,7 +5641,6 @@ spec:
                                 Tip: Ensure that the filesystem type is supported by the host operating system.
                                 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#gcepersistentdisk
-                                TODO: how do we prevent errors in the filesystem from compromising the machine
                               type: string
                             partition:
                               description: |-
@@ -5742,9 +5721,6 @@ spec:
                             used for system agents or other privileged things that are allowed
                             to see the host machine. Most containers will NOT need this.
                             More info: https://kubernetes.io/docs/concepts/storage/volumes#hostpath
-                            ---
-                            TODO(jonesdl) We need to restrict who can use host directory mounts and who can/can not
-                            mount host directories as read/write.
                           properties:
                             path:
                               description: |-
@@ -5781,7 +5757,6 @@ spec:
                                 Tip: Ensure that the filesystem type is supported by the host operating system.
                                 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#iscsi
-                                TODO: how do we prevent errors in the filesystem from compromising the machine
                               type: string
                             initiatorName:
                               description: |-
@@ -5821,7 +5796,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -5991,7 +5965,6 @@ spec:
                                         description: |-
                                           Name of the referent.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                       optional:
                                         description: optional specify whether the
@@ -6125,7 +6098,6 @@ spec:
                                         description: |-
                                           Name of the referent.
                                           More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                          TODO: Add other useful fields. apiVersion, kind, uid?
                                         type: string
                                       optional:
                                         description: optional field specify whether
@@ -6214,7 +6186,6 @@ spec:
                                 Tip: Ensure that the filesystem type is supported by the host operating system.
                                 Examples: "ext4", "xfs", "ntfs". Implicitly inferred to be "ext4" if unspecified.
                                 More info: https://kubernetes.io/docs/concepts/storage/volumes#rbd
-                                TODO: how do we prevent errors in the filesystem from compromising the machine
                               type: string
                             image:
                               description: |-
@@ -6257,7 +6228,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -6304,7 +6274,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -6423,7 +6392,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                               type: object
                               x-kubernetes-map-type: atomic
@@ -6503,7 +6471,6 @@ spec:
                                   description: |-
                                     Name of the referent.
                                     More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/names/#names
-                                    TODO: Add other useful fields. apiVersion, kind, uid?
                                   type: string
                                 optional:
                                   description: Specify whether the ConfigMap or its
@@ -6589,7 +6556,6 @@ spec:
                       description: |-
                         SecretName is the name of the Secret which contains the certificate-key
                         pair. It must reside in the same Namespace as the Nginx resource.
-
 
                         NOTE: The Secret should follow the Kubernetes TLS secrets type.
                         More info: https://kubernetes.io/docs/concepts/configuration/secret/#tls-secrets.
