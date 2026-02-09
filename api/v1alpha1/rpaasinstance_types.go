@@ -350,6 +350,30 @@ type RpaasInstanceAutoscaleSpec struct {
 	// KEDAOptions defines the options used when creating autoscaling resources via KEDA's API.
 	// +optional
 	KEDAOptions *AutoscaleKEDAOptions `json:"kedaOptions,omitempty"`
+	// Behavior configures the scaling behavior of the target in both
+	// +optional
+	Behavior *Behavior `json:"behavior,omitempty"`
+}
+
+type Behavior struct {
+	// ScaleDown is scaling policy for scaling down, if not set, the default value
+	// is to allow to scale down to minReplicas pods, with a 300 second
+	// stabilization windown
+	// +optional
+	ScaleDown *ScaleDown `json:"scaleDown,omitempty"`
+}
+
+type ScaleDown struct {
+	// StabilizationWindowSeconds is the number of seconds for which past
+	// recommendations should be considered while scaling up or scaling down.
+	// +optional
+	StabilizationWindowSeconds *int32 `json:"stabilizationWindowSeconds,omitempty"`
+	// set a policy with (value: unitsPolicyValue, type: Pods, periodSeconds: 60s)
+	// +optional
+	UnitsPolicyValue *int32 `json:"unitsPolicyValue,omitempty"`
+	// set a policy with (value: percentPolicyValue, type: Percent, periodSeconds: 60s)
+	// +optional
+	PercentPolicyValue *int32 `json:"percentPolicyValue,omitempty"`
 }
 
 type ScheduledWindow struct {

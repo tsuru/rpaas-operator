@@ -4,6 +4,7 @@ client.go
 configuration.go
 model_additional_instance_info.go
 model_autoscale.go
+model_behavior.go
 model_block.go
 model_certificate_info.go
 model_create_instance.go
@@ -22,6 +23,7 @@ model_pod_port_info.go
 model_purge.go
 model_purge_bulk_response.go
 model_route.go
+model_scale_down.go
 model_scheduled_window.go
 response.go
 utils.go
