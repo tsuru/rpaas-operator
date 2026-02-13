@@ -234,9 +234,7 @@ func writeCertificatesInfoOnTableFormat(w io.Writer, certs []clientTypes.Certifi
 		data = append(data, []string{c.Name + extraInfo, formatPublicKeyInfo(c), formatCertificateValidity(c), strings.Join(c.DNSNames, "\n")})
 	}
 
-	table := tablewriter.NewTable(w,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(w,
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
 			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignCenter, tw.AlignCenter, tw.AlignCenter},
 		}),

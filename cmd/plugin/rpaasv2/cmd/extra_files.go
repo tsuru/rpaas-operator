@@ -283,8 +283,7 @@ func writeExtraFilesOnTableFormat(files []types.RpaasFile) string {
 		data = append(data, []string{file.Name, content})
 	}
 
-	table := tablewriter.NewTable(&buffer,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
+	table := newTable(&buffer,
 		tablewriter.WithRowAlignment(tw.AlignLeft),
 		tablewriter.WithRendition(tw.Rendition{
 			Settings: tw.Settings{Separators: tw.Separators{BetweenRows: tw.On}},

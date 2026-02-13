@@ -245,9 +245,7 @@ func writeBlocksOnTableFormat(w io.Writer, blocks []clientTypes.Block) {
 		alignment = append(alignment, tw.AlignLeft, tw.AlignCenter)
 	}
 
-	table := tablewriter.NewTable(w,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(w,
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{PerColumn: alignment}),
 	)
 	table.Header(headers)

@@ -216,9 +216,7 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 		alignments = append(alignments, tw.AlignLeft, tw.AlignLeft)
 	}
 
-	table := tablewriter.NewTable(&buffer,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(&buffer,
 		tablewriter.WithRowAutoWrap(tw.WrapNormal),
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
 			PerColumn: alignments,
@@ -275,9 +273,7 @@ func writePodErrorsOnTableFormat(pods []clientTypes.Pod) string {
 	}
 
 	var buffer bytes.Buffer
-	table := tablewriter.NewTable(&buffer,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(&buffer,
 		tablewriter.WithRowAutoWrap(tw.WrapNormal),
 		tablewriter.WithRowMaxWidth(30),
 	)
@@ -320,9 +316,7 @@ func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string 
 		data = append(data, []string{string(address.Type), hostnames.String(), ips.String(), address.Status})
 	}
 	var buffer bytes.Buffer
-	table := tablewriter.NewTable(&buffer,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(&buffer,
 		tablewriter.WithRendition(tw.Rendition{
 			Settings: tw.Settings{Separators: tw.Separators{BetweenRows: tw.On}},
 		}),
@@ -372,9 +366,7 @@ func writeBindsOnTableFormat(binds []clientTypes.Bind) string {
 		headers = append(headers, "Upstreams")
 	}
 
-	table := tablewriter.NewTable(&buffer,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(&buffer,
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
 			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignLeft, tw.AlignLeft},
 		}),
@@ -417,9 +409,7 @@ func writeEventsOnTableFormat(events []clientTypes.Event) string {
 	}
 
 	var buffer bytes.Buffer
-	table := tablewriter.NewTable(&buffer,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(&buffer,
 		tablewriter.WithRowAutoWrap(tw.WrapNormal),
 		tablewriter.WithRowMaxWidth(30),
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{

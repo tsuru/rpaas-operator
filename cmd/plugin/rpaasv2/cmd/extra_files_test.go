@@ -299,7 +299,7 @@ func TestListExtraFiles(t *testing.T) {
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error) {
 				require.NoError(t, err)
 				s1 := `┌──────┬────────────────┐
-│ Name │    Content     │
+│ Name │ Content        │
 ├──────┼────────────────┤
 │ f1   │ some content 1 │
 ├──────┼────────────────┤

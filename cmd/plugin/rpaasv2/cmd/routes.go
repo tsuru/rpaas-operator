@@ -166,9 +166,7 @@ func writeRoutesOnTableFormat(w io.Writer, routes []clientTypes.Route) {
 		alignments = append([]tw.Align{tw.AlignLeft}, alignments...)
 	}
 
-	table := tablewriter.NewTable(w,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(w,
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{PerColumn: alignments}),
 	)
 	table.Header(headers)

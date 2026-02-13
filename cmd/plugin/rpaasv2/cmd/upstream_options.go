@@ -139,9 +139,7 @@ func formatLoadBalanceWithHashKey(loadBalance v1alpha1.LoadBalanceAlgorithm, has
 }
 
 func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientTypes.UpstreamOptions) {
-	table := tablewriter.NewTable(w,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(w,
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
 			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignLeft, tw.AlignLeft, tw.AlignLeft},
 		}),

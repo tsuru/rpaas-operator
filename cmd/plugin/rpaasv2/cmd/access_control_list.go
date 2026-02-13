@@ -184,9 +184,7 @@ func writeAccessControlListOnTableFormat(acls []types.AllowedUpstream) string {
 	}
 
 	var buffer bytes.Buffer
-	table := tablewriter.NewTable(&buffer,
-		tablewriter.WithHeaderAutoFormat(tw.Off),
-		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+	table := newTable(&buffer,
 		tablewriter.WithRowAutoWrap(tw.WrapNormal),
 		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
 			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignRight},
