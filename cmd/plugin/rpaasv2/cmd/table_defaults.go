@@ -3,7 +3,6 @@ package cmd
 import (
 	"io"
 	"os"
-	"strings"
 
 	"github.com/fatih/color"
 	"github.com/olekukonko/tablewriter"
@@ -53,9 +52,11 @@ func setBorderColorByString(tableColor string) {
 	if fgColor := colorMap[tableColor]; fgColor != 0 {
 		tableColorizedConfig.Border.FG = renderer.Colors{fgColor}
 		tableColorizedConfig.Separator.FG = renderer.Colors{fgColor}
-	} else if strings.HasPrefix(tableColor, "#") {
-		// TODO: there is no support to RGB on tablewriter
 	}
+	// TODO: there is no support to RGB on tablewriter
+	// } else if strings.HasPrefix(tableColor, "#") {
+	// RGB support
+	// }
 }
 
 var colorMap = map[string]color.Attribute{
