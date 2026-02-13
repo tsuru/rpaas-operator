@@ -117,13 +117,13 @@ func TestListRoutes(t *testing.T) {
 		{
 			name: "when listing routes on table format",
 			args: []string{"./rpaasv2", "routes", "list", "-i", "my-instance"},
-			expected: `+--------------+-------------------------------+--------------+-------------------+
-| Path         | Destination                   | Force HTTPS? | Configuration     |
-+--------------+-------------------------------+--------------+-------------------+
-| /static      | static.apps.tsuru.example.com |              |                   |
-| /login       | login.apps.tsuru.example.com  |      ✓       |                   |
-| /custom/path |                               |              | # My NGINX config |
-+--------------+-------------------------------+--------------+-------------------+
+			expected: `┌──────────────┬───────────────────────────────┬──────────────┬───────────────────┐
+│ Path         │ Destination                   │ Force HTTPS? │ Configuration     │
+├──────────────┼───────────────────────────────┼──────────────┼───────────────────┤
+│ /static      │ static.apps.tsuru.example.com │              │                   │
+│ /login       │ login.apps.tsuru.example.com  │      ✓       │                   │
+│ /custom/path │                               │              │ # My NGINX config │
+└──────────────┴───────────────────────────────┴──────────────┴───────────────────┘
 `,
 			client: &fake.FakeClient{
 				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, error) {
@@ -150,13 +150,13 @@ func TestListRoutes(t *testing.T) {
 		{
 			name: "when listing routes on table format with serverName defined",
 			args: []string{"./rpaasv2", "routes", "list", "-i", "my-instance"},
-			expected: `+---------------------+--------------+-------------------------------+--------------+-------------------+
-| Server Name         | Path         | Destination                   | Force HTTPS? | Configuration     |
-+---------------------+--------------+-------------------------------+--------------+-------------------+
-| server1.example.org | /static      | static.apps.tsuru.example.com |              |                   |
-|                     | /login       | login.apps.tsuru.example.com  |      ✓       |                   |
-| server2.example.org | /custom/path |                               |              | # My NGINX config |
-+---------------------+--------------+-------------------------------+--------------+-------------------+
+			expected: `┌─────────────────────┬──────────────┬───────────────────────────────┬──────────────┬───────────────────┐
+│ Server Name         │ Path         │ Destination                   │ Force HTTPS? │ Configuration     │
+├─────────────────────┼──────────────┼───────────────────────────────┼──────────────┼───────────────────┤
+│ server1.example.org │ /static      │ static.apps.tsuru.example.com │              │                   │
+│                     │ /login       │ login.apps.tsuru.example.com  │      ✓       │                   │
+│ server2.example.org │ /custom/path │                               │              │ # My NGINX config │
+└─────────────────────┴──────────────┴───────────────────────────────┴──────────────┴───────────────────┘
 `,
 			client: &fake.FakeClient{
 				FakeListRoutes: func(args rpaasclient.ListRoutesArgs) ([]clientTypes.Route, error) {

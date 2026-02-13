@@ -13,6 +13,7 @@ import (
 	"unicode/utf8"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -282,13 +283,14 @@ func writeExtraFilesOnTableFormat(files []types.RpaasFile) string {
 		data = append(data, []string{file.Name, content})
 	}
 
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Name", "Content"})
-	table.SetAutoWrapText(false)
-	table.SetRowLine(true)
-	table.SetAutoFormatHeaders(false)
-	table.SetAlignment(tablewriter.ALIGN_LEFT)
-	table.AppendBulk(data)
+	table := newTable(&buffer,
+		tablewriter.WithRowAlignment(tw.AlignLeft),
+		tablewriter.WithRendition(tw.Rendition{
+			Settings: tw.Settings{Separators: tw.Separators{BetweenRows: tw.On}},
+		}),
+	)
+	table.Header("Name", "Content")
+	table.Bulk(data)
 	table.Render()
 
 	return buffer.String()

@@ -298,13 +298,13 @@ func TestListExtraFiles(t *testing.T) {
 			args: []string{"./rpaasv2", "extra-files", "list", "-i", "my-instance", "--show-content"},
 			assertion: func(t *testing.T, stdout, stderr *bytes.Buffer, err error) {
 				require.NoError(t, err)
-				s1 := `+------+----------------+
-| Name |    Content     |
-+------+----------------+
-| f1   | some content 1 |
-+------+----------------+
-| f2   | some content 2 |
-+------+----------------+
+				s1 := `┌──────┬────────────────┐
+│ Name │ Content        │
+├──────┼────────────────┤
+│ f1   │ some content 1 │
+├──────┼────────────────┤
+│ f2   │ some content 2 │
+└──────┴────────────────┘
 `
 				assert.Equal(t, s1, stdout.String())
 				assert.Empty(t, stderr.String())

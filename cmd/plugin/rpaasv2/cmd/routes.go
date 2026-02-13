@@ -13,6 +13,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -157,22 +158,19 @@ func writeRoutesOnTableFormat(w io.Writer, routes []clientTypes.Route) {
 		data = append(data, row)
 	}
 
-	table := tablewriter.NewWriter(w)
 	headers := []string{"Path", "Destination", "Force HTTPS?", "Configuration"}
+	alignments := []tw.Align{tw.AlignLeft, tw.AlignLeft, tw.AlignCenter, tw.AlignLeft}
 
 	if hasServerName {
 		headers = append([]string{"Server Name"}, headers...)
+		alignments = append([]tw.Align{tw.AlignLeft}, alignments...)
 	}
-	table.SetHeader(headers)
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	alignments := []int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_LEFT}
-	if hasServerName {
-		alignments = append([]int{tablewriter.ALIGN_LEFT}, alignments...)
-	}
-	table.SetColumnAlignment(alignments)
-	table.AppendBulk(data)
+
+	table := newTable(w,
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{PerColumn: alignments}),
+	)
+	table.Header(headers)
+	table.Bulk(data)
 	table.Render()
 }
 

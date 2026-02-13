@@ -225,12 +225,12 @@ func TestListBlocks(t *testing.T) {
 		{
 			name: "when listing blocks on table format",
 			args: []string{"./rpaasv2", "blocks", "list", "-i", "my-instance"},
-			expected: `+---------+-----------------------------+
-| Context | Configuration               |
-+---------+-----------------------------+
-| http    | # some HTTP configuration   |
-| server  | # some server configuration |
-+---------+-----------------------------+
+			expected: `┌─────────┬─────────────────────────────┐
+│ Context │ Configuration               │
+├─────────┼─────────────────────────────┤
+│ http    │ # some HTTP configuration   │
+│ server  │ # some server configuration │
+└─────────┴─────────────────────────────┘
 `,
 			client: &fake.FakeClient{
 				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, error) {
@@ -248,14 +248,14 @@ func TestListBlocks(t *testing.T) {
 		{
 			name: "when listing blocks on table format with server name",
 			args: []string{"./rpaasv2", "blocks", "list", "-i", "my-instance"},
-			expected: `+-------------+---------+--------------------------------------+--------+
-| Server Name | Context | Configuration                        | Extend |
-+-------------+---------+--------------------------------------+--------+
-|             | http    | # some HTTP configuration            |        |
-|             | server  | # some common server configuration   |        |
-| example.org | server  | # some specific server configuration |        |
-| example.com | server  | # some extended server configuration |   ✓    |
-+-------------+---------+--------------------------------------+--------+
+			expected: `┌─────────────┬─────────┬──────────────────────────────────────┬────────┐
+│ Server Name │ Context │ Configuration                        │ Extend │
+├─────────────┼─────────┼──────────────────────────────────────┼────────┤
+│             │ http    │ # some HTTP configuration            │        │
+│             │ server  │ # some common server configuration   │        │
+│ example.org │ server  │ # some specific server configuration │        │
+│ example.com │ server  │ # some extended server configuration │   ✓    │
+└─────────────┴─────────┴──────────────────────────────────────┴────────┘
 `,
 			client: &fake.FakeClient{
 				FakeListBlocks: func(args rpaasclient.ListBlocksArgs) ([]clientTypes.Block, error) {
