@@ -52,13 +52,13 @@ func TestGetAutoscale(t *testing.T) {
 				})
 			}),
 			expected: `Autoscale: (min replicas: 2, max replicas: 5)
-+----------+-----------------+
-| Triggers | trigger details |
-+----------+-----------------+
-| CPU      | 50%             |
-| Memory   | 55%             |
-| RPS      | 100 req/s       |
-+----------+-----------------+
+┌──────────┬─────────────────┐
+│ Triggers │ trigger details │
+├──────────┼─────────────────┤
+│ CPU      │ 50%             │
+│ Memory   │ 55%             │
+│ RPS      │ 100 req/s       │
+└──────────┴─────────────────┘
 `,
 		},
 
@@ -77,25 +77,23 @@ func TestGetAutoscale(t *testing.T) {
 				})
 			}),
 			expected: `Autoscale: (min replicas: 0, max replicas: 100)
-+-------------+-------------------------------------------------------------+
-|  Triggers   |                       trigger details                       |
-+-------------+-------------------------------------------------------------+
-| Schedule(s) | Window 1:                                                   |
-|             |   Min replicas: 1                                           |
-|             |   Start: At 08:00 AM, Monday through Friday (00 08 * * 1-5) |
-|             |   End: At 08:00 PM, Monday through Friday (00 20 * * 1-5)   |
-|             |                                                             |
-|             | Window 2:                                                   |
-|             |   Min replicas: 5                                           |
-|             |   Start: At 08:00 PM, only on Tuesday (00 20 * * 2)         |
-|             |   End: At 01:00 AM, only on Wednesday (00 01 * * 3)         |
-|             |                                                             |
-|             | Window 3:                                                   |
-|             |   Min replicas: 5                                           |
-|             |   Start: At 10:00 PM, only on Sunday (00 22 * * 0)          |
-|             |   End: At 02:00 AM, only on Monday (00 02 * * 1)            |
-|             |   Timezone: America/Chile                                   |
-+-------------+-------------------------------------------------------------+
+┌─────────────┬─────────────────────────────────────────────────────────────┐
+│  Triggers   │                       trigger details                       │
+├─────────────┼─────────────────────────────────────────────────────────────┤
+│ Schedule(s) │ Window 1:                                                   │
+│             │   Min replicas: 1                                           │
+│             │   Start: At 08:00 AM, Monday through Friday (00 08 * * 1-5) │
+│             │   End: At 08:00 PM, Monday through Friday (00 20 * * 1-5)   │
+│             │ Window 2:                                                   │
+│             │   Min replicas: 5                                           │
+│             │   Start: At 08:00 PM, only on Tuesday (00 20 * * 2)         │
+│             │   End: At 01:00 AM, only on Wednesday (00 01 * * 3)         │
+│             │ Window 3:                                                   │
+│             │   Min replicas: 5                                           │
+│             │   Start: At 10:00 PM, only on Sunday (00 22 * * 0)          │
+│             │   End: At 02:00 AM, only on Monday (00 02 * * 1)            │
+│             │   Timezone: America/Chile                                   │
+└─────────────┴─────────────────────────────────────────────────────────────┘
 `,
 		},
 

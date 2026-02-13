@@ -12,6 +12,7 @@ import (
 	"os"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -236,22 +237,21 @@ func writeBlocksOnTableFormat(w io.Writer, blocks []clientTypes.Block) {
 		rows = append(rows, row)
 	}
 
-	table := tablewriter.NewWriter(w)
-
 	headers := []string{"Context", "Configuration"}
-	alignment := []int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT}
+	alignment := []tw.Align{tw.AlignLeft, tw.AlignLeft}
 	if hasServerName {
 		headers = append([]string{"Server Name"}, headers...)
 		headers = append(headers, "Extend")
-		alignment = append(alignment, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER)
+		alignment = append(alignment, tw.AlignLeft, tw.AlignCenter)
 	}
 
-	table.SetHeader(headers)
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetColumnAlignment(alignment)
-	table.AppendBulk(rows)
+	table := tablewriter.NewTable(w,
+		tablewriter.WithHeaderAutoFormat(tw.Off),
+		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{PerColumn: alignment}),
+	)
+	table.Header(headers)
+	table.Bulk(rows)
 	table.Render()
 }
 

@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v3"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
@@ -138,13 +139,14 @@ func formatLoadBalanceWithHashKey(loadBalance v1alpha1.LoadBalanceAlgorithm, has
 }
 
 func writeUpstreamOptionsOnTableFormat(w io.Writer, upstreamOptions []clientTypes.UpstreamOptions) {
-	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Primary App", "Canary App", "Load Balance", "Traffic Policies"})
-	table.SetAutoWrapText(false)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT})
-	table.SetRowSeparator("-")
+	table := tablewriter.NewTable(w,
+		tablewriter.WithHeaderAutoFormat(tw.Off),
+		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
+			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignLeft, tw.AlignLeft, tw.AlignLeft},
+		}),
+	)
+	table.Header("Primary App", "Canary App", "Load Balance", "Traffic Policies")
 
 	for i, uo := range upstreamOptions {
 		canaryBinds := strings.Join(uo.CanaryBinds, ", ")

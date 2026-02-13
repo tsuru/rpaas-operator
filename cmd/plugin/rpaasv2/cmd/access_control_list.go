@@ -11,6 +11,7 @@ import (
 	"strconv"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v3"
 
 	"github.com/tsuru/rpaas-operator/pkg/rpaas/client/types"
@@ -183,12 +184,15 @@ func writeAccessControlListOnTableFormat(acls []types.AllowedUpstream) string {
 	}
 
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Host", "Port"})
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAutoWrapText(true)
-	table.SetRowLine(false)
+	table := tablewriter.NewTable(&buffer,
+		tablewriter.WithHeaderAutoFormat(tw.Off),
+		tablewriter.WithHeaderAlignment(tw.AlignLeft),
+		tablewriter.WithRowAutoWrap(tw.WrapNormal),
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
+			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignRight},
+		}),
+	)
+	table.Header("Host", "Port")
 
 	for _, acl := range acls {
 		var port string
@@ -196,7 +200,7 @@ func writeAccessControlListOnTableFormat(acls []types.AllowedUpstream) string {
 			port = strconv.Itoa(acl.Port)
 		}
 
-		table.Append([]string{acl.Host, port})
+		table.Append(acl.Host, port)
 	}
 
 	table.Render()

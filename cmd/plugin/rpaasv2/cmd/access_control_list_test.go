@@ -145,13 +145,13 @@ func TestListAcl(t *testing.T) {
 		{
 			name: "when acl list method returns a list of acls",
 			args: []string{"./rpaasv2", "acl", "get", "-s", "some-service", "-i", "my-instance"},
-			expected: `+-------+-------+
-| Host  | Port  |
-+-------+-------+
-| host1 |   443 |
-| host1 |    80 |
-| mongo | 27017 |
-+-------+-------+
+			expected: `┌───────┬───────┐
+│ Host  │ Port  │
+├───────┼───────┤
+│ host1 │   443 │
+│ host1 │    80 │
+│ mongo │ 27017 │
+└───────┴───────┘
 `,
 			client: &fake.FakeClient{
 				FakeListAccessControlList: func(instance string) ([]types.AllowedUpstream, error) {

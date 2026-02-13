@@ -351,153 +351,159 @@ Plan overrides:
 }
 
 Pods: (current: 5)
-+------------------------------+---------------+---------+----------+-----+
-| Name                         | Host          | Status  | Restarts | Age |
-+------------------------------+---------------+---------+----------+-----+
-| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | Ready   |        2 | 12h |
-| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | Running |        0 | 12h |
-| my-instance-75c8bdc6b9-cdefg | 169.254.1.102 | Ready   |        0 | 12h |
-| my-instance-123abc456f-aaaaa | 169.254.10.10 | Errored |      100 | 5m  |
-| my-instance-123abc456f-bbbbb | 169.254.10.11 | Errored |      100 | 5m  |
-+------------------------------+---------------+---------+----------+-----+
+┌──────────────────────────────┬───────────────┬─────────┬──────────┬─────┐
+│ Name                         │ Host          │ Status  │ Restarts │ Age │
+├──────────────────────────────┼───────────────┼─────────┼──────────┼─────┤
+│ my-instance-75c8bdc6b9-abcde │ 169.254.1.100 │ Ready   │        2 │ 12h │
+│ my-instance-75c8bdc6b9-bcdef │ 169.254.1.101 │ Running │        0 │ 12h │
+│ my-instance-75c8bdc6b9-cdefg │ 169.254.1.102 │ Ready   │        0 │ 12h │
+│ my-instance-123abc456f-aaaaa │ 169.254.10.10 │ Errored │      100 │ 5m  │
+│ my-instance-123abc456f-bbbbb │ 169.254.10.11 │ Errored │      100 │ 5m  │
+└──────────────────────────────┴───────────────┴─────────┴──────────┴─────┘
 
 Errors:
-+--------------------+------------------------------+----------------------------------------------+
-| Age                | Pod                          | Message                                      |
-+--------------------+------------------------------+----------------------------------------------+
-| 30m (x20 over 50m) | my-instance-123abc456f-aaaaa | Back-off 5m0s restarting                     |
-|                    |                              | failed container=nginx                       |
-|                    |                              | pod=my-instance-123abc456f-aaaaa_default(pod |
-|                    |                              | uuid)                                        |
-| 50m                | my-instance-123abc456f-aaaaa | Exec lifecycle hook ([/bin/sh                |
-|                    |                              | -c nginx -t && touch /tmp/done])             |
-|                    |                              | for Container "nginx" in Pod                 |
-|                    |                              | "my-instance-123abc456f-aaaaa_default(pod    |
-|                    |                              | uuid)" failed - error: command               |
-|                    |                              | '/bin/sh -c nginx -t && touch                |
-|                    |                              | /tmp/done' exited with 1: 2020/04/07         |
-|                    |                              | 16:54:18 [emerg] 18#18: "location"           |
-|                    |                              | directive is not allowed here in             |
-|                    |                              | /etc/nginx/nginx.conf:118 nginx: [emerg]     |
-|                    |                              | "location" directive is not allowed          |
-|                    |                              | here in /etc/nginx/nginx.conf:118 nginx:     |
-|                    |                              | configuration file /etc/nginx/nginx.conf     |
-|                    |                              | test failed , message: "2020/04/07           |
-|                    |                              | 16:54:18 [emerg] 18#18: \"location\"         |
-|                    |                              | directive is not allowed here in             |
-|                    |                              | /etc/nginx/nginx.conf:118\nnginx: [emerg]    |
-|                    |                              | \"location\" directive is not allowed        |
-|                    |                              | here in /etc/nginx/nginx.conf:118\nnginx:    |
-|                    |                              | configuration file /etc/nginx/nginx.conf     |
-|                    |                              | test failed\n"                               |
-| 30m (x20 over 50m) | my-instance-123abc456f-bbbbb | Back-off 5m0s restarting                     |
-|                    |                              | failed container=nginx                       |
-|                    |                              | pod=my-instance-123abc456f-bbbbb_default(pod |
-|                    |                              | uuid)                                        |
-+--------------------+------------------------------+----------------------------------------------+
+┌────────────────────┬──────────────────────────────┬──────────────────────────────────────────────┐
+│ Age                │ Pod                          │ Message                                      │
+├────────────────────┼──────────────────────────────┼──────────────────────────────────────────────┤
+│ 30m (x20 over 50m) │ my-instance-123abc456f-aaaaa │ Back-off 5m0s restarting                     │
+│                    │                              │ failed container=nginx                       │
+│                    │                              │ pod=my-instance-123abc456f-aaaaa_default(pod │
+│                    │                              │ uuid)                                        │
+│ 50m                │ my-instance-123abc456f-aaaaa │ Exec lifecycle hook ([/bin/sh                │
+│                    │                              │ -c nginx -t && touch /tmp/done])             │
+│                    │                              │ for Container "nginx" in Pod                 │
+│                    │                              │ "my-instance-123abc456f-aaaaa_default(pod    │
+│                    │                              │ uuid)" failed - error: command '/bin/sh      │
+│                    │                              │ -c nginx -t && touch /tmp/done' exited       │
+│                    │                              │ with 1: 2020/04/07 16:54:18 [emerg]          │
+│                    │                              │ 18#18: "location" directive is not           │
+│                    │                              │ allowed here in /etc/nginx/nginx.conf:118    │
+│                    │                              │ nginx: [emerg]                               │
+│                    │                              │ "location" directive                         │
+│                    │                              │ is not allowed here in                       │
+│                    │                              │ /etc/nginx/nginx.conf:118                    │
+│                    │                              │ nginx: configuration file                    │
+│                    │                              │ /etc/nginx/nginx.conf test                   │
+│                    │                              │ failed                                       │
+│                    │                              │ , message: "2020/04/07 16:54:18              │
+│                    │                              │ [emerg] 18#18: \"location\"                  │
+│                    │                              │ directive is not allowed here in             │
+│                    │                              │ /etc/nginx/nginx.conf:118\nnginx:            │
+│                    │                              │ [emerg] \"location\" directive               │
+│                    │                              │ is not allowed here in                       │
+│                    │                              │ /etc/nginx/nginx.conf:118\nnginx:            │
+│                    │                              │ configuration file                           │
+│                    │                              │ /etc/nginx/nginx.conf test                   │
+│                    │                              │ failed\n"                                    │
+│ 30m (x20 over 50m) │ my-instance-123abc456f-bbbbb │ Back-off 5m0s restarting                     │
+│                    │                              │ failed container=nginx                       │
+│                    │                              │ pod=my-instance-123abc456f-bbbbb_default(pod │
+│                    │                              │ uuid)                                        │
+└────────────────────┴──────────────────────────────┴──────────────────────────────────────────────┘
 
 Autoscale: (min replicas: 2, max replicas: 5)
-+----------+-----------------+
-| Triggers | trigger details |
-+----------+-----------------+
-| CPU      | 55%             |
-| Memory   | 77%             |
-| RPS      | 100 req/s       |
-+----------+-----------------+
+┌──────────┬─────────────────┐
+│ Triggers │ trigger details │
+├──────────┼─────────────────┤
+│ CPU      │ 55%             │
+│ Memory   │ 77%             │
+│ RPS      │ 100 req/s       │
+└──────────┴─────────────────┘
 
 ACLs:
-+----------------------+------+
-| Host                 | Port |
-+----------------------+------+
-| 169.196.254.254      |      |
-| my-app.apps.tsuru.io |   80 |
-| my-app.apps.tsuru.io |  443 |
-+----------------------+------+
+┌──────────────────────┬──────┐
+│ Host                 │ Port │
+├──────────────────────┼──────┤
+│ 169.196.254.254      │      │
+│ my-app.apps.tsuru.io │   80 │
+│ my-app.apps.tsuru.io │  443 │
+└──────────────────────┴──────┘
 
 Binds:
-+------------+------------+
-| App        | Address    |
-+------------+------------+
-| some-name  | some-host  |
-+------------+------------+
-| some-name2 | some-host2 |
-+------------+------------+
+┌────────────┬────────────┐
+│ App        │ Address    │
+├────────────┼────────────┤
+│ some-name  │ some-host  │
+├────────────┼────────────┤
+│ some-name2 │ some-host2 │
+└────────────┴────────────┘
 
 Addresses:
-+------------------+---------------------------------------+-----------------+--------+
-| Type             | Hostname                              | IP              | Status |
-+------------------+---------------------------------------+-----------------+--------+
-| cluster-external | some-host                             | 0.0.0.0         |        |
-+------------------+---------------------------------------+-----------------+--------+
-| cluster-external | www.example.com                       | 192.168.200.200 |        |
-|                  | foo.example.com                       | 2001:db8::1     |        |
-|                  | bar.example.test                      |                 |        |
-+------------------+---------------------------------------+-----------------+--------+
-| cluster-internal | some-host.namespace.svc.cluster.local | 0.0.0.1         |        |
-+------------------+---------------------------------------+-----------------+--------+
+┌──────────────────┬───────────────────────────────────────┬─────────────────┬────────┐
+│ Type             │ Hostname                              │ IP              │ Status │
+├──────────────────┼───────────────────────────────────────┼─────────────────┼────────┤
+│ cluster-external │ some-host                             │ 0.0.0.0         │        │
+├──────────────────┼───────────────────────────────────────┼─────────────────┼────────┤
+│ cluster-external │ www.example.com                       │ 192.168.200.200 │        │
+│                  │ foo.example.com                       │ 2001:db8::1     │        │
+│                  │ bar.example.test                      │                 │        │
+├──────────────────┼───────────────────────────────────────┼─────────────────┼────────┤
+│ cluster-internal │ some-host.namespace.svc.cluster.local │ 0.0.0.1         │        │
+└──────────────────┴───────────────────────────────────────┴─────────────────┴────────┘
 
 Certificates:
-+----------------------------+--------------------+----------------------+----------------------------+
-| Name                       | Public Key Info    | Validity             | DNS names                  |
-+----------------------------+--------------------+----------------------+----------------------------+
-| default                    |     Algorithm      |      Not before      |      my-instance.test      |
-|                            |        RSA         | 2020-08-11T19:00:00Z |  my-instance.example.com   |
-|                            |                    |                      |  .my-instance.example.com  |
-|                            | Key size (in bits) |      Not after       | *.my-instance.example.com  |
-|                            |        4096        | 2020-08-11T19:00:00Z |                            |
-+----------------------------+--------------------+----------------------+----------------------------+
-| default.ecdsa              |     Algorithm      |      Not before      | another-domain.example.com |
-|   managed by: cert-manager |       ECDSA        | 2000-07-31T00:00:00Z |                            |
-|   issuer: lets-encrypt     |                    |                      |                            |
-|                            | Key size (in bits) |      Not after       |                            |
-|                            |        384         | 2050-07-31T00:00:00Z |                            |
-+----------------------------+--------------------+----------------------+----------------------------+
+┌────────────────────────────┬────────────────────┬──────────────────────┬────────────────────────────┐
+│ Name                       │ Public Key Info    │ Validity             │ DNS names                  │
+├────────────────────────────┼────────────────────┼──────────────────────┼────────────────────────────┤
+│ default                    │     Algorithm      │      Not before      │      my-instance.test      │
+│                            │        RSA         │ 2020-08-11T19:00:00Z │  my-instance.example.com   │
+│                            │                    │                      │  .my-instance.example.com  │
+│                            │ Key size (in bits) │      Not after       │ *.my-instance.example.com  │
+│                            │        4096        │ 2020-08-11T19:00:00Z │                            │
+├────────────────────────────┼────────────────────┼──────────────────────┼────────────────────────────┤
+│ default.ecdsa              │     Algorithm      │      Not before      │ another-domain.example.com │
+│   managed by: cert-manager │       ECDSA        │ 2000-07-31T00:00:00Z │                            │
+│   issuer: lets-encrypt     │                    │                      │                            │
+│                            │ Key size (in bits) │      Not after       │                            │
+│                            │        384         │ 2050-07-31T00:00:00Z │                            │
+└────────────────────────────┴────────────────────┴──────────────────────┴────────────────────────────┘
 
 Extra files:
-+-----------------+---------------------------------------------------------+
-|      Name       |                         Content                         |
-+-----------------+---------------------------------------------------------+
-| modsecurity.cfg | a bunch of WAF configs...                               |
-+-----------------+---------------------------------------------------------+
-| binary.exe      | WARNING!                                                |
-|                 | CANNOT SHOW THE FILE CONTENT AS IT'S NOT UTF-8 ENCODED. |
-+-----------------+---------------------------------------------------------+
+┌─────────────────┬─────────────────────────────────────────────────────────┐
+│      Name       │                         Content                         │
+├─────────────────┼─────────────────────────────────────────────────────────┤
+│ modsecurity.cfg │ a bunch of WAF configs...                               │
+├─────────────────┼─────────────────────────────────────────────────────────┤
+│ binary.exe      │ WARNING!                                                │
+│                 │ CANNOT SHOW THE FILE CONTENT AS IT'S NOT UTF-8 ENCODED. │
+└─────────────────┴─────────────────────────────────────────────────────────┘
 
 Blocks:
-+---------+---------------------------------------+
-| Context | Configuration                         |
-+---------+---------------------------------------+
-| http    | # some nginx config at http context   |
-| server  | # some nginx config at server context |
-+---------+---------------------------------------+
+┌─────────┬───────────────────────────────────────┐
+│ Context │ Configuration                         │
+├─────────┼───────────────────────────────────────┤
+│ http    │ # some nginx config at http context   │
+│ server  │ # some nginx config at server context │
+└─────────┴───────────────────────────────────────┘
 
 Routes:
-+------------------+------------------------+--------------+-------------------------+
-| Path             | Destination            | Force HTTPS? | Configuration           |
-+------------------+------------------------+--------------+-------------------------+
-| /app1            | app1.tsuru.example.com |              |                         |
-| /login/provider1 | app2.tsuru.example.com |      ✓       |                         |
-| /app3/           |                        |              | # some raw nginx config |
-+------------------+------------------------+--------------+-------------------------+
+┌──────────────────┬────────────────────────┬──────────────┬─────────────────────────┐
+│ Path             │ Destination            │ Force HTTPS? │ Configuration           │
+├──────────────────┼────────────────────────┼──────────────┼─────────────────────────┤
+│ /app1            │ app1.tsuru.example.com │              │                         │
+│ /login/provider1 │ app2.tsuru.example.com │      ✓       │                         │
+│ /app3/           │                        │              │ # some raw nginx config │
+└──────────────────┴────────────────────────┴──────────────┴─────────────────────────┘
 
 Events:
-+---------+----------------------+--------------------+--------------------------------+
-| Type    | Reason               | Age                | Message                        |
-+---------+----------------------+--------------------+--------------------------------+
-| Normal  | DeploymentUpdated    | 60m                | deployment updated             |
-|         |                      |                    | successfully                   |
-+---------+----------------------+--------------------+--------------------------------+
-| Warning | ServiceQuotaExceeded | 5m (x777 over 24h) | failed to create Service:      |
-|         |                      |                    | services "my-instance-service" |
-|         |                      |                    | is forbidden: exceeded         |
-|         |                      |                    | quota: custom-resource-quota,  |
-|         |                      |                    | requested:                     |
-|         |                      |                    | services.loadbalancers=1,      |
-|         |                      |                    | used:                          |
-|         |                      |                    | services.loadbalancers=1,      |
-|         |                      |                    | limited:                       |
-|         |                      |                    | services.loadbalancers=1       |
-+---------+----------------------+--------------------+--------------------------------+
+┌─────────┬──────────────────────┬────────────────────┬────────────────────────────┐
+│ Type    │ Reason               │ Age                │ Message                    │
+├─────────┼──────────────────────┼────────────────────┼────────────────────────────┤
+│ Normal  │ DeploymentUpdated    │ 60m                │ deployment updated         │
+│         │                      │                    │ successfully               │
+├─────────┼──────────────────────┼────────────────────┼────────────────────────────┤
+│ Warning │ ServiceQuotaExceeded │ 5m (x777 over 24h) │ failed to create           │
+│         │                      │                    │ Service: services          │
+│         │                      │                    │ "my-instance-service" is   │
+│         │                      │                    │ forbidden: exceeded quota: │
+│         │                      │                    │ custom-resource-quota,     │
+│         │                      │                    │ requested:                 │
+│         │                      │                    │ services.loadbalancers=1,  │
+│         │                      │                    │ used:                      │
+│         │                      │                    │ services.loadbalancers=1,  │
+│         │                      │                    │ limited:                   │
+│         │                      │                    │ services.loadbalancers=1   │
+└─────────┴──────────────────────┴────────────────────┴────────────────────────────┘
 `,
 		},
 
@@ -596,12 +602,12 @@ Flavors:      flavor1, flavor2, flavor-N
 Cluster:      my-dedicated-cluster
 
 Pods: (current: 2 / desired: 3)
-+------------------------------+---------------+-------------+----------+-----+------+--------+
-| Name                         | Host          | Status      | Restarts | Age | CPU  | Memory |
-+------------------------------+---------------+-------------+----------+-----+------+--------+
-| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | Ready       |        2 | 12h | 20%  | 300Mi  |
-| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | Terminating |        0 | 12h | 200% | 3000Mi |
-+------------------------------+---------------+-------------+----------+-----+------+--------+
+┌──────────────────────────────┬───────────────┬─────────────┬──────────┬─────┬──────┬────────┐
+│ Name                         │ Host          │ Status      │ Restarts │ Age │ CPU  │ Memory │
+├──────────────────────────────┼───────────────┼─────────────┼──────────┼─────┼──────┼────────┤
+│ my-instance-75c8bdc6b9-abcde │ 169.254.1.100 │ Ready       │        2 │ 12h │ 20%  │ 300Mi  │
+│ my-instance-75c8bdc6b9-bcdef │ 169.254.1.101 │ Terminating │        0 │ 12h │ 200% │ 3000Mi │
+└──────────────────────────────┴───────────────┴─────────────┴──────────┴─────┴──────┴────────┘
 
 `,
 		},
@@ -693,12 +699,12 @@ Flavors:      flavor1, flavor2, flavor-N
 Cluster:      my-dedicated-cluster
 
 Pods: (current: 2 / desired: 3)
-+------------------------------+---------------+-------------+----------+-----+
-| Name                         | Host          | Status      | Restarts | Age |
-+------------------------------+---------------+-------------+----------+-----+
-| my-instance-75c8bdc6b9-abcde | 169.254.1.100 | Ready       |        2 | 12h |
-| my-instance-75c8bdc6b9-bcdef | 169.254.1.101 | Terminating |        0 | 12h |
-+------------------------------+---------------+-------------+----------+-----+
+┌──────────────────────────────┬───────────────┬─────────────┬──────────┬─────┐
+│ Name                         │ Host          │ Status      │ Restarts │ Age │
+├──────────────────────────────┼───────────────┼─────────────┼──────────┼─────┤
+│ my-instance-75c8bdc6b9-abcde │ 169.254.1.100 │ Ready       │        2 │ 12h │
+│ my-instance-75c8bdc6b9-bcdef │ 169.254.1.101 │ Terminating │        0 │ 12h │
+└──────────────────────────────┴───────────────┴─────────────┴──────────┴─────┘
 
 `,
 		},
