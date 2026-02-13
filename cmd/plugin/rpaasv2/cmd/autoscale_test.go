@@ -78,7 +78,7 @@ func TestGetAutoscale(t *testing.T) {
 			}),
 			expected: `Autoscale: (min replicas: 0, max replicas: 100)
 ┌─────────────┬─────────────────────────────────────────────────────────────┐
-│  Triggers   │                       trigger details                       │
+│ Triggers    │ trigger details                                             │
 ├─────────────┼─────────────────────────────────────────────────────────────┤
 │ Schedule(s) │ Window 1:                                                   │
 │             │   Min replicas: 1                                           │
