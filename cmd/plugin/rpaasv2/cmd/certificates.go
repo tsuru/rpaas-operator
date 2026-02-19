@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v3"
 
 	rpaasclient "github.com/tsuru/rpaas-operator/pkg/rpaas/client"
@@ -233,14 +234,16 @@ func writeCertificatesInfoOnTableFormat(w io.Writer, certs []clientTypes.Certifi
 		data = append(data, []string{c.Name + extraInfo, formatPublicKeyInfo(c), formatCertificateValidity(c), strings.Join(c.DNSNames, "\n")})
 	}
 
-	table := tablewriter.NewWriter(w)
-	table.SetHeader([]string{"Name", "Public Key Info", "Validity", "DNS names"})
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER, tablewriter.ALIGN_CENTER})
-	table.SetRowLine(true)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAutoWrapText(false)
-	table.AppendBulk(data)
+	table := newTable(w,
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
+			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignCenter, tw.AlignCenter, tw.AlignCenter},
+		}),
+		tablewriter.WithRendition(tw.Rendition{
+			Settings: tw.Settings{Separators: tw.Separators{BetweenRows: tw.On}},
+		}),
+	)
+	table.Header("Name", "Public Key Info", "Validity", "DNS names")
+	table.Bulk(data)
 	table.Render()
 }
 

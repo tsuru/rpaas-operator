@@ -16,6 +16,7 @@ import (
 
 	sprig "github.com/Masterminds/sprig/v3"
 	"github.com/olekukonko/tablewriter"
+	"github.com/olekukonko/tablewriter/tw"
 	"github.com/urfave/cli/v3"
 	"k8s.io/apimachinery/pkg/api/resource"
 	"k8s.io/apimachinery/pkg/util/duration"
@@ -205,17 +206,24 @@ func writePodsOnTableFormat(pods []clientTypes.Pod) string {
 	}
 
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
 	header := []string{"Name", "Host", "Status", "Restarts", "Age"}
 	if hasMetrics {
 		header = append(header, "CPU", "Memory")
 	}
 
-	table.SetHeader(header)
-	table.SetAutoWrapText(true)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.AppendBulk(data)
+	alignments := []tw.Align{tw.AlignLeft, tw.AlignLeft, tw.AlignLeft, tw.AlignRight, tw.AlignLeft}
+	if hasMetrics {
+		alignments = append(alignments, tw.AlignLeft, tw.AlignLeft)
+	}
+
+	table := newTable(&buffer,
+		tablewriter.WithRowAutoWrap(tw.WrapNormal),
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
+			PerColumn: alignments,
+		}),
+	)
+	table.Header(header)
+	table.Bulk(data)
 	table.Render()
 
 	return buffer.String()
@@ -265,12 +273,12 @@ func writePodErrorsOnTableFormat(pods []clientTypes.Pod) string {
 	}
 
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Age", "Pod", "Message"})
-	table.SetAutoWrapText(true)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.AppendBulk(data)
+	table := newTable(&buffer,
+		tablewriter.WithRowAutoWrap(tw.WrapNormal),
+		tablewriter.WithRowMaxWidth(30),
+	)
+	table.Header("Age", "Pod", "Message")
+	table.Bulk(data)
 	table.Render()
 
 	var sb strings.Builder
@@ -308,14 +316,13 @@ func writeAddressesOnTableFormat(adresses []clientTypes.InstanceAddress) string 
 		data = append(data, []string{string(address.Type), hostnames.String(), ips.String(), address.Status})
 	}
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Type", "Hostname", "IP", "Status"})
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetRowLine(true)
-	table.SetAutoWrapText(false)
-	table.SetReflowDuringAutoWrap(false)
-	table.AppendBulk(data)
+	table := newTable(&buffer,
+		tablewriter.WithRendition(tw.Rendition{
+			Settings: tw.Settings{Separators: tw.Separators{BetweenRows: tw.On}},
+		}),
+	)
+	table.Header("Type", "Hostname", "IP", "Status")
+	table.Bulk(data)
 	table.Render()
 	return buffer.String()
 }
@@ -353,20 +360,22 @@ func writeBindsOnTableFormat(binds []clientTypes.Bind) string {
 		rows = append(rows, row)
 	}
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
 
 	headers := []string{"App", "Address"}
 	if hasUpstreams {
 		headers = append(headers, "Upstreams")
 	}
 
-	table.SetHeader(headers)
-	table.SetRowLine(true)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAutoWrapText(true)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT})
-	table.AppendBulk(rows)
+	table := newTable(&buffer,
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
+			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignLeft, tw.AlignLeft},
+		}),
+		tablewriter.WithRendition(tw.Rendition{
+			Settings: tw.Settings{Separators: tw.Separators{BetweenRows: tw.On}},
+		}),
+	)
+	table.Header(headers)
+	table.Bulk(rows)
 	table.Render()
 
 	return buffer.String()
@@ -400,14 +409,18 @@ func writeEventsOnTableFormat(events []clientTypes.Event) string {
 	}
 
 	var buffer bytes.Buffer
-	table := tablewriter.NewWriter(&buffer)
-	table.SetHeader([]string{"Type", "Reason", "Age", "Message"})
-	table.SetRowLine(true)
-	table.SetAutoFormatHeaders(false)
-	table.SetHeaderAlignment(tablewriter.ALIGN_LEFT)
-	table.SetAutoWrapText(true)
-	table.SetColumnAlignment([]int{tablewriter.ALIGN_LEFT, tablewriter.ALIGN_LEFT})
-	table.AppendBulk(data)
+	table := newTable(&buffer,
+		tablewriter.WithRowAutoWrap(tw.WrapNormal),
+		tablewriter.WithRowMaxWidth(30),
+		tablewriter.WithRowAlignmentConfig(tw.CellAlignment{
+			PerColumn: []tw.Align{tw.AlignLeft, tw.AlignLeft},
+		}),
+		tablewriter.WithRendition(tw.Rendition{
+			Settings: tw.Settings{Separators: tw.Separators{BetweenRows: tw.On}},
+		}),
+	)
+	table.Header("Type", "Reason", "Age", "Message")
+	table.Bulk(data)
 	table.Render()
 
 	return buffer.String()
