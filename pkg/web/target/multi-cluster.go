@@ -43,6 +43,8 @@ var ErrNoClusterProvided = &missingParamsError{
 	MissingParams: []string{"cluster"},
 }
 
+var ErrKubeConfigRequiresAuth = errors.New("X-Tsuru-Cluster-Kube-Config header requires authentication to be enabled")
+
 type multiClusterFactory struct {
 	tokens        sync.Map
 	clusters      []config.ClusterConfig
@@ -74,6 +76,13 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 
 	if clusterAddress == "" && b64K8sConfig == "" {
 		return nil, ErrNoClusterProvided
+	}
+
+	if b64K8sConfig != "" {
+		conf := config.Get()
+		if conf.APIUsername == "" || conf.APIPassword == "" {
+			return nil, ErrKubeConfigRequiresAuth
+		}
 	}
 
 	poolName := headers.Get("X-Tsuru-Pool-Name")

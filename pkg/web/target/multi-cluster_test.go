@@ -165,7 +165,13 @@ func TestGetKubeConfigFromHeader(t *testing.T) {
 }
 
 func TestMultiClusterManagerWithKubeConfigHeader(t *testing.T) {
-	t.Run("no error when only kube config header is provided", func(t *testing.T) {
+	t.Run("no error when only kube config header is provided with auth enabled", func(t *testing.T) {
+		config.Set(config.RpaasConfig{
+			APIUsername: "admin",
+			APIPassword: "secret",
+		})
+		defer config.Set(config.RpaasConfig{})
+
 		target := NewMultiClustersFactory(nil)
 
 		tsuruKubeConfig := TsuruKubeConfig{
@@ -186,9 +192,37 @@ func TestMultiClusterManagerWithKubeConfigHeader(t *testing.T) {
 		headers.Set("X-Tsuru-Cluster-Name", "test-cluster")
 
 		// Manager will fail when trying to create k8s client (no real cluster),
-		// but it should NOT fail with ErrNoClusterProvided
+		// but it should NOT fail with ErrNoClusterProvided or ErrKubeConfigRequiresAuth
 		_, err = target.Manager(ctx, headers)
 		assert.NotEqual(t, ErrNoClusterProvided, err)
+		assert.NotEqual(t, ErrKubeConfigRequiresAuth, err)
+	})
+
+	t.Run("error when kube config header is provided without auth enabled", func(t *testing.T) {
+		config.Set(config.RpaasConfig{})
+		defer config.Set(config.RpaasConfig{})
+
+		target := NewMultiClustersFactory(nil)
+
+		tsuruKubeConfig := TsuruKubeConfig{
+			Cluster: clientcmdapi.Cluster{
+				Server: "https://mycluster.example.com",
+			},
+			AuthInfo: clientcmdapi.AuthInfo{
+				Token: "my-token",
+			},
+		}
+		data, err := json.Marshal(tsuruKubeConfig)
+		require.NoError(t, err)
+
+		b64Config := base64.StdEncoding.EncodeToString(data)
+
+		headers := http.Header{}
+		headers.Set("X-Tsuru-Cluster-Kube-Config", b64Config)
+		headers.Set("X-Tsuru-Cluster-Name", "test-cluster")
+
+		_, err = target.Manager(ctx, headers)
+		assert.Equal(t, ErrKubeConfigRequiresAuth, err)
 	})
 
 	t.Run("error when no address and no kube config", func(t *testing.T) {
