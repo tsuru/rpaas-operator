@@ -3,13 +3,17 @@ package target
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"net/http"
 	"os"
 	"sync"
+	"time"
 
 	"github.com/opentracing/opentracing-go"
 	"k8s.io/client-go/rest"
+	"k8s.io/client-go/tools/clientcmd"
+	clientcmdapi "k8s.io/client-go/tools/clientcmd/api"
 	sigsk8sclient "sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/internal/config"
@@ -50,6 +54,7 @@ type managersCacheKey struct {
 	clusterName    string
 	poolName       string
 	clusterAddress string
+	b64K8sConfig   string
 }
 
 func NewMultiClustersFactory(clusters []config.ClusterConfig) Factory {
@@ -63,15 +68,21 @@ func NewMultiClustersFactory(clusters []config.ClusterConfig) Factory {
 
 func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) (rpaas.RpaasManager, error) {
 	clusterName := headers.Get("X-Tsuru-Cluster-Name")
-	address := headers.Get("X-Tsuru-Cluster-Addresses")
+	clusterAddress := headers.Get("X-Tsuru-Cluster-Addresses")
 	disableValidation := headers.Get("X-RPaaS-Disable-Validation") != ""
+	b64K8sConfig := headers.Get("X-Tsuru-Cluster-Kube-Config")
 
-	if address == "" {
+	if clusterAddress == "" && b64K8sConfig == "" {
 		return nil, ErrNoClusterProvided
 	}
 
 	poolName := headers.Get("X-Tsuru-Pool-Name")
-	cacheKey := managersCacheKey{clusterName, poolName, address}
+	cacheKey := managersCacheKey{
+		clusterName:    clusterName,
+		poolName:       poolName,
+		clusterAddress: clusterAddress,
+		b64K8sConfig:   b64K8sConfig,
+	}
 
 	m.managersMutex.RLock()
 	manager := m.managers[cacheKey]
@@ -84,11 +95,19 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 	span := opentracing.SpanFromContext(ctx)
 	if span != nil {
 		span.SetTag("cluster.name", clusterName)
-		span.SetTag("cluster.address", address)
+		span.SetTag("cluster.address", clusterAddress)
 		span.SetTag("pool.name", poolName)
 	}
 
-	kubernetesRestConfig, err := m.getKubeConfig(clusterName, address)
+	var err error
+	var kubernetesRestConfig *rest.Config
+
+	if b64K8sConfig == "" {
+		kubernetesRestConfig, err = m.getKubeConfig(clusterName, clusterAddress)
+	} else {
+		kubernetesRestConfig, err = m.getKubeConfigFromHeader(clusterName, b64K8sConfig)
+	}
+
 	if err != nil {
 		return nil, err
 	}
@@ -114,6 +133,50 @@ func (m *multiClusterFactory) Manager(ctx context.Context, headers http.Header) 
 
 	m.managers[cacheKey] = manager
 	return manager, nil
+}
+
+type TsuruKubeConfig struct {
+	Cluster  clientcmdapi.Cluster  `json:"cluster"`
+	AuthInfo clientcmdapi.AuthInfo `json:"user"`
+}
+
+func (m *multiClusterFactory) getKubeConfigFromHeader(name, base64KubeConfig string) (*rest.Config, error) {
+	kubeConfigData, err := base64.StdEncoding.DecodeString(base64KubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	tsuruKubeConfig := TsuruKubeConfig{}
+	err = json.Unmarshal(kubeConfigData, &tsuruKubeConfig)
+	if err != nil {
+		return nil, err
+	}
+
+	cliCfg := clientcmdapi.Config{
+		APIVersion:     "v1",
+		Kind:           "Config",
+		CurrentContext: name,
+		Clusters: map[string]*clientcmdapi.Cluster{
+			name: &tsuruKubeConfig.Cluster,
+		},
+		Contexts: map[string]*clientcmdapi.Context{
+			name: {
+				Cluster:  name,
+				AuthInfo: name,
+			},
+		},
+		AuthInfos: map[string]*clientcmdapi.AuthInfo{
+			name: &tsuruKubeConfig.AuthInfo,
+		},
+	}
+
+	restConfig, err := clientcmd.NewNonInteractiveClientConfig(cliCfg, name, &clientcmd.ConfigOverrides{}, nil).ClientConfig()
+	if err != nil {
+		return nil, err
+	}
+	restConfig.Timeout = time.Second * 30
+	restConfig.WrapTransport = observability.OpentracingTransport
+	return restConfig, nil
 }
 
 func (m *multiClusterFactory) validationDisabled(name string) bool {
