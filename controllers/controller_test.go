@@ -3250,6 +3250,24 @@ func newRpaasFlavor() *v1alpha1.RpaasFlavor {
 	}
 }
 
+type failingGetClient struct {
+	client.Client
+	err error
+}
+
+func (c *failingGetClient) Get(ctx context.Context, key client.ObjectKey, obj client.Object, opts ...client.GetOption) error {
+	return c.err
+}
+
+func TestReconcileWhenGetRpaasInstanceFails(t *testing.T) {
+	reconciler := newRpaasInstanceReconciler()
+	reconciler.Client = &failingGetClient{Client: reconciler.Client, err: fmt.Errorf("some error")}
+
+	result, err := reconciler.Reconcile(context.Background(), reconcile.Request{NamespacedName: types.NamespacedName{Namespace: "default", Name: "my-instance"}})
+	require.EqualError(t, err, "some error")
+	assert.Equal(t, reconcile.Result{}, result)
+}
+
 func TestReconcileWithProxyProtocol(t *testing.T) {
 	rpaas := &v1alpha1.RpaasInstance{
 		ObjectMeta: metav1.ObjectMeta{
