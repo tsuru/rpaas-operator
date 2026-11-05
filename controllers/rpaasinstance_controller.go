@@ -63,12 +63,12 @@ func (r *RpaasInstanceReconciler) Reconcile(ctx context.Context, req ctrl.Reques
 		return reconcile.Result{}, nil
 	}
 
-	logger := r.Log.WithName("Reconcile").
-		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
-
 	if err != nil {
 		return reconcile.Result{}, err
 	}
+
+	logger := r.Log.WithName("Reconcile").
+		WithValues("RpaasInstance", types.NamespacedName{Name: instance.Name, Namespace: instance.Namespace})
 	var reservation SystemRolloutReservation
 	reportError := func(err error) (ctrl.Result, error) {
 		if reservation != nil {
