@@ -955,6 +955,81 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 				"tls.key": []byte(rsaKeyPem),
 			},
 		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-3",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				DynamicCertificates: &v1alpha1.DynamicCertificates{
+					CertManagerRequests: []v1alpha1.CertManager{
+						{Name: "rpaas-operator.io", Issuer: "my-issuer", DNSNames: []string{"rpaas-operator.io"}},
+						{Name: "other", Issuer: "my-issuer", DNSNames: []string{"other.example.com"}},
+					},
+				},
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-3-rpaas-operator.io",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "rpaas-operator.io",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-3",
+				},
+				Annotations: map[string]string{
+					"cert-manager.io/certificate-name": "my-instance-3-rpaas-operator.io",
+					"cert-manager.io/issuer-name":      "my-issuer",
+					"cert-manager.io/issuer-group":     "cert-manager.io",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPem),
+				"tls.key": []byte(rsaKeyPem),
+			},
+		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-4",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				TLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-instance-4-certs-abc123", Hosts: []string{"rpaas-operator.io"}},
+				},
+				DynamicCertificates: &v1alpha1.DynamicCertificates{
+					CertManager: &v1alpha1.CertManager{Name: "rpaas-operator.io", Issuer: "my-issuer", DNSNames: []string{"rpaas-operator.io"}},
+				},
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-4-certs-abc123",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "rpaas-operator.io",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-4",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPem),
+				"tls.key": []byte(rsaKeyPem),
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-4-rpaas-operator.io",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "rpaas-operator.io",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-4",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPem),
+				"tls.key": []byte(rsaKeyPem),
+			},
+		},
 	}
 
 	tests := map[string]struct {
@@ -964,6 +1039,40 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 		expectedError   string
 		assert          func(t *testing.T, c client.Client)
 	}{
+		"replacing a cert-manager certificate by a manual one": {
+			instanceName:    "my-instance-3",
+			certificateName: "rpaas-operator.io",
+			certificate:     rsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-3", Namespace: "rpaasv2"}, &instance)
+				require.NoError(t, err)
+
+				require.Len(t, instance.Spec.TLS, 1)
+				assert.Regexp(t, `^my-instance-3-certs-`, instance.Spec.TLS[0].SecretName)
+				assert.Equal(t, []string{"rpaas-operator.io"}, instance.Spec.TLS[0].Hosts)
+				assert.Equal(t, []v1alpha1.CertManager{
+					{Name: "other", Issuer: "my-issuer", DNSNames: []string{"other.example.com"}},
+				}, instance.Spec.DynamicCertificates.CertManagerRequests)
+			},
+		},
+
+		"replacing a cert-manager certificate that took over a manual one": {
+			instanceName:    "my-instance-4",
+			certificateName: "rpaas-operator.io",
+			certificate:     rsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-4", Namespace: "rpaasv2"}, &instance)
+				require.NoError(t, err)
+
+				assert.Equal(t, []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-instance-4-certs-abc123", Hosts: []string{"rpaas-operator.io"}},
+				}, instance.Spec.TLS)
+				assert.Nil(t, instance.Spec.DynamicCertificates.CertManager)
+			},
+		},
+
 		"instance not found": {
 			instanceName:  "instance-not-found",
 			certificate:   ecdsaCertificate,

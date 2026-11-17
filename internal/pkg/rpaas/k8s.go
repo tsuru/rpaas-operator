@@ -995,7 +995,19 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		}
 	}
 
-	return certificates.UpdateCertificate(ctx, m.cli, instance, name, rawCertificate, rawKey)
+	// NOTE: replacing a cert-manager certificate by a manual one, the controller
+	// removes the orphan cert-manager Certificate and its Secret afterwards.
+	replacingCertManager := removeCertManagerRequestByName(instance, name)
+
+	if err = certificates.UpdateCertificate(ctx, m.cli, instance, name, rawCertificate, rawKey); err != nil {
+		return err
+	}
+
+	if replacingCertManager {
+		return m.cli.Update(ctx, instance)
+	}
+
+	return nil
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {

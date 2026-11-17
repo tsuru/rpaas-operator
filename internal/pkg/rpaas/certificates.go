@@ -7,6 +7,7 @@ package rpaas
 import (
 	"context"
 	"fmt"
+	"slices"
 	"strconv"
 	"strings"
 
@@ -284,6 +285,25 @@ func findCertManagerRequestByName(instance *v1alpha1.RpaasInstance, name string)
 	}
 
 	return -1, false
+}
+
+func removeCertManagerRequestByName(instance *v1alpha1.RpaasInstance, name string) bool {
+	if instance.Spec.DynamicCertificates == nil || name == "" {
+		return false
+	}
+
+	var removed bool
+	if req := instance.Spec.DynamicCertificates.CertManager; req != nil && req.RequiredName() == name {
+		instance.Spec.DynamicCertificates.CertManager = nil
+		removed = true
+	}
+
+	reqs := instance.Spec.DynamicCertificates.CertManagerRequests
+	instance.Spec.DynamicCertificates.CertManagerRequests = slices.DeleteFunc(reqs, func(r v1alpha1.CertManager) bool {
+		return r.RequiredName() == name
+	})
+
+	return removed || len(instance.Spec.DynamicCertificates.CertManagerRequests) != len(reqs)
 }
 
 func areDNSNamesAllowed(allowedSuffixes, dnsNames []string) error {
