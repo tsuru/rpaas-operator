@@ -157,10 +157,9 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	if err != nil {
 		return err
 	}
-	if status.State.Terminated != nil {
-		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: debugContainerName})
+	if shouldStreamDebugLogs(args.CommonTerminalArgs, status) {
+		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: debugContainerName, Follow: true})
 		return logs.DefaultConsumeRequest(req, args.Stdout)
-
 	}
 	req := m.kcs.
 		CoreV1().
@@ -183,6 +182,14 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 		return err
 	}
 	return executorStream(args.CommonTerminalArgs, executor, ctx)
+}
+
+// shouldStreamDebugLogs reports whether the debug container output must be read
+// from its logs rather than attaching to it. Attaching is only required when
+// there is an input stream; otherwise a short-lived command may finish before
+// the attach is established, losing its output.
+func shouldStreamDebugLogs(args CommonTerminalArgs, status *corev1.ContainerStatus) bool {
+	return status.State.Terminated != nil || (args.Stdin == nil && !args.TTY)
 }
 
 func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *CommonTerminalArgs, image string, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {

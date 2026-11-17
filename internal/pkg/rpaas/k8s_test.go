@@ -5397,6 +5397,41 @@ func Test_k8sRpaasManager_GetAccessControlList(t *testing.T) {
 	}
 }
 
+func Test_shouldStreamDebugLogs(t *testing.T) {
+	running := &corev1.ContainerStatus{State: corev1.ContainerState{Running: &corev1.ContainerStateRunning{}}}
+	terminated := &corev1.ContainerStatus{State: corev1.ContainerState{Terminated: &corev1.ContainerStateTerminated{}}}
+
+	tests := map[string]struct {
+		args     CommonTerminalArgs
+		status   *corev1.ContainerStatus
+		expected bool
+	}{
+		"running and non-interactive": {
+			status:   running,
+			expected: true,
+		},
+		"running with stdin": {
+			args:   CommonTerminalArgs{Stdin: &bytes.Buffer{}},
+			status: running,
+		},
+		"running with tty": {
+			args:   CommonTerminalArgs{TTY: true},
+			status: running,
+		},
+		"terminated with stdin and tty": {
+			args:     CommonTerminalArgs{Stdin: &bytes.Buffer{}, TTY: true},
+			status:   terminated,
+			expected: true,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, shouldStreamDebugLogs(tt.args, tt.status))
+		})
+	}
+}
+
 func Test_k8sRpaasManager_Debug(t *testing.T) {
 	defer func(old func(int) string) { nameSuffixFunc = old }(nameSuffixFunc)
 	var suffixCounter int
