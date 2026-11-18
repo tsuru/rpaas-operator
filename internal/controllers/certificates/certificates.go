@@ -8,7 +8,9 @@ import (
 	"context"
 	"fmt"
 	"reflect"
+	"slices"
 
+	cmv1 "github.com/cert-manager/cert-manager/pkg/apis/certmanager/v1"
 	"github.com/cert-manager/cert-manager/pkg/util/pki"
 	nginxv1alpha1 "github.com/tsuru/nginx-operator/api/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
@@ -159,6 +161,20 @@ func ListCertificateSecrets(ctx context.Context, c client.Client, namespace, ins
 	return result, nil
 }
 
+// ManualCertificateExists reports whether there is a manual (not issued by
+// cert-manager) certificate with the given name in the instance.
+func ManualCertificateExists(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certName string) (bool, error) {
+	_, err := getTLSSecretByCertificateName(ctx, c, instance, certName)
+	switch err {
+	case nil, ErrTooManyTLSSecretsFound:
+		return true, nil
+	case ErrTLSSecretNotFound:
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
 func getTLSSecretByCertificateName(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certName string) (*corev1.Secret, error) {
 	var sl corev1.SecretList
 	err := c.List(ctx, &sl, &client.ListOptions{
@@ -172,6 +188,15 @@ func getTLSSecretByCertificateName(ctx context.Context, c client.Client, instanc
 	if err != nil {
 		return nil, err
 	}
+
+	// NOTE: secrets issued by cert-manager share the same labels as manual ones,
+	// so they must be ignored to allow replacing a cert-manager certificate by a
+	// manual one with the same name.
+	certManagerSecretName := CertManagerCertificateNameForInstance(instance.Name, v1alpha1.CertManager{Name: certName})
+	sl.Items = slices.DeleteFunc(sl.Items, func(s corev1.Secret) bool {
+		_, issuedByCertManager := s.Annotations[cmv1.CertificateNameKey]
+		return issuedByCertManager || s.Name == certManagerSecretName
+	})
 
 	switch len(sl.Items) {
 	case 0:

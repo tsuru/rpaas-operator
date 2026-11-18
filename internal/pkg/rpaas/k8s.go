@@ -16,6 +16,7 @@ import (
 	"encoding/pem"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"regexp"
@@ -51,7 +52,6 @@ import (
 	"k8s.io/client-go/tools/cache"
 	"k8s.io/client-go/tools/remotecommand"
 	watchtools "k8s.io/client-go/tools/watch"
-	"k8s.io/kubectl/pkg/cmd/logs"
 	"k8s.io/kubectl/pkg/scheme"
 	"k8s.io/kubectl/pkg/util/interrupt"
 	metricsv1beta1 "k8s.io/metrics/pkg/apis/metrics/v1beta1"
@@ -157,10 +157,15 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 	if err != nil {
 		return err
 	}
-	if status.State.Terminated != nil {
-		req := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: debugContainerName})
-		return logs.DefaultConsumeRequest(req, args.Stdout)
+	if shouldStreamDebugLogs(args.CommonTerminalArgs, status) {
+		stream, err := m.kcs.CoreV1().Pods(instance.Namespace).GetLogs(args.Pod, &corev1.PodLogOptions{Container: debugContainerName, Follow: true}).Stream(ctx)
+		if err != nil {
+			return err
+		}
+		defer stream.Close()
 
+		_, err = io.Copy(args.Stdout, stream)
+		return err
 	}
 	req := m.kcs.
 		CoreV1().
@@ -183,6 +188,14 @@ func (m *k8sRpaasManager) Debug(ctx context.Context, instanceName string, args D
 		return err
 	}
 	return executorStream(args.CommonTerminalArgs, executor, ctx)
+}
+
+// shouldStreamDebugLogs reports whether the debug container output must be read
+// from its logs rather than attaching to it. Attaching is only required when
+// there is an input stream; otherwise a short-lived command may finish before
+// the attach is established, losing its output.
+func shouldStreamDebugLogs(args CommonTerminalArgs, status *corev1.ContainerStatus) bool {
+	return status.State.Terminated != nil || (args.Stdin == nil && !args.TTY)
 }
 
 func (m *k8sRpaasManager) debugPodWithContainerStatus(ctx context.Context, args *CommonTerminalArgs, image string, instanceName string) (*v1alpha1.RpaasInstance, string, *corev1.ContainerStatus, error) {
@@ -947,12 +960,20 @@ func (m *k8sRpaasManager) DeleteCertificate(ctx context.Context, instanceName, n
 
 	name = certificateName(name)
 
-	err = certificates.DeleteCertificate(ctx, m.cli, instance, name)
-	if err != nil && err == fmt.Errorf("certificate %q does not exist", name) {
-		return &NotFoundError{Msg: err.Error()}
+	if hasCertManagerRequest(instance, name) {
+		return &ValidationError{Msg: fmt.Sprintf("certificate %q is managed by cert-manager: remove it using the cert-manager option", name)}
 	}
 
-	return err
+	exists, err := certificates.ManualCertificateExists(ctx, m.cli, instance, name)
+	if err != nil {
+		return err
+	}
+
+	if !exists {
+		return &NotFoundError{Msg: fmt.Sprintf("certificate %q does not exist", name)}
+	}
+
+	return certificates.DeleteCertificate(ctx, m.cli, instance, name)
 }
 
 func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, name string, c tls.Certificate) error {
@@ -966,8 +987,29 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		return ValidationError{Msg: fmt.Sprintf("certificate name is not valid: %s", strings.Join(errs, ": "))}
 	}
 
+	// NOTE: names starting with "cert-manager" are reserved to unnamed cert-manager
+	// requests. They are allowed only to replace such a certificate by a manual
+	// one, or to update a manual certificate that has already replaced it.
 	if strings.HasPrefix(name, certificates.CertManagerCertificateName) {
-		return &ValidationError{Msg: fmt.Sprintf("certificate name is forbidden: name should not begin with %q", certificates.CertManagerCertificateName)}
+		allowed := hasCertManagerRequest(instance, name)
+		if !allowed {
+			if allowed, err = certificates.ManualCertificateExists(ctx, m.cli, instance, name); err != nil {
+				return err
+			}
+		}
+
+		if !allowed {
+			return &ValidationError{Msg: fmt.Sprintf("certificate name is forbidden: name should not begin with %q", certificates.CertManagerCertificateName)}
+		}
+	}
+
+	flavor, err := m.flavorWithCertManagerRequest(ctx, instance, name)
+	if err != nil {
+		return err
+	}
+
+	if flavor != "" {
+		return &ValidationError{Msg: fmt.Sprintf("certificate %q is managed by cert-manager through flavor %q and cannot be replaced by a manual one", name, flavor)}
 	}
 
 	rawCertificate, rawKey, err := getRawCertificateAndKey(c)
@@ -995,7 +1037,22 @@ func (m *k8sRpaasManager) UpdateCertificate(ctx context.Context, instanceName, n
 		}
 	}
 
-	return certificates.UpdateCertificate(ctx, m.cli, instance, name, rawCertificate, rawKey)
+	// NOTE: replacing a cert-manager certificate by a manual one, the controller
+	// removes the orphan cert-manager Certificate and its Secret afterwards.
+	replacingCertManager := removeCertManagerRequestByName(instance, name)
+	resourceVersion := instance.ResourceVersion
+
+	if err = certificates.UpdateCertificate(ctx, m.cli, instance, name, rawCertificate, rawKey); err != nil {
+		return err
+	}
+
+	// NOTE: the instance is only persisted above when its TLS spec changes, so
+	// the cert-manager request removal must be saved otherwise.
+	if replacingCertManager && instance.ResourceVersion == resourceVersion {
+		return m.cli.Update(ctx, instance)
+	}
+
+	return nil
 }
 
 func (m *k8sRpaasManager) GetInstanceAddress(ctx context.Context, name string) (string, error) {

@@ -208,7 +208,7 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
-		debugArgs := []string{"--rpaas-url", apiAddress, "debug", "-i", instanceName, "-d", "nicolaka/netshoot", "--", "/bin/bash", "-c", "whoami && echo -n \"--WORKING--\""}
+		debugArgs := []string{"--rpaas-url", apiAddress, "debug", "-i", instanceName, "-d", "nicolaka/netshoot:v0.16", "--", "/bin/bash", "-c", "whoami && echo -n \"--WORKING--\""}
 		debugCmd := exec.CommandContext(context.Background(), rpaasv2Bin, debugArgs...)
 		debugOut, err := debugCmd.CombinedOutput()
 		require.NoError(t, err)
@@ -227,7 +227,7 @@ func Test_RpaasApi(t *testing.T) {
 		_, err = getReadyNginx(instanceName, namespaceName, ensureNginxPodsAndServices(1, 1))
 		require.NoError(t, err)
 
-		debugArgs := []string{"--rpaas-url", apiAddress, "debug", "-t", "-I", "-i", instanceName, "-d", "nicolaka/netshoot"}
+		debugArgs := []string{"--rpaas-url", apiAddress, "debug", "-t", "-I", "-i", instanceName, "-d", "nicolaka/netshoot:v0.16"}
 		debugCmd := exec.CommandContext(context.Background(), rpaasv2Bin, debugArgs...)
 		stdin, err := debugCmd.StdinPipe()
 		require.NoError(t, err)
