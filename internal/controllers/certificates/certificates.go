@@ -161,6 +161,20 @@ func ListCertificateSecrets(ctx context.Context, c client.Client, namespace, ins
 	return result, nil
 }
 
+// ManualCertificateExists reports whether there is a manual (not issued by
+// cert-manager) certificate with the given name in the instance.
+func ManualCertificateExists(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certName string) (bool, error) {
+	_, err := getTLSSecretByCertificateName(ctx, c, instance, certName)
+	switch err {
+	case nil, ErrTooManyTLSSecretsFound:
+		return true, nil
+	case ErrTLSSecretNotFound:
+		return false, nil
+	default:
+		return false, err
+	}
+}
+
 func getTLSSecretByCertificateName(ctx context.Context, c client.Client, instance *v1alpha1.RpaasInstance, certName string) (*corev1.Secret, error) {
 	var sl corev1.SecretList
 	err := c.List(ctx, &sl, &client.ListOptions{

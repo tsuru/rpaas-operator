@@ -16,6 +16,7 @@ import (
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 
 	"github.com/tsuru/rpaas-operator/api/v1alpha1"
 	"github.com/tsuru/rpaas-operator/internal/config"
@@ -285,6 +286,44 @@ func findCertManagerRequestByName(instance *v1alpha1.RpaasInstance, name string)
 	}
 
 	return -1, false
+}
+
+func hasCertManagerRequest(instance *v1alpha1.RpaasInstance, name string) bool {
+	for _, req := range instance.Spec.CertManagerRequests(instance.Name) {
+		if req.RequiredName() == name {
+			return true
+		}
+	}
+
+	return false
+}
+
+// flavorWithCertManagerRequest returns the name of the flavor applied to the
+// instance which requests a cert-manager certificate with the given name.
+func (m *k8sRpaasManager) flavorWithCertManagerRequest(ctx context.Context, instance *v1alpha1.RpaasInstance, name string) (string, error) {
+	namespace := instance.Namespace
+	if instance.Spec.PlanNamespace != "" {
+		namespace = instance.Spec.PlanNamespace
+	}
+
+	var flavors v1alpha1.RpaasFlavorList
+	if err := m.cli.List(ctx, &flavors, client.InNamespace(namespace)); err != nil {
+		return "", err
+	}
+
+	for _, flavor := range flavors.Items {
+		if !flavor.Spec.Default && !slices.Contains(instance.Spec.Flavors, flavor.Name) {
+			continue
+		}
+
+		for _, req := range flavor.Spec.InstanceTemplate.CertManagerRequests(instance.Name) {
+			if req.RequiredName() == name {
+				return flavor.Name, nil
+			}
+		}
+	}
+
+	return "", nil
 }
 
 func removeCertManagerRequestByName(instance *v1alpha1.RpaasInstance, name string) bool {

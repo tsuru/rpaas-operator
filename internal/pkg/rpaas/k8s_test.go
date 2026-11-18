@@ -783,7 +783,18 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 		},
 	}
 
-	resources := []runtime.Object{instance1, instance2, instance3, instance4, secret1, secret2, secret3}
+	instance5 := newEmptyRpaasInstance()
+	instance5.Name = "cert-manager-instance"
+	instance5.Spec.TLS = []nginxv1alpha1.NginxTLS{
+		{SecretName: "another-instance-certs-01"},
+	}
+	instance5.Spec.DynamicCertificates = &v1alpha1.DynamicCertificates{
+		CertManagerRequests: []v1alpha1.CertManager{
+			{Name: "managed", Issuer: "my-issuer", DNSNames: []string{"rpaas-operator.io"}},
+		},
+	}
+
+	resources := []runtime.Object{instance1, instance2, instance3, instance4, instance5, secret1, secret2, secret3}
 
 	tests := map[string]struct {
 		certName      string
@@ -791,6 +802,18 @@ JUNDAKEYJUNDAKEYJUNDAKEY
 		expectedError string
 		assert        func(t *testing.T, c client.Client)
 	}{
+		"certificate not found": {
+			instanceName:  "another-instance",
+			certName:      "not-found",
+			expectedError: `certificate "not-found" does not exist`,
+		},
+
+		"certificate managed by cert-manager": {
+			instanceName:  "cert-manager-instance",
+			certName:      "managed",
+			expectedError: `certificate "managed" is managed by cert-manager: remove it using the cert-manager option`,
+		},
+
 		"instance not found": {
 			instanceName:  "instance-not-found",
 			expectedError: "rpaas instance \"instance-not-found\" not found",
@@ -1030,6 +1053,66 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 				"tls.key": []byte(rsaKeyPem),
 			},
 		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-5",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				DynamicCertificates: &v1alpha1.DynamicCertificates{
+					CertManager: &v1alpha1.CertManager{Issuer: "my-issuer", DNSNames: []string{"rpaas-operator.io"}},
+				},
+			},
+		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-6",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				TLS: []nginxv1alpha1.NginxTLS{
+					{SecretName: "my-instance-6-certs-abc123", Hosts: []string{"rpaas-operator.io"}},
+				},
+			},
+		},
+		&corev1.Secret{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-6-certs-abc123",
+				Namespace: "rpaasv2",
+				Labels: map[string]string{
+					"rpaas.extensions.tsuru.io/certificate-name": "cert-manager-my-issuer",
+					"rpaas.extensions.tsuru.io/instance-name":    "my-instance-6",
+				},
+			},
+			Data: map[string][]byte{
+				"tls.crt": []byte(rsaCertPem),
+				"tls.key": []byte(rsaKeyPem),
+			},
+		},
+		&v1alpha1.RpaasFlavor{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "cert-flavor",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasFlavorSpec{
+				InstanceTemplate: &v1alpha1.RpaasInstanceSpec{
+					DynamicCertificates: &v1alpha1.DynamicCertificates{
+						CertManagerRequests: []v1alpha1.CertManager{
+							{Name: "rpaas-operator.io", Issuer: "my-issuer", DNSNames: []string{"rpaas-operator.io"}},
+						},
+					},
+				},
+			},
+		},
+		&v1alpha1.RpaasInstance{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "my-instance-7",
+				Namespace: "rpaasv2",
+			},
+			Spec: v1alpha1.RpaasInstanceSpec{
+				Flavors: []string{"cert-flavor"},
+			},
+		},
 	}
 
 	tests := map[string]struct {
@@ -1039,6 +1122,47 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 		expectedError   string
 		assert          func(t *testing.T, c client.Client)
 	}{
+		"replacing an unnamed cert-manager certificate by a manual one": {
+			instanceName:    "my-instance-5",
+			certificateName: "cert-manager-my-issuer",
+			certificate:     rsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var instance v1alpha1.RpaasInstance
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-5", Namespace: "rpaasv2"}, &instance)
+				require.NoError(t, err)
+
+				require.Len(t, instance.Spec.TLS, 1)
+				assert.Regexp(t, `^my-instance-5-certs-`, instance.Spec.TLS[0].SecretName)
+				assert.Nil(t, instance.Spec.DynamicCertificates.CertManager)
+			},
+		},
+
+		"updating a manual certificate that replaced an unnamed cert-manager one": {
+			instanceName:    "my-instance-6",
+			certificateName: "cert-manager-my-issuer",
+			certificate:     ecdsaCertificate,
+			assert: func(t *testing.T, c client.Client) {
+				var secret corev1.Secret
+				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-6-certs-abc123", Namespace: "rpaasv2"}, &secret)
+				require.NoError(t, err)
+				assert.Equal(t, ecdsaCertPem+"\n", string(secret.Data["tls.crt"]))
+			},
+		},
+
+		"setting certificate with a cert-manager reserved name not requested": {
+			instanceName:    "my-instance-1",
+			certificateName: "cert-manager-my-issuer",
+			certificate:     ecdsaCertificate,
+			expectedError:   `certificate name is forbidden: name should not begin with "cert-manager"`,
+		},
+
+		"replacing a cert-manager certificate requested by a flavor": {
+			instanceName:    "my-instance-7",
+			certificateName: "rpaas-operator.io",
+			certificate:     rsaCertificate,
+			expectedError:   `certificate "rpaas-operator.io" is managed by cert-manager through flavor "cert-flavor" and cannot be replaced by a manual one`,
+		},
+
 		"replacing a cert-manager certificate by a manual one": {
 			instanceName:    "my-instance-3",
 			certificateName: "rpaas-operator.io",
@@ -1048,6 +1172,8 @@ x2cJyBkkBQV9WB34oGtnZzQ0nKtzsY6FVlNGSeyCJ3OD2dHXO5komJY=
 				err := c.Get(context.TODO(), types.NamespacedName{Name: "my-instance-3", Namespace: "rpaasv2"}, &instance)
 				require.NoError(t, err)
 
+				// NOTE: a single write, removing the cert-manager request along with the new TLS.
+				assert.Equal(t, "1000", instance.ResourceVersion)
 				require.Len(t, instance.Spec.TLS, 1)
 				assert.Regexp(t, `^my-instance-3-certs-`, instance.Spec.TLS[0].SecretName)
 				assert.Equal(t, []string{"rpaas-operator.io"}, instance.Spec.TLS[0].Hosts)
